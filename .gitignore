@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files — never commit real keys
+.env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +41,36 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# logs
+*.log
+logs/
+
+# env variants not covered above
+.env.development
+.env.production
+.env.staging
+.env.test
+
+# EAS / build output
+.eas/
+*.ipa
+*.apk
+*.aab
+*.tar.gz
+ios/build/
+android/build/
+android/app/build/
+android/.gradle/
+*.keystore
+!debug.keystore
+
+# native crash/profiling artifacts
+*.hprof
+
+# editor + tooling
+.vscode/
+.idea/
+*.swp
+coverage/
+.claude/settings.local.json
