@@ -19,7 +19,8 @@ import { resolveSupabaseUrl } from './supabaseUrl';
 import type { Database } from '../types/supabase';
 
 const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+/** Public by design (RLS protects the data); also sent by uploads in cloud-storage.service. */
+export const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 if (!envUrl || !anonKey) {
   console.warn(
