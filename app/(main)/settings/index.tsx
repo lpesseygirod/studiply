@@ -216,7 +216,7 @@ export default function SettingsScreen() {
           onPress={() => router.push('/settings/account')}
           activeOpacity={0.85}
         >
-          <Avatar size={52} initials={initials} />
+          <Avatar size={52} initials={initials} photoPath={profile?.avatar_path} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{username}</Text>
             <View style={styles.profileMeta}>

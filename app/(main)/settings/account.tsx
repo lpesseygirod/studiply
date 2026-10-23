@@ -18,12 +18,18 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { confirmAction } from '../../../src/utils/confirm';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import { updateProfile } from '../../../src/services/profile.service';
+import Avatar from '../../../src/components/Avatar';
+import {
+  removeProfilePhoto,
+  setProfilePhoto,
+  updateProfile,
+} from '../../../src/services/profile.service';
 import { getSpendingByProvider, getSpendingByOperation } from '../../../src/services/ai-usage.service';
 import {
   getEstimatedBalances,
@@ -78,6 +84,7 @@ export default function AccountScreen() {
   const [editName, setEditName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [photoStatus, setPhotoStatus] = useState<string | null>(null);
 
   // Budget edit modal
   const [editingBudget, setEditingBudget] = useState<'openai' | 'anthropic' | null>(null);
@@ -168,6 +175,53 @@ export default function AccountScreen() {
       setIsSaving(false);
     }
   }, [profile, editName, refreshProfile]);
+
+  // -------------------------------------------------------------------
+  // Profile photo — uploads right after picking, separate from Save
+  // -------------------------------------------------------------------
+  const handleChangePhoto = useCallback(async () => {
+    if (!profile?.id) return;
+    // The system photo picker needs no permission on iPhone.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+
+    setEditError('');
+    setPhotoStatus('Preparing photo…');
+    try {
+      await setProfilePhoto(profile.id, result.assets[0], profile.avatar_path, {
+        onProgress: (fraction) => setPhotoStatus(`Uploading ${Math.round(fraction * 100)}%`),
+        onRetry: (retry, max) => setPhotoStatus(`Connection problem. Retrying (${retry}/${max})…`),
+      });
+      await refreshProfile();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Could not upload your photo. Please try again.');
+    } finally {
+      setPhotoStatus(null);
+    }
+  }, [profile, refreshProfile]);
+
+  const handleRemovePhoto = useCallback(async () => {
+    if (!profile?.id || !profile.avatar_path) return;
+    if (!(await confirmAction('Remove photo', 'Your initials will show instead.', 'Remove'))) return;
+
+    setEditError('');
+    setPhotoStatus('Removing photo…');
+    try {
+      await removeProfilePhoto(profile.id, profile.avatar_path);
+      await refreshProfile();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Could not remove your photo. Please try again.');
+    } finally {
+      setPhotoStatus(null);
+    }
+  }, [profile, refreshProfile]);
+
+  const isBusy = isSaving || photoStatus !== null;
 
   // -------------------------------------------------------------------
   // Edit budget
@@ -320,9 +374,7 @@ export default function AccountScreen() {
         <Text style={styles.sectionHeader}>PROFILE</Text>
         <View style={styles.card}>
           <View style={styles.profileRow}>
-            <View style={styles.initialsCircle}>
-              <Text style={styles.initialsText}>{initials}</Text>
-            </View>
+            <Avatar size={52} initials={initials} photoPath={profile?.avatar_path} />
 
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{username}</Text>
@@ -476,11 +528,35 @@ export default function AccountScreen() {
               <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
                 <Text style={styles.modalTitle}>Edit Profile</Text>
 
-                {/* ── Initials circle ── */}
+                {/* ── Photo ── */}
                 <View style={styles.modalAvatarSection}>
-                  <View style={[styles.initialsCircle, { width: 80, height: 80, borderRadius: 40 }]}>
-                    <Text style={[styles.initialsText, { fontSize: 28 }]}>{initials}</Text>
-                  </View>
+                  <Avatar size={80} initials={initials} photoPath={profile?.avatar_path} />
+                  {photoStatus ? (
+                    <Text style={styles.photoStatusText}>{photoStatus}</Text>
+                  ) : (
+                    <View style={styles.photoActions}>
+                      <TouchableOpacity
+                        onPress={handleChangePhoto}
+                        disabled={isBusy}
+                        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.photoActionText}>
+                          {profile?.avatar_path ? 'Change photo' : 'Add photo'}
+                        </Text>
+                      </TouchableOpacity>
+                      {profile?.avatar_path ? (
+                        <TouchableOpacity
+                          onPress={handleRemovePhoto}
+                          disabled={isBusy}
+                          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                        >
+                          <Text style={styles.photoRemoveText}>Remove photo</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  )}
                 </View>
 
                 {/* ── Name input ── */}
@@ -497,16 +573,16 @@ export default function AccountScreen() {
                   onSubmitEditing={handleSave}
                   placeholder="Your name"
                   placeholderTextColor={Colors.text.placeholder}
-                  editable={!isSaving}
+                  editable={!isBusy}
                 />
 
                 {editError ? <Text style={styles.errorText}>{editError}</Text> : null}
 
                 {/* ── Save ── */}
                 <TouchableOpacity
-                  style={[styles.saveButton, isSaving && { opacity: 0.6 }]}
+                  style={[styles.saveButton, isBusy && { opacity: 0.6 }]}
                   onPress={handleSave}
-                  disabled={isSaving}
+                  disabled={isBusy}
                   activeOpacity={0.85}
                 >
                   {isSaving ? (
@@ -858,19 +934,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
-  initialsCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Colors.salmon,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initialsText: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-  },
   profileInfo: { flex: 1, gap: 2 },
   profileName: {
     fontSize: Typography.size.base,
@@ -1094,5 +1157,26 @@ const styles = StyleSheet.create({
   modalAvatarSection: {
     alignItems: 'center',
     paddingVertical: 4,
+    gap: 12,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 24,
+    minHeight: 22,
+  },
+  photoActionText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.primary,
+    fontWeight: Typography.weight.semibold,
+  },
+  photoRemoveText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    fontWeight: Typography.weight.medium,
+  },
+  photoStatusText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    minHeight: 22,
   },
 });
