@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "test": "jest",
+    "test:db": "supabase test db --local",
     "check": "npm run typecheck && npm run lint && npm run test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
