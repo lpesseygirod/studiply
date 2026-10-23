@@ -8,7 +8,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 0.3 — Safety net (npm check scripts, first unit tests, pre-commit hook)
 
 ## Phase 1 — Backend and safe API keys (`phase-1-backend`)
-- [ ] 1.1 — Connect Supabase (CLI, local dev, .env public URL + anon key)
+- [x] 1.1 — Connect Supabase (CLI, local dev, .env public URL + anon key)
 - [ ] 1.2 — Database schema (SQL migrations + RLS + RLS tests)
 - [ ] 1.3 — Login (email, Supabase Auth)
 - [ ] 1.4 — File storage (private buckets + policies + helper)
