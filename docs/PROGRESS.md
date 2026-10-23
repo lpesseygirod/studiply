@@ -10,7 +10,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 1 — Backend and safe API keys (`phase-1-backend`)
 - [x] 1.1 — Connect Supabase (CLI, local dev, .env public URL + anon key)
 - [x] 1.2 — Database schema (SQL migrations + RLS + RLS tests)
-- [ ] 1.3 — Login (email, Supabase Auth)
+- [x] 1.3 — Login (email, Supabase Auth)
 - [ ] 1.4 — File storage (private buckets + policies + helper)
 - [ ] 1.5 — Transcription on the server (`transcribe-chunk` Edge Function)
 - [ ] 1.6 — Claude on the server (`assistant-chat` + `summarize` skeletons)
@@ -124,6 +124,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **npm audit: `decode-uri-component` DoS in the app bundle** (found at Phase 1 start, accepted). `npm audit --omit=dev` (after `expo install --fix`, 23 Oct 2026): of 18 findings, only `nanoid`, `query-string` and `decode-uri-component` ship in the iOS bundle; the rest are build tools that run only on the Mac. `nanoid` was updated to 3.3.20. `decode-uri-component@0.2.2` (exponential decoding of malformed percent-encoded input, so a crafted deep link could freeze the app) is pulled in by `query-string@7`, which `expo-router` depends on directly; the fix (0.5.x) needs an Expo SDK major upgrade. Low impact (local DoS, needs the user to open a crafted link). Fix before launch: see Things Lea must do.
 - **"Delete all data" only deletes this device's data** (step 1.3). It removes the local profile and files and signs out; the Supabase account and its rows stay. Real account deletion needs a server function and comes in step 10.1. On web it says it's not available yet.
 - **Opening the app offline more than an hour after the last use shows the login screen** (step 1.3). The stored access token has expired and can't be refreshed without a connection, so Supabase reports no session. The stored session isn't deleted on a network error, so it should come back once online, but that path isn't tested yet; logging in again always works. To handle in step 1.8 (offline cache).
+- **Security screen still says "Your data is stored on this device"** (found in step 1.3). Outdated now that there is an account; left as is on purpose. Reword it in **step 1.7**, when the data moves to the cloud (`app/(main)/settings/security.tsx`).
 - **Web: library empty and saving fails after login** (step 1.3, by design). See the `db.web.ts` decision; fixed when step 1.7 switches the services to Supabase.
 - **`src/types/supabase.ts` is unformatted** (found in step 1.2). `supabase gen types` prints a hint to format it with `oxfmt`; no formatter is installed and adding one is a new dependency, so it's left as generated. It type-checks and lints clean.
 
