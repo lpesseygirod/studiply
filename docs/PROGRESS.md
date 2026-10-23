@@ -89,6 +89,8 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Pre-commit hook lives in `.githooks/`** (tracked) and is enabled with `git config core.hooksPath .githooks`; the `prepare` script sets this on every `npm install`. No husky.
 - **Lint warnings don't block commits; errors do.** `expo lint` only fails on errors. Remaining warnings are listed under Known issues.
 - **Tests live in `__tests__/` folders under `src/`**, never under `app/` (expo-router would treat them as routes).
+- **No SQLite on web.** Don't add the Metro `wasm` / COOP-COEP config. In Phase 1 the web version reads directly from Supabase and SQLite stays iPhone-only (step 1.8), so during Phase 1 web stops loading `expo-sqlite` entirely (platform-specific files, e.g. `.web.ts`).
+- **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
 
 ## Things Lea must do
 
@@ -97,8 +99,8 @@ _none yet_
 ## Known issues
 
 - **Palette incomplete for the designed summary** (AUDIT risk #11). `src/constants/colors.ts` is missing tokens DESIGN.md/SUMMARY-SPEC.md require: recording `#CC3333` (only `error: #D94F4F` exists), "From your notes" green `#E8F5EE`/`#1F6B45`, exam `#FFFBEB`/`#FFE4B5`/`#7A4A00`, accent-on-light `#4F43B0`, salmon label `#8A3B22`. Must be added to `colors.ts`, never hard-coded inline. To be handled in **step 2.3** (Look and feel).
-- **Web: `expo-sqlite` worker fails to bundle** (pre-existing, found in step 0.3). `Unable to resolve "./wa-sqlite/wa-sqlite.wasm"` — the repo has no `metro.config.js` adding `wasm` to `resolver.assetExts` (and expo-sqlite on web also needs COOP/COEP headers). The web app shell bundles; the database worker doesn't. iOS bundles fine. Phase 1.8 replaces SQLite-as-source-of-truth with a cache, so decide there (or earlier if Lea needs the web build) whether to add the Metro config.
+- **Web: `expo-sqlite` worker fails to bundle** (pre-existing, found in step 0.3). `Unable to resolve "./wa-sqlite/wa-sqlite.wasm"` — the repo has no `metro.config.js` adding `wasm` to `resolver.assetExts` (and expo-sqlite on web also needs COOP/COEP headers). The web app shell bundles; the database worker doesn't. iOS bundles fine. Not fixed by decision: web stops loading `expo-sqlite` in Phase 1 (see Decisions).
 - **Lint warnings left on purpose** (step 0.3) — fixing them changes when effects run, so they need a behavior review, not a lint pass:
   - `react-hooks/exhaustive-deps` in `app/(main)/project/[id].tsx` (×3), `app/(main)/record/active.tsx`, `app/(main)/record/review.tsx` (×2), `app/_layout.tsx`, `src/components/MoveToModal.tsx`, `src/components/SplashScreen.tsx`, `src/components/UndoToast.tsx`.
   - Unused `sourceFiles` state in `app/(main)/record/review.tsx` (still set from `getActiveSourceFiles`; remove when that screen is rebuilt).
-- **Expo package patch updates available**: `expo` 54.0.33 → ~54.0.37, `expo-crypto`, `expo-file-system`, `expo-image-picker`, `expo-linking`, `expo-router` (Metro warns on start). Not done in 0.3 to keep the step behavior-neutral; worth a `npx expo install --fix` commit at the start of Phase 1.
+- **Expo package patch updates available**: `expo` 54.0.33 → ~54.0.37, `expo-crypto`, `expo-file-system`, `expo-image-picker`, `expo-linking`, `expo-router` (Metro warns on start). Not done in 0.3 to keep the step behavior-neutral. Run `npx expo install --fix` at the start of Phase 1, then the audit check (see Decisions).
