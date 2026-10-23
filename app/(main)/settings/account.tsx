@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { confirmAction } from '../../../src/utils/confirm';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { updateProfile } from '../../../src/services/profile.service';
@@ -238,7 +239,7 @@ export default function AccountScreen() {
   const handleDeleteAllData = () => {
     Alert.alert(
       'Delete All Data',
-      'This will permanently delete all your projects, sessions, notes, and files. This cannot be undone.',
+      'This will permanently delete all your projects, sessions, notes, and files on this device, then sign you out. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -273,19 +274,16 @@ export default function AccountScreen() {
   // -------------------------------------------------------------------
   // Sign out
   // -------------------------------------------------------------------
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign out',
-      'You will need to create a new account next time you open Studiply.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: () => signOut(),
-        },
-      ],
-    );
+  const handleSignOut = async () => {
+    if (
+      await confirmAction(
+        'Sign out',
+        'You can sign in again with your email and password.',
+        'Sign out',
+      )
+    ) {
+      await signOut();
+    }
   };
 
   const initials = profile?.initials ?? '??';

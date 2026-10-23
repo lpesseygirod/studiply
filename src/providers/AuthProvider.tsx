@@ -1,18 +1,16 @@
-import React, { createContext, useEffect, useState, useCallback } from 'react';
-import {
-  getSession,
-  onSessionChange,
-  type LocalSession,
-} from '../lib/session';
+import React, { createContext, useEffect, useState, useCallback, useRef } from 'react';
+import type { Session } from '@supabase/supabase-js';
+
+import { supabase } from '../lib/supabase';
 import { getProfile, signOut as authSignOut } from '../services/auth.service';
-import { autoCleanTrash } from '../services/trash.service';
+import { ensureLocalProfile } from '../services/localProfile';
 import type { Profile } from '../types/database';
 
 // -------------------------------------------------------------------
 // Context shape
 // -------------------------------------------------------------------
 interface AuthContextValue {
-  session: LocalSession | null;
+  session: Session | null;
   profile: Profile | null;
   isLoading: boolean;
   isOnboarded: boolean;
@@ -24,27 +22,33 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 // -------------------------------------------------------------------
 // AuthProvider
+// Supabase Auth is the source of truth: the stored session is restored on
+// launch (INITIAL_SESSION) and every sign-in / sign-out arrives through
+// onAuthStateChange.
 // -------------------------------------------------------------------
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<LocalSession | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // The user whose profile is loaded; token refreshes keep the same user and
+  // shouldn't reload it.
+  const loadedUserId = useRef<string | null>(null);
 
-  const loadProfile = useCallback(async (s: LocalSession) => {
+  const loadProfile = useCallback(async (s: Session) => {
+    const p = await getProfile(s.user);
     try {
-      const p = await getProfile(s.user.id);
-      setProfile(p);
-      // Fire-and-forget: clean up items trashed > 30 days ago
-      autoCleanTrash(s.user.id).catch(() => {});
-    } catch {
-      setProfile(null);
+      // The SQLite services (iPhone) need a local row for this user.
+      await ensureLocalProfile(p.id, p.username);
+    } catch (err) {
+      console.warn('Could not prepare the local profile:', err);
     }
+    setProfile(p);
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    // There's no token to refresh locally — re-read the session so a signup
-    // that just landed is picked up, then reload its profile row.
-    const current = await getSession();
+    const {
+      data: { session: current },
+    } = await supabase.auth.getSession();
     if (!current) return;
     setSession(current);
     await loadProfile(current);
@@ -52,40 +56,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await authSignOut();
-    setSession(null);
-    setProfile(null);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    // 1. Restore any persisted session on mount
-    getSession()
-      .then(async (existingSession) => {
-        if (cancelled) return;
-        setSession(existingSession);
-        if (existingSession) {
-          await loadProfile(existingSession);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    // 2. Subscribe to sign-in / sign-out
-    const subscription = onSessionChange((newSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (cancelled) return;
       setSession(newSession);
-      if (newSession) {
-        loadProfile(newSession);
-      } else {
-        setProfile(null);
+
+      const userId = newSession?.user.id ?? null;
+      if (userId === loadedUserId.current) {
+        if (event === 'INITIAL_SESSION') setIsLoading(false);
+        return;
       }
+      loadedUserId.current = userId;
+
+      if (!newSession) {
+        setProfile(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Supabase calls inside this callback would wait on the auth lock it
+      // holds, so the profile is loaded after the callback returns.
+      setTimeout(() => {
+        loadProfile(newSession).finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+      }, 0);
     });
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, [loadProfile]);
 

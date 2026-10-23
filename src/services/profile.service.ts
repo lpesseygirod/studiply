@@ -1,32 +1,28 @@
-import { first, run } from '../lib/db';
-import { buildSet, mapProfile, now, type ProfileRow } from '../lib/mappers';
+import { supabase } from '../lib/supabase';
+import { updateLocalProfile } from './localProfile';
 import { generateInitials } from '../utils/initials';
-import type { Profile } from '../types/database';
 
 // -------------------------------------------------------------------
 // updateProfile
-// Updates display name and re-derives initials.
+// Updates the display name in Supabase, re-derives initials, and mirrors
+// the change into the local profile row the SQLite services use (iPhone).
+// AuthProvider.refreshProfile() re-reads the result.
 // -------------------------------------------------------------------
 export async function updateProfile(
   userId: string,
-  updates: { username?: string; display_name?: string; avatar_url?: string | null },
-): Promise<Profile> {
-  // Re-derive initials if name is changing
-  const nameForInitials = updates.username ?? updates.display_name;
+  updates: { username?: string; display_name?: string },
+): Promise<void> {
+  const name = (updates.display_name ?? updates.username)?.trim();
+  if (!name) return;
 
-  const set = buildSet({
-    username: updates.username,
-    display_name: updates.display_name,
-    avatar_url: updates.avatar_url,
-    initials: nameForInitials ? generateInitials(nameForInitials) : undefined,
-    updated_at: now(),
-  });
+  const { error } = await supabase
+    .from('profiles')
+    .update({ display_name: name, initials: generateInitials(name) })
+    .eq('id', userId);
+  if (error) throw new Error('Could not save your name. Check your connection and try again.');
 
-  if (set) {
-    await run(`UPDATE profiles SET ${set.clause} WHERE id = ?`, [...set.values, userId]);
-  }
+  // Also keep the name in the session, so it shows when the app opens offline.
+  await supabase.auth.updateUser({ data: { display_name: name } });
 
-  const row = await first<ProfileRow>(`SELECT * FROM profiles WHERE id = ?`, [userId]);
-  if (!row) throw new Error('Profile not found.');
-  return mapProfile(row);
+  await updateLocalProfile(userId, name);
 }

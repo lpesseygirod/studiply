@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { confirmAction } from '../../../src/utils/confirm';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 
@@ -23,11 +23,10 @@ export default function SecurityScreen() {
 
   const username = profile?.username ?? '—';
 
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
-    ]);
+  const handleSignOut = async () => {
+    if (await confirmAction('Sign Out', 'Are you sure you want to sign out?', 'Sign Out')) {
+      await signOut();
+    }
   };
 
   return (
