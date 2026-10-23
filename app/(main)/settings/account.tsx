@@ -24,7 +24,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { confirmAction } from '../../../src/utils/confirm';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import Avatar from '../../../src/components/Avatar';
+import UserAvatar from '../../../src/components/UserAvatar';
 import {
   removeProfilePhoto,
   setProfilePhoto,
@@ -340,7 +340,6 @@ export default function AccountScreen() {
     }
   };
 
-  const initials = profile?.initials ?? '??';
   const username = profile?.username ?? '—';
   const totalFiles =
     (storageStats?.audioCount ?? 0) +
@@ -374,7 +373,7 @@ export default function AccountScreen() {
         <Text style={styles.sectionHeader}>PROFILE</Text>
         <View style={styles.card}>
           <View style={styles.profileRow}>
-            <Avatar size={52} initials={initials} photoPath={profile?.avatar_path} />
+            <UserAvatar size={52} />
 
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{username}</Text>
@@ -530,7 +529,7 @@ export default function AccountScreen() {
 
                 {/* ── Photo ── */}
                 <View style={styles.modalAvatarSection}>
-                  <Avatar size={80} initials={initials} photoPath={profile?.avatar_path} />
+                  <UserAvatar size={80} />
                   {photoStatus ? (
                     <Text style={styles.photoStatusText}>{photoStatus}</Text>
                   ) : (

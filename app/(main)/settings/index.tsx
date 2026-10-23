@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import Avatar from '../../../src/components/Avatar';
+import UserAvatar from '../../../src/components/UserAvatar';
 import {
   checkAICredits,
   getEstimatedBalances,
@@ -192,7 +192,6 @@ export default function SettingsScreen() {
     if (hasRealAIKeys) runCheck();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const initials = profile?.initials ?? '??';
   const username = profile?.username ?? '—';
 
   return (
@@ -216,7 +215,7 @@ export default function SettingsScreen() {
           onPress={() => router.push('/settings/account')}
           activeOpacity={0.85}
         >
-          <Avatar size={52} initials={initials} photoPath={profile?.avatar_path} />
+          <UserAvatar size={52} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{username}</Text>
             <View style={styles.profileMeta}>

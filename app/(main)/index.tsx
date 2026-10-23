@@ -27,7 +27,7 @@ import { trashSession, trashProject } from '../../src/services/trash.service';
 import { getNoteBySession } from '../../src/services/note.service';
 import { exportNoteToPDF } from '../../src/services/export.service';
 import UndoToast from '../../src/components/UndoToast';
-import Avatar from '../../src/components/Avatar';
+import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
 
 const CARD_GAP = 12;
@@ -299,7 +299,7 @@ export default function HomeScreen() {
             activeOpacity={0.75}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Avatar size={40} initials={profile?.initials ?? '??'} />
+            <UserAvatar size={40} />
           </TouchableOpacity>
         </View>
 

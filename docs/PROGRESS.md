@@ -11,7 +11,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.1 — Connect Supabase (CLI, local dev, .env public URL + anon key)
 - [x] 1.2 — Database schema (SQL migrations + RLS + RLS tests)
 - [x] 1.3 — Login (email, Supabase Auth)
-- [ ] 1.4 — File storage (private buckets + policies + helper) — waiting for Lea's in-app photo test
+- [x] 1.4 — File storage (private buckets + policies + helper)
 - [ ] 1.5 — Transcription on the server (`transcribe-chunk` Edge Function)
 - [ ] 1.6 — Claude on the server (`assistant-chat` + `summarize` skeletons)
 - [ ] 1.7 — The app uses the backend (switch services, remove EXPO_PUBLIC keys, prove bundle clean)
