@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,

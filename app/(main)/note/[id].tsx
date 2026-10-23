@@ -6,7 +6,6 @@ import {
   Animated,
   KeyboardAvoidingView,
   Linking,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,

@@ -7,7 +7,6 @@ import {
   FlatList,
   ActivityIndicator,
   StyleSheet,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +14,7 @@ import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { getProjects } from '../services/project.service';
 import { getFolders } from '../services/folder.service';
-import type { Project } from '../types/database';
-import type { Folder } from '../types/database';
+import type { Folder, Project } from '../types/database';
 
 // -------------------------------------------------------------------
 // Types

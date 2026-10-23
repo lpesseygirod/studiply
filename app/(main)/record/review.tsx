@@ -18,8 +18,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
-import { getActiveSourceFiles } from '../../../src/services/source-file.service';
-import { bulkApplyRetention } from '../../../src/services/source-file.service';
+import { bulkApplyRetention, getActiveSourceFiles } from '../../../src/services/source-file.service';
 import { createTranscript } from '../../../src/services/transcript.service';
 import { createNote } from '../../../src/services/note.service';
 import type { ClarificationEntry } from '../../../src/services/note.service';
@@ -378,7 +377,7 @@ export default function ReviewScreen() {
       }
 
       // noteAction === 'confirm'
-      const savedNote = await createNote({
+      await createNote({
         userId,
         sessionId,
         title: noteResult.suggestedTitle,
