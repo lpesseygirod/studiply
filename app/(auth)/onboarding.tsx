@@ -167,7 +167,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <DismissKeyboardArea>
       <View style={styles.container}>
         <StatusBar style="dark" />
 
@@ -385,6 +385,19 @@ export default function OnboardingScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+    </DismissKeyboardArea>
+  );
+}
+
+// Tapping outside the fields hides the iPhone keyboard. Not on web: there is
+// no on-screen keyboard there, and React Native Web's Keyboard.dismiss()
+// blurs the focused field, so every click on an input would unfocus it
+// straight away and nothing could be typed.
+function DismissKeyboardArea({ children }: { children: React.ReactElement }) {
+  if (Platform.OS === 'web') return children;
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      {children}
     </TouchableWithoutFeedback>
   );
 }
