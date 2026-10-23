@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs typecheck, lint and tests before every commit.
+# Enabled by `git config core.hooksPath .githooks` (npm install does this via "prepare").
+
+echo "pre-commit: running npm run check..."
+if ! npm run check; then
+  echo ""
+  echo "pre-commit: npm run check failed — commit blocked. Fix the errors above and commit again."
+  exit 1
+fi
