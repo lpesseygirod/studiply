@@ -78,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Supabase calls inside this callback would wait on the auth lock it
-      // holds, so the profile is loaded after the callback returns.
+      // Supabase advises against awaiting other Supabase calls inside this
+      // callback, so the profile is loaded after it returns.
       setTimeout(() => {
         loadProfile(newSession).finally(() => {
           if (!cancelled) setIsLoading(false);

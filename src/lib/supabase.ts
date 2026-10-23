@@ -12,7 +12,7 @@
 
 import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { createClient, processLock } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 import { secureStorage } from './secureStorage';
 import { resolveSupabaseUrl } from './supabaseUrl';
@@ -48,7 +48,6 @@ export const supabase = createClient<Database>(supabaseUrl, anonKey || 'missing-
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
-    lock: processLock,
   },
 });
 
