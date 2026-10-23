@@ -79,7 +79,7 @@ testable for free.
 
 - Audio recording with background-audio support and a live session screen
 - Whisper transcription and Claude note generation, with a full offline mock path
-- Local anonymous profiles — multiple profiles per device, no remote auth
+- Email + password login with Supabase Auth (6-digit email codes for sign-up and password reset); sessions persist in the Keychain on iPhone and localStorage on web
 - Projects, nested folders, and sessions, with move and breadcrumb navigation
 - Note editing, text highlighting, and AI follow-up questions on a note
 - Attach slides, photos, and documents to a session as extra context
@@ -107,6 +107,24 @@ Requires Node 18+ and the Expo Go app, or an iOS Simulator / Android emulator.
 Then press `i` for iOS, `a` for Android, or scan the QR code with Expo Go.
 
 `node verify-setup.js` checks the environment and reports what's missing.
+
+### Local login and email
+
+Login runs against local Supabase. Start Docker Desktop, then:
+
+    supabase start
+    npx expo start
+
+- **Emails** (sign-up and password-reset codes) never leave your Mac. They land
+  in Mailpit: http://127.0.0.1:54324 (from an iPhone: `http://<Mac IP>:54324`).
+- **Users** are listed in Studio: http://127.0.0.1:54323 → Authentication.
+- **Real iPhone:** `.env` keeps `http://127.0.0.1:54321`. In development the app
+  swaps `127.0.0.1` for your Mac's network address (the one Expo Go already uses
+  to load the app, see `src/lib/supabaseUrl.ts`). The iPhone and Mac must be on
+  the same Wi-Fi; if the network blocks devices from seeing each other (common
+  on school Wi-Fi), use the iPhone's Personal Hotspot.
+- **Web:** the browser build has no local database until step 1.7
+  (`src/lib/db.web.ts`), so after login the library is empty and saving fails.
 
 ### API keys are optional
 
