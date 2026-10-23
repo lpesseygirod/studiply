@@ -19,7 +19,8 @@ export interface Profile {
   username: string;
   display_name: string | null;
   initials: string;
-  avatar_url: string | null;
+  /** Path of the profile photo in the private `photos` bucket (step 1.4). */
+  avatar_path: string | null;
   created_at: string;
   updated_at: string;
 }

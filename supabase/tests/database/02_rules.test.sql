@@ -161,10 +161,14 @@ select isnt((select withdrawn_at from public.ai_consent), null, 'withdrawn conse
 reset role;
 delete from auth.users where id = 'aaaaaaaa-0000-0000-0000-000000000000';
 
+-- Only A's rows are counted: the local database may hold real test accounts.
 select is(
-  (select count(*)::int from public.profiles) + (select count(*)::int from public.courses)
-  + (select count(*)::int from public.folders) + (select count(*)::int from public.files)
-  + (select count(*)::int from public.ai_usage) + (select count(*)::int from public.ai_consent),
+  (select count(*)::int from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000000')
+  + (select count(*)::int from public.courses where user_id = 'aaaaaaaa-0000-0000-0000-000000000000')
+  + (select count(*)::int from public.folders where user_id = 'aaaaaaaa-0000-0000-0000-000000000000')
+  + (select count(*)::int from public.files where user_id = 'aaaaaaaa-0000-0000-0000-000000000000')
+  + (select count(*)::int from public.ai_usage where user_id = 'aaaaaaaa-0000-0000-0000-000000000000')
+  + (select count(*)::int from public.ai_consent where user_id = 'aaaaaaaa-0000-0000-0000-000000000000'),
   0,
   'deleting the account deletes all of its rows');
 

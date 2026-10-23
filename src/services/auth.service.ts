@@ -187,7 +187,7 @@ export async function getProfile(user: User): Promise<Profile> {
 
   const { data } = await supabase
     .from('profiles')
-    .select('display_name, avatar_url, created_at, updated_at')
+    .select('display_name, avatar_path, created_at, updated_at')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -197,7 +197,7 @@ export async function getProfile(user: User): Promise<Profile> {
     username: name,
     display_name: name || null,
     initials: generateInitials(name),
-    avatar_url: data?.avatar_url ?? null,
+    avatar_path: data?.avatar_path ?? null,
     created_at: data?.created_at ?? user.created_at,
     updated_at: data?.updated_at ?? user.updated_at ?? user.created_at,
   };

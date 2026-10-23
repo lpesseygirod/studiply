@@ -337,14 +337,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "avatar_url": string | null,"created_at": string,"default_language": string,"display_name": string | null,"id": string,"initials": string | null,"pdf_paper_size": string,"updated_at": string
+                    "avatar_path": string | null,"created_at": string,"default_language": string,"display_name": string | null,"id": string,"initials": string | null,"pdf_paper_size": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "avatar_url"?: string | null,"created_at"?: string,"default_language"?: string,"display_name"?: string | null,"id": string,"initials"?: string | null,"pdf_paper_size"?: string,"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"default_language"?: string,"display_name"?: string | null,"id": string,"initials"?: string | null,"pdf_paper_size"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "avatar_url"?: string | null,"created_at"?: string,"default_language"?: string,"display_name"?: string | null,"id"?: string,"initials"?: string | null,"pdf_paper_size"?: string,"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"default_language"?: string,"display_name"?: string | null,"id"?: string,"initials"?: string | null,"pdf_paper_size"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
