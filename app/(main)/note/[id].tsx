@@ -452,7 +452,7 @@ export default function NoteDetailScreen() {
           <Ionicons name="document-text-outline" size={44} color={Colors.text.placeholder} />
           <Text style={styles.unprocessedTitle}>{session.title}</Text>
           <Text style={styles.unprocessedDate}>{formatDate(session.created_at)}</Text>
-          <Text style={styles.unprocessedMsg}>This session hasn't been processed yet</Text>
+          <Text style={styles.unprocessedMsg}>This session hasn&apos;t been processed yet</Text>
           <TouchableOpacity
             style={styles.processBtn}
             onPress={() =>
@@ -940,7 +940,7 @@ export default function NoteDetailScreen() {
               {(isEditing ? draftUnclearParts : viewUnclearParts).map((u, i) => (
                 <View key={i} style={styles.unclearItem}>
                   <View style={styles.defEditHeader}>
-                    <Text style={[styles.unclearExcerpt, { flex: 1 }]}>"{u.excerpt}"</Text>
+                    <Text style={[styles.unclearExcerpt, { flex: 1 }]}>&quot;{u.excerpt}&quot;</Text>
                     {isEditing && (
                       <TouchableOpacity
                         onPress={() =>

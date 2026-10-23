@@ -6,9 +6,10 @@ import { Colors } from '../../src/constants/colors';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(active: IoniconsName, inactive: IoniconsName) {
-  return ({ color, size, focused }: { color: string; size: number; focused: boolean }) => (
-    <Ionicons name={focused ? active : inactive} size={size} color={color} />
-  );
+  function TabIcon({ color, size, focused }: { color: string; size: number; focused: boolean }) {
+    return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+  }
+  return TabIcon;
 }
 
 // The Record tab gets a circular pill background to draw attention.

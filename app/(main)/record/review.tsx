@@ -657,7 +657,7 @@ export default function ReviewScreen() {
             <Text style={styles.cardTitle}>Unclear Parts</Text>
             {noteResult.unclearParts.map((u, i) => (
               <View key={i} style={styles.unclearRow}>
-                <Text style={styles.unclearExcerpt}>"{u.excerpt}"</Text>
+                <Text style={styles.unclearExcerpt}>&quot;{u.excerpt}&quot;</Text>
                 <Text style={styles.unclearReason}>{u.reason}</Text>
               </View>
             ))}
