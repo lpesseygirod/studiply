@@ -5,7 +5,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 0 — Set up and safety net
 - [x] 0.1 — Manual setup (rename folder, add design docs, repo privacy, install Docker/Supabase/EAS CLIs, create accounts)
 - [x] 0.2 — Audit (`docs/AUDIT.md`, `docs/PROGRESS.md`)
-- [ ] 0.3 — Safety net (npm check scripts, first unit tests, pre-commit hook)
+- [x] 0.3 — Safety net (npm check scripts, first unit tests, pre-commit hook)
 
 ## Phase 1 — Backend and safe API keys (`phase-1-backend`)
 - [ ] 1.1 — Connect Supabase (CLI, local dev, .env public URL + anon key)
@@ -85,7 +85,10 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 
 ## Decisions
 
-_none yet_
+- **Phase 0 stays on `main`**; one branch per phase starts in Phase 1 (`phase-1-backend`, …).
+- **Pre-commit hook lives in `.githooks/`** (tracked) and is enabled with `git config core.hooksPath .githooks`; the `prepare` script sets this on every `npm install`. No husky.
+- **Lint warnings don't block commits; errors do.** `expo lint` only fails on errors. Remaining warnings are listed under Known issues.
+- **Tests live in `__tests__/` folders under `src/`**, never under `app/` (expo-router would treat them as routes).
 
 ## Things Lea must do
 
@@ -94,3 +97,8 @@ _none yet_
 ## Known issues
 
 - **Palette incomplete for the designed summary** (AUDIT risk #11). `src/constants/colors.ts` is missing tokens DESIGN.md/SUMMARY-SPEC.md require: recording `#CC3333` (only `error: #D94F4F` exists), "From your notes" green `#E8F5EE`/`#1F6B45`, exam `#FFFBEB`/`#FFE4B5`/`#7A4A00`, accent-on-light `#4F43B0`, salmon label `#8A3B22`. Must be added to `colors.ts`, never hard-coded inline. To be handled in **step 2.3** (Look and feel).
+- **Web: `expo-sqlite` worker fails to bundle** (pre-existing, found in step 0.3). `Unable to resolve "./wa-sqlite/wa-sqlite.wasm"` — the repo has no `metro.config.js` adding `wasm` to `resolver.assetExts` (and expo-sqlite on web also needs COOP/COEP headers). The web app shell bundles; the database worker doesn't. iOS bundles fine. Phase 1.8 replaces SQLite-as-source-of-truth with a cache, so decide there (or earlier if Lea needs the web build) whether to add the Metro config.
+- **Lint warnings left on purpose** (step 0.3) — fixing them changes when effects run, so they need a behavior review, not a lint pass:
+  - `react-hooks/exhaustive-deps` in `app/(main)/project/[id].tsx` (×3), `app/(main)/record/active.tsx`, `app/(main)/record/review.tsx` (×2), `app/_layout.tsx`, `src/components/MoveToModal.tsx`, `src/components/SplashScreen.tsx`, `src/components/UndoToast.tsx`.
+  - Unused `sourceFiles` state in `app/(main)/record/review.tsx` (still set from `getActiveSourceFiles`; remove when that screen is rebuilt).
+- **Expo package patch updates available**: `expo` 54.0.33 → ~54.0.37, `expo-crypto`, `expo-file-system`, `expo-image-picker`, `expo-linking`, `expo-router` (Metro warns on start). Not done in 0.3 to keep the step behavior-neutral; worth a `npx expo install --fix` commit at the start of Phase 1.
