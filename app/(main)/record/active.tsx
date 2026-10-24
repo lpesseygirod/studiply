@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   BackHandler,
-  Platform,
   Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -20,8 +19,8 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { updateSession } from '../../../src/services/session.service';
-import { createSourceFile } from '../../../src/services/source-file.service';
-import { uploadSourceFile } from '../../../src/services/storage.service';
+import { saveRecordingChunks } from '../../../src/services/source-file.service';
+import { confirmAction } from '../../../src/utils/confirm';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +74,24 @@ const LECTURE_RECORDING_OPTIONS: Audio.RecordingOptions = {
   },
 };
 
+/** A finished chunk: its local file and how long it is. */
+interface RecordedChunk {
+  uri: string;
+  durationMs: number;
+}
+
+/**
+ * Stops a recording and returns its file and length (read before stopping,
+ * so each chunk's place in the lecture is known for the transcript).
+ */
+async function finishChunk(recording: Audio.Recording): Promise<RecordedChunk | null> {
+  const status = await recording.getStatusAsync().catch(() => null);
+  await recording.stopAndUnloadAsync();
+  const uri = recording.getURI();
+  if (!uri) return null;
+  return { uri, durationMs: Math.max(1, status?.durationMillis ?? 0) };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ActiveRecordingScreen() {
@@ -89,7 +106,7 @@ export default function ActiveRecordingScreen() {
 
   // ── Recording refs ───────────────────────────────────────────
   const currentRecordingRef = useRef<Audio.Recording | null>(null);
-  const audioChunksRef      = useRef<string[]>([]);
+  const audioChunksRef      = useRef<RecordedChunk[]>([]);
   const chunkTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chunkStartTimeRef   = useRef<number>(0);           // wall-clock ms when current chunk began
   const chunkRemainingMsRef = useRef<number>(CHUNK_DURATION_MS); // ms left in current chunk slot
@@ -100,6 +117,9 @@ export default function ActiveRecordingScreen() {
   const [isStopping, setIsStopping] = useState(false);
   const [startError, setStartError] = useState('');
   const [showLimitWarning, setShowLimitWarning] = useState(false);
+  // Uploading after Stop: progress 0–1, or the error that stopped it.
+  const [saveProgress, setSaveProgress] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState('');
 
   // Re-entry guard for doStop (also keeps auto-stop from firing twice)
   const isStoppingRef = useRef(false);
@@ -159,9 +179,8 @@ export default function ActiveRecordingScreen() {
     try {
       const old = currentRecordingRef.current;
       if (old) {
-        await old.stopAndUnloadAsync();
-        const uri = old.getURI();
-        if (uri) audioChunksRef.current.push(uri);
+        const chunk = await finishChunk(old);
+        if (chunk) audioChunksRef.current.push(chunk);
       }
       // Gap between chunks is ~100–300ms — imperceptible in a lecture.
       const { recording } = await Audio.Recording.createAsync(LECTURE_RECORDING_OPTIONS);
@@ -294,6 +313,37 @@ export default function ActiveRecordingScreen() {
     }
   };
 
+  // ── Save the recording ───────────────────────────────────────
+  // Uploads the chunks once recording has ended, so a slow connection never
+  // interrupts the recording. The files stay on the device until this
+  // succeeds; Retry sends them again.
+  const finalDurationRef = useRef(0);
+
+  const saveRecording = useCallback(async () => {
+    if (!profile?.id || !sessionId) return;
+    setSaveError('');
+    setSaveProgress(0);
+    try {
+      await saveRecordingChunks({
+        userId: profile.id,
+        sessionId,
+        chunks: audioChunksRef.current,
+        onProgress: setSaveProgress,
+      });
+      await updateSession(sessionId, {
+        status: 'transcribing',
+        duration_seconds: finalDurationRef.current,
+      });
+      router.replace({
+        pathname: '/record/post-session',
+        params: { sessionId, title: title ?? '', mode: mode ?? '' },
+      });
+    } catch (err) {
+      setSaveProgress(null);
+      setSaveError(err instanceof Error ? err.message : 'Could not save the recording. Please try again.');
+    }
+  }, [profile?.id, sessionId, title, mode]);
+
   // ── Stop recording ───────────────────────────────────────────
   const doStop = useCallback(async () => {
     if (isStoppingRef.current || !currentRecordingRef.current || !profile?.id || !sessionId) return;
@@ -303,69 +353,33 @@ export default function ActiveRecordingScreen() {
     stopPulse();
     clearChunkTimer();
 
-    const finalDuration = Math.floor((Date.now() - effectiveStartRef.current) / 1000);
+    finalDurationRef.current = Math.floor((Date.now() - effectiveStartRef.current) / 1000);
 
     try {
-      // Stop the last chunk and collect its URI.
-      await currentRecordingRef.current.stopAndUnloadAsync();
-      const lastUri = currentRecordingRef.current.getURI();
+      // Stop the last chunk and collect it.
+      const last = await finishChunk(currentRecordingRef.current);
       currentRecordingRef.current = null;
-      if (lastUri) audioChunksRef.current.push(lastUri);
+      if (last) audioChunksRef.current.push(last);
 
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-
-      await updateSession(sessionId, {
-        status: 'transcribing',
-        duration_seconds: finalDuration,
-      });
-
-      // Persist one source_file per chunk; fire-and-forget uploads.
-      const mimeType = Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4';
-      const ext      = Platform.OS === 'ios' ? 'm4a' : 'mp4';
-
-      for (let i = 0; i < audioChunksRef.current.length; i++) {
-        const uri = audioChunksRef.current[i];
-        if (!uri) continue;
-        try {
-          const sf = await createSourceFile({
-            userId: profile.id,
-            sessionId,
-            fileType: 'audio',
-            filePath: uri,
-            mimeType,
-          });
-          uploadSourceFile({
-            sourceFileId: sf.id,
-            userId: profile.id,
-            sessionId,
-            localUri: uri,
-            filename: `audio_chunk_${i}_${Date.now()}.${ext}`,
-            mimeType,
-          }).catch(() => {});
-        } catch {
-          // Non-fatal — local URI is still usable for transcription
-        }
-      }
-
-      router.replace({
-        pathname: '/record/post-session',
-        params: { sessionId, title: title ?? '' },
-      });
     } catch {
       isStoppingRef.current = false;
       setIsStopping(false);
-      Alert.alert('Save Failed', 'Could not save the recording. Please try again.', [{ text: 'OK' }]);
+      setSaveError('Could not stop the recording. Please try again.');
+      return;
     }
-  }, [profile?.id, sessionId, title, stopPulse, clearChunkTimer]);
+
+    await saveRecording();
+  }, [profile?.id, sessionId, stopPulse, clearChunkTimer, saveRecording]);
 
   // Keep the ref in sync so the auto-stop effect always calls the latest version.
   doStopRef.current = doStop;
 
-  const handleStop = () => {
-    Alert.alert('Sure?', '', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Yes', style: 'destructive', onPress: doStop },
-    ]);
+  // confirmAction, not Alert: Alert does nothing in a browser.
+  const handleStop = async () => {
+    if (await confirmAction('Stop recording?', 'The recording will be saved to your library.', 'Stop')) {
+      doStop();
+    }
   };
 
   const showExitAlert = () => {
@@ -424,6 +438,21 @@ export default function ActiveRecordingScreen() {
 
         {/* ── Max time indicator ─────────────────────────────── */}
         <Text style={styles.maxTimeText}>Max: 3 hours</Text>
+
+        {/* ── Saving after Stop ──────────────────────────────── */}
+        {saveProgress !== null && (
+          <Text style={styles.saveText}>Saving recording… {Math.round(saveProgress * 100)}%</Text>
+        )}
+        {!!saveError && (
+          <View style={styles.saveErrorBox}>
+            <Text style={styles.errorText}>{saveError}</Text>
+            {audioChunksRef.current.length > 0 && (
+              <TouchableOpacity style={styles.errorBackButton} onPress={saveRecording}>
+                <Text style={styles.errorBackText}>Retry</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         <View style={{ flex: 1 }} />
 
@@ -562,6 +591,18 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     marginTop: 8,
     letterSpacing: 0.5,
+  },
+
+  // Saving after Stop
+  saveText: {
+    fontSize: Typography.size.sm,
+    color: Colors.white,
+    marginTop: 16,
+  },
+  saveErrorBox: {
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
   },
 
   // Stop button

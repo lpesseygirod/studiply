@@ -82,6 +82,8 @@ export interface SourceFile {
   storage_path: string | null;
   is_uploaded: boolean;
   created_at: string;
+  /** Name to show (a PDF's original file name), when known. */
+  display_name?: string | null;
 }
 
 export interface Transcript {

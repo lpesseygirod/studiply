@@ -23,6 +23,7 @@ import {
   getActiveSourceFiles,
   createSourceFile,
   markDeleted,
+  sourceFileName,
 } from '../../../src/services/source-file.service';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
@@ -65,9 +66,7 @@ function getFileLabel(file: SourceFile, allFiles: SourceFile[]): string {
     const idx = photos.findIndex(f => f.id === file.id) + 1;
     return `Photo ${idx}`;
   }
-  // PDF — extract filename from path
-  const parts = file.file_path.split('/');
-  return parts[parts.length - 1] ?? 'Document';
+  return sourceFileName(file);
 }
 
 function getLanguageLabel(lang: string): string {
@@ -140,6 +139,7 @@ export default function PostSessionScreen() {
           sessionId,
           fileType: 'photo',
           filePath: asset.uri,
+          size: { width: asset.width, height: asset.height },
           fileSizeBytes: fileSize,
           mimeType: 'image/jpeg',
           retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
@@ -175,6 +175,7 @@ export default function PostSessionScreen() {
               sessionId,
               fileType: 'photo',
               filePath: asset.uri,
+              size: { width: asset.width, height: asset.height },
               fileSizeBytes: fileSize,
               mimeType: 'image/jpeg',
               retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
@@ -209,6 +210,7 @@ export default function PostSessionScreen() {
               sessionId,
               fileType: 'pdf',
               filePath: asset.uri,
+              fileName: asset.name,
               fileSizeBytes: fileSize,
               mimeType: asset.mimeType ?? 'application/pdf',
               retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',

@@ -41,6 +41,7 @@ import {
   getProjectSourceFiles,
   createSourceFile,
   markDeleted as markSourceFileDeleted,
+  sourceFileName,
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
@@ -372,7 +373,13 @@ export default function ProjectDetailScreen() {
         Alert.alert('Sharing not available', 'Your device does not support sharing.');
         return;
       }
-      await Sharing.shareAsync(file.file_path);
+      // file_path is a signed link; the share sheet needs a file on the device.
+      const FileSystem = await import('expo-file-system/legacy');
+      const ext = file.file_type === 'photo' ? 'jpg' : 'pdf';
+      const name = file.file_type === 'pdf' ? sourceFileName(file).replace(/[^\p{L}\p{N}._-]+/gu, '_') : `photo-${file.id}.${ext}`;
+      const local = `${FileSystem.cacheDirectory}${name.endsWith(`.${ext}`) ? name : `${name}.${ext}`}`;
+      const { uri } = await FileSystem.downloadAsync(file.file_path, local);
+      await Sharing.shareAsync(uri);
     } catch {
       Alert.alert('Error', 'Could not share file.');
     }
@@ -584,6 +591,7 @@ export default function ProjectDetailScreen() {
           sessionId: uploadSession.id,
           fileType: 'photo',
           filePath: asset.uri,
+          size: { width: asset.width, height: asset.height },
           fileSizeBytes: fileSize,
           mimeType: 'image/jpeg',
         });
@@ -619,6 +627,7 @@ export default function ProjectDetailScreen() {
               sessionId: uploadSession.id,
               fileType: 'photo',
               filePath: asset.uri,
+              size: { width: asset.width, height: asset.height },
               fileSizeBytes: fileSize,
               mimeType: 'image/jpeg',
             });
@@ -653,6 +662,7 @@ export default function ProjectDetailScreen() {
               sessionId: uploadSession.id,
               fileType: 'pdf',
               filePath: asset.uri,
+              fileName: asset.name,
               fileSizeBytes: fileSize,
               mimeType: asset.mimeType ?? 'application/pdf',
             });
@@ -787,7 +797,7 @@ export default function ProjectDetailScreen() {
                   const photoIdx = photos.findIndex(f => f.id === file.id) + 1;
                   const label = isPhoto
                     ? `Photo ${photoIdx}`
-                    : (file.file_path.split('/').pop() ?? 'Document');
+                    : sourceFileName(file);
 
                   return (
                     <TouchableOpacity
