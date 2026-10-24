@@ -3,7 +3,7 @@
 -- what happens on sign-up and account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(25);
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'lea@test.dev', '{"display_name": "Lea"}');
@@ -86,6 +86,15 @@ select is(
 -- ---------------------------------------------------------------------
 
 insert into public.lectures (id) values ('d0000000-0000-0000-0000-000000000001');
+
+select is(
+  (select language from public.lectures where id = 'd0000000-0000-0000-0000-000000000001'),
+  null,
+  'a new lecture''s language is unknown until set or detected');
+
+select throws_ok(
+  $$ update public.lectures set language = 'english' where id = 'd0000000-0000-0000-0000-000000000001' $$,
+  '23514', null, 'a lecture language must be an ISO code, not a name');
 
 select throws_ok(
   $$ insert into public.marks (lecture_id, type, level, t_ms) values ('d0000000-0000-0000-0000-000000000001', 'important', 0, 0) $$,

@@ -245,14 +245,14 @@ isOneToOne: false
                   ]
                 },"lectures": {
                   Row: {
-                    "audio_delete_after": string | null,"audio_retention": string,"avg_confidence": number | null,"created_at": string,"duration_ms": number | null,"id": string,"language": string,"lecture_number": number | null,"recorded_at": string | null,"status": string,"transcript_quality": string | null,"updated_at": string,"user_id": string
+                    "audio_delete_after": string | null,"audio_retention": string,"avg_confidence": number | null,"created_at": string,"duration_ms": number | null,"id": string,"language": string | null,"lecture_number": number | null,"recorded_at": string | null,"status": string,"transcript_quality": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "audio_delete_after"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id": string,"language"?: string,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "audio_delete_after"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id": string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "audio_delete_after"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id"?: string,"language"?: string,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "audio_delete_after"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id"?: string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
