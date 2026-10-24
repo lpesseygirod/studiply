@@ -263,3 +263,16 @@ export const PgCodes = {
   foreignKeyViolation: '23503',
   permissionDenied: '42501',
 } as const;
+
+/**
+ * A plain error for a failed database call. The raw Postgres message isn't
+ * meant for students, so callers pass the sentence to show; a dropped
+ * connection gets its own. Details go to the dev console only.
+ */
+export function serviceError(error: { code?: string; message?: string } | null, message: string): Error {
+  if (__DEV__ && error) console.warn(`[db] ${message}`, error.code ?? '', error.message ?? '');
+  if (error?.message && /network request failed|failed to fetch|load failed/i.test(error.message)) {
+    return new Error('Could not reach Studiply. Check your connection and try again.');
+  }
+  return new Error(message);
+}
