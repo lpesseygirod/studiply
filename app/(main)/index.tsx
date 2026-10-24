@@ -7,11 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  ActionSheetIOS,
-  Platform,
-  Alert,
-  Modal,
-  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +22,13 @@ import { trashSession, trashProject } from '../../src/services/trash.service';
 import { getNoteBySession } from '../../src/services/note.service';
 import { exportNoteToPDF } from '../../src/services/export.service';
 import UndoToast from '../../src/components/UndoToast';
+import {
+  menuTriggerProps,
+  promptText,
+  showActionSheet,
+  showAlert,
+  type Anchor,
+} from '../../src/components/dialogs/dialogs';
 import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
 
@@ -78,10 +80,6 @@ export default function HomeScreen() {
   const [undoMessage, setUndoMessage] = useState('');
   const undoCallbackRef = useRef<(() => void) | null>(null);
 
-  // Rename modal (Android — iOS uses Alert.prompt)
-  const [renamingProject, setRenamingProject] = useState<ProjectWithCount | null>(null);
-  const [renameText, setRenameText] = useState('');
-
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - H_PADDING * 2 - CARD_GAP) / 2;
 
@@ -132,79 +130,36 @@ export default function HomeScreen() {
     undoCallbackRef.current = null;
   }
 
-  function showSessionActions(session: Session) {
-    const options = ['Export PDF', 'Delete Session', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1, title: session.title },
-        (index) => {
-          if (index === 0) exportSessionPDF(session);
-          if (index === 1) confirmTrashSession(session);
-        }
-      );
-    } else {
-      Alert.alert(session.title, undefined, [
-        { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
-        { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showSessionActions(session: Session, anchor?: Anchor) {
+    showActionSheet(session.title, [
+      { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
+      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
+    ], { anchor });
   }
 
   async function exportSessionPDF(session: Session) {
     try {
       const note = await getNoteBySession(session.id);
       if (!note) {
-        Alert.alert('No notes yet', 'Process this session first to generate notes for export.');
+        showAlert('No notes yet', 'Process this session first to generate notes for export.');
         return;
       }
       await exportNoteToPDF({ note, session, transcript: null });
     } catch (err) {
-      Alert.alert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
+      showAlert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
     }
   }
 
-  function showProjectActions(project: ProjectWithCount) {
-    const options = ['Rename', 'Delete Project', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1, title: project.name },
-        (index) => {
-          if (index === 0) promptRenameProject(project);
-          if (index === 1) confirmTrashProject(project);
-        }
-      );
-    } else {
-      Alert.alert(project.name, undefined, [
-        { text: 'Rename', onPress: () => promptRenameProject(project) },
-        { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
+    showActionSheet(project.name, [
+      { text: 'Rename', onPress: () => promptRenameProject(project) },
+      { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
+    ], { anchor });
   }
 
-  function promptRenameProject(project: ProjectWithCount) {
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Rename Project',
-        undefined,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save',
-            onPress: (newName: string | undefined) => {
-              const trimmed = newName?.trim();
-              if (trimmed) confirmRenameProject(project, trimmed);
-            },
-          },
-        ],
-        'plain-text',
-        project.name,
-      );
-    } else {
-      setRenameText(project.name);
-      setRenamingProject(project);
-    }
+  async function promptRenameProject(project: ProjectWithCount) {
+    const newName = await promptText('Rename Project', { defaultValue: project.name, placeholder: 'Project name' });
+    if (newName) confirmRenameProject(project, newName);
   }
 
   async function confirmRenameProject(project: ProjectWithCount, newName: string) {
@@ -212,12 +167,12 @@ export default function HomeScreen() {
       await updateProject(project.id, { name: newName });
       setProjects(prev => prev.map(p => p.id === project.id ? { ...p, name: newName } : p));
     } catch {
-      Alert.alert('Error', 'Could not rename project.');
+      showAlert('Error', 'Could not rename project.');
     }
   }
 
   function confirmTrashProject(project: ProjectWithCount) {
-    Alert.alert(
+    showAlert(
       'Delete Project',
       `"${project.name}" and all its sessions will be moved to Recently Deleted.`,
       [
@@ -235,7 +190,7 @@ export default function HomeScreen() {
                 fetchData();
               });
             } catch {
-              Alert.alert('Error', 'Could not delete project.');
+              showAlert('Error', 'Could not delete project.');
             }
           },
         },
@@ -244,7 +199,7 @@ export default function HomeScreen() {
   }
 
   function confirmTrashSession(session: Session) {
-    Alert.alert(
+    showAlert(
       'Delete Session',
       `"${session.title}" will be moved to Recently Deleted.`,
       [
@@ -262,7 +217,7 @@ export default function HomeScreen() {
                 fetchData();
               });
             } catch {
-              Alert.alert('Error', 'Could not delete session.');
+              showAlert('Error', 'Could not delete session.');
             }
           },
         },
@@ -354,9 +309,8 @@ export default function HomeScreen() {
                     index < sessions.length - 1 && styles.sessionRowDivider,
                   ]}
                   onPress={() => handleSessionPress(session)}
-                  onLongPress={() => showSessionActions(session)}
+                  {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
                   activeOpacity={0.75}
-                  delayLongPress={400}
                 >
                   <Ionicons name={icon.name} size={20} color={icon.color} />
                   <View style={styles.sessionInfo}>
@@ -396,8 +350,7 @@ export default function HomeScreen() {
                 key={project.id}
                 style={[styles.card, { width: cardWidth, backgroundColor: project.color }]}
                 onPress={() => router.push(`/project/${project.id}`)}
-                onLongPress={() => showProjectActions(project)}
-                delayLongPress={400}
+                {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
                 activeOpacity={0.85}
               >
                 <Text style={styles.cardName} numberOfLines={2}>
@@ -420,57 +373,6 @@ export default function HomeScreen() {
         onDismiss={() => setUndoVisible(false)}
       />
 
-      {/* ── Rename modal (Android only) ───────────────────────── */}
-      <Modal
-        visible={renamingProject !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => { setRenamingProject(null); setRenameText(''); }}
-      >
-        <View style={styles.renameOverlay}>
-          <View style={styles.renameDialog}>
-            <Text style={styles.renameTitle}>Rename Project</Text>
-            <TextInput
-              style={styles.renameInput}
-              value={renameText}
-              onChangeText={setRenameText}
-              autoFocus
-              placeholder="Project name"
-              placeholderTextColor={Colors.text.placeholder}
-              returnKeyType="done"
-              onSubmitEditing={() => {
-                const trimmed = renameText.trim();
-                if (renamingProject && trimmed) {
-                  confirmRenameProject(renamingProject, trimmed);
-                  setRenamingProject(null);
-                  setRenameText('');
-                }
-              }}
-            />
-            <View style={styles.renameActions}>
-              <TouchableOpacity
-                onPress={() => { setRenamingProject(null); setRenameText(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.renameCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  const trimmed = renameText.trim();
-                  if (renamingProject && trimmed) {
-                    confirmRenameProject(renamingProject, trimmed);
-                    setRenamingProject(null);
-                    setRenameText('');
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.renameSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -635,48 +537,5 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.semibold,
     color: Colors.text.primary,
     textDecorationLine: 'underline',
-  },
-
-  // Rename modal (Android)
-  renameOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  renameDialog: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    gap: 16,
-  },
-  renameTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-  },
-  renameInput: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: Typography.size.base,
-    color: Colors.text.primary,
-  },
-  renameActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 20,
-  },
-  renameCancelText: {
-    fontSize: Typography.size.base,
-    color: Colors.text.secondary,
-    fontWeight: Typography.weight.medium,
-  },
-  renameSaveText: {
-    fontSize: Typography.size.base,
-    color: Colors.salmon,
-    fontWeight: Typography.weight.semibold,
   },
 });

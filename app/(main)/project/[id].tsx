@@ -9,10 +9,8 @@ import {
   RefreshControl,
   Modal,
   TextInput,
-  Alert,
   BackHandler,
   Platform,
-  ActionSheetIOS,
   Dimensions,
   Image,
   Pressable,
@@ -47,6 +45,13 @@ import { requestCameraPermission, requestMediaLibraryPermission } from '../../..
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import UndoToast from '../../../src/components/UndoToast';
 import MoveToModal from '../../../src/components/MoveToModal';
+import {
+  menuTriggerProps,
+  promptText,
+  showActionSheet,
+  showAlert,
+  type Anchor,
+} from '../../../src/components/dialogs/dialogs';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 
@@ -265,48 +270,21 @@ export default function ProjectDetailScreen() {
   // Long-press action sheets
   // -------------------------------------------------------------------
 
-  function showFolderActions(folder: Folder) {
-    const options = ['Rename', 'Move to…', 'Delete Folder', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 3, destructiveButtonIndex: 2, title: folder.name },
-        (index) => {
-          if (index === 0) promptRenameFolder(folder);
-          if (index === 1) openMoveFolder(folder);
-          if (index === 2) confirmTrashFolder(folder);
-        }
-      );
-    } else {
-      Alert.alert(folder.name, undefined, [
-        { text: 'Rename', onPress: () => promptRenameFolder(folder) },
-        { text: 'Move to…', onPress: () => openMoveFolder(folder) },
-        { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showFolderActions(folder: Folder, anchor?: Anchor) {
+    showActionSheet(folder.name, [
+      { text: 'Rename', onPress: () => promptRenameFolder(folder) },
+      { text: 'Move to…', onPress: () => openMoveFolder(folder) },
+      { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
+    ], { anchor });
   }
 
-  function showSessionActions(session: Session) {
-    const options = ['View Notes', 'Export as PDF', 'Move to…', 'Delete Session', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 4, destructiveButtonIndex: 3, title: session.title },
-        (index) => {
-          if (index === 0) handleSessionPress(session);
-          if (index === 1) exportSessionPDF(session);
-          if (index === 2) openMoveSession(session);
-          if (index === 3) confirmTrashSession(session);
-        }
-      );
-    } else {
-      Alert.alert(session.title, undefined, [
-        { text: 'View Notes', onPress: () => handleSessionPress(session) },
-        { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
-        { text: 'Move to…', onPress: () => openMoveSession(session) },
-        { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showSessionActions(session: Session, anchor?: Anchor) {
+    showActionSheet(session.title, [
+      { text: 'View Notes', onPress: () => handleSessionPress(session) },
+      { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
+      { text: 'Move to…', onPress: () => openMoveSession(session) },
+      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
+    ], { anchor });
   }
 
   async function exportSessionPDF(session: Session) {
@@ -315,12 +293,12 @@ export default function ProjectDetailScreen() {
       const { exportNoteToPDF } = await import('../../../src/services/export.service');
       const note = await getNoteBySession(session.id);
       if (!note) {
-        Alert.alert('No Note', 'This session has not been processed yet.');
+        showAlert('No Note', 'This session has not been processed yet.');
         return;
       }
       await exportNoteToPDF({ note, session, transcript: null, projectName: project?.name });
     } catch {
-      Alert.alert('Error', 'Could not export PDF.');
+      showAlert('Error', 'Could not export PDF.');
     }
   }
 
@@ -337,40 +315,30 @@ export default function ProjectDetailScreen() {
       await moveFolder(movingFolderId, target.folderId, target.projectId);
       await fetchData(currentFolderId);
     } catch {
-      Alert.alert('Error', 'Could not move folder.');
+      showAlert('Error', 'Could not move folder.');
     } finally {
       setMovingFolderId(null);
     }
   }
 
-  function showFileActions(file: SourceFile) {
-    const isPhoto = file.file_type === 'photo';
-    const options = isPhoto
-      ? ['Export / Share', 'Delete', 'Cancel']
-      : ['Export / Share', 'Delete', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1 },
-        (index) => {
-          if (index === 0) shareFile(file);
-          if (index === 1) confirmDeleteFile(file);
-        }
-      );
-    } else {
-      Alert.alert('File', undefined, [
-        { text: 'Export / Share', onPress: () => shareFile(file) },
-        { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showFileActions(file: SourceFile, anchor?: Anchor) {
+    showActionSheet(file.file_type === 'photo' ? 'Photo' : sourceFileName(file), [
+      { text: Platform.OS === 'web' ? 'Open / Download' : 'Export / Share', onPress: () => shareFile(file) },
+      { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
+    ], { anchor });
   }
 
   async function shareFile(file: SourceFile) {
+    // A browser has no share sheet: open the file's signed link in a new tab.
+    if (Platform.OS === 'web') {
+      window.open(file.file_path, '_blank', 'noopener');
+      return;
+    }
     try {
       const Sharing = await import('expo-sharing');
       const isAvailable = await Sharing.isAvailableAsync();
       if (!isAvailable) {
-        Alert.alert('Sharing not available', 'Your device does not support sharing.');
+        showAlert('Sharing not available', 'Your device does not support sharing.');
         return;
       }
       // file_path is a signed link; the share sheet needs a file on the device.
@@ -381,12 +349,12 @@ export default function ProjectDetailScreen() {
       const { uri } = await FileSystem.downloadAsync(file.file_path, local);
       await Sharing.shareAsync(uri);
     } catch {
-      Alert.alert('Error', 'Could not share file.');
+      showAlert('Error', 'Could not share file.');
     }
   }
 
   function confirmDeleteFile(file: SourceFile) {
-    Alert.alert('Delete File', 'This file will be permanently removed.', [
+    showAlert('Delete File', 'This file will be permanently removed.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -396,7 +364,7 @@ export default function ProjectDetailScreen() {
             await markSourceFileDeleted(file.id);
             setProjectFiles(prev => prev.filter(f => f.id !== file.id));
           } catch {
-            Alert.alert('Error', 'Could not delete file.');
+            showAlert('Error', 'Could not delete file.');
           }
         },
       },
@@ -407,23 +375,16 @@ export default function ProjectDetailScreen() {
   // Folder rename
   // -------------------------------------------------------------------
 
-  function promptRenameFolder(folder: Folder) {
-    Alert.prompt(
-      'Rename Folder',
-      undefined,
-      async (name) => {
-        if (!name?.trim()) return;
-        try {
-          const { renameFolder } = await import('../../../src/services/folder.service');
-          await renameFolder(folder.id, name.trim());
-          await fetchData(currentFolderId);
-        } catch {
-          Alert.alert('Error', 'Could not rename folder.');
-        }
-      },
-      'plain-text',
-      folder.name
-    );
+  async function promptRenameFolder(folder: Folder) {
+    const name = await promptText('Rename Folder', { defaultValue: folder.name, placeholder: 'Folder name' });
+    if (!name) return;
+    try {
+      const { renameFolder } = await import('../../../src/services/folder.service');
+      await renameFolder(folder.id, name);
+      await fetchData(currentFolderId);
+    } catch {
+      showAlert('Error', 'Could not rename folder.');
+    }
   }
 
   // -------------------------------------------------------------------
@@ -431,7 +392,7 @@ export default function ProjectDetailScreen() {
   // -------------------------------------------------------------------
 
   function confirmTrashFolder(folder: Folder) {
-    Alert.alert(
+    showAlert(
       'Delete Folder',
       `"${folder.name}" and all its contents will be moved to Recently Deleted.`,
       [
@@ -449,7 +410,7 @@ export default function ProjectDetailScreen() {
                 fetchData(currentFolderId);
               });
             } catch {
-              Alert.alert('Error', 'Could not delete folder.');
+              showAlert('Error', 'Could not delete folder.');
             }
           },
         },
@@ -462,7 +423,7 @@ export default function ProjectDetailScreen() {
   // -------------------------------------------------------------------
 
   function confirmTrashSession(session: Session) {
-    Alert.alert(
+    showAlert(
       'Delete Session',
       `"${session.title}" will be moved to Recently Deleted.`,
       [
@@ -480,7 +441,7 @@ export default function ProjectDetailScreen() {
                 fetchData(currentFolderId);
               });
             } catch {
-              Alert.alert('Error', 'Could not delete session.');
+              showAlert('Error', 'Could not delete session.');
             }
           },
         },
@@ -504,7 +465,7 @@ export default function ProjectDetailScreen() {
       await moveSession(movingSessionId, target.projectId, target.folderId);
       await fetchData(currentFolderId);
     } catch {
-      Alert.alert('Error', 'Could not move session.');
+      showAlert('Error', 'Could not move session.');
     } finally {
       setMovingSessionId(null);
     }
@@ -545,7 +506,7 @@ export default function ProjectDetailScreen() {
       setNewFolderName('');
       await fetchData(currentFolderId);
     } catch {
-      Alert.alert('Error', 'Could not create folder.');
+      showAlert('Error', 'Could not create folder.');
     } finally {
       setIsCreatingFolder(false);
     }
@@ -598,7 +559,7 @@ export default function ProjectDetailScreen() {
         setProjectFiles(prev => [newFile, ...prev]);
       }
     } catch {
-      Alert.alert('Error', 'Could not capture photo. Please try again.');
+      showAlert('Error', 'Could not capture photo. Please try again.');
     } finally {
       setUploadingCamera(false);
     }
@@ -636,7 +597,7 @@ export default function ProjectDetailScreen() {
         setProjectFiles(prev => [...newFiles, ...prev]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick photos. Please try again.');
+      showAlert('Error', 'Could not pick photos. Please try again.');
     } finally {
       setUploadingGallery(false);
     }
@@ -671,7 +632,7 @@ export default function ProjectDetailScreen() {
         setProjectFiles(prev => [...newFiles, ...prev]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick documents. Please try again.');
+      showAlert('Error', 'Could not pick documents. Please try again.');
     } finally {
       setUploadingDocs(false);
     }
@@ -807,9 +768,8 @@ export default function ProjectDetailScreen() {
                         index < projectFiles.length - 1 && styles.fileRowDivider,
                       ]}
                       onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                      onLongPress={() => showFileActions(file)}
+                      {...menuTriggerProps(anchor => showFileActions(file, anchor))}
                       activeOpacity={0.75}
-                      delayLongPress={400}
                     >
                       {isPhoto ? (
                         <Image
@@ -849,9 +809,8 @@ export default function ProjectDetailScreen() {
                     key={folder.id}
                     style={styles.folderCard}
                     onPress={() => navigateIntoFolder(folder)}
-                    onLongPress={() => showFolderActions(folder)}
+                    {...menuTriggerProps(anchor => showFolderActions(folder, anchor))}
                     activeOpacity={0.8}
-                    delayLongPress={400}
                   >
                     <View style={styles.folderIconWrap}>
                       <Ionicons name="folder" size={28} color={Colors.salmon} />
@@ -884,9 +843,8 @@ export default function ProjectDetailScreen() {
                         index < arr.length - 1 && styles.sessionRowDivider,
                       ]}
                       onPress={() => handleSessionPress(session)}
-                      onLongPress={() => showSessionActions(session)}
+                      {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
                       activeOpacity={0.75}
-                      delayLongPress={400}
                     >
                       <Ionicons name={icon.name} size={22} color={icon.color} />
                       <View style={styles.sessionInfo}>

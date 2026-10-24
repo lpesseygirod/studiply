@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   ScrollView,
@@ -21,6 +20,7 @@ import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
 import type { UserSettings } from '../../../src/types/database';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Constants
@@ -98,7 +98,7 @@ export default function GeneralScreen() {
         savedTimerRef.current = setTimeout(() => setSavedLabel(null), 1500);
       } catch {
         setSettings(prev);
-        Alert.alert('Error', 'Could not save setting. Please try again.');
+        showAlert('Error', 'Could not save setting. Please try again.');
       }
     },
     [profile?.id, settings],

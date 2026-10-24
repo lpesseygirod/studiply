@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   BackHandler,
   Animated,
 } from 'react-native';
@@ -21,6 +20,8 @@ import { Typography } from '../../../src/constants/typography';
 import { updateSession } from '../../../src/services/session.service';
 import { saveRecordingChunks } from '../../../src/services/source-file.service';
 import { confirmAction } from '../../../src/utils/confirm';
+import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -274,7 +275,7 @@ export default function ActiveRecordingScreen() {
       setShowLimitWarning(true);
     }
     if (elapsed >= MAX_RECORDING_SECONDS && !isStoppingRef.current) {
-      Alert.alert('3-Hour Limit Reached', 'Your recording was automatically saved.');
+      showAlert('3-Hour Limit Reached', 'Your recording was automatically saved.');
       doStopRef.current();
     }
   }, [elapsed, showLimitWarning]);
@@ -318,6 +319,8 @@ export default function ActiveRecordingScreen() {
   // interrupts the recording. The files stay on the device until this
   // succeeds; Retry sends them again.
   const finalDurationRef = useRef(0);
+  // Set by the Library button: after saving, go to the library instead of post-session.
+  const leaveAfterSaveRef = useRef(false);
 
   const saveRecording = useCallback(async () => {
     if (!profile?.id || !sessionId) return;
@@ -334,6 +337,10 @@ export default function ActiveRecordingScreen() {
         status: 'transcribing',
         duration_seconds: finalDurationRef.current,
       });
+      if (leaveAfterSaveRef.current) {
+        leaveRecordingFlow(router);
+        return;
+      }
       router.replace({
         pathname: '/record/post-session',
         params: { sessionId, title: title ?? '', mode: mode ?? '' },
@@ -382,8 +389,18 @@ export default function ActiveRecordingScreen() {
     }
   };
 
-  const showExitAlert = () => {
-    Alert.alert('Recording in Progress', 'Stop recording before leaving this screen.', [{ text: 'OK' }]);
+  // Leaving stops and saves the recording first; it is never thrown away.
+  const showExitAlert = async () => {
+    if (isStoppingRef.current) return;
+    const leave = await confirmAction(
+      'Stop and leave?',
+      'The recording is stopped and saved to your library. You can add materials and generate notes later.',
+      'Stop & save',
+    );
+    if (!leave) return;
+    leaveAfterSaveRef.current = true;
+    // Through the ref: the Android back handler keeps the first render's closure.
+    doStopRef.current?.();
   };
 
   // ── Error state ──────────────────────────────────────────────
@@ -416,6 +433,8 @@ export default function ActiveRecordingScreen() {
       )}
 
       <View style={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 40 }]}>
+
+        {!isStopping && <FlowCloseButton onPress={showExitAlert} tone="light" />}
 
         {/* ── App title ──────────────────────────────────────── */}
         <Text style={styles.appTitle}>STUDIPLY</Text>

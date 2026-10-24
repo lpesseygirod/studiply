@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   BackHandler,
   Linking,
@@ -29,6 +28,9 @@ import { isCreditError, getEstimatedBalances } from '../../../src/services/credi
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, SourceFile } from '../../../src/types/database';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
+import { confirmAction } from '../../../src/utils/confirm';
 
 // -------------------------------------------------------------------
 // Types
@@ -261,7 +263,7 @@ export default function ReviewScreen() {
 
       if (isCreditError(msg)) {
         if (currentPhase === 'transcribing') {
-          Alert.alert(
+          showAlert(
             '🐷 OpenAI Piggy Bank Empty',
             'Your OpenAI account has run out of credits. Your recording is saved safely — add credits and tap Retry.',
             [
@@ -270,7 +272,7 @@ export default function ReviewScreen() {
             ],
           );
         } else {
-          Alert.alert(
+          showAlert(
             '🐷 Claude Piggy Bank Empty',
             'Your Anthropic account has run out of credits. Your recording and transcript are saved — add credits and tap Retry Notes.',
             [
@@ -331,7 +333,7 @@ export default function ReviewScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg === 'piggy_bank_anthropic') {
-        Alert.alert(
+        showAlert(
           '🐷 Claude Piggy Bank Empty',
           'Add credits at console.anthropic.com and try again.',
           [
@@ -340,7 +342,7 @@ export default function ReviewScreen() {
           ],
         );
       } else {
-        Alert.alert('Error', 'Could not get clarification. Please try again.');
+        showAlert('Error', 'Could not get clarification. Please try again.');
       }
     } finally {
       setIsClarifying(false);
@@ -362,7 +364,7 @@ export default function ReviewScreen() {
         // User doesn't want the note — just mark session completed.
         await bulkApplyRetention(sessionId, retention);
         await updateSession(sessionId, { status: 'completed' });
-        router.replace('/');
+        leaveRecordingFlow(router, '/');
         return;
       }
 
@@ -396,7 +398,7 @@ export default function ReviewScreen() {
       await bulkApplyRetention(sessionId, retention);
       await updateSession(sessionId, { status: 'completed' });
 
-      router.replace('/');
+      leaveRecordingFlow(router, '/');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save note.';
       setErrorMessage(msg);
@@ -417,6 +419,16 @@ export default function ReviewScreen() {
     router,
   ]);
 
+  // Leaving before Confirm drops the generated notes, never the recording.
+  const confirmLeave = async () => {
+    const leave = await confirmAction(
+      'Leave without notes?',
+      'The recording stays in your library. You can generate the notes again later.',
+      'Leave',
+    );
+    if (leave) leaveRecordingFlow(router);
+  };
+
   // -------------------------------------------------------------------
   // Render: processing
   // -------------------------------------------------------------------
@@ -425,6 +437,7 @@ export default function ReviewScreen() {
       <View style={styles.container}>
         <StatusBar style="dark" />
         <View style={[styles.centeredContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
+          <FlowCloseButton onPress={confirmLeave} />
           <Text style={styles.appTitle}>STUDIPLY</Text>
           <Text style={styles.screenSubtitle}>Processing</Text>
 
@@ -470,6 +483,7 @@ export default function ReviewScreen() {
       <View style={styles.container}>
         <StatusBar style="dark" />
         <View style={[styles.centeredContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
+          <FlowCloseButton onPress={() => leaveRecordingFlow(router)} />
           <Text style={styles.appTitle}>STUDIPLY</Text>
           <Text style={styles.screenSubtitle}>Error</Text>
 
@@ -487,7 +501,7 @@ export default function ReviewScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.ghostButton}
-            onPress={() => router.replace('/')}
+            onPress={() => leaveRecordingFlow(router)}
             activeOpacity={0.7}
           >
             <Text style={styles.ghostButtonText}>Cancel</Text>
@@ -514,6 +528,7 @@ export default function ReviewScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
+        <FlowCloseButton onPress={confirmLeave} />
         <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>AI Notes</Text>
 

@@ -11,7 +11,6 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -28,6 +27,7 @@ import { NewProjectModal } from '../../../src/components/NewProjectModal';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { createSession } from '../../../src/services/session.service';
 import { checkAICredits, type AICreditStatus } from '../../../src/services/credit-check.service';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -135,7 +135,7 @@ export default function RecordSetupScreen() {
       // 1. Request microphone permission
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showAlert(
           'Microphone Access Required',
           'Studiply needs microphone access to record lectures. Please enable it in Settings.',
           [
@@ -166,7 +166,7 @@ export default function RecordSetupScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not start recording. Please try again.');
+      showAlert('Error', err?.message ?? 'Could not start recording. Please try again.');
     } finally {
       setIsStarting(false);
     }

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
   emptyTrash,
   type TrashItem,
 } from '../../../src/services/trash.service';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -86,12 +86,12 @@ export default function TrashScreen() {
       await restoreItem(item);
       setItems(prev => prev.filter(i => i.id !== item.id));
     } catch {
-      Alert.alert('Error', 'Could not restore item. Please try again.');
+      showAlert('Error', 'Could not restore item. Please try again.');
     }
   };
 
   const handleDelete = (item: TrashItem) => {
-    Alert.alert(
+    showAlert(
       'Delete Permanently',
       `"${item.name}" will be permanently deleted and cannot be recovered.`,
       [
@@ -104,7 +104,7 @@ export default function TrashScreen() {
               await permanentlyDelete(item);
               setItems(prev => prev.filter(i => i.id !== item.id));
             } catch {
-              Alert.alert('Error', 'Could not delete item. Please try again.');
+              showAlert('Error', 'Could not delete item. Please try again.');
             }
           },
         },
@@ -114,7 +114,7 @@ export default function TrashScreen() {
 
   const handleEmptyTrash = () => {
     if (items.length === 0) return;
-    Alert.alert(
+    showAlert(
       'Empty Recently Deleted',
       'All items will be permanently deleted and cannot be recovered.',
       [
@@ -127,7 +127,7 @@ export default function TrashScreen() {
               await emptyTrash(userId);
               setItems([]);
             } catch {
-              Alert.alert('Error', 'Could not empty trash. Please try again.');
+              showAlert('Error', 'Could not empty trash. Please try again.');
             }
           },
         },

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -38,6 +37,7 @@ import {
 } from '../../../src/services/credit-check.service';
 import { getStorageStats } from '../../../src/services/source-file.service';
 import { deleteAllUserData } from '../../../src/services/auth.service';
+import { promptText, showAlert } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Types
@@ -238,7 +238,7 @@ export default function AccountScreen() {
     if (!profile?.id || !editingBudget) return;
     const amount = parseFloat(budgetText);
     if (isNaN(amount) || amount < 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid dollar amount (e.g. 20).');
+      showAlert('Invalid amount', 'Please enter a valid dollar amount (e.g. 20).');
       return;
     }
     setIsSavingBudget(true);
@@ -248,35 +248,30 @@ export default function AccountScreen() {
       await loadPiggyData(profile.id);
       setEditingBudget(null);
     } catch {
-      Alert.alert('Error', 'Could not save budget. Please try again.');
+      showAlert('Error', 'Could not save budget. Please try again.');
     } finally {
       setIsSavingBudget(false);
     }
   };
 
-  const promptBudgetIOS = (provider: 'openai' | 'anthropic') => {
+  const promptBudgetIOS = async (provider: 'openai' | 'anthropic') => {
     const label = provider === 'openai' ? 'OpenAI' : 'Anthropic';
     const current = provider === 'openai'
       ? (balances?.openai.deposited ?? 10)
       : (balances?.anthropic.deposited ?? 10);
-    Alert.prompt(
-      `${label} Deposit`,
-      `How much have you deposited in your ${label} account? (total, in USD)`,
-      async (value) => {
-        if (!value || !profile?.id) return;
-        const amount = parseFloat(value);
-        if (isNaN(amount) || amount < 0) return;
-        try {
-          await updateBudget(profile.id, provider, amount);
-          await loadPiggyData(profile.id);
-        } catch {
-          Alert.alert('Error', 'Could not save budget.');
-        }
-      },
-      'plain-text',
-      String(current),
-      'numeric',
-    );
+    const value = await promptText(`${label} Deposit`, {
+      message: `How much have you deposited in your ${label} account? (total, in USD)`,
+      defaultValue: String(current),
+    });
+    if (!value || !profile?.id) return;
+    const amount = parseFloat(value);
+    if (isNaN(amount) || amount < 0) return;
+    try {
+      await updateBudget(profile.id, provider, amount);
+      await loadPiggyData(profile.id);
+    } catch {
+      showAlert('Error', 'Could not save budget.');
+    }
   };
 
   const handleTapDeposited = (provider: 'openai' | 'anthropic') => {
@@ -291,7 +286,7 @@ export default function AccountScreen() {
   // Delete all data
   // -------------------------------------------------------------------
   const handleDeleteAllData = () => {
-    Alert.alert(
+    showAlert(
       'Delete All Data',
       'This will permanently delete all your projects, sessions, notes, and files on this device, then sign you out. This cannot be undone.',
       [
@@ -300,7 +295,7 @@ export default function AccountScreen() {
           text: 'Continue',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
+            showAlert(
               'Are you absolutely sure?',
               'This action is irreversible. Every note, recording, and project will be gone forever.',
               [
@@ -313,7 +308,7 @@ export default function AccountScreen() {
                     try {
                       await deleteAllUserData(profile.id);
                     } catch {
-                      Alert.alert('Error', 'Could not delete all data. Please try again.');
+                      showAlert('Error', 'Could not delete all data. Please try again.');
                     }
                   },
                 },

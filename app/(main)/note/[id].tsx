@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
   ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Linking,
@@ -40,6 +38,7 @@ import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import { useAuth } from '../../../src/hooks/useAuth';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
+import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -216,7 +215,7 @@ export default function NoteDetailScreen() {
       setNote(updated);
       setIsEditing(false);
     } catch {
-      Alert.alert('Error', 'Could not save note. Please try again.');
+      showAlert('Error', 'Could not save note. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -269,7 +268,7 @@ export default function NoteDetailScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       if (msg === 'piggy_bank_anthropic') {
-        Alert.alert(
+        showAlert(
           '🐷 Claude Piggy Bank Empty',
           'Add credits at console.anthropic.com and try again.',
           [
@@ -278,7 +277,7 @@ export default function NoteDetailScreen() {
           ],
         );
       } else {
-        Alert.alert('Error', 'Could not get clarification. Please try again.');
+        showAlert('Error', 'Could not get clarification. Please try again.');
       }
     } finally {
       setIsClarifying(false);
@@ -294,7 +293,7 @@ export default function NoteDetailScreen() {
       setHighlightedSentences([]);
       instructionOpacity.setValue(1);
     } catch {
-      Alert.alert('Error', 'Could not clear clarification.');
+      showAlert('Error', 'Could not clear clarification.');
     }
   };
 
@@ -309,7 +308,7 @@ export default function NoteDetailScreen() {
         projectName: project?.name,
       });
     } catch (err) {
-      Alert.alert(
+      showAlert(
         'Export Failed',
         err instanceof Error ? err.message : 'Could not export PDF.',
       );
@@ -318,31 +317,18 @@ export default function NoteDetailScreen() {
     }
   };
 
-  function showNoteActions() {
+  function showNoteActions(anchor?: Anchor) {
     if (!note || !session) return;
-    const options = ['Export as PDF', 'Edit Note', 'Delete Session', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 3, destructiveButtonIndex: 2, title: note.title },
-        (index) => {
-          if (index === 0) handleExportPDF();
-          if (index === 1) enterEditMode();
-          if (index === 2) confirmDeleteSession();
-        }
-      );
-    } else {
-      Alert.alert(note.title, undefined, [
-        { text: 'Export as PDF', onPress: handleExportPDF },
-        { text: 'Edit Note', onPress: enterEditMode },
-        { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+    showActionSheet(note.title, [
+      { text: 'Export as PDF', onPress: handleExportPDF },
+      { text: 'Edit Note', onPress: enterEditMode },
+      { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
+    ], { anchor });
   }
 
   function confirmDeleteSession() {
     if (!session) return;
-    Alert.alert(
+    showAlert(
       'Delete Session',
       `"${session.title}" will be moved to Recently Deleted.`,
       [
@@ -355,7 +341,7 @@ export default function NoteDetailScreen() {
               await trashSession(session.id);
               router.back();
             } catch {
-              Alert.alert('Error', 'Could not delete session.');
+              showAlert('Error', 'Could not delete session.');
             }
           },
         },
@@ -363,33 +349,18 @@ export default function NoteDetailScreen() {
     );
   }
 
-  function showTranscriptActions() {
+  function showTranscriptActions(anchor?: Anchor) {
     if (!transcript) return;
-    const options = ['Copy Transcript', 'Export as PDF', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, title: 'Transcript' },
-        async (index) => {
-          if (index === 0) {
-            await Clipboard.setStringAsync(transcript.full_text);
-            Alert.alert('Copied', 'Transcript copied to clipboard.');
-          }
-          if (index === 1) handleExportPDF();
-        }
-      );
-    } else {
-      Alert.alert('Transcript', undefined, [
-        {
-          text: 'Copy Transcript',
-          onPress: async () => {
-            await Clipboard.setStringAsync(transcript.full_text);
-            Alert.alert('Copied', 'Transcript copied to clipboard.');
-          },
+    showActionSheet('Transcript', [
+      {
+        text: 'Copy Transcript',
+        onPress: async () => {
+          await Clipboard.setStringAsync(transcript.full_text);
+          showAlert('Copied', 'Transcript copied to clipboard.');
         },
-        { text: 'Export as PDF', onPress: handleExportPDF },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+      },
+      { text: 'Export as PDF', onPress: handleExportPDF },
+    ], { anchor });
   }
 
   // -------------------------------------------------------------------
@@ -500,9 +471,8 @@ export default function NoteDetailScreen() {
         >
           {/* ── Title banner ─────────────────────────────────── */}
           <TouchableOpacity
-            onLongPress={showNoteActions}
+            {...menuTriggerProps(showNoteActions)}
             activeOpacity={1}
-            delayLongPress={400}
           >
           <View style={styles.titleBanner}>
             {isEditing ? (
@@ -1000,9 +970,8 @@ export default function NoteDetailScreen() {
               <TouchableOpacity
                 style={styles.transcriptToggle}
                 onPress={() => setTranscriptExpanded(v => !v)}
-                onLongPress={showTranscriptActions}
+                {...menuTriggerProps(showTranscriptActions)}
                 activeOpacity={0.7}
-                delayLongPress={400}
               >
                 <Text style={styles.sectionTitle}>Full Transcript</Text>
                 <Text style={styles.toggleLabel}>

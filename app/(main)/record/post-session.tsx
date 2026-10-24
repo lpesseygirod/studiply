@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +28,8 @@ import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, newFile]);
       }
     } catch {
-      Alert.alert('Error', 'Could not capture photo. Please try again.');
+      showAlert('Error', 'Could not capture photo. Please try again.');
     } finally {
       setUploadingCamera(false);
     }
@@ -185,7 +186,7 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, ...newFiles]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick photos. Please try again.');
+      showAlert('Error', 'Could not pick photos. Please try again.');
     } finally {
       setUploadingGallery(false);
     }
@@ -220,7 +221,7 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, ...newFiles]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick documents. Please try again.');
+      showAlert('Error', 'Could not pick documents. Please try again.');
     } finally {
       setUploadingDocs(false);
     }
@@ -228,7 +229,7 @@ export default function PostSessionScreen() {
 
   // ── Delete file ──────────────────────────────────────────────
   const handleDeleteFile = (file: SourceFile) => {
-    Alert.alert(
+    showAlert(
       'Remove File',
       'Remove this file from the session?',
       [
@@ -241,7 +242,7 @@ export default function PostSessionScreen() {
               await markDeleted(file.id);
               setSourceFiles(prev => prev.filter(f => f.id !== file.id));
             } catch {
-              Alert.alert('Error', 'Could not remove the file. Please try again.');
+              showAlert('Error', 'Could not remove the file. Please try again.');
             }
           },
         },
@@ -260,7 +261,7 @@ export default function PostSessionScreen() {
         params: { sessionId, summaryLevel },
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not start processing. Please try again.');
+      showAlert('Error', err?.message ?? 'Could not start processing. Please try again.');
       setIsGenerating(false);
     }
   };
@@ -292,7 +293,8 @@ export default function PostSessionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header — the recording is saved, so leaving loses nothing */}
+        <FlowCloseButton onPress={() => leaveRecordingFlow(router)} />
         <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>Post-Session</Text>
 
