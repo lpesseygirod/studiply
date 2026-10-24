@@ -3,7 +3,7 @@
 // no Playwright or other dependency. Screenshots and the throwaway Chrome
 // profile go to WEB_CHECK_OUT (default: <os tmp>/studiply-web-check).
 import { spawn } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,13 +14,21 @@ mkdirSync(SHOTS, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function launch({ port = 9333, width = 1280, height = 900 } = {}) {
+/**
+ * `micWav`: an audio file (e.g. speech from macOS `say`) that the page's
+ * microphone plays, looped, instead of Chrome's fake beep. Done by
+ * replacing getUserMedia with a Web Audio stream of the file, because
+ * Chrome's --use-file-for-fake-audio-capture stays silent in headless mode.
+ */
+export async function launch({ port = 9333, width = 1280, height = 900, micWav } = {}) {
   const profile = join(OUT, `chrome-profile-${port}`);
-  rmSync(profile, { recursive: true, force: true }); // fresh: no session from an earlier run
+  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); // fresh: no session from an earlier run
   const proc = spawn(CHROME, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
     `--window-size=${width},${height}`, '--no-first-run', '--no-default-browser-check',
-    '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', 'about:blank',
+    '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
+    '--autoplay-policy=no-user-gesture-required',
+    'about:blank',
   ], { stdio: 'ignore' });
   let targets;
   for (let i = 0; i < 50; i++) {
@@ -59,6 +67,27 @@ export async function launch({ port = 9333, width = 1280, height = 900 } = {}) {
   await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
   await send('Browser.grantPermissions', { permissions: ['audioCapture'] }).catch(() => {});
+  if (micWav) {
+    const b64 = readFileSync(micWav).toString('base64');
+    await send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `(() => {
+        const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = async (constraints) => {
+          if (!constraints || !constraints.audio) return original(constraints);
+          const ctx = new AudioContext();
+          const bytes = Uint8Array.from(atob('${b64}'), (c) => c.charCodeAt(0));
+          const buffer = await ctx.decodeAudioData(bytes.buffer);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.loop = true;
+          const out = ctx.createMediaStreamDestination();
+          source.connect(out);
+          source.start();
+          return out.stream;
+        };
+      })();`,
+    });
+  }
 
   const evaluate = async (expression) => {
     const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
@@ -147,7 +176,12 @@ export async function launch({ port = 9333, width = 1280, height = 900 } = {}) {
       await api.waitText('WORKPLACE', { timeout: 20000 });
       await sleep(800);
     },
-    async close() { try { ws.close(); } catch {} proc.kill(); },
+    async close() {
+      try { ws.close(); } catch {}
+      const exited = new Promise((resolve) => proc.once('exit', resolve));
+      proc.kill();
+      await Promise.race([exited, sleep(3000)]);
+    },
   };
   return api;
 }

@@ -34,6 +34,20 @@ It only runs against **local** Supabase: `testuser.mjs` reads the service key fr
 
 The test user and its library, rows and Storage files are deleted at the end, also when a step fails.
 
+## Run the AI flow (recording → transcript → notes → clarify)
+
+`scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
+
+- **Real** (default): needs `supabase functions serve` with the keys in `supabase/functions/.env`. Calls Whisper and Claude: **about $0.05 per run** — run it when the AI path changed, not as a routine check.
+  ```bash
+  node .claude/skills/web-check/scripts/ai-flow.mjs
+  ```
+- **Simulated** (free): start the dev server with `EXPO_PUBLIC_MOCK_AI=1 CI=1 BROWSER=none npx expo start --web --port 8123`, then
+  ```bash
+  WEB_CHECK_MOCK=1 node .claude/skills/web-check/scripts/ai-flow.mjs
+  ```
+  It expects no consent dialogs, no `ai_consent` rows and no `ai_usage` rows.
+
 ## Writing a new check
 
 Copy the pattern of `flows.mjs`:
@@ -57,7 +71,7 @@ try {
 }
 ```
 
-Driver API: `nav(url)`, `waitText(text, {exact, timeout})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
+Driver API: `launch({ micWav })`, `nav(url)`, `waitText(text, {exact, timeout})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
 
 Check results in the database with `admin` (service role, local only), not just on screen.
 
@@ -65,7 +79,10 @@ Check results in the database with `admin` (service role, local only), not just 
 - **Fresh profile every launch**: a kept profile restores the previous run's session (for a user that no longer exists) and skips sign-in.
 - **Text is matched as rendered**: labels styled with `textTransform: 'uppercase'` read as `UNDO`, not `Undo`.
 - **Off-screen elements**: the driver scrolls the target into view before clicking (wide windows make the square course cards very tall).
-- **Start Recording is disabled until a title is typed** (`input[placeholder^="e.g."]`). The microphone is Chrome's fake device; the recording uploads as `.webm`.
+- **Start Recording is disabled until a title is typed** (`input[placeholder^="e.g."]`). The microphone is Chrome's fake device (a beep once a second, which Whisper hears as "you"); the recording uploads as `.webm`.
+- **Real speech**: `launch({ micWav })` replaces getUserMedia with a Web Audio stream of the file. Chrome's own `--use-file-for-fake-audio-capture` stays silent in headless mode, whatever the WAV format.
+- **Summary sentences are `<span>`s on the web** (nested Text); other text is in `<div>`s.
+- **A full reload shows the splash screen for ~2 s**; wait before a screenshot.
 - **On the web, Alert with buttons, Alert.prompt and ActionSheetIOS do nothing.** The app uses `src/components/dialogs` (a lint rule enforces it); a missing menu usually means something bypasses it.
 - **TouchableOpacity drops an `onContextMenu` prop on the web**: right-click menus are wired through `menuTriggerProps`' ref.
 - iPhone behaviour (native action sheets, Alert.prompt, the real microphone) can't be checked here; list it for Lea to retest.
