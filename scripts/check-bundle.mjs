@@ -8,8 +8,10 @@
  *      EXPO_PUBLIC_ANTHROPIC_API_KEY in .env (if still there),
  *      OPENAI_API_KEY and ANTHROPIC_API_KEY in supabase/functions/.env, and
  *      the local service_role key, secret key and JWT secret from
- *      `supabase status`;
- *   2. anything shaped like an OpenAI or Anthropic key (sk-…);
+ *      `supabase status`, and the remote project's service_role and
+ *      sb_secret_ keys from `supabase projects api-keys` (step 1.7B);
+ *   2. anything shaped like an OpenAI or Anthropic key (sk-…) or a
+ *      Supabase secret key (sb_secret_…);
  *   3. the names of the AI key variables, `service_role`, and the OpenAI
  *      and Anthropic API hosts (only the Edge Functions may call them);
  *   4. web only: expo-sqlite / wa-sqlite (the web build must never load SQLite).
@@ -56,10 +58,30 @@ function supabaseStatus() {
   }
 }
 
+/** The remote project's secret keys (service_role, sb_secret_…), or null when the CLI can't fetch them. */
+function remoteSecretKeys() {
+  const ref = readEnv(join(ROOT, '.env.remote')).EXPO_PUBLIC_SUPABASE_URL?.match(/^https:\/\/([a-z0-9]{20})\./)?.[1];
+  if (!ref) return null;
+  try {
+    const out = execFileSync('supabase', ['projects', 'api-keys', '--project-ref', ref, '--reveal', '-o', 'json'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const keys = JSON.parse(out);
+    return {
+      serviceRole: keys.find((k) => k.name === 'service_role')?.api_key,
+      secret: keys.filter((k) => k.type === 'secret').map((k) => k.api_key),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── The secrets to look for (values stay in memory, never printed) ──
 const appEnv = readEnv(join(ROOT, '.env'));
 const functionsEnv = readEnv(join(ROOT, 'supabase/functions/.env'));
 const status = supabaseStatus();
+const remote = remoteSecretKeys();
 const isRealValue = (v) => typeof v === 'string' && v.length >= 16 && !/^your_|_here$/.test(v);
 
 const secretSources = [
@@ -70,6 +92,8 @@ const secretSources = [
   ['local SERVICE_ROLE_KEY', status?.SERVICE_ROLE_KEY],
   ['local SECRET_KEY', status?.SECRET_KEY],
   ['local JWT_SECRET', status?.JWT_SECRET],
+  ['remote service_role key', remote?.serviceRole],
+  ...(remote?.secret.length ? remote.secret : [undefined]).map((value, i) => [`remote secret key ${i + 1}`, value]),
 ];
 const secrets = secretSources.filter(([, value]) => isRealValue(value));
 const missing = secretSources
@@ -96,6 +120,9 @@ const checks = [
     ['web', 'ios'],
   ],
   ['an Anthropic-style key  sk-ant-…', (text) => (text.match(/sk-ant-[A-Za-z0-9_-]{20,}/g) ?? []).length, ['web', 'ios']],
+  // supabase-js itself contains the bare prefix (it checks key formats), and Hermes may store it
+  // right before "_isInsecureUserWarning…", so only a full key counts. The real keys are checked by value above.
+  ['a Supabase secret key  sb_secret_…', (text) => (text.match(/sb_secret_(?!_)[A-Za-z0-9_-]{20,}/g) ?? []).length, ['web', 'ios']],
   ['the name OPENAI_API_KEY', (text) => count(text, 'OPENAI_API_KEY'), ['web', 'ios']],
   ['the name ANTHROPIC_API_KEY', (text) => count(text, 'ANTHROPIC_API_KEY'), ['web', 'ios']],
   ['the word service_role', (text) => count(text, 'service_role'), ['web', 'ios']],
