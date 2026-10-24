@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from '../lib/supabase';
 import { getProfile, signOut as authSignOut } from '../services/auth.service';
-import { ensureLocalProfile } from '../services/localProfile';
+import { forgetConsent } from '../services/consent.service';
 import { autoCleanTrash } from '../services/trash.service';
 import type { Profile } from '../types/database';
 
@@ -37,12 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = useCallback(async (s: Session) => {
     const p = await getProfile(s.user);
-    try {
-      // The SQLite services (iPhone) need a local row for this user.
-      await ensureLocalProfile(p.id, p.username);
-    } catch (err) {
-      console.warn('Could not prepare the local profile:', err);
-    }
     // Fire-and-forget: clean up items trashed > 30 days ago.
     autoCleanTrash(p.id).catch(() => {});
     setProfile(p);
@@ -76,6 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loadedUserId.current = userId;
 
       if (!newSession) {
+        // Another account may sign in next; it must be asked again.
+        forgetConsent();
         setProfile(null);
         setIsLoading(false);
         return;

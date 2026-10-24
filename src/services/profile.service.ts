@@ -1,13 +1,11 @@
 import { supabase } from '../lib/supabase';
-import { updateLocalProfile } from './localProfile';
 import { generateInitials } from '../utils/initials';
 import { toJpeg } from '../utils/toJpeg';
 import { Buckets, removeFiles, uploadFile, type UploadOptions } from './cloud-storage.service';
 
 // -------------------------------------------------------------------
 // updateProfile
-// Updates the display name in Supabase, re-derives initials, and mirrors
-// the change into the local profile row the SQLite services use (iPhone).
+// Updates the display name in Supabase and re-derives the initials.
 // AuthProvider.refreshProfile() re-reads the result.
 // -------------------------------------------------------------------
 export async function updateProfile(
@@ -25,8 +23,6 @@ export async function updateProfile(
 
   // Also keep the name in the session, so it shows when the app opens offline.
   await supabase.auth.updateUser({ data: { display_name: name } });
-
-  await updateLocalProfile(userId, name);
 }
 
 // -------------------------------------------------------------------

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   View,
   Text,
   StyleSheet,
@@ -18,19 +17,11 @@ import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import UserAvatar from '../../../src/components/UserAvatar';
 import {
-  checkAICredits,
-  getEstimatedBalances,
-  type AICreditStatus,
-  type EstimatedBalances,
+  formatClaude,
+  formatTranscription,
+  getTodayUsage,
+  type TodayUsage,
 } from '../../../src/services/credit-check.service';
-
-// Check whether real AI keys are configured at bundle time.
-const hasRealAIKeys = !!(
-  process.env.EXPO_PUBLIC_OPENAI_API_KEY &&
-  process.env.EXPO_PUBLIC_OPENAI_API_KEY !== 'your_openai_api_key_here' &&
-  process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY &&
-  process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY !== 'your_anthropic_api_key_here'
-);
 
 const SETTINGS_ROWS = [
   {
@@ -60,105 +51,34 @@ const SETTINGS_ROWS = [
 ];
 
 // -------------------------------------------------------------------
-// AiStatusBanner — shows combined balance for both providers
+// AiUsageBanner — today's AI use against the daily limits
 // -------------------------------------------------------------------
-function AiStatusBanner({
-  creditStatus,
-  balances,
-  onPress,
-}: {
-  creditStatus: AICreditStatus;
-  balances: EstimatedBalances | null;
-  onPress: () => void;
-}) {
-  const openaiOk = creditStatus.openai.ok;
-  const anthropicOk = creditStatus.anthropic.ok;
-  const hasIssue = !openaiOk || !anthropicOk;
-
-  // Determine worst balance status across both providers
-  const openaiEmpty = balances?.openai.status === 'empty';
-  const anthropicEmpty = balances?.anthropic.status === 'empty';
-  const openaiLow = balances?.openai.status === 'low';
-  const anthropicLow = balances?.anthropic.status === 'low';
-  const anyEmpty = openaiEmpty || anthropicEmpty;
-  const anyLow = openaiLow || anthropicLow;
-
-  // Total remaining
-  const totalRemaining =
-    (balances?.openai.remaining ?? 0) + (balances?.anthropic.remaining ?? 0);
-
-  if (hasIssue) {
-    const url = !openaiOk
-      ? 'https://platform.openai.com/settings/organization/billing'
-      : 'https://console.anthropic.com/settings/billing';
-    const label = !openaiOk
-      ? creditStatus.openai.error === 'openai_invalid_key'
-        ? '🐷 OpenAI: Invalid key'
-        : '🐷 OpenAI: Needs credits'
-      : creditStatus.anthropic.error === 'anthropic_invalid_key'
-      ? '🐷 Claude: Invalid key'
-      : '🐷 Claude: Needs credits';
+function AiUsageBanner({ usage, onPress }: { usage: TodayUsage; onPress: () => void }) {
+  if (usage.simulated) {
     return (
-      <TouchableOpacity
-        style={[styles.apiBanner, styles.apiBannerRed]}
-        onPress={() => Linking.openURL(url)}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="alert-circle" size={16} color="#CC3333" />
-        <Text style={[styles.apiBannerText, styles.apiBannerTextRed]}>{label}</Text>
-        <Text style={[styles.apiBannerHint, styles.apiBannerTextRed]}>Add credits →</Text>
-      </TouchableOpacity>
+      <View style={[styles.apiBanner, styles.apiBannerAmber]}>
+        <Ionicons name="flask-outline" size={16} color="#8B6914" />
+        <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>AI: Simulated (development)</Text>
+      </View>
     );
   }
 
-  if (anyEmpty) {
-    const url = openaiEmpty
-      ? 'https://platform.openai.com/settings/organization/billing'
-      : 'https://console.anthropic.com/settings/billing';
-    return (
-      <TouchableOpacity
-        style={[styles.apiBanner, styles.apiBannerRed]}
-        onPress={() => Linking.openURL(url)}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="alert-circle" size={16} color="#CC3333" />
-        <Text style={[styles.apiBannerText, styles.apiBannerTextRed]}>AI: Credits empty! 🐷</Text>
-        <Text style={[styles.apiBannerHint, styles.apiBannerTextRed]}>Add credits →</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  if (anyLow) {
-    return (
-      <TouchableOpacity
-        style={[styles.apiBanner, styles.apiBannerAmber]}
-        onPress={onPress}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="warning-outline" size={16} color="#8B6914" />
-        <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>
-          AI: Low balance • ~${totalRemaining.toFixed(2)} remaining 🐷
-        </Text>
-        <Text style={[styles.apiBannerHint, styles.apiBannerTextAmber]}>Tap to recheck</Text>
-      </TouchableOpacity>
-    );
-  }
-
-  const remainingLabel = balances
-    ? ` • ~$${totalRemaining.toFixed(2)} remaining`
-    : '';
+  const used = `${formatTranscription(usage)} · ${formatClaude(usage)}`;
+  const reached = usage.transcriptionReached || usage.claudeReached;
+  const nearly =
+    usage.transcriptionSeconds >= 0.8 * usage.transcriptionLimitSeconds || usage.claudeUsd >= 0.8 * usage.claudeLimitUsd;
+  const [tone, icon, iconColor] = reached
+    ? ([styles.apiBannerRed, 'alert-circle', '#CC3333'] as const)
+    : nearly
+      ? ([styles.apiBannerAmber, 'warning-outline', '#8B6914'] as const)
+      : ([styles.apiBannerGreen, 'checkmark-circle', '#2D8A5A'] as const);
+  const textTone = reached ? styles.apiBannerTextRed : nearly ? styles.apiBannerTextAmber : styles.apiBannerTextGreen;
 
   return (
-    <TouchableOpacity
-      style={[styles.apiBanner, styles.apiBannerGreen]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <Ionicons name="checkmark-circle" size={16} color="#2D8A5A" />
-      <Text style={[styles.apiBannerText, styles.apiBannerTextGreen]}>
-        AI: Connected{remainingLabel}
-      </Text>
-      <Text style={[styles.apiBannerHint, styles.apiBannerTextGreen]}>Tap to recheck</Text>
+    <TouchableOpacity style={[styles.apiBanner, tone]} onPress={onPress} activeOpacity={0.75}>
+      <Ionicons name={icon} size={16} color={iconColor} />
+      <Text style={[styles.apiBannerText, textTone]}>{reached ? `Daily AI limit reached · ${used}` : `AI today: ${used}`}</Text>
+      <Text style={[styles.apiBannerHint, textTone]}>Refresh</Text>
     </TouchableOpacity>
   );
 }
@@ -168,29 +88,24 @@ export default function SettingsScreen() {
   const { profile } = useAuth();
   const router = useRouter();
 
-  const [creditStatus, setCreditStatus] = useState<AICreditStatus | null>(null);
-  const [balances, setBalances] = useState<EstimatedBalances | null>(null);
+  // Today's AI use; no request goes to OpenAI or Anthropic for this.
+  const [usage, setUsage] = useState<TodayUsage | null>(null);
   const [isChecking, setIsChecking] = useState(false);
 
   const runCheck = useCallback(async () => {
-    if (!hasRealAIKeys || isChecking) return;
     setIsChecking(true);
     try {
-      const uid = profile?.id;
-      const [result, bal] = await Promise.all([
-        checkAICredits(uid),
-        uid ? getEstimatedBalances(uid) : Promise.resolve(null),
-      ]);
-      setCreditStatus(result);
-      setBalances(bal);
+      setUsage(await getTodayUsage());
+    } catch {
+      setUsage(null);
     } finally {
       setIsChecking(false);
     }
-  }, [isChecking, profile?.id]);
+  }, []);
 
   useEffect(() => {
-    if (hasRealAIKeys) runCheck();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    runCheck();
+  }, [runCheck]);
 
   const username = profile?.username ?? '—';
 
@@ -248,27 +163,14 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* ── AI status banner ──────────────────────────────────── */}
-        {!hasRealAIKeys ? (
-          <View style={[styles.apiBanner, styles.apiBannerAmber]}>
-            <Ionicons name="alert-circle-outline" size={16} color="#8B6914" />
-            <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>
-              AI: Simulated mode — add API keys in .env for real transcription
-            </Text>
-          </View>
-        ) : isChecking ? (
+        {/* ── AI usage banner ───────────────────────────────────── */}
+        {isChecking && !usage ? (
           <View style={[styles.apiBanner, styles.apiBannerAmber]}>
             <ActivityIndicator size="small" color="#8B6914" />
-            <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>
-              Checking AI credits…
-            </Text>
+            <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>Loading AI usage…</Text>
           </View>
-        ) : creditStatus ? (
-          <AiStatusBanner
-            creditStatus={creditStatus}
-            balances={balances}
-            onPress={runCheck}
-          />
+        ) : usage ? (
+          <AiUsageBanner usage={usage} onPress={runCheck} />
         ) : null}
 
         {/* ── App version ───────────────────────────────────────── */}

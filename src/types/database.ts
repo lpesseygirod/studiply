@@ -142,10 +142,6 @@ export interface UserSettings {
   include_definitions: boolean;
   default_retention_policy: string;
   default_language: string;
-  /** User-reported amount deposited with OpenAI (USD). */
-  openai_budget: number;
-  /** User-reported amount deposited with Anthropic (USD). */
-  anthropic_budget: number;
   created_at: string;
   updated_at: string;
 }

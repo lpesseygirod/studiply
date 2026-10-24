@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -31,13 +30,14 @@ import {
 } from '../../../src/services/profile.service';
 import { getSpendingByProvider, getSpendingByOperation } from '../../../src/services/ai-usage.service';
 import {
-  getEstimatedBalances,
-  updateBudget,
-  type EstimatedBalances,
+  formatClaude,
+  formatTranscription,
+  getTodayUsage,
+  type TodayUsage,
 } from '../../../src/services/credit-check.service';
 import { getStorageStats } from '../../../src/services/source-file.service';
 import { deleteAllUserData } from '../../../src/services/auth.service';
-import { promptText, showAlert } from '../../../src/components/dialogs/dialogs';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Types
@@ -86,13 +86,8 @@ export default function AccountScreen() {
   const [editError, setEditError] = useState('');
   const [photoStatus, setPhotoStatus] = useState<string | null>(null);
 
-  // Budget edit modal
-  const [editingBudget, setEditingBudget] = useState<'openai' | 'anthropic' | null>(null);
-  const [budgetText, setBudgetText] = useState('');
-  const [isSavingBudget, setIsSavingBudget] = useState(false);
-
-  // Piggy bank data
-  const [balances, setBalances] = useState<EstimatedBalances | null>(null);
+  // AI usage: today against the daily limits, and all-time spending
+  const [today, setToday] = useState<TodayUsage | null>(null);
   const [providerStats, setProviderStats] = useState<ProviderStats | null>(null);
   const [operationRows, setOperationRows] = useState<OperationRow[]>([]);
   const [piggyLoading, setPiggyLoading] = useState(false);
@@ -101,17 +96,17 @@ export default function AccountScreen() {
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
   // -------------------------------------------------------------------
-  // Load piggy bank data
+  // Load AI usage
   // -------------------------------------------------------------------
   const loadPiggyData = useCallback(async (uid: string) => {
     setPiggyLoading(true);
     try {
-      const [bal, stats, ops] = await Promise.all([
-        getEstimatedBalances(uid),
+      const [usage, stats, ops] = await Promise.all([
+        getTodayUsage(),
         getSpendingByProvider(uid),
         getSpendingByOperation(uid),
       ]);
-      setBalances(bal);
+      setToday(usage);
       setProviderStats(stats);
       setOperationRows(ops);
     } catch {
@@ -224,65 +219,6 @@ export default function AccountScreen() {
   const isBusy = isSaving || photoStatus !== null;
 
   // -------------------------------------------------------------------
-  // Edit budget
-  // -------------------------------------------------------------------
-  const openBudgetEdit = (provider: 'openai' | 'anthropic') => {
-    const current = provider === 'openai'
-      ? (balances?.openai.deposited ?? 10)
-      : (balances?.anthropic.deposited ?? 10);
-    setBudgetText(String(current));
-    setEditingBudget(provider);
-  };
-
-  const handleSaveBudget = async () => {
-    if (!profile?.id || !editingBudget) return;
-    const amount = parseFloat(budgetText);
-    if (isNaN(amount) || amount < 0) {
-      showAlert('Invalid amount', 'Please enter a valid dollar amount (e.g. 20).');
-      return;
-    }
-    setIsSavingBudget(true);
-    try {
-      await updateBudget(profile.id, editingBudget, amount);
-      // Refresh balances
-      await loadPiggyData(profile.id);
-      setEditingBudget(null);
-    } catch {
-      showAlert('Error', 'Could not save budget. Please try again.');
-    } finally {
-      setIsSavingBudget(false);
-    }
-  };
-
-  const promptBudgetIOS = async (provider: 'openai' | 'anthropic') => {
-    const label = provider === 'openai' ? 'OpenAI' : 'Anthropic';
-    const current = provider === 'openai'
-      ? (balances?.openai.deposited ?? 10)
-      : (balances?.anthropic.deposited ?? 10);
-    const value = await promptText(`${label} Deposit`, {
-      message: `How much have you deposited in your ${label} account? (total, in USD)`,
-      defaultValue: String(current),
-    });
-    if (!value || !profile?.id) return;
-    const amount = parseFloat(value);
-    if (isNaN(amount) || amount < 0) return;
-    try {
-      await updateBudget(profile.id, provider, amount);
-      await loadPiggyData(profile.id);
-    } catch {
-      showAlert('Error', 'Could not save budget.');
-    }
-  };
-
-  const handleTapDeposited = (provider: 'openai' | 'anthropic') => {
-    if (Platform.OS === 'ios') {
-      promptBudgetIOS(provider);
-    } else {
-      openBudgetEdit(provider);
-    }
-  };
-
-  // -------------------------------------------------------------------
   // Delete all data
   // -------------------------------------------------------------------
   const handleDeleteAllData = () => {
@@ -382,52 +318,48 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* ── AI PIGGY BANKS ────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>AI PIGGY BANKS 🐷</Text>
+        {/* ── AI USAGE ──────────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>AI USAGE TODAY</Text>
 
         {piggyLoading ? (
           <View style={styles.piggyLoading}>
             <ActivityIndicator color={Colors.salmon} size="small" />
-            <Text style={styles.piggyLoadingText}>Loading balance data…</Text>
+            <Text style={styles.piggyLoadingText}>Loading usage…</Text>
           </View>
         ) : (
           <>
-            {/* OpenAI card */}
-            <PiggyBankCard
-              title="OpenAI (Transcription)"
+            {today?.simulated && (
+              <Text style={styles.costRefNote}>Simulated AI (development): nothing is sent or counted.</Text>
+            )}
+
+            <UsageCard
+              title="Transcription"
               icon="mic-outline"
               borderColor="#F59E0B"
               bgColor="#FFFBEB"
-              deposited={balances?.openai.deposited ?? 10}
-              used={balances?.openai.used ?? 0}
-              remaining={balances?.openai.remaining ?? 10}
-              status={balances?.openai.status ?? 'good'}
+              usedLabel={today ? formatTranscription(today) : '—'}
+              fraction={today ? today.transcriptionSeconds / today.transcriptionLimitSeconds : 0}
+              reached={today?.transcriptionReached ?? false}
               subStats={
                 providerStats
-                  ? `${fmt(providerStats.openai.totalMinutes, 1)} min transcribed • ${providerStats.openai.callCount} call${providerStats.openai.callCount !== 1 ? 's' : ''}`
+                  ? `All time: ${fmt(providerStats.openai.totalMinutes, 1)} min transcribed • ${providerStats.openai.callCount} part${providerStats.openai.callCount !== 1 ? 's' : ''}`
                   : undefined
               }
-              billingUrl="https://platform.openai.com/settings/organization/billing"
-              onTapDeposited={() => handleTapDeposited('openai')}
             />
 
-            {/* Anthropic card */}
-            <PiggyBankCard
-              title="Claude (Notes)"
+            <UsageCard
+              title="Notes & assistant (Claude)"
               icon="sparkles-outline"
               borderColor="#7B6FD4"
               bgColor="#F5F3FF"
-              deposited={balances?.anthropic.deposited ?? 10}
-              used={balances?.anthropic.used ?? 0}
-              remaining={balances?.anthropic.remaining ?? 10}
-              status={balances?.anthropic.status ?? 'good'}
+              usedLabel={today ? formatClaude(today) : '—'}
+              fraction={today ? today.claudeUsd / today.claudeLimitUsd : 0}
+              reached={today?.claudeReached ?? false}
               subStats={
                 providerStats
-                  ? `${providerStats.anthropic.callCount} operation${providerStats.anthropic.callCount !== 1 ? 's' : ''} • ${Math.round((providerStats.anthropic.totalTokensIn + providerStats.anthropic.totalTokensOut) / 1000)}K tokens`
+                  ? `All time: ${providerStats.anthropic.callCount} request${providerStats.anthropic.callCount !== 1 ? 's' : ''} • ${Math.round((providerStats.anthropic.totalTokensIn + providerStats.anthropic.totalTokensOut) / 1000)}K tokens`
                   : undefined
               }
-              billingUrl="https://console.anthropic.com/settings/billing"
-              onTapDeposited={() => handleTapDeposited('anthropic')}
             />
 
             {/* Cost breakdown */}
@@ -449,7 +381,7 @@ export default function AccountScreen() {
                   ))}
                   <View style={styles.divider} />
                   <View style={[styles.breakdownRow, styles.breakdownTotal]}>
-                    <Text style={styles.breakdownTotalLabel}>Total AI spending</Text>
+                    <Text style={styles.breakdownTotalLabel}>Total AI cost (all time)</Text>
                     <Text style={styles.breakdownTotalCost}>${fmt(totalSpent, 4)}</Text>
                   </View>
                 </View>
@@ -458,13 +390,10 @@ export default function AccountScreen() {
 
             {/* Cost reference */}
             <View style={styles.costRefCard}>
-              <Text style={styles.costRefTitle}>Estimated costs per use</Text>
-              <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.06</Text>
-              <Text style={styles.costRefLine}>• Standard lecture notes ≈ $0.10–0.30</Text>
-              <Text style={styles.costRefLine}>• Clarification ≈ $0.03–0.10</Text>
-              <Text style={styles.costRefNote}>
-                Balance is estimated. Update your deposit amount when you add credits.
-              </Text>
+              <Text style={styles.costRefTitle}>About these limits</Text>
+              <Text style={styles.costRefLine}>• Studiply runs the AI for you; no OpenAI or Anthropic account needed</Text>
+              <Text style={styles.costRefLine}>• Each limit counts the last 24 hours, so it frees up gradually</Text>
+              <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.06 · lecture notes ≈ $0.02–0.30</Text>
             </View>
           </>
         )}
@@ -600,167 +529,56 @@ export default function AccountScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Budget edit modal (Android) ──────────────────────── */}
-      <Modal
-        visible={editingBudget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditingBudget(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setEditingBudget(null)}>
-          <KeyboardAvoidingView
-            style={styles.modalKAV}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <Pressable>
-              <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
-                <Text style={styles.modalTitle}>
-                  {editingBudget === 'openai' ? 'OpenAI' : 'Anthropic'} Deposit
-                </Text>
-                <Text style={styles.budgetModalHint}>
-                  How much have you deposited in your{' '}
-                  {editingBudget === 'openai' ? 'OpenAI' : 'Anthropic'} account? (total, in USD)
-                </Text>
-
-                <TextInput
-                  style={styles.modalInput}
-                  value={budgetText}
-                  onChangeText={setBudgetText}
-                  autoFocus
-                  keyboardType="decimal-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveBudget}
-                  placeholder="e.g. 20"
-                  placeholderTextColor={Colors.text.placeholder}
-                />
-
-                <TouchableOpacity
-                  style={[styles.saveButton, isSavingBudget && { opacity: 0.6 }]}
-                  onPress={handleSaveBudget}
-                  disabled={isSavingBudget}
-                  activeOpacity={0.85}
-                >
-                  {isSavingBudget ? (
-                    <ActivityIndicator color={Colors.white} size="small" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setEditingBudget(null)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
 
 // -------------------------------------------------------------------
-// PiggyBankCard
+// UsageCard — today's use of one daily limit
 // -------------------------------------------------------------------
-interface PiggyBankCardProps {
+interface UsageCardProps {
   title: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   borderColor: string;
   bgColor: string;
-  deposited: number;
-  used: number;
-  remaining: number;
-  status: 'good' | 'low' | 'empty';
+  /** e.g. "12 min of 6 h" */
+  usedLabel: string;
+  /** Share of the limit used, 0–1. */
+  fraction: number;
+  reached: boolean;
   subStats?: string;
-  billingUrl: string;
-  onTapDeposited: () => void;
 }
 
-function PiggyBankCard({
-  title,
-  icon,
-  borderColor,
-  bgColor,
-  deposited,
-  used,
-  remaining,
-  status,
-  subStats,
-  billingUrl,
-  onTapDeposited,
-}: PiggyBankCardProps) {
-  const pctUsed = deposited > 0 ? Math.min(used / deposited, 1) : 1;
-  const pctRemaining = 1 - pctUsed;
-  const barColor = progressColor(pctRemaining);
+function UsageCard({ title, icon, borderColor, bgColor, usedLabel, fraction, reached, subStats }: UsageCardProps) {
+  const pctLeft = Math.max(0, 1 - Math.min(fraction, 1));
+  const barColor = progressColor(pctLeft);
 
   return (
     <View style={[piggyStyles.card, { borderColor, backgroundColor: bgColor }]}>
-      {/* Header */}
       <View style={piggyStyles.header}>
         <View style={[piggyStyles.iconWrap, { borderColor }]}>
           <Ionicons name={icon} size={16} color={borderColor} />
         </View>
-        <Text style={piggyStyles.title}>{title} 🐷</Text>
-      </View>
-
-      {/* Balance rows */}
-      <TouchableOpacity onPress={onTapDeposited} activeOpacity={0.7}>
-        <View style={piggyStyles.balanceRow}>
-          <Text style={piggyStyles.balanceLabel}>Deposited</Text>
-          <Text style={[piggyStyles.balanceValue, piggyStyles.depositedValue]}>
-            ${deposited.toFixed(2)} <Text style={piggyStyles.tapHint}>(tap to update)</Text>
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      <View style={piggyStyles.balanceRow}>
-        <Text style={piggyStyles.balanceLabel}>Used</Text>
-        <Text style={piggyStyles.balanceValue}>${used.toFixed(4)}</Text>
+        <Text style={piggyStyles.title}>{title}</Text>
       </View>
 
       <View style={piggyStyles.balanceRow}>
-        <Text style={piggyStyles.balanceLabel}>Remaining</Text>
-        <Text style={[piggyStyles.balanceValue, { color: barColor, fontWeight: Typography.weight.bold }]}>
-          ~${remaining.toFixed(2)}
-        </Text>
+        <Text style={piggyStyles.balanceLabel}>Used today</Text>
+        <Text style={[piggyStyles.balanceValue, { color: barColor, fontWeight: Typography.weight.bold }]}>{usedLabel}</Text>
       </View>
 
-      {/* Progress bar */}
       <View style={piggyStyles.barTrack}>
-        <View
-          style={[
-            piggyStyles.barFill,
-            { width: `${Math.round(pctRemaining * 100)}%`, backgroundColor: barColor },
-          ]}
-        />
+        <View style={[piggyStyles.barFill, { width: `${Math.round(Math.min(fraction, 1) * 100)}%`, backgroundColor: barColor }]} />
       </View>
-      <Text style={[piggyStyles.barLabel, { color: barColor }]}>
-        {Math.round(pctRemaining * 100)}% remaining
-      </Text>
+      <Text style={[piggyStyles.barLabel, { color: barColor }]}>{Math.round(pctLeft * 100)}% left today</Text>
 
-      {/* Sub-stats */}
       {subStats ? <Text style={piggyStyles.subStats}>{subStats}</Text> : null}
 
-      {/* Warnings */}
-      {status === 'low' && (
-        <View style={piggyStyles.warningAmber}>
-          <Ionicons name="warning-outline" size={14} color="#B87B14" />
-          <Text style={piggyStyles.warningTextAmber}>Running low! Consider adding credits.</Text>
-        </View>
-      )}
-      {status === 'empty' && (
-        <TouchableOpacity
-          style={piggyStyles.warningRed}
-          onPress={() => Linking.openURL(billingUrl)}
-          activeOpacity={0.75}
-        >
+      {reached && (
+        <View style={piggyStyles.warningRed}>
           <Ionicons name="alert-circle" size={14} color="#CC3333" />
-          <Text style={piggyStyles.warningTextRed}>Empty! Add credits →</Text>
-        </TouchableOpacity>
+          <Text style={piggyStyles.warningTextRed}>Daily limit reached. It frees up over the next 24 hours.</Text>
+        </View>
       )}
     </View>
   );
@@ -809,14 +627,6 @@ const piggyStyles = StyleSheet.create({
     color: Colors.text.primary,
     fontWeight: Typography.weight.medium,
   },
-  depositedValue: {
-    color: Colors.text.primary,
-  },
-  tapHint: {
-    fontSize: 11,
-    color: Colors.text.placeholder,
-    fontWeight: Typography.weight.regular,
-  },
   barTrack: {
     height: 8,
     backgroundColor: 'rgba(0,0,0,0.08)',
@@ -837,22 +647,6 @@ const piggyStyles = StyleSheet.create({
     fontSize: Typography.size.xs,
     color: Colors.text.secondary,
     marginTop: 2,
-  },
-  warningAmber: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginTop: 4,
-  },
-  warningTextAmber: {
-    fontSize: Typography.size.xs,
-    color: '#B87B14',
-    fontWeight: Typography.weight.medium,
-    flex: 1,
   },
   warningRed: {
     flexDirection: 'row',
@@ -1103,12 +897,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.bold,
     color: Colors.text.primary,
     marginBottom: 4,
-  },
-  budgetModalHint: {
-    fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
-    marginTop: -8,
-    lineHeight: 20,
   },
   modalInput: {
     backgroundColor: Colors.surfaceMuted,
