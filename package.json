@@ -15,6 +15,7 @@
     "gen:types": "supabase gen types typescript --local --schema public > src/types/supabase.ts",
     "check:storage": "node scripts/check-storage-local.mjs",
     "check:transcribe": "node scripts/check-transcribe-local.mjs",
+    "check:claude": "node scripts/check-claude-local.mjs",
     "check": "npm run typecheck && npm run typecheck:functions && npm run lint && npm run test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
