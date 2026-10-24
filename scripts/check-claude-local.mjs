@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (step 1.6).
+ * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (steps 1.6, 1.7).
  *
  * Calls the real local Edge Functions, which call Anthropic (four short
- * answers at low effort, a fraction of a cent per run):
+ * answers, two short study notes and one clarification at low effort,
+ * a few cents per run):
  *   1. checks the Anthropic key is in no tracked file;
  *   2. creates two throwaway users, A and B, and a lecture for A;
  *   3. checks login, request checks, consent (and its scope), that
  *      assistant-chat really streams, that each answer's cost is logged
  *      once (also when the student disconnects mid-answer), summarize,
- *      that B can't use A's lecture, the daily limit, and withdrawing consent;
+ *      that B can't use A's lecture, the study notes (with a photo, which
+ *      needs images consent) and clarify (step 1.7), the daily limit, and
+ *      withdrawing consent;
  *   4. deletes both users and their rows, even when a check fails.
  *
  * Local only: refuses to run unless Supabase is on 127.0.0.1 / localhost.
@@ -21,6 +24,9 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
 const env = Object.fromEntries(
@@ -44,6 +50,24 @@ const MODEL = 'claude-opus-5-5';
 const DAILY_LIMIT_USD = 3;
 const FUNCTIONS_ENV = 'supabase/functions/.env';
 const COUNT_PROMPT = 'Count from 1 to 30, one number per line, nothing else.';
+const LECTURE_TEXT = [
+  'Today we look at supply and demand.',
+  'The equilibrium price is the price where the quantity supplied equals the quantity demanded.',
+  'Price elasticity of demand is the percentage change in quantity demanded divided by the percentage change in price.',
+  'If the price is above equilibrium there is a surplus, and the price tends to fall.',
+];
+
+/** A real JPEG for the photo check: the app icon, converted with macOS sips. */
+function sampleJpeg() {
+  const dir = mkdtempSync(join(tmpdir(), 'claude-check-'));
+  try {
+    const out = join(dir, 'board.jpg');
+    execFileSync('sips', ['-s', 'format', 'jpeg', '-Z', '512', 'assets/icon.png', '--out', out], { stdio: 'ignore' });
+    return readFileSync(out);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient(url, env.SERVICE_ROLE_KEY, options);
@@ -148,6 +172,7 @@ const run = randomUUID().slice(0, 8);
 const password = `Pw-${randomUUID()}`;
 const emails = [`a-${run}@claude-check.test`, `b-${run}@claude-check.test`];
 const createdUsers = [];
+const uploadedPhotos = [];
 
 try {
   console.log('\nThe Anthropic key');
@@ -268,7 +293,66 @@ try {
   check(stolenSummary.status === 404, `summarize: B can't use A's lecture (got ${stolenSummary.status})`);
   check((await usageRows(b.id)).length === 0, 'nothing was charged to B');
 
+  console.log('\nStudy notes (step 1.7)');
+  const notesBody = { lectureId, task: 'notes', summaryLevel: 'minimal', recordingMode: 'lecture', title: 'Claude check' };
+  const noTranscript = await call(SUMMARIZE_URL, a.token, notesBody);
+  check(noTranscript.status === 409 && noTranscript.body.code === 'no_transcript', `notes before any transcript: 409 no_transcript (got ${noTranscript.status})`);
+  const badNotes = await call(SUMMARIZE_URL, a.token, { ...notesBody, summaryLevel: 'huge' });
+  check(badNotes.status === 400 && badNotes.body.code === 'invalid_request', `a bad summaryLevel is 400 (got ${badNotes.status})`);
+
+  const segments = LECTURE_TEXT.map((text, i) => ({ lecture_id: lectureId, start_ms: i * 5000, end_ms: (i + 1) * 5000, text }));
+  const seededSegments = await a.client.from('transcript_segments').insert(segments);
+  if (seededSegments.error) throw new Error(`Could not add the transcript: ${seededSegments.error.message}`);
+
+  const rowsBeforeNotes = (await usageRows(a.id)).length;
+  const notes = await call(SUMMARIZE_URL, a.token, notesBody);
+  const note = notes.body.note;
+  check(notes.status === 200 && note && typeof note.summary === 'string' && note.summary.length > 0, `notes answer JSON with a summary (got ${notes.status} ${notes.body.code ?? ''})`);
+  check(
+    note && Array.isArray(note.keyConcepts) && Array.isArray(note.formulas) && Array.isArray(note.definitions) && Array.isArray(note.tags) && Array.isArray(note.unclearParts),
+    'every field of the note has its shape (structured outputs)',
+  );
+  console.log(`    "${note?.suggestedTitle ?? '?'}": ${(note?.summary ?? '').replace(/\s+/g, ' ').slice(0, 100)}…`);
+  console.log(`    ${note?.keyConcepts?.length ?? 0} key concepts, ${notes.body.usage?.input ?? '?'} tokens in, ${notes.body.usage?.output ?? '?'} out, $${notes.body.costUsd ?? '?'}`);
+  rows = await usageRows(a.id);
+  check(rows.length === rowsBeforeNotes + 1 && rows.at(-1).operation === 'summary', 'logged once as a summary');
+
+  const photoPath = `${a.id}/${lectureId}/board.jpg`;
+  const uploaded = await a.client.storage.from('photos').upload(photoPath, sampleJpeg(), { contentType: 'image/jpeg' });
+  if (uploaded.error) throw new Error(`Could not upload the photo: ${uploaded.error.message}`);
+  uploadedPhotos.push(photoPath);
+  const mediaRow = await a.client.from('media').insert({ lecture_id: lectureId, kind: 'photo', storage_path: photoPath, mime_type: 'image/jpeg' });
+  if (mediaRow.error) throw new Error(`Could not add the media row: ${mediaRow.error.message}`);
+
+  const withMediaBody = { ...notesBody, includeMedia: true };
+  const noImagesConsent = await call(SUMMARIZE_URL, a.token, withMediaBody);
+  check(isConsentRequired(noImagesConsent) && noImagesConsent.body.scope === 'images', `with a photo but no images consent: 403 consent_required, scope images (got ${noImagesConsent.status})`);
+  await a.client.from('ai_consent').insert({ scope: 'images', policy_version: POLICY_VERSION });
+  const withPhoto = await call(SUMMARIZE_URL, a.token, withMediaBody);
+  check(withPhoto.status === 200 && withPhoto.body.note?.summary, `with images consent the photo goes along (got ${withPhoto.status} ${withPhoto.body.code ?? ''})`);
+  check(
+    withPhoto.body.usage?.input > (notes.body.usage?.input ?? Infinity),
+    `the photo reached Claude: more input tokens (${withPhoto.body.usage?.input ?? '?'} vs ${notes.body.usage?.input ?? '?'})`,
+  );
+
+  console.log('\nClarify (step 1.7)');
+  const badClarify = await call(CHAT_URL, a.token, { lectureId, mode: 'clarify', highlightedParts: [], summary: 'x' });
+  check(badClarify.status === 400 && badClarify.body.code === 'invalid_request', `clarify without parts is 400 (got ${badClarify.status})`);
+  const clarified = await chat(a.token, {
+    lectureId,
+    mode: 'clarify',
+    highlightedParts: ['The equilibrium price'],
+    summary: note?.summary ?? 'Supply and demand.',
+  });
+  const clarifyText = clarified.events.filter((e) => e.name === 'delta').map((e) => e.data.text).join('');
+  const clarifyDone = clarified.events.find((e) => e.name === 'done');
+  check(clarified.status === 200 && clarifyDone && clarifyText.trim().length > 0, `clarify streams an explanation (${clarifyText.length} characters)`);
+  console.log(`    "${clarifyText.replace(/\s+/g, ' ').trim().slice(0, 100)}…"`);
+  const rowsAfterClarify = await waitForRows(a.id, rowsBeforeNotes + 3);
+  check(rowsAfterClarify.at(-1)?.operation === 'assistant', 'clarify is logged as an assistant answer');
+
   console.log('\nDaily limit');
+  const rowsBeforeLimit = (await usageRows(a.id)).length;
   const seeded = await admin.from('ai_usage').insert({
     user_id: a.id,
     operation: 'assistant',
@@ -281,7 +365,7 @@ try {
   check(limitedChat.status === 429 && limitedChat.body?.code === 'daily_limit', `after $${DAILY_LIMIT_USD} today: assistant-chat 429 daily_limit (got ${limitedChat.status})`);
   const limitedSummary = await call(SUMMARIZE_URL, a.token, { lectureId });
   check(limitedSummary.status === 429 && limitedSummary.body.code === 'daily_limit', `and summarize 429 daily_limit (got ${limitedSummary.status})`);
-  check((await usageRows(a.id)).length === 4, 'no new ai_usage rows');
+  check((await usageRows(a.id)).length === rowsBeforeLimit + 1, 'no new ai_usage rows (only the seeded one)');
 
   console.log('\nWithdrawing consent');
   const withdrawn = await a.client
@@ -298,6 +382,10 @@ try {
   console.error(`✗ ${err.message}`);
 } finally {
   console.log('\nCleanup');
+  if (uploadedPhotos.length) {
+    const { error } = await admin.storage.from('photos').remove(uploadedPhotos);
+    check(!error, 'removed the test photo from Storage');
+  }
   for (const id of createdUsers) {
     const { error } = await admin.auth.admin.deleteUser(id);
     check(!error, `deleted test user ${id} and their rows`);

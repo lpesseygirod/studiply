@@ -82,14 +82,25 @@ export async function readyForClaude<T extends { lectureId: string }>(
   return { ok: true, db, userId, claude, value: valid.value };
 }
 
-/** The request settings both functions use, with server-side fallbacks on. */
-export function claudeParams(model: string, system: string, messages: Anthropic.Beta.BetaMessageParam[]) {
+/**
+ * The request settings both functions use, with server-side fallbacks on.
+ * `jsonSchema` makes the answer JSON of that shape (structured outputs).
+ */
+export function claudeParams(
+  model: string,
+  system: string,
+  messages: Anthropic.Beta.BetaMessageParam[],
+  options: { maxTokens?: number; jsonSchema?: Record<string, unknown> } = {},
+) {
   return {
     model,
-    max_tokens: MAX_TOKENS,
+    max_tokens: options.maxTokens ?? MAX_TOKENS,
     system,
     messages,
-    output_config: { effort: CLAUDE_EFFORT },
+    output_config: {
+      effort: CLAUDE_EFFORT,
+      ...(options.jsonSchema && { format: { type: 'json_schema' as const, schema: options.jsonSchema } }),
+    },
     betas: [FALLBACK_BETA],
     fallbacks: 'default',
   } satisfies Anthropic.Beta.MessageCreateParamsStreaming | Omit<Anthropic.Beta.MessageCreateParamsStreaming, 'stream'>;

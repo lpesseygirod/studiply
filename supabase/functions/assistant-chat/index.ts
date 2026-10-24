@@ -13,6 +13,11 @@
  * Step 1.6 skeleton: the message goes to Claude with a fixed test prompt.
  * Phase 6 adds the lecture's time windows and saves assistant_messages.
  *
+ * { lectureId, mode: 'clarify', highlightedParts, summary } (step 1.7): the
+ * old app's "clarify" — a tutor explains the highlighted parts of a note.
+ * The app sends the note's summary (it may not be saved yet); the server
+ * adds the start of the transcript. Same events as above.
+ *
  * The cost is logged once, when Claude finishes. If the student closes the
  * connection, the answer still runs to the end and is still logged:
  * Anthropic bills it either way. Never logs the message, the answer or keys.
@@ -20,8 +25,17 @@
 
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import { claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
-import { ASSISTANT_TEST_SYSTEM, CLAUDE_MODELS, sseEvent, validateChatBody } from '../_shared/claude.ts';
+import { ASSISTANT_TEST_SYSTEM, CLAUDE_MODELS, sseEvent, validateChatBody, validateSummarizeBody } from '../_shared/claude.ts';
 import { corsHeaders, fail } from '../_shared/http.ts';
+import { lectureLanguage, lectureTranscript } from '../_shared/lecture-content.ts';
+import {
+  CLARIFY_MAX_TOKENS,
+  CLARIFY_TRANSCRIPT_CHARS,
+  clarifySystemPrompt,
+  clarifyUserText,
+  validateClarifyFields,
+  type ClarifyFields,
+} from '../_shared/legacy-notes.ts';
 
 const MODEL = CLAUDE_MODELS.assistant;
 
@@ -36,20 +50,49 @@ function log(event: string, details: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: 'assistant-chat', event, ...details }));
 }
 
+/** A chat message, or with mode 'clarify' the parts to explain (no message needed). */
+function validateBody(body: unknown) {
+  const fields = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  if (fields.mode === undefined) {
+    const chat = validateChatBody(body);
+    return chat.ok ? { ok: true as const, value: { ...chat.value, clarify: null as ClarifyFields | null } } : chat;
+  }
+  if (fields.mode !== 'clarify') return { ok: false as const, status: 400 as const, code: 'invalid_request' as const, error: 'mode must be clarify.' };
+  const base = validateSummarizeBody(body);
+  if (!base.ok) return base;
+  const clarify = validateClarifyFields(fields);
+  if (!clarify.ok) return clarify;
+  return { ok: true as const, value: { lectureId: base.value.lectureId, message: '', clarify: clarify.value as ClarifyFields | null } };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
 
   let ready;
+  let system = ASSISTANT_TEST_SYSTEM;
+  let prompt = '';
+  let maxTokens: number | undefined;
   try {
-    ready = await readyForClaude(req, validateChatBody, log);
+    ready = await readyForClaude(req, validateBody, log);
+    if (!ready.ok) return ready.response;
+    const { db, value } = ready;
+    prompt = value.message;
+    if (value.clarify) {
+      const [language, transcript] = await Promise.all([
+        lectureLanguage(db, value.lectureId),
+        lectureTranscript(db, value.lectureId, CLARIFY_TRANSCRIPT_CHARS),
+      ]);
+      system = clarifySystemPrompt(language);
+      prompt = clarifyUserText(value.clarify.summary, value.clarify.highlightedParts, transcript);
+      maxTokens = CLARIFY_MAX_TOKENS;
+    }
   } catch (err) {
     log('error', { message: (err as { message?: string })?.message ?? String(err) });
     return fail(500, 'server_error', 'Something went wrong on the server. Please try again.');
   }
-  if (!ready.ok) return ready.response;
   const { claude, userId, value } = ready;
-  const { lectureId, message } = value;
+  const { lectureId } = value;
 
   const encoder = new TextEncoder();
   let controller!: ReadableStreamDefaultController<Uint8Array>;
@@ -83,7 +126,7 @@ Deno.serve(async (req) => {
 
   const work = (async () => {
     const started = Date.now();
-    const stream = claude.beta.messages.stream(claudeParams(MODEL, ASSISTANT_TEST_SYSTEM, [{ role: 'user', content: message }]));
+    const stream = claude.beta.messages.stream(claudeParams(MODEL, system, [{ role: 'user', content: prompt }], { maxTokens }));
     stream.on('text', (text) => send('delta', { text }));
 
     let final: Anthropic.Beta.BetaMessage;
