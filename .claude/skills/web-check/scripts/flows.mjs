@@ -232,6 +232,13 @@ try {
     expect(profile.default_language === 'fr', `profile language ${profile.default_language}`);
   });
 
+  await step('Security: says the data is in the cloud account, AI only after consent', async () => {
+    await b.nav(`${BASE}/settings/security`);
+    await b.waitText('stored in your Studiply account in the cloud', { timeout: 15000 });
+    expect(await b.hasText('only after you allow it'), 'no consent sentence');
+    expect(!(await b.hasText('stored on this device')), 'old text still shown');
+  });
+
   await step('Record tab starts fresh after leaving the flow', async () => {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true });
