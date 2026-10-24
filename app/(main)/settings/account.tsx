@@ -223,8 +223,8 @@ export default function AccountScreen() {
   // -------------------------------------------------------------------
   const handleDeleteAllData = () => {
     showAlert(
-      'Delete All Data',
-      'This will permanently delete all your projects, sessions, notes, and files on this device, then sign you out. This cannot be undone.',
+      'Delete data on this device',
+      'This deletes what earlier versions of Studiply saved on this iPhone, then signs you out. Your library in your Studiply account stays. Deleting the account itself comes in a later update.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -233,7 +233,7 @@ export default function AccountScreen() {
           onPress: () => {
             showAlert(
               'Are you absolutely sure?',
-              'This action is irreversible. Every note, recording, and project will be gone forever.',
+              'The projects, notes and recordings that earlier versions kept on this iPhone will be gone for good.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -423,7 +423,7 @@ export default function AccountScreen() {
         <View style={[styles.card, styles.dangerCard]}>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAllData} activeOpacity={0.75}>
             <Ionicons name="trash-outline" size={18} color={Colors.error} />
-            <Text style={styles.dangerLabel}>Delete all my data</Text>
+            <Text style={styles.dangerLabel}>Delete data on this device</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />

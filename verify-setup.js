@@ -48,9 +48,9 @@ function fileContains(filePath, text) {
   return fs.readFileSync(path.join(process.cwd(), filePath), 'utf8').includes(text);
 }
 
-function getEnvValue(key) {
-  if (!fileExists('.env')) return null;
-  const content = fs.readFileSync(path.join(process.cwd(), '.env'), 'utf8');
+function getEnvValue(key, file = '.env') {
+  if (!fileExists(file)) return null;
+  const content = fs.readFileSync(path.join(process.cwd(), file), 'utf8');
   const match = content.match(new RegExp(`^${key}=(.*)$`, 'm'));
   return match ? match[1].trim() : null;
 }
@@ -202,39 +202,44 @@ if (fileExists('app.json')) {
   );
 }
 
-// ── 5. AI KEYS (optional) ──
-console.log('\n🔑 AI Keys (optional)\n');
+// ── 5. SUPABASE AND AI KEYS ──
+// The app holds no AI key: the Edge Functions call OpenAI and Anthropic with
+// keys kept on the server. Values are checked, never printed.
+console.log('\n🔑 Supabase and AI keys\n');
 
-warn('.env file exists', fileExists('.env'), 'Optional — copy .env.example to .env to add AI keys');
-
-const openaiKey = getEnvValue('EXPO_PUBLIC_OPENAI_API_KEY');
-const anthropicKey = getEnvValue('EXPO_PUBLIC_ANTHROPIC_API_KEY');
-
-const hasOpenAI =
-  openaiKey && openaiKey !== 'your_openai_api_key_here' && openaiKey.startsWith('sk-');
-const hasAnthropic =
-  anthropicKey &&
-  anthropicKey !== 'your_anthropic_api_key_here' &&
-  anthropicKey.startsWith('sk-ant');
-
+warn('.env file exists', fileExists('.env'), 'Copy .env.example to .env and add the local Supabase URL and anon key');
+const supabaseUrl = getEnvValue('EXPO_PUBLIC_SUPABASE_URL');
+const anonKey = getEnvValue('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+warn('Supabase URL is set in .env', !!supabaseUrl, 'EXPO_PUBLIC_SUPABASE_URL — "API URL" from `supabase status`');
 warn(
-  'OpenAI API key is set',
-  hasOpenAI,
-  'Optional — without it transcription is simulated. Key from platform.openai.com',
-);
-warn(
-  'Anthropic API key is set',
-  hasAnthropic,
-  'Optional — without it note generation is simulated. Key from console.anthropic.com',
+  'Supabase anon key is set in .env',
+  !!anonKey && anonKey !== 'your_local_anon_key_here',
+  'EXPO_PUBLIC_SUPABASE_ANON_KEY — "anon key" from `supabase status`',
 );
 
-if (hasOpenAI && hasAnthropic) {
-  console.log('  🟢 AI Mode: REAL — transcription and notes use live AI');
-} else if (hasOpenAI || hasAnthropic) {
-  console.log('  🟡 AI Mode: PARTIAL — one key missing, that half is simulated');
-} else {
-  console.log('  🟠 AI Mode: SIMULATED — the app works fully; AI output is placeholder');
-}
+const oldKeys = ['EXPO_PUBLIC_OPENAI_API_KEY', 'EXPO_PUBLIC_ANTHROPIC_API_KEY'].filter((k) => getEnvValue(k) !== null);
+warn(
+  'No AI keys in .env (they belong on the server)',
+  oldKeys.length === 0,
+  `Remove ${oldKeys.join(' and ')} from .env, and revoke those keys: they were in app bundles before step 1.7`,
+);
+
+const FUNCTIONS_ENV = 'supabase/functions/.env';
+const serverKey = (key) => {
+  const value = getEnvValue(key, FUNCTIONS_ENV);
+  return !!value && !/^your_|_here$/.test(value);
+};
+warn(
+  'OpenAI key is set for the Edge Functions',
+  serverKey('OPENAI_API_KEY'),
+  `Optional — without it transcription answers "not set up". Add OPENAI_API_KEY to ${FUNCTIONS_ENV}`,
+);
+warn(
+  'Anthropic key is set for the Edge Functions',
+  serverKey('ANTHROPIC_API_KEY'),
+  `Optional — without it notes and the assistant answer "not set up". Add ANTHROPIC_API_KEY to ${FUNCTIONS_ENV}`,
+);
+console.log('  ℹ️  Without the server keys, develop with EXPO_PUBLIC_MOCK_AI=1 (simulated AI, nothing sent).');
 
 // ── 6. APP CONFIG ──
 console.log('\n⚙️  App Configuration\n');

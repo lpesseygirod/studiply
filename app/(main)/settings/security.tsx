@@ -55,7 +55,13 @@ export default function SecurityScreen() {
           <Ionicons name="person-circle-outline" size={28} color={Colors.text.secondary} />
           <View style={styles.infoText}>
             <Text style={styles.infoName}>{username}</Text>
-            <Text style={styles.infoHint}>Your data is stored on this device</Text>
+            <Text style={styles.infoHint}>
+              Your library, notes and recordings are stored in your Studiply account in the cloud (Supabase, EU),
+              protected by your password.
+            </Text>
+            <Text style={styles.infoHint}>
+              Recordings, notes and photos are sent to OpenAI or Anthropic only after you allow it.
+            </Text>
           </View>
         </View>
 
@@ -128,6 +134,8 @@ const styles = StyleSheet.create({
   infoHint: {
     fontSize: Typography.size.sm,
     color: Colors.text.secondary,
+    lineHeight: 19,
+    marginTop: 4,
   },
 
   card: {
