@@ -80,7 +80,8 @@ export default function PostSessionScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  // `mode` comes from the recording screen; the lecture has no column for it.
+  const { sessionId, mode } = useLocalSearchParams<{ sessionId: string; mode?: string }>();
 
   const [session, setSession] = useState<Session | null>(null);
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
@@ -258,7 +259,7 @@ export default function PostSessionScreen() {
       await updateSession(sessionId, { status: 'processing' });
       router.replace({
         pathname: '/record/review',
-        params: { sessionId, summaryLevel },
+        params: { sessionId, summaryLevel, mode: mode ?? session?.recording_mode ?? 'lecture' },
       });
     } catch (err: any) {
       showAlert('Error', err?.message ?? 'Could not start processing. Please try again.');
@@ -312,7 +313,7 @@ export default function PostSessionScreen() {
               </View>
               <View style={styles.metaBadge}>
                 <Text style={styles.metaBadgeText}>
-                  {MODE_LABELS[session.recording_mode] ?? session.recording_mode}
+                  {MODE_LABELS[mode || session.recording_mode] ?? session.recording_mode}
                 </Text>
               </View>
               <View style={styles.metaBadge}>

@@ -210,7 +210,8 @@ Your job:
 - Keep explanations clear and study-friendly
 ${write}
 - Number each clarification to match the highlighted parts
-- Don't repeat the original summary — only provide the additional explanations`;
+- Don't repeat the original summary — only provide the additional explanations
+- Write plain text without Markdown (no asterisks, # headings or tables): the app shows it as plain text`;
 }
 
 export function clarifyUserText(summary: string, highlightedParts: string[], transcript: string): string {

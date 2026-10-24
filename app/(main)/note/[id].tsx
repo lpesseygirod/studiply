@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -36,7 +35,6 @@ import { exportNoteToPDF } from '../../../src/services/export.service';
 import { trashSession } from '../../../src/services/trash.service';
 import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
-import { useAuth } from '../../../src/hooks/useAuth';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
 import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 
@@ -98,7 +96,6 @@ export default function NoteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   // `session` below is the lecture session; this one is the signed-in profile.
-  const { session: authSession } = useAuth();
 
   // --- Core data ---
   const [session, setSession] = useState<Session | null>(null);
@@ -252,33 +249,17 @@ export default function NoteDetailScreen() {
         .map(i => sentences[i])
         .filter(Boolean) as string[];
 
-      const userId = authSession?.user.id;
-
       const response = await clarifyContent({
+        lectureId: session.id,
         originalSummary: note.summary ?? '',
         highlightedParts: parts,
-        fullTranscript: transcript?.full_text,
-        language: session.language ?? 'en',
-        logContext: userId ? { userId, sessionId: session.id } : undefined,
       });
 
       const updated = await addClarification(note.id, parts, response);
       setClarifications(parseClarifications(updated.manual_annotations));
       setHighlightedSentences([]);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'piggy_bank_anthropic') {
-        showAlert(
-          '🐷 Claude Piggy Bank Empty',
-          'Add credits at console.anthropic.com and try again.',
-          [
-            { text: 'Open Anthropic', onPress: () => Linking.openURL('https://console.anthropic.com/settings/billing') },
-            { text: 'OK', style: 'cancel' },
-          ],
-        );
-      } else {
-        showAlert('Error', 'Could not get clarification. Please try again.');
-      }
+      showAlert('Could not clarify', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setIsClarifying(false);
     }

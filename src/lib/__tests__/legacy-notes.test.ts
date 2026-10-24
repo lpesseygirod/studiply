@@ -121,6 +121,7 @@ describe('clarify prompts', () => {
   it('writes in the lecture language when known', () => {
     expect(clarifySystemPrompt('fr')).toContain('- Write in fr');
     expect(clarifySystemPrompt(null)).toContain('same language as the summary');
+    expect(clarifySystemPrompt(null)).toContain('plain text without Markdown');
   });
 
   it('numbers the parts and sends only the start of the transcript', () => {

@@ -294,6 +294,29 @@ export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
 export const getActiveSourceFiles = getSourceFiles;
 
 // -------------------------------------------------------------------
+// getAudioChunks
+// The lecture's uploaded audio chunks in recording order, for
+// transcription (audio removed by its retention policy is left out).
+// -------------------------------------------------------------------
+export async function getAudioChunks(
+  sessionId: string,
+): Promise<{ seq: number; startMs: number; storagePath: string; transcribed: boolean }[]> {
+  const { data, error } = await supabase
+    .from('audio_chunks')
+    .select('seq, start_ms, storage_path, status')
+    .eq('lecture_id', sessionId)
+    .not('storage_path', 'is', null)
+    .order('seq');
+  if (error) throw serviceError(error, 'Could not load the recording.');
+  return data.map((c) => ({
+    seq: c.seq,
+    startMs: c.start_ms,
+    storagePath: c.storage_path as string,
+    transcribed: c.status === 'transcribed',
+  }));
+}
+
+// -------------------------------------------------------------------
 // getSourceFileCount
 // -------------------------------------------------------------------
 export async function getSourceFileCount(sessionId: string): Promise<number> {

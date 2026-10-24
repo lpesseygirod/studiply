@@ -8,7 +8,6 @@
  * mock mode is active and no credits are needed.
  */
 
-import { logAiUsage } from './ai.service';
 import { getSpendingByProvider } from './ai-usage.service';
 import { getUserSettings, upsertUserSettings } from './settings.service';
 
@@ -78,19 +77,6 @@ export async function checkAnthropicCredits(userId?: string): Promise<CreditChec
         messages: [{ role: 'user', content: 'Hi' }],
       }),
     });
-
-    // Log the cost of this ping regardless of outcome (we sent the request)
-    if (userId) {
-      logAiUsage({
-        userId,
-        sessionId: '',
-        operation: 'summarization',
-        tokensInput: 1,
-        tokensOutput: 0,
-        estimatedCostUsd: 0.001,
-        modelUsed: 'claude-haiku-4-5-20251001',
-      }).catch(() => {});
-    }
 
     if (!response.ok) {
       if (response.status === 401) return { ok: false, error: 'anthropic_invalid_key' };

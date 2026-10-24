@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Animated,
   BackHandler,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,13 +17,10 @@ import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
 import { bulkApplyRetention, getActiveSourceFiles } from '../../../src/services/source-file.service';
-import { createTranscript } from '../../../src/services/transcript.service';
 import { createNote } from '../../../src/services/note.service';
 import type { ClarificationEntry } from '../../../src/services/note.service';
-import * as FileSystem from 'expo-file-system/legacy';
 import { transcribeAudio, generateNotes, clarifyContent } from '../../../src/services/ai.service';
 import type { NoteResult, TranscriptionResult } from '../../../src/services/ai.service';
-import { isCreditError, getEstimatedBalances } from '../../../src/services/credit-check.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, SourceFile } from '../../../src/types/database';
 import { useAuth } from '../../../src/hooks/useAuth';
@@ -54,6 +50,10 @@ const RETENTION_OPTIONS: { value: RetentionPolicy; label: string; sub: string }[
   { value: 'keep_permanently', label: 'Keep forever', sub: 'Store source files indefinitely' },
 ];
 
+function recordingModeOf(value: string | undefined): Session['recording_mode'] | undefined {
+  return value === 'lecture' || value === 'standard' || value === 'discussion' ? value : undefined;
+}
+
 // -------------------------------------------------------------------
 // Component
 // -------------------------------------------------------------------
@@ -61,9 +61,11 @@ const RETENTION_OPTIONS: { value: RetentionPolicy; label: string; sub: string }[
 export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { sessionId, summaryLevel } = useLocalSearchParams<{
+  const { sessionId, summaryLevel, mode } = useLocalSearchParams<{
     sessionId: string;
     summaryLevel: string;
+    /** How it was recorded (passed along from the recording screen; not stored). */
+    mode?: string;
   }>();
   // `session` below is the lecture session; this one is the signed-in profile.
   const { session: authSession } = useAuth();
@@ -88,8 +90,8 @@ export default function ReviewScreen() {
   const [isClarifying, setIsClarifying] = useState(false);
   const instructionOpacity = useRef(new Animated.Value(1)).current;
 
-  // Low-balance warning banner (non-blocking)
-  const [lowBalanceWarning, setLowBalanceWarning] = useState<string | null>(null);
+  // "Part 2 of 3" while a long recording is transcribed chunk by chunk
+  const [chunkProgress, setChunkProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Saved transcript ref — if transcription succeeds but note generation fails,
   // we persist it so a retry only needs to re-run generateNotes.
@@ -146,106 +148,29 @@ export default function ReviewScreen() {
       setSession(s);
       setSourceFiles(files);
 
-      const userId = authSession?.user.id;
-      const logContext = userId ? { userId, sessionId } : undefined;
-
-      // ── Balance check (non-blocking) ─────────────────────────
-      if (userId) {
-        getEstimatedBalances(userId).then(bal => {
-          const openaiLow = bal.openai.status !== 'good';
-          const anthropicLow = bal.anthropic.status !== 'good';
-          if (openaiLow || anthropicLow) {
-            const worst = openaiLow ? bal.openai : bal.anthropic;
-            const label = openaiLow ? 'OpenAI' : 'Claude';
-            setLowBalanceWarning(
-              `🐷 ${label} balance is low (~$${worst.remaining.toFixed(2)} left). This operation costs ~$0.10–0.40`,
-            );
-          }
-        }).catch(() => {});
-      }
-
-      const audioFiles = files
-        .filter(f => f.file_type === 'audio')
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      if (audioFiles.length === 0) throw new Error('No audio file found for this session.');
-
       // ── Phase 1: Transcription ────────────────────────────────
-      // Skip if a previous attempt already produced a transcript.
+      // Skip if a previous attempt already produced a transcript. The
+      // server stores it, so a notes failure never loses it.
       let currentTranscription = savedTranscriptRef.current;
       if (!currentTranscription) {
         currentTranscription = await transcribeAudio({
-          audioUris: audioFiles.map(f => f.file_path),
-          language: s.language,
-          logContext,
+          lectureId: sessionId,
+          onProgress: (done, total) => setChunkProgress(total > 1 ? { done, total } : null),
         });
-
-        // Save transcript immediately — protects it even if note generation fails.
         savedTranscriptRef.current = currentTranscription;
-        setTranscription(currentTranscription);
-
-        if (userId) {
-          createTranscript({
-            userId,
-            sessionId,
-            language: currentTranscription.language,
-            fullText: currentTranscription.text,
-            segments: currentTranscription.segments,
-            confidenceScore: undefined,
-          }).catch(err => console.warn('[review] Failed to save transcript:', err.message));
-        }
-      } else {
-        setTranscription(currentTranscription);
       }
+      setTranscription(currentTranscription);
 
-      // ── Phase 2: Load photos + PDFs, then generate notes ─────
+      // ── Phase 2: Generate notes (photos and PDFs are read by the server) ─
       currentPhase = 'generating';
       setStage('generating');
 
-      const mediaFiles = files.filter(f => f.file_type !== 'audio' && !f.is_deleted);
-      const photoFiles = mediaFiles.filter(f => f.file_type === 'photo');
-      const pdfFiles   = mediaFiles.filter(f => f.file_type === 'pdf');
-
-      const imageContents: any[] = [];
-      for (const photo of photoFiles) {
-        try {
-          const fileInfo = await FileSystem.getInfoAsync(photo.file_path);
-          if (fileInfo.exists) {
-            const base64 = await FileSystem.readAsStringAsync(photo.file_path, { encoding: 'base64' });
-            imageContents.push({
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
-            });
-          }
-        } catch {
-          // Skip unreadable file
-        }
-      }
-
-      const pdfContents: any[] = [];
-      for (const pdf of pdfFiles) {
-        try {
-          const fileInfo = await FileSystem.getInfoAsync(pdf.file_path);
-          if (fileInfo.exists) {
-            const base64 = await FileSystem.readAsStringAsync(pdf.file_path, { encoding: 'base64' });
-            pdfContents.push({
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-            });
-          }
-        } catch {
-          // Skip unreadable file
-        }
-      }
-
       const note = await generateNotes({
-        transcript: currentTranscription.text,
+        lectureId: sessionId,
         summaryLevel: (summaryLevel as 'minimal' | 'standard' | 'extra') ?? 'standard',
-        sessionTitle: s.title,
-        language: s.language,
-        recordingMode: s.recording_mode,
-        imageContents,
-        pdfContents,
-        logContext,
+        title: s.title,
+        recordingMode: recordingModeOf(mode) ?? s.recording_mode,
+        includeMedia: files.some(f => f.file_type === 'photo' || f.file_type === 'pdf'),
       });
       setNoteResult(note);
 
@@ -256,34 +181,15 @@ export default function ReviewScreen() {
         useNativeDriver: false,
       }).start(() => setScreenState('review'));
     } catch (err: unknown) {
+      // Messages from the functions (daily limit, consent, network…) are written for the student.
       const msg = err instanceof Error ? err.message : 'Something went wrong.';
       setErrorStage(currentPhase);
       setErrorMessage(msg);
       setScreenState('error');
-
-      if (isCreditError(msg)) {
-        if (currentPhase === 'transcribing') {
-          showAlert(
-            '🐷 OpenAI Piggy Bank Empty',
-            'Your OpenAI account has run out of credits. Your recording is saved safely — add credits and tap Retry.',
-            [
-              { text: 'Open OpenAI', onPress: () => Linking.openURL('https://platform.openai.com/settings/organization/billing') },
-              { text: 'OK', style: 'cancel' },
-            ],
-          );
-        } else {
-          showAlert(
-            '🐷 Claude Piggy Bank Empty',
-            'Your Anthropic account has run out of credits. Your recording and transcript are saved — add credits and tap Retry Notes.',
-            [
-              { text: 'Open Anthropic', onPress: () => Linking.openURL('https://console.anthropic.com/settings/billing') },
-              { text: 'OK', style: 'cancel' },
-            ],
-          );
-        }
-      }
+    } finally {
+      setChunkProgress(null);
     }
-  }, [sessionId, summaryLevel, progressAnim]);
+  }, [sessionId, summaryLevel, mode, progressAnim]);
 
   useEffect(() => {
     runProcessing();
@@ -320,9 +226,9 @@ export default function ReviewScreen() {
         .filter(Boolean) as string[];
 
       const response = await clarifyContent({
+        lectureId: session.id,
         originalSummary: noteResult.summary ?? '',
         highlightedParts: parts,
-        language: session.language ?? 'en',
       });
 
       setReviewClarifications(prev => [
@@ -331,19 +237,7 @@ export default function ReviewScreen() {
       ]);
       setHighlightedSentences([]);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'piggy_bank_anthropic') {
-        showAlert(
-          '🐷 Claude Piggy Bank Empty',
-          'Add credits at console.anthropic.com and try again.',
-          [
-            { text: 'Open Anthropic', onPress: () => Linking.openURL('https://console.anthropic.com/settings/billing') },
-            { text: 'OK', style: 'cancel' },
-          ],
-        );
-      } else {
-        showAlert('Error', 'Could not get clarification. Please try again.');
-      }
+      showAlert('Could not clarify', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setIsClarifying(false);
     }
@@ -384,6 +278,7 @@ export default function ReviewScreen() {
         sessionId,
         title: noteResult.suggestedTitle,
         summaryLevel: (summaryLevel as 'minimal' | 'standard' | 'extra') ?? 'standard',
+        recordingMode: recordingModeOf(mode) ?? session.recording_mode,
         summary: noteResult.summary,
         keyConcepts: noteResult.keyConcepts,
         formulas: noteResult.formulas,
@@ -444,6 +339,9 @@ export default function ReviewScreen() {
           <View style={styles.processingCard}>
             <Text style={styles.stageLabel}>
               {stage === 'transcribing' ? 'Transcribing audio…' : 'Generating notes…'}
+              {stage === 'transcribing' && chunkProgress
+                ? ` (part ${Math.min(chunkProgress.done + 1, chunkProgress.total)} of ${chunkProgress.total})`
+                : ''}
             </Text>
             <Text style={styles.stageDetail}>
               {stage === 'transcribing'
@@ -531,13 +429,6 @@ export default function ReviewScreen() {
         <FlowCloseButton onPress={confirmLeave} />
         <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>AI Notes</Text>
-
-        {/* Low-balance warning banner */}
-        {lowBalanceWarning && (
-          <View style={styles.lowBalanceBanner}>
-            <Text style={styles.lowBalanceBannerText}>{lowBalanceWarning}</Text>
-          </View>
-        )}
 
         {/* Suggested title banner */}
         <View style={styles.titleBanner}>
