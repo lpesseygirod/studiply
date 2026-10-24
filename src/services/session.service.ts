@@ -1,9 +1,33 @@
-import { all, first, run } from '../lib/db';
-import { buildSet, mapSession, newId, now, type SessionRow } from '../lib/mappers';
+import { supabase } from '../lib/supabase';
+import {
+  languageToDb,
+  lectureToSession,
+  readLegacyNote,
+  serviceError,
+  statusToDb,
+  type LectureFileRow,
+} from '../lib/cloudRows';
+import type { Json } from '../types/supabase';
 import type { Session } from '../types/database';
+
+/**
+ * A session is a lecture in the step 1.2 schema: a `files` row (kind
+ * lecture: title, course, folder, Trash) plus a `lectures` row with the same
+ * id (language, status, duration, audio retention). Recording mode has no
+ * column; it is read from the lecture's note and otherwise 'lecture'.
+ */
+
+const LECTURE_SELECT = '*, lectures(*)';
+const PROJECT_FILES_TITLE = 'Project Files';
+
+function toSessions(rows: unknown[]): Session[] {
+  return (rows as LectureFileRow[]).map((row) => lectureToSession(row));
+}
 
 // -------------------------------------------------------------------
 // createSession
+// The file first, then its lecture. If the lecture can't be created the
+// file is removed again, so no half-made lecture shows in the library.
 // -------------------------------------------------------------------
 export async function createSession(params: {
   userId: string;
@@ -13,31 +37,40 @@ export async function createSession(params: {
   recordingMode: 'lecture' | 'standard' | 'discussion';
   language: string;
 }): Promise<Session> {
-  const id = newId();
-  const timestamp = now();
+  const { data: file, error } = await supabase
+    .from('files')
+    .insert({
+      kind: 'lecture',
+      title: params.title.trim(),
+      course_id: params.projectId ?? null,
+      folder_id: params.folderId ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw serviceError(error, 'Could not start the recording.');
 
-  await run(
-    `INSERT INTO sessions (id, user_id, project_id, folder_id, title, recording_mode, language,
-                           status, duration_seconds, is_deleted, deleted_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'recording', NULL, 0, NULL, ?, ?)`,
-    [
-      id,
-      params.userId,
-      params.projectId ?? null,
-      params.folderId ?? null,
-      params.title.trim(),
-      params.recordingMode,
-      params.language,
-      timestamp,
-      timestamp,
-    ],
-  );
+  const { data: lecture, error: lectureError } = await supabase
+    .from('lectures')
+    .insert({
+      id: file.id,
+      language: languageToDb(params.language),
+      status: 'recording',
+      recorded_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+  if (lectureError) {
+    await supabase.from('files').delete().eq('id', file.id);
+    throw serviceError(lectureError, 'Could not start the recording.');
+  }
 
-  return getSession(id);
+  return lectureToSession({ ...file, lectures: lecture }, params.recordingMode);
 }
 
 // -------------------------------------------------------------------
 // updateSession
+// Title, project and folder are on the file; language, status and
+// duration on the lecture. recording_mode is not stored (see top).
 // -------------------------------------------------------------------
 export async function updateSession(
   sessionId: string,
@@ -54,18 +87,30 @@ export async function updateSession(
     >
   >,
 ): Promise<Session> {
-  const set = buildSet({
+  const filePatch = {
     title: updates.title,
-    recording_mode: updates.recording_mode,
-    language: updates.language,
-    status: updates.status,
-    duration_seconds: updates.duration_seconds,
-    project_id: updates.project_id,
+    course_id: updates.project_id,
     folder_id: updates.folder_id,
-    updated_at: now(),
-  });
-  if (set) {
-    await run(`UPDATE sessions SET ${set.clause} WHERE id = ?`, [...set.values, sessionId]);
+  };
+  const lecturePatch = {
+    language: updates.language === undefined ? undefined : languageToDb(updates.language),
+    status: updates.status === undefined ? undefined : statusToDb(updates.status),
+    duration_ms:
+      updates.duration_seconds === undefined
+        ? undefined
+        : updates.duration_seconds === null
+          ? null
+          : Math.round(updates.duration_seconds * 1000),
+  };
+  const has = (patch: object) => Object.values(patch).some((v) => v !== undefined);
+
+  if (has(filePatch)) {
+    const { error } = await supabase.from('files').update(filePatch).eq('id', sessionId);
+    if (error) throw serviceError(error, 'Could not save the lecture.');
+  }
+  if (has(lecturePatch)) {
+    const { error } = await supabase.from('lectures').update(lecturePatch).eq('id', sessionId);
+    if (error) throw serviceError(error, 'Could not save the lecture.');
   }
   return getSession(sessionId);
 }
@@ -74,9 +119,21 @@ export async function updateSession(
 // getSession
 // -------------------------------------------------------------------
 export async function getSession(sessionId: string): Promise<Session> {
-  const row = await first<SessionRow>(`SELECT * FROM sessions WHERE id = ?`, [sessionId]);
-  if (!row) throw new Error('Session not found.');
-  return mapSession(row);
+  const { data, error } = await supabase
+    .from('files')
+    .select(`${LECTURE_SELECT}, summaries(result, created_at)`)
+    .eq('id', sessionId)
+    .eq('kind', 'lecture')
+    .maybeSingle();
+  if (error) throw serviceError(error, 'Could not load the lecture.');
+  if (!data) throw new Error('Session not found.');
+
+  const { summaries, ...row } = data as LectureFileRow & {
+    summaries: { result: Json | null; created_at: string }[] | null;
+  };
+  const latest = [...(summaries ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const mode = latest.map((s) => readLegacyNote(s.result)?.recordingMode).find(Boolean);
+  return lectureToSession(row, mode ?? 'lecture');
 }
 
 // -------------------------------------------------------------------
@@ -89,101 +146,105 @@ export async function getSessionsByProject(
   projectId: string,
   folderId?: string | null,
 ): Promise<Session[]> {
-  let sql = `SELECT * FROM sessions WHERE project_id = ? AND is_deleted = 0`;
-  const params: (string | null)[] = [projectId];
+  let query = supabase
+    .from('files')
+    .select(LECTURE_SELECT)
+    .eq('kind', 'lecture')
+    .eq('course_id', projectId)
+    .is('deleted_at', null);
 
-  if (folderId !== undefined) {
-    if (folderId === null) {
-      sql += ` AND folder_id IS NULL`;
-    } else {
-      sql += ` AND folder_id = ?`;
-      params.push(folderId);
-    }
-  }
+  if (folderId === null) query = query.is('folder_id', null);
+  else if (folderId !== undefined) query = query.eq('folder_id', folderId);
 
-  sql += ` ORDER BY updated_at DESC`;
-
-  const rows = await all<SessionRow>(sql, params);
-  return rows.map(mapSession);
+  const { data, error } = await query.order('updated_at', { ascending: false });
+  if (error) throw serviceError(error, 'Could not load the lectures.');
+  return toSessions(data);
 }
 
 // -------------------------------------------------------------------
 // getSessionsByFolder
 // -------------------------------------------------------------------
 export async function getSessionsByFolder(folderId: string): Promise<Session[]> {
-  const rows = await all<SessionRow>(
-    `SELECT * FROM sessions
-      WHERE folder_id = ? AND is_deleted = 0
-      ORDER BY updated_at DESC`,
-    [folderId],
-  );
-  return rows.map(mapSession);
+  const { data, error } = await supabase
+    .from('files')
+    .select(LECTURE_SELECT)
+    .eq('kind', 'lecture')
+    .eq('folder_id', folderId)
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false });
+  if (error) throw serviceError(error, 'Could not load the lectures.');
+  return toSessions(data);
 }
 
 // -------------------------------------------------------------------
 // moveSession — move to a different project/folder
+// Inside a folder the database takes the course from that folder.
 // -------------------------------------------------------------------
 export async function moveSession(
   sessionId: string,
   projectId: string,
   folderId: string | null,
 ): Promise<void> {
-  await run(
-    `UPDATE sessions SET project_id = ?, folder_id = ?, updated_at = ? WHERE id = ?`,
-    [projectId, folderId, now(), sessionId],
-  );
+  const { error } = await supabase
+    .from('files')
+    .update({ course_id: projectId, folder_id: folderId })
+    .eq('id', sessionId);
+  if (error) throw serviceError(error, 'Could not move the lecture.');
 }
 
 // -------------------------------------------------------------------
 // getOrCreateProjectUploadSession
-// Returns (or creates) a dedicated 'completed' session used to hold
+// Returns (or creates) a dedicated 'completed' lecture used to hold
 // files uploaded directly to a project, not tied to any recording.
 // -------------------------------------------------------------------
 export async function getOrCreateProjectUploadSession(
-  userId: string,
+  _userId: string,
   projectId: string,
 ): Promise<Session> {
-  const existing = await first<SessionRow>(
-    `SELECT * FROM sessions
-      WHERE user_id = ? AND project_id = ? AND status = 'completed'
-        AND title = 'Project Files' AND is_deleted = 0
-      LIMIT 1`,
-    [userId, projectId],
-  );
-  if (existing) return mapSession(existing);
+  const { data, error } = await supabase
+    .from('files')
+    .select(LECTURE_SELECT)
+    .eq('kind', 'lecture')
+    .eq('course_id', projectId)
+    .eq('title', PROJECT_FILES_TITLE)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error) throw serviceError(error, 'Could not prepare the project files.');
+  if (data.length > 0) return toSessions(data)[0];
 
-  const id = newId();
-  const timestamp = now();
-
-  await run(
-    `INSERT INTO sessions (id, user_id, project_id, folder_id, title, recording_mode, language,
-                           status, duration_seconds, is_deleted, deleted_at, created_at, updated_at)
-     VALUES (?, ?, ?, NULL, 'Project Files', 'standard', 'en', 'completed', NULL, 0, NULL, ?, ?)`,
-    [id, userId, projectId, timestamp, timestamp],
-  );
-
-  return getSession(id);
+  const session = await createSession({
+    userId: _userId,
+    title: PROJECT_FILES_TITLE,
+    projectId,
+    recordingMode: 'standard',
+    language: 'en',
+  });
+  return updateSession(session.id, { status: 'completed' });
 }
 
 // -------------------------------------------------------------------
 // getRecentSessions
 // -------------------------------------------------------------------
-export async function getRecentSessions(userId: string, limit = 10): Promise<Session[]> {
-  const rows = await all<SessionRow>(
-    `SELECT * FROM sessions
-      WHERE user_id = ? AND is_deleted = 0
-      ORDER BY updated_at DESC
-      LIMIT ?`,
-    [userId, limit],
-  );
-  return rows.map(mapSession);
+export async function getRecentSessions(_userId: string, limit = 10): Promise<Session[]> {
+  const { data, error } = await supabase
+    .from('files')
+    .select(LECTURE_SELECT)
+    .eq('kind', 'lecture')
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  if (error) throw serviceError(error, 'Could not load your recent lectures.');
+  return toSessions(data);
 }
 
 // -------------------------------------------------------------------
 // deleteSession
-// Deletes the session; SQLite foreign keys cascade to transcripts,
-// notes and source_files (PRAGMA foreign_keys is ON — see lib/db.ts).
+// Deletes the lecture file; the database cascades to the lecture, its
+// transcript, notes, chunks and media rows. Storage files are removed by
+// trash.service's permanent delete, which reads their paths first.
 // -------------------------------------------------------------------
 export async function deleteSession(sessionId: string): Promise<void> {
-  await run(`DELETE FROM sessions WHERE id = ?`, [sessionId]);
+  const { error } = await supabase.from('files').delete().eq('id', sessionId);
+  if (error) throw serviceError(error, 'Could not delete the lecture.');
 }
