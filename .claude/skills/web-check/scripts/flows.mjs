@@ -158,17 +158,23 @@ try {
     await b.waitText('Post-Session', { timeout: 15000 });
   });
 
-  await step('Review: Generate → Library asks before leaving, recording stays', async () => {
+  await step('Review: "Not now" sends nothing, keeps the recording, Library leaves', async () => {
     await b.click('GENERATE NOTES');
-    await b.sleep(2500);
-    await b.shot('20-review');
-    await b.click('Library', { exact: true });
-    const asked = await b.hasText('Leave without notes?');
+    // A new account is asked before anything goes to OpenAI (real AI). The
+    // simulated pipeline (EXPO_PUBLIC_MOCK_AI=1) asks nothing and writes notes.
+    const asked = await b.waitText('Send the recording to OpenAI?', { timeout: 15000 }).then(() => true, () => false);
     if (asked) {
-      await b.shot('21-review-leave');
-      await b.click('Leave', { exact: true });
+      await b.shot('20-consent');
+      await b.click('Not now', { exact: true });
+      await b.waitText('Nothing was sent', { timeout: 5000 });
+      await b.shot('21-not-now');
+      const { count: usage } = await admin.from('ai_usage').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+      const { count: consent } = await admin.from('ai_consent').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+      expect(usage === 0 && consent === 0, `after Not now: ${usage} usage rows, ${consent} consent rows`);
     }
-    await b.sleep(1200);
+    await b.click('Library', { exact: true });
+    if (await b.hasText('Leave without notes?')) await b.click('Leave', { exact: true });
+    for (let i = 0; i < 20 && (await b.evaluate('location.pathname')) !== '/library'; i++) await b.sleep(250);
     const url = await b.evaluate('location.pathname');
     expect(url === '/library', `url ${url} (asked: ${asked})`);
     const { count } = await admin.from('files').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'lecture').is('deleted_at', null);
@@ -189,6 +195,41 @@ try {
     await b.waitText('cannot be recovered', { exact: false, timeout: 3000 }).catch(() => {});
     await b.shot('23-empty-confirm');
     await b.click('Cancel');
+  });
+
+  await step('Settings: AI usage banner (no provider keys or pings)', async () => {
+    await b.nav(`${BASE}/settings`);
+    await b.waitText('AI today:', { timeout: 15000 });
+    expect(!(await b.hasText('piggy', false)) && !(await b.hasText('API keys', false)), 'old key/credit text still shown');
+    await b.sleep(2500); // splash after the reload
+    await b.shot('24-settings-banner');
+  });
+
+  await step('Manage Account: usage today against the daily limits', async () => {
+    await b.nav(`${BASE}/settings/account`);
+    await b.waitText('AI USAGE TODAY', { timeout: 15000 });
+    expect(await b.hasText('of 6 h'), 'no transcription allowance');
+    expect(await b.hasText('of $3'), 'no Claude allowance');
+    expect(!(await b.hasText('Deposited')), 'the deposit editor is still there');
+    await b.sleep(2500); // splash after the reload
+    await b.shot('25-account-usage');
+  });
+
+  await step('General: settings saved on this device, language in the profile', async () => {
+    await b.nav(`${BASE}/settings/general`);
+    await b.waitText('Default summary level');
+    await b.click('Detailed', { exact: true });
+    await b.sleep(800);
+    await b.click('Default transcription language');
+    await b.click('French', { exact: true });
+    await b.sleep(1000);
+    await b.nav(`${BASE}/settings/general`);
+    await b.waitText('Default summary level');
+    const stored = await b.evaluate(`localStorage.getItem('studiply.settings.${user.id}')`);
+    expect(stored && JSON.parse(stored).default_summary_level === 'extra', `stored: ${stored}`);
+    expect(await b.hasText('French', true), 'language not shown after reload');
+    const { data: profile } = await admin.from('profiles').select('default_language').eq('id', user.id).single();
+    expect(profile.default_language === 'fr', `profile language ${profile.default_language}`);
   });
 
   await step('Record tab starts fresh after leaving the flow', async () => {
