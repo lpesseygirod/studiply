@@ -16,7 +16,6 @@
 import { first, run, transaction } from '../lib/db';
 import { now } from '../lib/mappers';
 import { deleteUserStorage } from './storage.service';
-import { autoCleanTrash } from './trash.service';
 import { generateInitials } from '../utils/initials';
 
 // -------------------------------------------------------------------
@@ -42,9 +41,6 @@ export async function ensureLocalProfile(userId: string, name: string): Promise<
       );
     });
   }
-
-  // Fire-and-forget: clean up items trashed > 30 days ago
-  autoCleanTrash(userId).catch(() => {});
 }
 
 // -------------------------------------------------------------------

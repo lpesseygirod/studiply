@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { getProfile, signOut as authSignOut } from '../services/auth.service';
 import { ensureLocalProfile } from '../services/localProfile';
+import { autoCleanTrash } from '../services/trash.service';
 import type { Profile } from '../types/database';
 
 // -------------------------------------------------------------------
@@ -42,6 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('Could not prepare the local profile:', err);
     }
+    // Fire-and-forget: clean up items trashed > 30 days ago.
+    autoCleanTrash(p.id).catch(() => {});
     setProfile(p);
   }, []);
 

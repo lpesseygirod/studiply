@@ -34,7 +34,6 @@ function typeLabel(type: TrashItem['type']): string {
     case 'project': return 'Project';
     case 'session': return 'Session';
     case 'folder':  return 'Folder';
-    case 'note':    return 'Note';
   }
 }
 
@@ -43,7 +42,6 @@ function typeIcon(type: TrashItem['type']): React.ComponentProps<typeof Ionicons
     case 'project': return 'folder';
     case 'session': return 'mic-outline';
     case 'folder':  return 'folder-open-outline';
-    case 'note':    return 'document-text-outline';
   }
 }
 
