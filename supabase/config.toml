@@ -431,3 +431,9 @@ enabled = true
 # again itself.
 [functions.transcribe-chunk]
 verify_jwt = true
+
+[functions.assistant-chat]
+verify_jwt = true
+
+[functions.summarize]
+verify_jwt = true

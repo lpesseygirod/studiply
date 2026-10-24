@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "typecheck:functions": "deno check --no-lock supabase/functions/*/index.ts",
+    "typecheck:functions": "deno check --no-lock --node-modules-dir=none supabase/functions/*/index.ts",
     "lint": "expo lint",
     "test": "jest",
     "test:db": "supabase test db --local",
