@@ -347,6 +347,10 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
+# Studiply: Google sign-in is off on the remote project until we decide on it.
+[auth.external.google]
+enabled = false
+
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
 [auth.web3.solana]
@@ -437,3 +441,23 @@ verify_jwt = true
 
 [functions.summarize]
 verify_jwt = true
+
+# Remote project Studiply (eu-west-1). These values replace the ones above only
+# for `supabase config push` / `config diff` against that project, so local-only
+# settings (fast test emails, local pool sizes, vector buckets) don't reach it.
+[remotes.production]
+project_id = "xmymneartjmdsawlwzyl"
+
+[remotes.production.auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+
+[remotes.production.auth.email]
+max_frequency = "60s"
+
+[remotes.production.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.production.storage.vector]
+enabled = false
