@@ -1,5 +1,5 @@
+import { CONSENT_POLICY_VERSION } from '../../../supabase/functions/_shared/policy';
 import {
-  CONSENT_POLICY_VERSION,
   DAILY_LIMIT_SECONDS,
   costUsd,
   languageCode,

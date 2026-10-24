@@ -20,12 +20,6 @@ export const PRICE_PER_MINUTE_USD = 0.006;
 /** Placeholder until plans and server-enforced limits arrive in step 10.2. */
 export const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 
-/**
- * Consent rows must carry this version. Step 10.1 gives the real consent
- * text a new version, so consent given during development stops counting.
- */
-export const CONSENT_POLICY_VERSION = 'dev-2026-10';
-
 /** OpenAI's upload limit, same as the audio-chunks bucket. */
 export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 

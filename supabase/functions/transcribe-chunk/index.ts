@@ -12,14 +12,14 @@
  *
  * Reads and writes the student's rows with a client acting as the student,
  * so RLS applies; only ai_usage, which students can't write, uses the
- * service role. Never logs audio, transcript text or keys.
+ * service role (_shared/guard.ts). Never logs audio, transcript text or keys.
  */
 
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { hasConsent, logUsage, ownLecture, signedIn, usedToday } from '../_shared/guard.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { transcribe } from '../_shared/openai.ts';
 import {
-  CONSENT_POLICY_VERSION,
   DAILY_LIMIT_SECONDS,
   MAX_AUDIO_BYTES,
   TRANSCRIBE_MODEL,
@@ -30,10 +30,6 @@ import {
 } from '../_shared/transcript.ts';
 
 const BUCKET = 'audio-chunks';
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } };
 
 function log(event: string, details: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: 'transcribe-chunk', event, ...details }));
@@ -55,15 +51,9 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
 
   // 1. Signed in
-  const authHeader = req.headers.get('Authorization') ?? '';
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-  const db = createClient(SUPABASE_URL, ANON_KEY, {
-    ...clientOptions,
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: auth, error: authError } = await db.auth.getUser(token);
-  if (authError || !auth.user) return fail(401, 'not_signed_in', 'Please sign in again.');
-  const userId = auth.user.id;
+  const caller = await signedIn(req);
+  if (!caller.ok) return caller.response;
+  const { db, userId } = caller;
 
   const openaiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiKey) {
@@ -79,38 +69,16 @@ Deno.serve(async (req) => {
 
   try {
     // 3. The user's own lecture (RLS hides everyone else's)
-    const { data: lecture, error: lectureError } = await db
-      .from('lectures')
-      .select('id, language')
-      .eq('id', lectureId)
-      .maybeSingle();
-    if (lectureError) throw lectureError;
+    const lecture = await ownLecture(db, lectureId);
     if (!lecture) return fail(404, 'lecture_not_found', 'That lecture was not found.');
 
     // 4. Consent to send audio to OpenAI (Apple 5.1.2(i)), before anything leaves the server
-    const { data: consent, error: consentError } = await db
-      .from('ai_consent')
-      .select('id')
-      .eq('scope', 'transcription')
-      .eq('policy_version', CONSENT_POLICY_VERSION)
-      .is('withdrawn_at', null)
-      .limit(1);
-    if (consentError) throw consentError;
-    if (!consent.length) {
+    if (!(await hasConsent(db, 'transcription'))) {
       return fail(403, 'consent_required', 'Allow transcription in Settings before Studiply sends audio to OpenAI.');
     }
 
-    // 5. Daily limit over the last 24 hours. Fine below the API's 1000-row cap:
-    // 6 hours of 30-second chunks is 720 rows, and no rows are added once it's reached.
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: usage, error: usageError } = await db
-      .from('ai_usage')
-      .select('audio_seconds')
-      .eq('operation', 'transcription')
-      .gte('created_at', since);
-    if (usageError) throw usageError;
-    const usedSeconds = usage.reduce((sum, row) => sum + Number(row.audio_seconds), 0);
-    if (usedSeconds >= DAILY_LIMIT_SECONDS) {
+    // 5. Daily limit over the last 24 hours
+    if ((await usedToday(db, ['transcription'], 'audio_seconds')) >= DAILY_LIMIT_SECONDS) {
       log('daily_limit', { lectureId, seq });
       return fail(429, 'daily_limit', 'You have reached today’s transcription limit. Try again tomorrow.');
     }
@@ -145,8 +113,7 @@ Deno.serve(async (req) => {
     const audioSeconds = Math.round((result.verbose.duration ?? 0) * 100) / 100;
 
     // 9. Log the cost first, so it is counted even if saving fails below
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
-    const { error: costError } = await admin.from('ai_usage').insert({
+    await logUsage({
       user_id: userId,
       lecture_id: lectureId,
       operation: 'transcription',
@@ -155,7 +122,6 @@ Deno.serve(async (req) => {
       audio_seconds: audioSeconds,
       cost_usd: costUsd(audioSeconds),
     });
-    if (costError) throw costError;
 
     // 10. Save the chunk and replace its segments
     const { data: chunk, error: chunkError } = await db
