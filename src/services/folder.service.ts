@@ -112,11 +112,16 @@ export async function renameFolder(folderId: string, name: string): Promise<void
 }
 
 // -------------------------------------------------------------------
-// moveFolder — change parent (within same project)
+// moveFolder — change parent, and the project when one is given
+// With a parent folder, the database takes the course from that parent;
+// at a course's top level (parent null) the course must be sent, or the
+// folder would stay in its old course. The database moves the folder's
+// subfolders and files to the new course too.
 // -------------------------------------------------------------------
 export async function moveFolder(
   folderId: string,
   newParentFolderId: string | null,
+  newProjectId?: string,
 ): Promise<void> {
   if (newParentFolderId === folderId) {
     throw new Error("A folder can't be moved into itself.");
@@ -124,7 +129,11 @@ export async function moveFolder(
 
   const { error } = await supabase
     .from('folders')
-    .update({ parent_id: newParentFolderId })
+    .update(
+      newProjectId === undefined
+        ? { parent_id: newParentFolderId }
+        : { parent_id: newParentFolderId, course_id: newProjectId },
+    )
     .eq('id', folderId);
   // The database refuses a move into one of the folder's own subfolders,
   // which would detach that whole subtree into an unreachable cycle.

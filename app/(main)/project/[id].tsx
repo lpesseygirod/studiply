@@ -46,6 +46,7 @@ import { requestCameraPermission, requestMediaLibraryPermission } from '../../..
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import UndoToast from '../../../src/components/UndoToast';
 import MoveToModal from '../../../src/components/MoveToModal';
+import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 
 // -------------------------------------------------------------------
@@ -152,12 +153,9 @@ export default function ProjectDetailScreen() {
       const noteIds = await getSessionsWithNotes(ids);
       setSessionNoteIds(noteIds);
 
-      // Initialize breadcrumbs with project root on first load
-      setBreadcrumbs(prev =>
-        prev.length === 0
-          ? [{ id: null, name: p.name, type: 'project' }]
-          : prev
-      );
+      // The root crumb always shows the project's current name (it may
+      // have been renamed elsewhere); the folder crumbs below it stay.
+      setBreadcrumbs(prev => withProjectRoot(prev, p.name));
     } catch {
       setError('Could not load project.');
     } finally {
@@ -165,9 +163,34 @@ export default function ProjectDetailScreen() {
     }
   }, [id]);
 
+  // This screen stays mounted when the student leaves it, so opening
+  // another project must start from that project's root, not from the
+  // previous project's breadcrumbs and lists.
   useEffect(() => {
+    setBreadcrumbs([]);
+    setProject(null);
+    setFolders([]);
+    setSessions([]);
+    setLoading(true);
     fetchData(null);
   }, [id]);
+
+  // Coming back to the screen (e.g. after a rename in Library) reloads the
+  // level the student is on. The first focus is the initial load above.
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
+  const currentFolderIdRef = useRef(currentFolderId);
+  currentFolderIdRef.current = currentFolderId;
+  const firstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+        return;
+      }
+      fetchDataRef.current(currentFolderIdRef.current);
+    }, [])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -310,8 +333,8 @@ export default function ProjectDetailScreen() {
     setShowMoveFolderModal(false);
     try {
       const { moveFolder } = await import('../../../src/services/folder.service');
-      await moveFolder(movingFolderId, target.folderId);
-      setFolders(prev => prev.filter(f => f.id !== movingFolderId));
+      await moveFolder(movingFolderId, target.folderId, target.projectId);
+      await fetchData(currentFolderId);
     } catch {
       Alert.alert('Error', 'Could not move folder.');
     } finally {
@@ -472,7 +495,7 @@ export default function ProjectDetailScreen() {
     setShowMoveModal(false);
     try {
       await moveSession(movingSessionId, target.projectId, target.folderId);
-      setSessions(prev => prev.filter(s => s.id !== movingSessionId));
+      await fetchData(currentFolderId);
     } catch {
       Alert.alert('Error', 'Could not move session.');
     } finally {
