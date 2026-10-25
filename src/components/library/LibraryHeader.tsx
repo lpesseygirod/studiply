@@ -1,9 +1,10 @@
 import { Fragment } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { GestureDropTarget } from '../../lib/dnd/GestureDrag';
 import type { DropTarget } from '../../lib/dnd/rules';
 import { useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
 import { SORT_LABELS, type LibrarySort } from '../../utils/libraryGrid';
@@ -109,19 +110,24 @@ export function LibraryHeader({
 function Crumb({ name, onPress, target, dnd }: { name: string; onPress: () => void; target: DropTarget | null; dnd: DropHandlers }) {
   const styles = useThemedStyles(makeStyles);
   const drop = useDropZone(target, dnd);
-  return (
+  const crumb = (hoverOk: boolean) => (
     <Pressable
       ref={drop.ref as never}
       onPress={onPress}
       accessibilityRole="link"
       hitSlop={6}
-      style={[styles.crumb, drop.hover === 'ok' && styles.crumbDropOk]}
+      style={[styles.crumb, hoverOk && styles.crumbDropOk]}
     >
       <Text style={styles.crumbMuted} numberOfLines={1}>
         {name}
       </Text>
     </Pressable>
   );
+  // iPhone: the gesture drag's target (the laptop's is the browser drag above).
+  if (Platform.OS !== 'web' && target) {
+    return <GestureDropTarget target={target}>{(hover) => crumb(!!hover?.ok)}</GestureDropTarget>;
+  }
+  return crumb(drop.hover === 'ok');
 }
 
 const makeStyles = (c: ThemeColors) =>

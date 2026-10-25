@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { DraggableView, GestureDropTarget } from '../../lib/dnd/GestureDrag';
 import type { Dragged, DropTarget } from '../../lib/dnd/rules';
 import { useDragSource, useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
 import { isEditable } from '../../lib/shortcuts';
@@ -216,18 +217,9 @@ function Entry({
   const meta = item.id === '__new-folder__' ? '' : tileMeta(item);
   const label = `${item.title}, ${meta}`;
 
-  if (view === 'list') {
-    return (
-      <Pressable
-        ref={ref as never}
-        onPress={onPress}
-        onLongPress={menu.onLongPress}
-        delayLongPress={menu.delayLongPress}
-        style={[styles.row, !last && styles.rowDivider, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        testID={`entry-${item.id}`}
-      >
+  const content =
+    view === 'list' ? (
+      <>
         <View style={styles.rowIcon}>
           <Ionicons name={icon.name} size={20} color={icon.color} />
         </View>
@@ -240,7 +232,50 @@ function Entry({
           {!!meta && <Text style={styles.meta}>{meta}</Text>}
         </View>
         <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
-      </Pressable>
+      </>
+    ) : (
+      <>
+        <View style={styles.tileIcon}>
+          {thumbnail ? (
+            <Image source={{ uri: thumbnail }} style={styles.thumb} resizeMode="cover" />
+          ) : (
+            <Ionicons name={icon.name} size={44} color={icon.color} />
+          )}
+          {item.type === 'pdf' && <Text style={styles.pdfBadge}>PDF</Text>}
+        </View>
+        {nameEditing ?? (
+          <Text style={styles.tileTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+        )}
+        {!!meta && (
+          <Text style={styles.meta} numberOfLines={1}>
+            {meta}
+          </Text>
+        )}
+      </>
+    );
+  const box = view === 'list' ? [styles.row, !last && styles.rowDivider] : [styles.tile, { width }];
+  const testID = view === 'grid' && selected ? `entry-selected-${item.id}` : `entry-${item.id}`;
+
+  // iPhone: hold to drag (step 3.3), tap opens, hold and release shows the menu.
+  if (Platform.OS !== 'web' && dragged) {
+    const draggable = (hoverOk: boolean) => (
+      <DraggableView
+        dragged={dragged}
+        onOpen={onPress}
+        onMenu={() => onMenu()}
+        style={[box, hoverOk && styles.dropOk]}
+        accessibilityLabel={label}
+        testID={testID}
+      >
+        {content}
+      </DraggableView>
+    );
+    return dropTarget ? (
+      <GestureDropTarget target={dropTarget}>{(hover) => draggable(!!hover?.ok)}</GestureDropTarget>
+    ) : (
+      draggable(false)
     );
   }
 
@@ -250,30 +285,13 @@ function Entry({
       onPress={onPress}
       onLongPress={menu.onLongPress}
       delayLongPress={menu.delayLongPress}
-      style={[styles.tile, { width }, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
+      style={[box, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      testID={selected ? `entry-selected-${item.id}` : `entry-${item.id}`}
+      accessibilityState={view === 'grid' ? { selected } : undefined}
+      testID={testID}
     >
-      <View style={styles.tileIcon}>
-        {thumbnail ? (
-          <Image source={{ uri: thumbnail }} style={styles.thumb} resizeMode="cover" />
-        ) : (
-          <Ionicons name={icon.name} size={44} color={icon.color} />
-        )}
-        {item.type === 'pdf' && <Text style={styles.pdfBadge}>PDF</Text>}
-      </View>
-      {nameEditing ?? (
-        <Text style={styles.tileTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-      )}
-      {!!meta && (
-        <Text style={styles.meta} numberOfLines={1}>
-          {meta}
-        </Text>
-      )}
+      {content}
     </Pressable>
   );
 }

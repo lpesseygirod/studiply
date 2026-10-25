@@ -1,16 +1,16 @@
 /**
- * GestureDrag.tsx — Option A of the step 3.1 spike: one drag and drop for
- * the iPhone and the web, built on react-native-gesture-handler.
+ * GestureDrag.tsx — the iPhone's drag and drop (step 3.1, Option A; used
+ * in the library from step 3.3), built on react-native-gesture-handler.
  *
- * iPhone: a long-press (350 ms) lifts the item; releasing without moving
- * opens its menu, moving drags it. Web: the drag starts after the mouse
- * moves 5 px, so a click still opens and a right-click still shows the menu.
- * Drop targets measure themselves when a drag starts; the target under the
- * pointer is found with hitTest (rules.ts).
+ * A long-press (350 ms) lifts the item with a light haptic; releasing
+ * without moving opens its menu, moving drags it. A tap opens. Drop
+ * targets measure themselves when a drag starts; the target under the
+ * finger is found with hitTest (rules.ts). Near the top or bottom edge
+ * the list scrolls (`scroller`), and the measured targets move with it.
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector, MouseButton } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 
@@ -25,8 +25,14 @@ export interface Hover {
   reason?: string;
 }
 
+/** Scrolls the list under the drag; returns how far it really moved. */
+export interface Scroller {
+  scrollBy: (dy: number) => number;
+}
+
 interface Registration {
-  target: DropTarget;
+  /** Read when a drag starts (a folder may have been renamed since it registered). */
+  target: () => DropTarget;
   measure: () => Promise<Rect | null>;
 }
 
@@ -47,6 +53,17 @@ interface DragView {
 
 const ActionsContext = createContext<DragActions | null>(null);
 const ViewContext = createContext<DragView>({ item: null, hover: null });
+
+/** How close to the top or bottom edge (pt) the list starts scrolling, and how fast at the edge. */
+const EDGE = 80;
+const MAX_SPEED = 14;
+
+// When an item's long-press last started a drag or its menu: the empty
+// space around it has a long-press menu too, and must not open as well.
+let lastItemGesture = 0;
+export function lastItemGestureAt(): number {
+  return lastItemGesture;
+}
 
 function useDragActions(): DragActions {
   const ctx = useContext(ActionsContext);
@@ -69,18 +86,23 @@ export function GestureDragProvider({
   children,
   check,
   onDrop,
+  scroller,
 }: {
   children: ReactNode;
   /** Whether the item may go onto the target (canDrop). */
   check: (item: Dragged, target: DropTarget) => DropCheck;
   /** A valid drop. */
   onDrop: (item: Dragged, target: DropTarget) => void;
+  /** The list to scroll near the edges. */
+  scroller?: Scroller;
 }) {
   const styles = useThemedStyles(makeStyles);
   const registry = useRef(new Map<string, Registration>());
   const rects = useRef<MeasuredTarget[]>([]);
   const rootRef = useRef<View>(null);
-  const origin = useRef({ x: 0, y: 0 });
+  const root = useRef<Rect>({ x: 0, y: 0, width: 0, height: 0 });
+  const pointer = useRef({ x: 0, y: 0 });
+  const frame = useRef<number | null>(null);
   const ghost = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [item, setItem] = useState<Dragged | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
@@ -89,9 +111,11 @@ export function GestureDragProvider({
   checkRef.current = check;
   const onDropRef = useRef(onDrop);
   onDropRef.current = onDrop;
+  const scrollerRef = useRef(scroller);
+  scrollerRef.current = scroller;
 
   const placeGhost = useCallback(
-    (x: number, y: number) => ghost.setValue({ x: x - origin.current.x - 70, y: y - origin.current.y - 22 }),
+    (x: number, y: number) => ghost.setValue({ x: x - root.current.x - 70, y: y - root.current.y - 22 }),
     [ghost],
   );
 
@@ -110,6 +134,31 @@ export function GestureDragProvider({
     setHover(next);
   }, []);
 
+  const stopScrolling = useCallback(() => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+  }, []);
+
+  // Near an edge: scroll a little every frame, faster closer to the edge.
+  const scrollStep = useCallback(() => {
+    frame.current = null;
+    const s = scrollerRef.current;
+    if (!s || !current.current.item) return;
+    const { y } = pointer.current;
+    const top = root.current.y;
+    const bottom = top + root.current.height;
+    const speed =
+      y < top + EDGE ? -MAX_SPEED * (1 - Math.max(0, y - top) / EDGE) : y > bottom - EDGE ? MAX_SPEED * (1 - Math.max(0, bottom - y) / EDGE) : 0;
+    if (speed === 0) return;
+    const moved = s.scrollBy(speed);
+    if (moved !== 0) {
+      // Everything in the list moved up by `moved` on screen.
+      rects.current = rects.current.map((t) => ({ ...t, rect: { ...t.rect, y: t.rect.y - moved } }));
+      setHoverIfChanged(hoverAt(pointer.current.x, y));
+    }
+    frame.current = requestAnimationFrame(scrollStep);
+  }, [hoverAt, setHoverIfChanged]);
+
   const actions = useMemo<DragActions>(
     () => ({
       register: (id, reg) => {
@@ -118,28 +167,32 @@ export function GestureDragProvider({
       },
       start: (dragged, x, y) => {
         current.current = { item: dragged, hover: null };
+        pointer.current = { x, y };
         setItem(dragged);
         lightHaptic();
         placeGhost(x, y);
         // Where everything is now (the list may have scrolled since it was drawn).
         measureView(rootRef.current).then((r) => {
-          if (r) origin.current = { x: r.x, y: r.y };
-          placeGhost(x, y);
+          if (r) root.current = r;
+          placeGhost(pointer.current.x, pointer.current.y);
         });
         Promise.all(
           [...registry.current.values()].map(async (reg) => {
             const rect = await reg.measure();
-            return rect ? { ...reg.target, rect } : null;
+            return rect ? { ...reg.target(), rect } : null;
           }),
         ).then((list) => {
           rects.current = list.filter((t): t is MeasuredTarget => t !== null);
         });
       },
       move: (x, y) => {
+        pointer.current = { x, y };
         placeGhost(x, y);
         setHoverIfChanged(hoverAt(x, y));
+        if (frame.current === null) frame.current = requestAnimationFrame(scrollStep);
       },
       end: (x, y) => {
+        stopScrolling();
         const dragged = current.current.item;
         const target = dragged ? hitTest({ x, y }, rects.current) : null;
         current.current = { item: null, hover: null };
@@ -151,13 +204,15 @@ export function GestureDragProvider({
         }
       },
       cancel: () => {
+        stopScrolling();
         current.current = { item: null, hover: null };
         setItem(null);
         setHover(null);
       },
     }),
-    [placeGhost, hoverAt, setHoverIfChanged],
+    [placeGhost, hoverAt, setHoverIfChanged, scrollStep, stopScrolling],
   );
+  useEffect(() => stopScrolling, [stopScrolling]);
   const view = useMemo(() => ({ item, hover }), [item, hover]);
 
   return (
@@ -179,7 +234,7 @@ export function GestureDragProvider({
   );
 }
 
-/** Something that can be dragged (Option A). */
+/** Something that can be dragged: tap opens, hold and release shows the menu, hold and move drags. */
 export function GestureDraggable({
   item,
   onOpen,
@@ -197,21 +252,30 @@ export function GestureDraggable({
   onOpenRef.current = onOpen;
   const onMenuRef = useRef(onMenu);
   onMenuRef.current = onMenu;
+  const itemRef = useRef(item);
+  itemRef.current = item;
   const gesture = useMemo(() => {
     const pan = Gesture.Pan().runOnJS(true).mouseButton(MouseButton.LEFT);
     if (Platform.OS === 'web') pan.minDistance(5);
     else pan.activateAfterLongPress(350);
     pan
-      .onStart((e) => drag.start(item, e.absoluteX, e.absoluteY))
+      .onStart((e) => {
+        lastItemGesture = Date.now();
+        drag.start(itemRef.current, e.absoluteX, e.absoluteY);
+      })
       .onUpdate((e) => drag.move(e.absoluteX, e.absoluteY))
       .onEnd((e) => {
         // iPhone: long-press and release without moving = the menu (DESIGN.md)
         if (Platform.OS !== 'web' && Math.hypot(e.translationX, e.translationY) < 8) {
           drag.cancel();
+          lastItemGesture = Date.now();
           onMenuRef.current();
           return;
         }
         drag.end(e.absoluteX, e.absoluteY);
+      })
+      .onFinalize((_e, success) => {
+        if (!success) drag.cancel();
       });
     const tap = Gesture.Tap()
       .runOnJS(true)
@@ -220,7 +284,7 @@ export function GestureDraggable({
         if (success) onOpenRef.current();
       });
     return Gesture.Exclusive(pan, tap);
-  }, [drag, item]);
+  }, [drag]);
 
   return (
     <GestureDetector gesture={gesture}>
@@ -231,7 +295,45 @@ export function GestureDraggable({
   );
 }
 
-/** A drop target (Option A): registers itself and knows when it is hovered. */
+/**
+ * A draggable button-like view: VoiceOver can still open it (activate) and
+ * show its menu (the "Actions" rotor: Move to… is the drag's alternative).
+ */
+export function DraggableView({
+  dragged,
+  onOpen,
+  onMenu,
+  style,
+  accessibilityLabel,
+  testID,
+  children,
+}: {
+  dragged: Dragged;
+  onOpen: () => void;
+  onMenu: () => void;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel: string;
+  testID?: string;
+  children: ReactNode;
+}) {
+  return (
+    <GestureDraggable item={dragged} onOpen={onOpen} onMenu={onMenu}>
+      <View
+        style={style}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityActions={[{ name: 'activate' }, { name: 'longpress', label: 'Show menu' }]}
+        onAccessibilityAction={(e) => (e.nativeEvent.actionName === 'longpress' ? onMenu() : onOpen())}
+        testID={testID}
+      >
+        {children}
+      </View>
+    </GestureDraggable>
+  );
+}
+
+/** A drop target: registers itself and knows when it is hovered. */
 export function GestureDropTarget({
   target,
   children,
@@ -242,9 +344,11 @@ export function GestureDropTarget({
   const { register } = useDragActions();
   const { hover: hovered } = useContext(ViewContext);
   const ref = useRef<View>(null);
+  const targetRef = useRef(target);
+  targetRef.current = target;
   useEffect(
-    () => register(target.id, { target, measure: () => measureView(ref.current) }),
-    [register, target.id, target.kind], // eslint-disable-line react-hooks/exhaustive-deps
+    () => register(target.id, { target: () => targetRef.current, measure: () => measureView(ref.current) }),
+    [register, target.id],
   );
   const hover = hovered?.id === target.id ? hovered : null;
   return (

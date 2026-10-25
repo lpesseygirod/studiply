@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '../../../src/components/IconButton';
 import {
   View,
@@ -54,6 +54,11 @@ import { promptRenameFile } from '../../../src/utils/rename';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLibraryDrop } from '../../../src/hooks/useLibraryDrop';
 import { useDragSource } from '../../../src/lib/dnd/useHtml5Drag';
+import { DraggableView, GestureDragProvider, lastItemGestureAt, type Scroller } from '../../../src/lib/dnd/GestureDrag';
+import {
+  RefreshControl as GestureRefreshControl,
+  ScrollView as GestureScrollView,
+} from 'react-native-gesture-handler';
 import type { Dragged } from '../../../src/lib/dnd/rules';
 import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
 import { useLibraryUpdates } from '../../../src/lib/cache';
@@ -429,6 +434,25 @@ export default function ProjectDetailScreen() {
   const move = itemMenu.move;
   // Drag and drop (step 3.3): onto folder tiles and the breadcrumb.
   const dnd = useLibraryDrop({ showUndo });
+
+  // iPhone: the list scrolls while a dragged item is held near the top or bottom.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollState = useRef({ y: 0, content: 0, height: 0 });
+  const scroller = useMemo<Scroller>(
+    () => ({
+      scrollBy: dy => {
+        const s = scrollState.current;
+        const next = Math.max(0, Math.min(s.y + dy, Math.max(0, s.content - s.height)));
+        const moved = next - s.y;
+        if (moved !== 0) {
+          scrollRef.current?.scrollTo({ y: next, animated: false });
+          s.y = next;
+        }
+        return moved;
+      },
+    }),
+    [],
+  );
   useLibraryUpdates(fetchProjectFiles);
 
   // -------------------------------------------------------------------
@@ -586,7 +610,8 @@ export default function ProjectDetailScreen() {
 
   /** Empty space: right-click (laptop) or long-press (iPhone), like Finder. The toolbar stays. */
   function spaceMenu(anchor?: Anchor) {
-    if (editing) return;
+    // iPhone: a long-press on a tile is the tile's (its drag or its menu), not the space around it.
+    if (editing || Date.now() - lastItemGestureAt() < 1000) return;
     setSelectedId(null);
     const run: Record<SpaceAction, () => void> = {
       newFolder: startNewFolder,
@@ -630,107 +655,113 @@ export default function ProjectDetailScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 48 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
-          }
-        >
-          {/* ── My library › Course › Folder · N items, Sort, grid/list ── */}
-          <LibraryHeader
-            crumbs={breadcrumbs.map(b => b.name)}
-            onLibrary={() => router.navigate('/library')}
-            onCrumb={navigateToCrumb}
-            count={entries.length}
-            sort={libraryPrefs.sort}
-            onSort={sort => setLibraryPrefs({ sort })}
-            view={view}
-            onToggleView={() => setLibraryPrefs({ view: view === 'grid' ? 'list' : 'grid' })}
-            showViewToggle={compact}
-            onBack={navigateUp}
-            crumbTargets={breadcrumbs.map((b, i) =>
-              i === breadcrumbs.length - 1 || !id
-                ? null
-                : { id: b.id ?? id, kind: 'place', place: { courseId: id, folderId: b.type === 'folder' ? b.id : null, label: b.name } },
-            )}
-            dnd={dnd}
-          />
-
-          <LibraryToolbar
-            onNewFolder={startNewFolder}
-            onUpload={chooseUpload}
-            onTakePhoto={handleTakePhoto}
-            onRecord={recordHere}
-            uploading={uploadingCamera || uploadingGallery || uploadingDocs}
-          />
-
-          {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
-          <Pressable
-            onPress={() => setSelectedId(null)}
-            {...menuTriggerProps(spaceMenu)}
-            accessible={false}
-            style={styles.space}
-            testID="library-space"
+        <DragArea check={dnd.check} onDrop={dnd.drop} scroller={scroller}>
+          <ListScroll
+            ref={scrollRef}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 48 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            onScroll={e => (scrollState.current.y = e.nativeEvent.contentOffset.y)}
+            onContentSizeChange={(_w, h) => (scrollState.current.content = h)}
+            onLayout={e => (scrollState.current.height = e.nativeEvent.layout.height)}
+            refreshControl={
+              <ListRefresh refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
+            }
           >
-            {sortedEntries.length === 0 && !editing ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
-                <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
-                <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
-              </View>
-            ) : (
-              <View style={styles.gridArea}>
-                <LibraryGrid
-                  items={sortedEntries}
-                  view={view}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onOpen={openEntry}
-                  onMenu={entryMenu}
-                  editing={editing}
-                  onSaveName={saveName}
-                  onCancelName={() => setEditing(null)}
-                  dnd={dnd}
-                  thumbnailFor={item =>
-                    item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
-                  }
-                />
-              </View>
-            )}
+            {/* ── My library › Course › Folder · N items, Sort, grid/list ── */}
+            <LibraryHeader
+              crumbs={breadcrumbs.map(b => b.name)}
+              onLibrary={() => router.navigate('/library')}
+              onCrumb={navigateToCrumb}
+              count={entries.length}
+              sort={libraryPrefs.sort}
+              onSort={sort => setLibraryPrefs({ sort })}
+              view={view}
+              onToggleView={() => setLibraryPrefs({ view: view === 'grid' ? 'list' : 'grid' })}
+              showViewToggle={compact}
+              onBack={navigateUp}
+              crumbTargets={breadcrumbs.map((b, i) =>
+                i === breadcrumbs.length - 1 || !id
+                  ? null
+                  : { id: b.id ?? id, kind: 'place', place: { courseId: id, folderId: b.type === 'folder' ? b.id : null, label: b.name } },
+              )}
+              dnd={dnd}
+            />
 
-            {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
-            {projectFiles.length > 0 && (
-              <View style={styles.lecturePhotos}>
-                <Pressable
-                  style={styles.lecturePhotosHeader}
-                  onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
-                >
-                  <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
-                  <Ionicons
-                    name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={c.text.onGradient}
+            <LibraryToolbar
+              onNewFolder={startNewFolder}
+              onUpload={chooseUpload}
+              onTakePhoto={handleTakePhoto}
+              onRecord={recordHere}
+              uploading={uploadingCamera || uploadingGallery || uploadingDocs}
+            />
+
+            {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
+            <Pressable
+              onPress={() => setSelectedId(null)}
+              {...menuTriggerProps(spaceMenu)}
+              accessible={false}
+              style={styles.space}
+              testID="library-space"
+            >
+              {sortedEntries.length === 0 && !editing ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
+                  <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
+                  <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
+                </View>
+              ) : (
+                <View style={styles.gridArea}>
+                  <LibraryGrid
+                    items={sortedEntries}
+                    view={view}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    onOpen={openEntry}
+                    onMenu={entryMenu}
+                    editing={editing}
+                    onSaveName={saveName}
+                    onCancelName={() => setEditing(null)}
+                    dnd={dnd}
+                    thumbnailFor={item =>
+                      item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
+                    }
                   />
-                </Pressable>
-                {libraryPrefs.lecturePhotosOpen && (
-                  <View style={styles.filesList}>
-                    {projectFiles.map((file, index) => {
-                      const isPhoto = file.file_type === 'photo';
-                      const label = fileLabel(file, sameLectureFiles(file, projectFiles));
-                      return (
-                        <MediaDragSource key={file.id} dragged={{ kind: 'media', file, name: label }}>
-                          <TouchableOpacity
+                </View>
+              )}
+
+              {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
+              {projectFiles.length > 0 && (
+                <View style={styles.lecturePhotos}>
+                  <Pressable
+                    style={styles.lecturePhotosHeader}
+                    onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
+                  >
+                    <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
+                    <Ionicons
+                      name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={c.text.onGradient}
+                    />
+                  </Pressable>
+                  {libraryPrefs.lecturePhotosOpen && (
+                    <View style={styles.filesList}>
+                      {projectFiles.map((file, index) => {
+                        const isPhoto = file.file_type === 'photo';
+                        const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+                        return (
+                          <MediaDragSource
+                            key={file.id}
+                            dragged={{ kind: 'media', file, name: label }}
                             style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
-                            onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                            {...menuTriggerProps(anchor => showFileActions(file, anchor))}
-                            activeOpacity={0.75}
+                            onOpen={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
+                            onMenu={anchor => showFileActions(file, anchor)}
                           >
                             {isPhoto ? (
                               <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
@@ -747,16 +778,16 @@ export default function ProjectDetailScreen() {
                               </Text>
                             </View>
                             {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
-                          </TouchableOpacity>
-                        </MediaDragSource>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            )}
-          </Pressable>
-        </ScrollView>
+                          </MediaDragSource>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </Pressable>
+          </ListScroll>
+        </DragArea>
       )}
 
       {move.modal}
@@ -789,12 +820,47 @@ export default function ProjectDetailScreen() {
 // Styles
 // -------------------------------------------------------------------
 
-/** A lecture's photo or PDF row, dragged onto a folder to make it a library file (laptop; step 3.3). */
-function MediaDragSource({ dragged, children }: { dragged: Dragged; children: React.ReactNode }) {
+// iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight (step 3.3).
+const ListScroll = (Platform.OS === 'web' ? ScrollView : GestureScrollView) as typeof ScrollView;
+const ListRefresh = (Platform.OS === 'web' ? RefreshControl : GestureRefreshControl) as typeof RefreshControl;
+
+/** The iPhone's drag (the laptop uses the browser's own drag, no provider needed). */
+function DragArea({ children, ...props }: React.ComponentProps<typeof GestureDragProvider>) {
+  return Platform.OS === 'web' ? <>{children}</> : <GestureDragProvider {...props}>{children}</GestureDragProvider>;
+}
+
+/**
+ * A lecture's photo or PDF row (step 3.3): dragged onto a folder, it leaves
+ * its lecture as a library file. Laptop: the browser's drag on the row, a
+ * click opens, a right-click shows the menu. iPhone: tap opens, hold and
+ * release shows the menu, hold and move drags.
+ */
+function MediaDragSource({
+  dragged,
+  style,
+  onOpen,
+  onMenu,
+  children,
+}: {
+  dragged: Extract<Dragged, { kind: 'media' }>;
+  style: React.ComponentProps<typeof View>['style'];
+  onOpen?: () => void;
+  onMenu: (anchor?: Anchor) => void;
+  children: React.ReactNode;
+}) {
   const ref = useDragSource(dragged);
+  if (Platform.OS !== 'web') {
+    return (
+      <DraggableView dragged={dragged} onOpen={onOpen ?? (() => {})} onMenu={() => onMenu()} style={style} accessibilityLabel={dragged.name}>
+        {children}
+      </DraggableView>
+    );
+  }
   return (
     <View ref={ref as never} collapsable={false}>
-      {children}
+      <TouchableOpacity style={style} onPress={onOpen} {...menuTriggerProps(onMenu)} activeOpacity={0.75}>
+        {children}
+      </TouchableOpacity>
     </View>
   );
 }
