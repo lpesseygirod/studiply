@@ -24,6 +24,7 @@ import {
   type ProfileSummary,
 } from '../../../src/services/legacyImport';
 import { describeError } from '../../../src/lib/sync/queue';
+import { BackendBadge, backend } from '../../../src/components/BackendBadge';
 
 // Step 1.9: the data the earlier version of Studiply left on this iPhone.
 // The student sees each old profile with its counts and first names, ticks
@@ -56,6 +57,9 @@ function missingLine(record: ImportRecord): string | null {
   ].filter(Boolean);
   return `Not found on this iPhone (not uploaded): ${parts.join(', ')}.`;
 }
+
+// Development builds: the Upload button names the server ("Upload to REMOTE (xmym…)").
+const uploadTarget = __DEV__ ? ` to ${backend.label}` : '';
 
 export default function EarlierVersionScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -141,6 +145,10 @@ export default function EarlierVersionScreen() {
         <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
         <Text style={styles.headerTitle}>Earlier version data</Text>
         <View style={styles.iconButton} />
+      </View>
+      {/* Development builds: where the upload goes (Lea: the real import once went to local). */}
+      <View style={styles.backendRow}>
+        <BackendBadge />
       </View>
 
       {loading ? (
@@ -236,7 +244,7 @@ export default function EarlierVersionScreen() {
               activeOpacity={0.85}
             >
               <Text style={[styles.primaryText, (chosen.size === 0 || busy) && styles.buttonTextDisabled]}>
-                {chosen.size === 0 ? 'Tick a profile to upload' : record ? 'Retry upload' : 'Upload'}
+                {chosen.size === 0 ? 'Tick a profile to upload' : `${record ? 'Retry upload' : 'Upload'}${uploadTarget}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -254,6 +262,7 @@ export default function EarlierVersionScreen() {
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
+    backendRow: { paddingHorizontal: 20, paddingBottom: 8 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   header: {

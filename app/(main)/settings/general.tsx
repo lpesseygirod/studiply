@@ -27,6 +27,7 @@ import type { UserSettings } from '../../../src/types/database';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { setSimulatedOffline, useSimulatedOffline } from '../../../src/lib/connectivity';
 import { setDragDebug, setPlainScroll, useDragDebug } from '../../../src/lib/dnd/dragDebug';
+import { BackendBadge } from '../../../src/components/BackendBadge';
 import { SyncDebugPanel } from '../../../src/components/SyncDebugPanel';
 import { legacyImportAvailable, setUseSampleData, usesSampleData } from '../../../src/services/legacyImport';
 import { createSampleEarlierVersion } from '../../../src/services/legacyImport/sample';
@@ -429,6 +430,9 @@ export default function GeneralScreen() {
         {__DEV__ && (
           <>
             <Text style={styles.sectionHeader}>DEVELOPMENT</Text>
+            <View style={styles.backendRow}>
+              <BackendBadge />
+            </View>
             <View style={styles.card}>
               <View style={styles.toggleRow}>
                 <Text style={styles.rowLabel}>Simulate offline</Text>
@@ -593,6 +597,7 @@ const makeStyles = (c: ThemeColors) =>
     letterSpacing: Typography.tracking.wider,
     marginBottom: -4,
   },
+  backendRow: { marginTop: 4 },
 
   card: {
     backgroundColor: c.white,

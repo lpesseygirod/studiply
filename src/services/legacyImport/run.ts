@@ -86,7 +86,8 @@ export function conflictingRecord(
 
 export interface MissingFile {
   kind: 'recording' | 'photo' | 'pdf';
-  lectureId: string;
+  /** Its lecture; null for an old course upload (a library file now). */
+  lectureId: string | null;
   id: string;
 }
 
@@ -183,7 +184,8 @@ async function sendMedia(source: LegacySource, m: MediaItem): Promise<boolean> {
   const { uri, mimeType } = isPhoto ? await toJpeg(found) : { uri: found, mimeType: 'application/pdf' };
   const { path } = await uploadFile({
     bucket: isPhoto ? Buckets.photos : Buckets.slides,
-    path: `${m.lectureId}/${m.id}.${isPhoto ? 'jpg' : 'pdf'}`,
+    // Like the app's own: {lectureId}/… for a lecture's photo, {fileId}/… for a library file.
+    path: `${m.fileId ?? m.lectureId}/${m.id}.${isPhoto ? 'jpg' : 'pdf'}`,
     uri,
     contentType: mimeType,
     upsert: true,
@@ -192,6 +194,7 @@ async function sendMedia(source: LegacySource, m: MediaItem): Promise<boolean> {
     {
       id: m.id,
       lecture_id: m.lectureId,
+      file_id: m.fileId,
       kind: m.kind,
       storage_path: path,
       mime_type: mimeType,

@@ -207,3 +207,65 @@ describe('planned rows match the database', () => {
     }
   });
 });
+
+describe('the old "Project Files" session (a course\'s own uploads, step 3.4)', () => {
+  // Uploads in Psicobiología › Tema 1: two photos and a PDF.
+  const uploads = snapshot({
+    sessions: [
+      session('l1', { folder_id: 'sub', title: 'Clase 1' }),
+      session('pf', { folder_id: 'tema1', title: 'Project Files', duration_seconds: null }),
+    ],
+    sourceFiles: [
+      source('pf-2', 'pf', { file_type: 'photo', file_path: 'file:///cache/ImagePicker/b.jpg', storage_path: null, created_at: '2025-03-05T10:00:00.000Z', file_size_bytes: 9 }),
+      source('pf-1', 'pf', { file_type: 'photo', file_path: 'file:///cache/ImagePicker/a.jpg', storage_path: null, created_at: '2025-03-04T10:00:00.000Z', file_size_bytes: 9 }),
+      source('pf-pdf', 'pf', { file_type: 'pdf', file_path: 'file:///cache/DocumentPicker/Tema%202.pdf', storage_path: null, mime_type: 'application/pdf', created_at: '2025-03-06T10:00:00.000Z', file_size_bytes: 2000 }),
+    ],
+    transcripts: [],
+    notes: [],
+  });
+
+  it('becomes library files at its place, not a lecture', () => {
+    const plan = mine(uploads);
+    expect(plan.lectures.map((l) => l.id)).toEqual(['l1']);
+    expect(plan.files.filter((f) => f.kind !== 'lecture')).toEqual([
+      { id: 'pf-1', kind: 'image', title: 'Photo 1.jpg', course_id: 'psico', folder_id: 'tema1', deleted_at: null, created_at: '2025-03-04T10:00:00.000Z', updated_at: '2025-03-04T10:00:00.000Z' },
+      { id: 'pf-2', kind: 'image', title: 'Photo 2.jpg', course_id: 'psico', folder_id: 'tema1', deleted_at: null, created_at: '2025-03-05T10:00:00.000Z', updated_at: '2025-03-05T10:00:00.000Z' },
+      { id: 'pf-pdf', kind: 'pdf', title: 'Tema 2.pdf', course_id: 'psico', folder_id: 'tema1', deleted_at: null, created_at: '2025-03-06T10:00:00.000Z', updated_at: '2025-03-06T10:00:00.000Z' },
+    ]);
+  });
+
+  it('each media row belongs to its file (same id, so a second upload adds nothing), not to a lecture', () => {
+    const media = mine(uploads).media.filter((m) => m.id.startsWith('pf'));
+    expect(media.map((m) => [m.id, m.lectureId, m.fileId, m.kind, m.caption])).toEqual([
+      ['pf-1', null, 'pf-1', 'photo', 'Photo 1.jpg'],
+      ['pf-2', null, 'pf-2', 'photo', 'Photo 2.jpg'],
+      ['pf-pdf', null, 'pf-pdf', 'slides', 'Tema 2.pdf'],
+    ]);
+  });
+
+  it('in the trash recently: the files go to Recently Deleted with that date', () => {
+    const trashed = snapshot({
+      ...uploads,
+      sessions: [session('pf', { title: 'Project Files', is_deleted: 1, deleted_at: daysAgo(3) })],
+    });
+    expect(mine(trashed).files.map((f) => f.deleted_at)).toEqual([daysAgo(3), daysAgo(3), daysAgo(3)]);
+  });
+
+  it('a real lecture someone named "Project Files" (it has notes) stays a lecture with its photos', () => {
+    const real = snapshot({
+      ...uploads,
+      notes: [note('n-pf', 'pf')],
+    });
+    const plan = mine(real);
+    expect(plan.lectures.map((l) => l.id)).toEqual(['l1', 'pf']);
+    expect(plan.files.filter((f) => f.kind !== 'lecture')).toEqual([]);
+    expect(plan.media.filter((m) => m.id.startsWith('pf')).every((m) => m.lectureId === 'pf' && m.fileId === null)).toBe(true);
+  });
+
+  it('the profile counts it as photos and PDFs, not as a lecture', () => {
+    const [me] = summarizeProfiles(uploads, NOW);
+    expect(me.lectures).toBe(1);
+    expect(me.photos).toBe(2);
+    expect(me.pdfs).toBe(1);
+  });
+});

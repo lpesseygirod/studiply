@@ -46,3 +46,22 @@ export function resolveSupabaseUrl({
   const path = url.pathname === '/' ? '' : url.pathname;
   return `${url.protocol}//${lanHost}${port}${path}`;
 }
+
+export interface BackendInfo {
+  kind: 'local' | 'remote';
+  /** The remote project's ref ("xmymneartjmdsawlwzyl"), null for local. */
+  ref: string | null;
+  /** "LOCAL" or "REMOTE (xmym…)", for the development badge. */
+  label: string;
+}
+
+/**
+ * Which server the app talks to, for development builds (Lea: the real
+ * import once went to local Supabase without anyone noticing). A hosted
+ * project is https://<ref>.supabase.co; anything else (127.0.0.1, the Mac's
+ * LAN address) is local Supabase.
+ */
+export function describeBackend(url: string): BackendInfo {
+  const ref = url.match(/^https:\/\/([a-z0-9]{20})\.supabase\.co\/?$/)?.[1] ?? null;
+  return ref ? { kind: 'remote', ref, label: `REMOTE (${ref.slice(0, 4)}…)` } : { kind: 'local', ref: null, label: 'LOCAL' };
+}

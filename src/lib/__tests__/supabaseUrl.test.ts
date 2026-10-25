@@ -1,4 +1,4 @@
-import { resolveSupabaseUrl } from '../supabaseUrl';
+import { describeBackend, resolveSupabaseUrl } from '../supabaseUrl';
 
 const LOCAL = 'http://127.0.0.1:54321';
 
@@ -46,5 +46,26 @@ describe('resolveSupabaseUrl', () => {
     expect(resolveSupabaseUrl({ envUrl: 'not a url', hostUri: '1.2.3.4:8081', isDev: true, platform: 'ios' })).toBe(
       'not a url',
     );
+  });
+});
+
+describe('describeBackend (the development badge)', () => {
+  it('a hosted project is REMOTE, with its ref', () => {
+    expect(describeBackend('https://xmymneartjmdsawlwzyl.supabase.co')).toEqual({
+      kind: 'remote',
+      ref: 'xmymneartjmdsawlwzyl',
+      label: 'REMOTE (xmym…)',
+    });
+  });
+
+  it('127.0.0.1, localhost or the Mac on the Wi-Fi is LOCAL', () => {
+    expect(describeBackend('http://127.0.0.1:54321').label).toBe('LOCAL');
+    expect(describeBackend('http://localhost:54321').kind).toBe('local');
+    expect(describeBackend('http://192.168.1.23:54321')).toEqual({ kind: 'local', ref: null, label: 'LOCAL' });
+  });
+
+  it('a look-alike address is not taken for a hosted project', () => {
+    expect(describeBackend('https://xmymneartjmdsawlwzyl.supabase.co.evil.dev').kind).toBe('local');
+    expect(describeBackend('http://xmymneartjmdsawlwzyl.supabase.co').kind).toBe('local');
   });
 });

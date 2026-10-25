@@ -118,6 +118,27 @@ describe('sendPlan', () => {
   });
 });
 
+describe('sendPlan: old course uploads (step 3.4)', () => {
+  const uploads: LegacySnapshot = {
+    ...snapshot,
+    sessions: [{ ...snapshot.sessions[0], id: 'pf', folder_id: null, title: 'Project Files', duration_seconds: null }],
+    sourceFiles: [
+      { id: 'u1', session_id: 'pf', user_id: 'me', file_type: 'photo', file_path: 'file:///cache/u1.jpg', file_size_bytes: 9, mime_type: 'image/jpeg', retention_policy: 'keep_permanently', is_deleted: 0, storage_path: null, created_at: T },
+    ],
+    transcripts: [],
+    notes: [],
+  };
+  const uploadsPlan = planImport(uploads, { profileIds: ['me'], now: new Date('2025-03-10T00:00:00Z') });
+
+  it('the file row first, then its photo under {fileId}/ with file_id set and no lecture', async () => {
+    await sendPlan(uploadsPlan, real);
+    expect(writes()).toEqual(['courses:upsert', 'folders:upsert', 'folders:upsert', 'files:upsert', 'media:upsert']);
+    expect((callsOn('files', 'upsert')[0][0] as { id: string; kind: string }[]).map((f) => [f.id, f.kind])).toEqual([['u1', 'image']]);
+    expect(jest.mocked(uploadFile).mock.calls.map(([o]) => [o.bucket, o.path])).toEqual([['photos', 'u1/u1.jpg']]);
+    expect(callsOn('media', 'upsert')[0][0]).toMatchObject({ id: 'u1', lecture_id: null, file_id: 'u1', kind: 'photo', caption: 'Photo 1.jpg' });
+  });
+});
+
 describe('verifyPlan', () => {
   it('verified when the server has every row and file the iPhone had', async () => {
     answer('courses', { data: [{ id: 'c1' }] });
