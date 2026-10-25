@@ -98,7 +98,7 @@ Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, 
 ## Library (Finder / Drive)
 - Breadcrumb `My library › Course`; Sort (Kind, Name, Date edited); grid of tiles (folder, document, recording, PDF icons) with name + meta.
 - **Drag & drop:** drag any item onto a folder tile (dashed purple highlight) to move it in; onto "My library" in the breadcrumb to move it up; onto a course in the sidebar; onto Trash. Folders cannot be dropped into themselves or their children.
-- **Click or right-click empty space** → menu: New folder (⇧⌘N), New document (⌘N), New recording (⌘R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.
+- **Click or right-click empty space** → menu: New folder (⌥⇧N), New document (⌥N), New recording (⌥R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.
 - **Right-click an item** → Open, Rename, Move out to My library, Add to Favorites, Summarize recording / Make exam pack, Move to Trash.
 - **Favorites** (built in step 2.2; the database column is `starred_at`): "Add to Favorites" / "Remove from Favorites" in the menus of everything: courses, folders, lectures, documents, library files (PDF, image) and the photos/PDFs inside a lecture (the course's Project Files, post-session, the note's Source Files), on the iPhone (long-press), the laptop (right-click) and in the laptop sidebar. In the Favorites list a lecture's photo or PDF shows with its lecture ("Photo 2 · Clase 1") and opens that lecture. **Adding or removing a favorite never reorders anything**: it doesn't change an item's "last edited" time, so Recent and the course list stay as they were. Photos are numbered within their lecture, oldest first, on every screen. Online only (offline: the "you're offline" message, nothing changes). The toast says "Added to Favorites" / "Removed from Favorites" with **Undo**, which puts the previous value back. The Favorites section lists everything in it, newest first; empty: "No favorites yet".
 - New folder appears as "Untitled folder" in inline rename mode (Enter saves, Esc cancels).
@@ -107,3 +107,10 @@ Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, 
 
 ## Accessibility basics
 Real buttons/inputs with labels, 44 px touch targets, text contrast ≥ 4.5:1, never color alone (marks have labels), Dynamic Type on iOS, keyboard shortcuts on web.
+
+As built in step 2.3:
+- **Colors** come only from `src/constants/colors.ts` (a test fails on any other color literal). Every text/background pair is checked for 4.5:1 in both appearances, icons and the Record button for 3:1 (`src/constants/__tests__/contrast.test.ts`).
+- **Dark mode** (Settings → General → Appearance: System / Light / Dark, remembered per device): the same gradient dimmed by about a fifth (`#8F8BC4 → #9F86B0 → #AA7F7F → #BB8D7E → #C3A06F → #BC8740`) with dark text on it (`#14141F`), dark-grey cards `#262533` with light text `#F2F1F6`, rows `#302F3E`, borders `#454457`, search fields a dimmed salmon `#C99A8C` with dark text. The recording screen stays dark in both; the printed PDF stays light.
+- **Icon-only buttons** (`IconButton`) are at least 44×44 pt and always have a label for VoiceOver; inside small chips they keep their size and reach 44 with an invisible touch margin.
+- **Larger Text** scales all text; only tab labels (1.3×), the Library chips (1.6×) and the recording timer (1.2×) are capped, where a fixed shape must hold.
+- **Keyboard (web):** ⌥N new document (coming with the editor), ⌥⇧N new folder in the open course, ⌥R record lecture (with the current course), "/" search, "?" the shortcuts sheet (also Settings → General), Esc closes. Option combinations are matched by key position, "/" and "?" by the character typed; nothing fires while typing in a field, with a dialog open, or with ⌘/Ctrl (browser shortcuts stay the browser's).

@@ -265,7 +265,7 @@ Step 2.2: wire the shell to the Phase 1 data: top bar with gradient logo tile, b
 **Step 2.3 — Look and feel**
 
 ```markdown
-Step 2.3: apply the visual rules everywhere in the shell: colors only from src/constants/colors.ts (background Colors.gradientSubtle), sizes from typography.ts, dark mode, Dynamic Type on iPhone, 44 px minimum touch targets, VoiceOver labels on icon buttons, and web keyboard shortcuts Cmd+N, Cmd+Shift+N, Cmd+R. Compare with the mockup description in DESIGN.md and list anything that differs.
+Step 2.3: apply the visual rules everywhere in the shell: colors only from src/constants/colors.ts (background: the full gradient, as in docs/design; dark mode: the same gradient dimmed, with dark-grey cards), sizes from typography.ts, Dynamic Type on iPhone, 44 px minimum touch targets, VoiceOver labels on icon buttons, and web keyboard shortcuts ⌥N, ⌥⇧N, ⌥R, / and ? (Cmd+N and Cmd+Shift+N belong to the browser). Compare with the mockup description in DESIGN.md and list anything that differs.
 ```
 
 **Check:** switch your iPhone to dark mode and to a larger text size; everything stays readable. Merge the branch.

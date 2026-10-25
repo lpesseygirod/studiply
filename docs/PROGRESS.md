@@ -21,7 +21,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 2 — App shell (`phase-2-shell`)
 - [x] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive) — done on `phase-2-shell`, matching `docs/design/` (decision below)
 - [x] 2.2 — Real data in the shell (top bar, sidebar sections, Record button) — done on `phase-2-shell` (decision below)
-- [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
+- [x] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts) — built on `phase-2-shell`; Lea's iPhone/Chrome test and the merge into main are pending (decision below)
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [ ] 3.1 — Spike: drag and drop (web + iPhone)
@@ -229,7 +229,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Laptop shell (web ≥ 1024 px):** top bar, sidebar and assistant around the same Tabs navigator, which keeps its place in the tree, so resizing never loses the open screen. What shows depends on the screen kind (`screenKindFor`): library screens (search + Record lecture, sidebar), documents (title area, assistant, Share disabled until Phase 4), settings (Back to library, no panels). The sidebar and assistant collapse; the state is kept per device in `studiply.layout`.
   - **New tokens:** `recording` #CC3333, `text.onGradient` #3A3A48, `accentDark` #4F43B0 (from the design README); sizes in `src/constants/layout.ts`. The gradient is behind Library, Search, Review, Settings, the course screen and the note; their contents are restyled in 2.2/2.3.
   - **Done in 2.2:** the real top-bar breadcrumb and "Saved · time", the open course expanding in the sidebar, Starred / Exam packs / Review today and its badge.
-  - **Waits for 2.3:** the rest of the palette, dark mode, Dynamic Type, keyboard shortcuts.
+  - **Done in 2.3:** the rest of the palette, dark mode, Dynamic Type, keyboard shortcuts.
   - **Checks:** `.claude/skills/web-check/scripts/layout.mjs` (shell per screen kind, collapse after a reload, 1280 → 1023 → 1280, the 390 px tab bar geometry); `flows.mjs` now runs on Library and uses the top-bar Record lecture button.
   - **Duplicates removed:** the 87 `* 2.*` Finder/iCloud copies, 4 empty `* 2` test folders and `supabase/.gitignore 2` were byte-identical to their originals and were deleted; `.gitignore` ignores `* 2.*` and `* 2`. `.git/index 2` (an old copy of git's own index from 23 Oct) was left alone.
 
@@ -252,6 +252,33 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     - **Project Files numbering:** photos there are now numbered within their lecture (oldest first), like the lecture's own screens and Favorites. Before, "Photo 2" there could be "Photo 1" in the lecture.
   - **PDFs and images** open their course at their folder until files get a viewer; documents, unit summaries and exam packs the same until Phases 4 and 7.
   - **Checks:** `.claude/skills/web-check/scripts/shell-data.mjs` (counts, badge, sections, top bar, crumbs, folder links, Record lecture, Star / Unstar with Undo in the database, iPhone chips and long-press). `flows.mjs` clicks scoped away from the sidebar's course tree.
+
+- **Look and feel (step 2.3).**
+  - **Background:** the full gradient everywhere (not `gradientSubtle`; BUILD-PLAN text fixed).
+  - **Dark mode** (Lea approved after two rounds of screenshots): the light gradient dimmed, dark text on it, dark-grey cards, dimmed-salmon search fields, the note's title card on the dark card. Settings → General → Appearance: System / Light / Dark per device; `app.json` follows the system. The recording screen stays dark; the PDF stays light.
+  - **Palettes:** `LightColors` / `DarkColors` of one shape in `colors.ts`. Screens use `useThemedStyles(makeStyles)`. A contrast test checks every pair in both (4.5:1 text, 3:1 icons), and a guard test fails on any color literal outside `colors.ts`.
+  - **Contrast fixes along the way (light too):**
+    - the active tab label and selected chips use `#4F43B0`;
+    - the error red is `#C23B3B`;
+    - text straight on the gradient uses the on-gradient colors;
+    - the recording screen's warning banner is darker.
+  - **Accessibility:**
+    - `IconButton` (44 pt, always labelled) replaced 16 unnamed icon buttons;
+    - the Library chips have a 44 pt touch area;
+    - Larger Text is capped only on tab labels, chips and the timer.
+  - **Shortcuts (web), Lea's choice:**
+    - ⌥N (new document, "coming soon" until the editor), ⌥⇧N (new folder in the open course), ⌥R (record lecture with the current course): matched by `event.code`;
+    - "/" (search) and "?" (the shortcuts sheet): matched by the character typed;
+    - never while typing, with a dialog open, or with ⌘/Ctrl.
+  - **Old look removed:**
+    - the cream backgrounds and the letter-spaced STUDIPLY headers (the onboarding and splash keep the brand);
+    - the note shows "‹ Course" as in iphone-06.
+  - **Differences from the mockups that remain** (later steps):
+    - Settings is still the simple list, not the two-column layout of desktop-05;
+    - the note keeps its card layout until the editor (Phase 4);
+    - the course screen is not yet the Finder grid of desktop-04 (Phase 3);
+    - post-session and the recording screen will be redesigned in Phase 5.
+  - **Checks:** `.claude/skills/web-check/scripts/look.mjs` (light/dark colors, Appearance surviving a reload, 44 pt named icon buttons at 390 px, every shortcut).
 
 ## Things Lea must do
 

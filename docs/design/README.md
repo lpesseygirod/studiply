@@ -9,6 +9,13 @@ Pictures of the design canvas. They show how the app should LOOK; `docs/DESIGN.m
 - Marks: Important #FFE4B5 / #7A4A00, Confused #EAE8F7 / #4F43B0, Exam #F5E0D8 / #8A3B22. "From your notes" blocks: #E8F5EE / #1F6B45.
 - System font. Touch targets ≥ 44 px (mark buttons on iPhone ≥ 56 px).
 
+## Dark mode (step 2.3, approved by Lea)
+Not in the pictures. The light gradient dimmed by about a fifth, not a night look:
+- Gradient #8F8BC4 → #9F86B0 → #AA7F7F → #BB8D7E → #C3A06F → #BC8740, with dark text on it (#14141F: titles, section labels, hints, icons).
+- Cards dark grey #262533 with light text #F2F1F6, rows #302F3E, borders #454457; the note's title card too.
+- Search fields a dimmed salmon #C99A8C (border #A87A6C) with dark text #14141F.
+- Primary buttons on cards are light (#EAE8F7, dark text); round buttons straight on the gradient stay dark (#1A1A2E); the Record button keeps #CC3333 with a light ring.
+
 ## Laptop (web)
 - desktop-01-recording: recording strip, mark buttons, mark slider panel, notes with timestamp chips, formatting toolbar, assistant chat.
 - desktop-02-stop-and-summarize: extra resources (notes always included), 10 sliders, presets.
