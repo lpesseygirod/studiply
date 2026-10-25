@@ -1,8 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { folderFromRow, PgCodes, serviceError, type FolderRow } from '../lib/cloudRows';
-import { readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
+import { notifyLibraryUpdated, readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
 import { foldersIn, inFolderScope } from '../lib/cache/localQueries';
 import type { Folder } from '../types/database';
+import { cleanName } from '../utils/names';
 
 /**
  * Folders live in the `folders` table (step 1.2 schema): `course_id` is the
@@ -28,16 +29,19 @@ export async function createFolder(params: {
   parentFolderId?: string | null;
   name: string;
 }): Promise<Folder> {
+  const name = cleanName(params.name);
   const { data, error } = await supabase
     .from('folders')
     .insert({
       course_id: params.projectId,
       parent_id: params.parentFolderId ?? null,
-      name: params.name,
+      name,
     })
     .select('*')
     .single();
   if (error) throw serviceError(error, 'Could not create the folder.');
+  remember('folders', [data]);
+  notifyLibraryUpdated();
   return folderFromRow(data);
 }
 
@@ -116,9 +120,13 @@ export async function getFolderBreadcrumbs(
 // -------------------------------------------------------------------
 // renameFolder
 // -------------------------------------------------------------------
-export async function renameFolder(folderId: string, name: string): Promise<void> {
-  const { error } = await supabase.from('folders').update({ name }).eq('id', folderId);
+export async function renameFolder(folderId: string, rawName: string): Promise<Folder> {
+  const name = cleanName(rawName);
+  const { data, error } = await supabase.from('folders').update({ name }).eq('id', folderId).select('*').single();
   if (error) throw serviceError(error, 'Could not rename the folder.');
+  remember('folders', [data]);
+  notifyLibraryUpdated();
+  return folderFromRow(data);
 }
 
 // -------------------------------------------------------------------

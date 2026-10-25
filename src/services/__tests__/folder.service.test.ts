@@ -17,9 +17,19 @@ jest.mock('../../lib/supabase', () => ({
         update(patch: unknown) {
           call.update = patch;
           return {
-            eq: async (column: string, value: unknown) => {
+            eq: (column: string, value: unknown) => {
               call.eq = [column, value];
-              return { error: mockNextError };
+              const result = { error: mockNextError };
+              // awaited directly (moveFolder) or with .select('*').single() (renameFolder)
+              return {
+                then: (resolve: (r: unknown) => void) => resolve(result),
+                select: () => ({
+                  single: async () => ({
+                    data: mockNextError ? null : { id: value, name: (patch as { name?: string }).name, course_id: 'c', parent_id: null },
+                    error: mockNextError,
+                  }),
+                }),
+              };
             },
           };
         },
@@ -70,3 +80,4 @@ describe('renameFolder', () => {
     expect(mockCalls).toEqual([{ table: 'folders', update: { name: 'Funciones' }, eq: ['id', FUNCIONS] }]);
   });
 });
+

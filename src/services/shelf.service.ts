@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { NetworkError, serviceError, type CourseRow, type FileRow, type FolderRow, type LectureFileRow, type LectureRow } from '../lib/cloudRows';
 import { notifyLibraryUpdated, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
 import {
+  childCounts,
   examPackFiles,
   filesAtLevel,
   foldersIn,
@@ -21,6 +22,7 @@ import {
   type MediaRow,
 } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
+import { PROJECT_FILES_TITLE } from './session.service';
 import {
   byRecent,
   byStarred,
@@ -224,6 +226,45 @@ export async function getCourseLevel(courseId: string, folderId: string | null):
       ];
     },
   );
+}
+
+/** How many subfolders and files each folder holds directly (the tiles' "7 items"). */
+export async function getFolderChildCounts(folderIds: string[]): Promise<Map<string, number>> {
+  if (folderIds.length === 0) return new Map();
+  return readThrough(
+    async () => {
+      const [folders, files] = await Promise.all([
+        supabase.from('folders').select('id, parent_id, deleted_at').in('parent_id', folderIds).is('deleted_at', null),
+        supabase.from('files').select('id, folder_id, deleted_at').in('folder_id', folderIds).is('deleted_at', null),
+      ]);
+      const error = folders.error ?? files.error;
+      if (error) throw serviceError(error, 'Could not load this course.');
+      return childCounts(
+        (folders.data ?? []) as Pick<FolderRow, 'id' | 'parent_id' | 'deleted_at'>[],
+        (files.data ?? []) as Pick<FileRow, 'id' | 'folder_id' | 'deleted_at'>[],
+        folderIds,
+      );
+    },
+    async () => {
+      const [folders, files] = await Promise.all([readRows<FolderRow>('folders'), readRows<FileRow>('files')]);
+      return childCounts(folders, files, folderIds);
+    },
+  );
+}
+
+/**
+ * One level of a course for the Finder-style grid (step 3.2): its folders
+ * (with how much each holds) and files of every kind (lectures with their
+ * length), without the hidden "Project Files" lecture.
+ */
+export async function getCourseContents(courseId: string, folderId: string | null): Promise<ShelfItem[]> {
+  const items = (await getCourseLevel(courseId, folderId)).filter(
+    (i) => !(i.type === 'lecture' && i.title === PROJECT_FILES_TITLE),
+  );
+  const counts = await getFolderChildCounts(items.filter((i) => i.type === 'folder').map((i) => i.id)).catch(
+    () => new Map<string, number>(),
+  );
+  return items.map((i) => (i.type === 'folder' ? { ...i, childCount: counts.get(i.id) ?? 0 } : i));
 }
 
 // -------------------------------------------------------------------

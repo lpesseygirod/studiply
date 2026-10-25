@@ -1,6 +1,6 @@
 // The library sections and course tree answered from cached rows (step 2.2).
 import type { CourseRow, FileRow, FolderRow, LectureRow } from '../../cloudRows';
-import { examPackFiles, filesAtLevel, itemCounts, recentFiles, starredLectureMedia, starredRows, type MediaRow } from '../localQueries';
+import { childCounts, examPackFiles, filesAtLevel, itemCounts, recentFiles, starredLectureMedia, starredRows, type MediaRow } from '../localQueries';
 
 const T = (n: number) => `2026-10-${String(n).padStart(2, '0')}T10:00:00.000Z`;
 
@@ -94,5 +94,16 @@ describe('starredLectureMedia', () => {
     expect(rows[0].file.id).toBe('l1');
     expect(rows[0].lecture?.status).toBe('ready');
     expect(rows[0].lectureMedia.map((x) => x.id)).toEqual(['fav', 'other']);
+  });
+});
+
+describe('childCounts', () => {
+  it('counts subfolders and files directly inside each folder, not Trash', () => {
+    const counts = childCounts(
+      [folder('a1', { parent_id: 'a' }), folder('a2', { parent_id: 'a', deleted_at: T(2) }), folder('b1', { parent_id: 'b' }), folder('deep', { parent_id: 'a1' })],
+      [file('f1', { folder_id: 'a' }), file('f2', { folder_id: 'a', deleted_at: T(2) }), file('f3', { folder_id: 'c' })],
+      ['a', 'b', 'empty'],
+    );
+    expect(Object.fromEntries(counts)).toEqual({ a: 2, b: 1, empty: 0 });
   });
 });

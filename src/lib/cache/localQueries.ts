@@ -238,6 +238,22 @@ export function filesAtLevel(files: FileRow[], courseId: string, folderId: strin
     .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
 }
 
+/** How many subfolders and files (not in Trash) each of these folders holds directly. */
+export function childCounts(
+  folders: Pick<FolderRow, 'id' | 'parent_id' | 'deleted_at'>[],
+  files: Pick<FileRow, 'id' | 'folder_id' | 'deleted_at'>[],
+  folderIds: string[],
+): Map<string, number> {
+  const counts = new Map(folderIds.map((id) => [id, 0]));
+  for (const f of folders) {
+    if (f.deleted_at === null && f.parent_id && counts.has(f.parent_id)) counts.set(f.parent_id, counts.get(f.parent_id)! + 1);
+  }
+  for (const f of files) {
+    if (f.deleted_at === null && f.folder_id && counts.has(f.folder_id)) counts.set(f.folder_id, counts.get(f.folder_id)! + 1);
+  }
+  return counts;
+}
+
 /** Files of every kind per course, not counting those in Trash. */
 export function itemCounts(files: FileRow[]): Map<string, number> {
   const counts = new Map<string, number>();

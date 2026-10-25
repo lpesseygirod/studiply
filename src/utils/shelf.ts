@@ -36,6 +36,10 @@ export interface ShelfItem {
   /** A lecture's photo or PDF: the lecture it opens. */
   lectureId?: string;
   lectureTitle?: string;
+  /** A folder: how many subfolders and files it holds directly. */
+  childCount?: number;
+  /** A lecture: its recording's length. */
+  durationSeconds?: number | null;
 }
 
 export type CourseInfo = Pick<CourseRow, 'id' | 'name' | 'color'>;
@@ -97,7 +101,10 @@ export function fileShelfItem(row: FileRow, lecture: LectureRow | null, course?:
     color: course?.color,
     updatedAt: row.updated_at,
     starredAt: row.starred_at,
-    ...(type === 'lecture' && { status: statusFromDb(lecture?.status ?? 'draft') }),
+    ...(type === 'lecture' && {
+      status: statusFromDb(lecture?.status ?? 'draft'),
+      durationSeconds: lecture?.duration_ms == null ? null : Math.round(lecture.duration_ms / 1000),
+    }),
   };
 }
 

@@ -37,6 +37,7 @@ import {
 import { syncError } from '../lib/sync/errors';
 import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
+import { cleanName, MAX_NAME_LENGTH } from '../utils/names';
 import type { Note, Session } from '../types/database';
 import { getNoteBySession, updateNote } from './note.service';
 
@@ -53,7 +54,8 @@ import { getNoteBySession, updateNote } from './note.service';
  */
 
 const LECTURE_SELECT = '*, lectures(*)';
-const PROJECT_FILES_TITLE = 'Project Files';
+/** The hidden lecture a course's uploaded photos and PDFs hang off (not shown in the library). */
+export const PROJECT_FILES_TITLE = 'Project Files';
 
 function toSessions(rows: unknown[]): Session[] {
   return (rows as LectureFileRow[]).map((row) => lectureToSession(row));
@@ -615,7 +617,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 // still fails the file's old title is put back; if even that fails, the
 // student is told exactly which title is where. Online only.
 // -------------------------------------------------------------------
-export const MAX_TITLE_LENGTH = 200;
+export const MAX_TITLE_LENGTH = MAX_NAME_LENGTH;
 
 /** Both titles couldn't be brought in line; the message says what is where. */
 export class RenameIncompleteError extends Error {
@@ -627,10 +629,7 @@ export class RenameIncompleteError extends Error {
 
 /** The title to store, or an error the student can act on. */
 export function cleanTitle(title: string): string {
-  const next = title.trim().replace(/\s+/g, ' ');
-  if (!next) throw new Error('Enter a name.');
-  if (next.length > MAX_TITLE_LENGTH) throw new Error(`Use at most ${MAX_TITLE_LENGTH} characters.`);
-  return next;
+  return cleanName(title);
 }
 
 export interface RenameDeps {

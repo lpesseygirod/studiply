@@ -4,6 +4,7 @@ import { reportFailure, reportReachable, resetConnectivityForTests } from '../..
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { getProjects } from '../project.service';
 import {
+  getCourseContents,
   getCourseLevel,
   getExamPacks,
   getRecentItems,
@@ -112,6 +113,31 @@ describe('getCourseLevel', () => {
     expect((await getCourseLevel('math', 'f')).map((i) => i.id)).toEqual(['in']);
     expect(callsOn('folders', 'eq')).toContainEqual(['parent_id', 'f']);
     expect(callsOn('files', 'eq')).toContainEqual(['folder_id', 'f']);
+  });
+});
+
+describe('getCourseContents (the course grid)', () => {
+  it('folders with their item counts, lectures with their length, without the Project Files lecture', async () => {
+    answer(
+      'folders',
+      { data: [{ id: 'f', name: 'Funcions', course_id: 'math', parent_id: null, deleted_at: null, sort_order: 0, starred_at: null, updated_at: T(1) }] },
+      { data: [{ id: 'sub', parent_id: 'f', deleted_at: null }] },
+    );
+    answer(
+      'files',
+      {
+        data: [
+          fileRow('l1', { title: 'Tema 1', lectures: { id: 'l1', status: 'ready', duration_ms: 5_520_000 } }),
+          fileRow('pf', { title: 'Project Files', lectures: { id: 'pf', status: 'ready', duration_ms: null } }),
+        ],
+      },
+      { data: [{ id: 'x', folder_id: 'f', deleted_at: null }, { id: 'y', folder_id: 'f', deleted_at: null }] },
+    );
+    const items = await getCourseContents('math', null);
+    expect(items.map((i) => [i.id, i.childCount, i.durationSeconds])).toEqual([
+      ['f', 3, undefined],
+      ['l1', undefined, 5520],
+    ]);
   });
 });
 
