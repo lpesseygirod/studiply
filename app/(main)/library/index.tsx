@@ -40,7 +40,7 @@ import { errorMessage } from '../../../src/utils/errors';
 import { promptRenameLecture } from '../../../src/utils/rename';
 import { lectureItem } from '../../../src/utils/libraryItems';
 import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
-import { useLibraryUpdates } from '../../../src/lib/cache';
+import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
 import type { Session } from '../../../src/types/database';
 
 const H_PADDING = 18;
@@ -205,6 +205,7 @@ export default function LibraryScreen() {
     try {
       await updateProject(project.id, { name });
       setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, name } : p)));
+      notifyLibraryUpdated(); // the laptop sidebar lists the courses too
     } catch (err) {
       showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
@@ -223,10 +224,11 @@ export default function LibraryScreen() {
             try {
               await trashProject(project.id);
               setProjects(prev => prev.filter(p => p.id !== project.id));
+              notifyLibraryUpdated();
               showUndo(`"${project.name}" moved to trash`, async () => {
                 const { restoreItem } = await import('../../../src/services/trash.service');
                 await restoreItem({ id: project.id, type: 'project' });
-                fetchData();
+                notifyLibraryUpdated();
               });
             } catch (err) {
               showAlert('Error', errorMessage(err, 'Could not delete project.'));
@@ -438,7 +440,7 @@ export default function LibraryScreen() {
           onClose={() => setShowNewCourse(false)}
           onCreated={() => {
             setShowNewCourse(false);
-            fetchData();
+            notifyLibraryUpdated();
           }}
         />
       )}

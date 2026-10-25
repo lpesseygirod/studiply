@@ -17,6 +17,8 @@ const step = async (name, fn) => {
   }
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
+// The laptop sidebar lists the courses too; clicks on course names skip it.
+const MAIN = { exclude: '[data-testid=sidebar]' };
 
 const user = await makeUser();
 const data = await seed(user.client);
@@ -27,38 +29,41 @@ try {
     await b.signIn(BASE, user.email, user.password);
   });
 
-  await step('Home: right-click a course opens its menu at the pointer', async () => {
-    await b.click('Math', { button: 'right' });
+  await step('Library: right-click a course opens its menu at the pointer', async () => {
+    await b.click('Math', { button: 'right', ...MAIN });
     await b.waitText('Rename', { timeout: 3000, exact: true });
     expect(await b.hasText('Delete Project', true), 'no Delete Project item');
     await b.shot('10-home-course-menu');
   });
 
-  await step('Home: Escape closes the menu', async () => {
+  await step('Library: Escape closes the menu', async () => {
     await b.press('Escape');
     await b.sleep(300);
     expect(!(await b.hasText('Delete Project', true)), 'menu still open');
   });
 
-  await step('Home: Rename a course through the prompt', async () => {
-    await b.click('Math', { button: 'right' });
+  await step('Library: Rename a course through the prompt', async () => {
+    await b.click('Math', { button: 'right', ...MAIN });
     await b.click('Rename');
     await b.waitText('Rename Project');
     await b.shot('11-home-rename-prompt');
     await b.fill('input[placeholder="Project name"]', 'Algebra');
     await b.click('Save');
-    await b.waitText('Algebra', { timeout: 5000, exact: true });
+    await b.waitText('Algebra', { timeout: 5000, exact: true, ...MAIN });
     const { data: row } = await admin.from('courses').select('name').eq('id', data.course.id).single();
     expect(row.name === 'Algebra', `db name is ${row.name}`);
+    await b.sleep(800);
+    const sidebar = await b.evaluate(`document.querySelector('[data-testid=sidebar]')?.innerText ?? ''`);
+    expect(sidebar.includes('Algebra'), 'the sidebar still shows the old name');
   });
 
-  await step('Home: long-press (mouse hold) also opens the menu', async () => {
-    await b.click('Science', { holdMs: 800 });
+  await step('Library: long-press (mouse hold) also opens the menu', async () => {
+    await b.click('Science', { holdMs: 800, ...MAIN });
     await b.waitText('Delete Project', { timeout: 3000, exact: true });
     await b.press('Escape');
   });
 
-  await step('Home: Delete a lecture asks first, Cancel keeps it', async () => {
+  await step('Library: Delete a lecture asks first, Cancel keeps it', async () => {
     await b.click('Lecture 1', { button: 'right' });
     await b.click('Delete Session');
     await b.waitText('will be moved to Recently Deleted');
@@ -69,10 +74,10 @@ try {
     expect(row.deleted_at === null, 'lecture was trashed');
   });
 
-  await step('Library tab: course menu → Delete → confirm → course gone, Undo restores', async () => {
+  await step('Library: course menu → Delete → confirm → course gone, Undo restores', async () => {
     await b.nav(`${BASE}/library`);
-    await b.waitText('Science', { exact: true });
-    await b.click('Science', { button: 'right' });
+    await b.waitText('Science', { exact: true, ...MAIN });
+    await b.click('Science', { button: 'right', ...MAIN });
     await b.click('Delete Project');
     await b.waitText('will be moved to Recently Deleted');
     await b.click('Delete', { exact: true });
@@ -98,7 +103,7 @@ try {
     await b.click('Funcions 2', { button: 'right' });
     await b.click('Move to…');
     await b.waitText('Move ‘Funcions 2’ to…');
-    await b.click('Science', { exact: true });
+    await b.click('Science', { exact: true, ...MAIN });
     await b.sleep(800);
     await b.shot('15-move-modal');
     await b.click('Move to Science', { exact: true });
@@ -239,10 +244,10 @@ try {
     expect(!(await b.hasText('stored on this device')), 'old text still shown');
   });
 
-  await step('Record tab starts fresh after leaving the flow', async () => {
+  await step('Record lecture (top bar) starts fresh after leaving the flow', async () => {
     await b.nav(`${BASE}/library`);
-    await b.waitText('Science', { exact: true });
-    await b.evaluate(`[...document.querySelectorAll('a,[role=tab],[role=button]')].find(e => (e.getAttribute('href')||'').endsWith('/record'))?.click()`);
+    await b.waitText('Science', { exact: true, ...MAIN });
+    await b.click('Record lecture', { exact: true });
     await b.sleep(1200);
     expect(await b.hasText('New Recording'), 'record tab did not show the setup screen');
   });

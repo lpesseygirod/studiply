@@ -1314,8 +1314,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderWidth: 1.5,
     borderColor: Colors.surfaceMuted,
-    flex: 0,
+    // Its own width (React Native Web reads `flex: 0` as a zero width).
+    flexGrow: 0,
     flexShrink: 0,
+    flexBasis: 'auto',
     paddingHorizontal: 18,
   },
   fabText: {

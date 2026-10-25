@@ -96,10 +96,13 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   };
 
   // Center of the smallest visible element whose own text matches.
-  const locate = (text, { exact = true, nth = 0 } = {}) =>
+  // `exclude`: a CSS selector whose contents are skipped (e.g. the laptop sidebar).
+  const locate = (text, { exact = true, nth = 0, exclude = null } = {}) =>
     evaluate(`(() => {
       const want = ${JSON.stringify(text)};
+      const exclude = ${JSON.stringify(exclude)};
       const all = [...document.querySelectorAll('body *')].filter((el) => {
+        if (exclude && el.closest(exclude)) return false;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return false;
         const s = getComputedStyle(el);
@@ -118,15 +121,15 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   const api = {
     send, evaluate, logs, dialogs, sleep,
     async nav(url) { await send('Page.navigate', { url }); await sleep(500); },
-    async waitText(text, { timeout = 15000, exact = false } = {}) {
+    async waitText(text, { timeout = 15000, exact = false, exclude = null } = {}) {
       const end = Date.now() + timeout;
-      while (Date.now() < end) { if (await locate(text, { exact })) return true; await sleep(200); }
+      while (Date.now() < end) { if (await locate(text, { exact, exclude })) return true; await sleep(200); }
       throw new Error(`timed out waiting for text: ${text}`);
     },
     async hasText(text, exact = false) { return !!(await locate(text, { exact })); },
-    async click(text, { button = 'left', exact = true, nth = 0, holdMs = 0 } = {}) {
-      let p = await locate(text, { exact, nth });
-      if (!p && exact) p = await locate(text, { exact: false, nth });
+    async click(text, { button = 'left', exact = true, nth = 0, holdMs = 0, exclude = null } = {}) {
+      let p = await locate(text, { exact, nth, exclude });
+      if (!p && exact) p = await locate(text, { exact: false, nth, exclude });
       if (!p) throw new Error(`no element with text: ${text}`);
       await api.clickAt(p.x, p.y, { button, holdMs });
     },

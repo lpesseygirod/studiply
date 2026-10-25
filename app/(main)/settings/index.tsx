@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { useConnectivity } from '../../../src/lib/connectivity';
@@ -143,6 +144,7 @@ function SyncBanner() {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const wide = useLayoutMode() === 'wide';
   const { profile } = useAuth();
   const router = useRouter();
 
@@ -189,8 +191,13 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ────────────────────────────────────────────── */}
-        <Text style={styles.appTitle}>STUDIPLY</Text>
-        <Text style={styles.screenSubtitle}>Settings</Text>
+        {/* On the laptop the top bar shows the title. */}
+        {!wide && (
+          <>
+            <Text style={styles.appTitle}>STUDIPLY</Text>
+            <Text style={styles.screenSubtitle}>Settings</Text>
+          </>
+        )}
 
         {/* ── Profile card ──────────────────────────────────────── */}
         <TouchableOpacity
