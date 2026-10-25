@@ -29,6 +29,8 @@ export const Colors = {
     secondary: '#5A5A6A',
     placeholder: '#9B9BAA',
     inverse: '#FFFFFF',
+    /** Secondary text placed straight on the gradient (readable on every stop). */
+    onGradient: '#3A3A48',
   },
 
   // Input / surfaces
@@ -48,10 +50,14 @@ export const Colors = {
   // Accent / brand
   accent: '#7B6FD4',   // muted purple — used sparingly for highlights
   accentLight: '#EAE8F7',
+  accentDark: '#4F43B0', // accent text on light backgrounds
 
   // Warm accent — search bars, chips, project cards, interactive elements
   salmon: '#E8B4A0',
   salmonLight: '#F5E0D8',
+
+  // Recording: the red Record button and recording strip (white on #D94F4F fails contrast)
+  recording: '#CC3333',
 
   // Status
   error: '#D94F4F',
