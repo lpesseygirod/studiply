@@ -9,13 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  TextInput,
   BackHandler,
   Platform,
-  Dimensions,
   Image,
   Pressable,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,8 +29,7 @@ import {
   getSessionsByProject,
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
-import { getFolders, createFolder, getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
-import { getSessionsWithNotes } from '../../../src/services/note.service';
+import { getFolders, createFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
 import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
 import {
   getProjectSourceFiles,
@@ -50,7 +46,6 @@ import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import UndoToast from '../../../src/components/UndoToast';
 import {
   menuTriggerProps,
-  promptText,
   showActionSheet,
   showAlert,
   type Anchor,
@@ -63,6 +58,14 @@ import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
+import { LibraryHeader } from '../../../src/components/library/LibraryHeader';
+import { LibraryToolbar } from '../../../src/components/library/LibraryToolbar';
+import { getCourseContents } from '../../../src/services/shelf.service';
+import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { sortEntries } from '../../../src/utils/libraryGrid';
+import type { ShelfItem } from '../../../src/utils/shelf';
 import { starButton } from '../../../src/utils/star';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
@@ -70,16 +73,6 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
-
-function sessionStatusIcon(status: Session['status'], c: ThemeColors): {
-  name: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
-} {
-  if (status === 'completed') return { name: 'checkmark-circle', color: c.status.success.text };
-  if (status === 'processing' || status === 'transcribing')
-    return { name: 'time-outline', color: c.status.warning.text };
-  return { name: 'alert-circle-outline', color: c.text.secondary };
-}
 
 function formatShortDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString('en-US', {
@@ -89,17 +82,7 @@ function formatShortDate(isoString: string): string {
   });
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-const CARD_GAP = 12;
 const H_PADDING = 20;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const FOLDER_CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP) / 2;
 
 // -------------------------------------------------------------------
 // Component
@@ -118,7 +101,6 @@ export default function ProjectDetailScreen() {
   const [project, setProject] = useState<Project | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionNoteIds, setSessionNoteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -128,10 +110,13 @@ export default function ProjectDetailScreen() {
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1];
   const currentFolderId = currentCrumb?.type === 'folder' ? currentCrumb.id : null;
 
-  // New Folder modal
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  // The Finder-style grid (step 3.2): this level's items, the selection
+  // (web), a folder being named in place, and how this device shows them.
+  const [entries, setEntries] = useState<ShelfItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<NameEditing>(null);
+  const [libraryPrefs, setLibraryPrefs] = useLibraryPrefs();
+  const compact = useLayoutMode() === 'compact';
 
   // Undo toast state
   const [undoVisible, setUndoVisible] = useState(false);
@@ -155,21 +140,18 @@ export default function ProjectDetailScreen() {
   const fetchData = useCallback(async (folderId: string | null = currentFolderId) => {
     if (!id) return;
     try {
-      const [p, folderList, sessionList, fileList] = await Promise.all([
+      const [p, folderList, sessionList, fileList, contents] = await Promise.all([
         getProject(id),
         getFolders({ projectId: id, parentFolderId: folderId }),
         getSessionsByProject(id, folderId),
         getLibraryFiles(id, folderId),
+        getCourseContents(id, folderId),
       ]);
       setProject(p);
       setFolders(folderList);
       setSessions(sessionList);
       setLibraryFiles(fileList);
-
-      // Batch-check which sessions have a confirmed note.
-      const ids = sessionList.map(s => s.id);
-      const noteIds = await getSessionsWithNotes(ids);
-      setSessionNoteIds(noteIds);
+      setEntries(contents);
 
       // The root crumb always shows the project's current name (it may
       // have been renamed elsewhere); the folder crumbs below it stay.
@@ -194,6 +176,9 @@ export default function ProjectDetailScreen() {
     setProject(null);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     if (!target) {
       fetchData(null);
@@ -213,11 +198,8 @@ export default function ProjectDetailScreen() {
     router.setParams({ folder: folderId ?? undefined });
   }
 
-  // ⌥⇧N on the web: a new folder here.
-  useShellCommand('newFolder', () => {
-    setNewFolderName('');
-    setShowNewFolder(true);
-  });
+  // ⌥⇧N on the web: a new folder here, named in place.
+  useShellCommand('newFolder', () => startNewFolder());
 
   // The laptop shell: Record lecture preselects this course and folder;
   // the sidebar expands this course.
@@ -273,6 +255,9 @@ export default function ProjectDetailScreen() {
     showFolder(folder.id);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     fetchData(folder.id).finally(() => setLoading(false));
   }
@@ -284,6 +269,9 @@ export default function ProjectDetailScreen() {
     showFolder(folderId);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     fetchData(folderId).finally(() => setLoading(false));
   }
@@ -317,7 +305,7 @@ export default function ProjectDetailScreen() {
 
   function showFolderActions(folder: Folder, anchor?: Anchor) {
     showActionSheet(folder.name, [
-      { text: 'Rename', onPress: () => promptRenameFolder(folder) },
+      { text: 'Rename', onPress: () => setEditing({ mode: 'rename', id: folder.id }) },
       { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
       starButton({ type: 'folder', id: folder.id }, folder.name, folder.starred_at, showUndo),
       { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
@@ -417,18 +405,39 @@ export default function ProjectDetailScreen() {
   }
 
   // -------------------------------------------------------------------
-  // Folder rename
+  // New folder and rename, in place on the tile (step 3.2)
   // -------------------------------------------------------------------
 
-  async function promptRenameFolder(folder: Folder) {
-    const name = await promptText('Rename Folder', { defaultValue: folder.name, placeholder: 'Folder name' });
-    if (!name) return;
+  function startNewFolder() {
+    setSelectedId(null);
+    setEditing({ mode: 'new' });
+  }
+
+  /** Enter or a tap elsewhere: create or rename. False keeps the field open. */
+  async function saveName(raw: string): Promise<boolean> {
+    const current = editing;
+    if (!current || !id) return true;
     try {
-      const { renameFolder } = await import('../../../src/services/folder.service');
-      await renameFolder(folder.id, name);
+      if (current.mode === 'new') {
+        const created = await createFolder({
+          userId,
+          projectId: id,
+          parentFolderId: currentFolderId,
+          name: raw.trim() || 'Untitled folder',
+        });
+        setEditing(null);
+        setSelectedId(created.id);
+      } else {
+        const before = entries.find(e => e.id === current.id)?.title;
+        setEditing(null);
+        if (raw.trim() && raw.trim() !== before) await renameFolder(current.id, raw);
+      }
       await fetchData(currentFolderId);
+      return true;
     } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not rename folder.'));
+      showAlert(current.mode === 'new' ? 'Could not create the folder' : 'Could not rename the folder', errorMessage(err, err instanceof Error ? err.message : 'Please try again.'));
+      if (current.mode === 'rename') setEditing(current);
+      return false;
     }
   }
 
@@ -508,31 +517,6 @@ export default function ProjectDetailScreen() {
     setUndoVisible(false);
     undoCallbackRef.current?.();
     undoCallbackRef.current = null;
-  }
-
-  // -------------------------------------------------------------------
-  // New Folder
-  // -------------------------------------------------------------------
-
-  async function handleCreateFolder() {
-    const name = newFolderName.trim();
-    if (!name || !id || !userId) return;
-    setIsCreatingFolder(true);
-    try {
-      await createFolder({
-        userId,
-        projectId: id,
-        parentFolderId: currentFolderId,
-        name,
-      });
-      setShowNewFolder(false);
-      setNewFolderName('');
-      await fetchData(currentFolderId);
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not create folder.'));
-    } finally {
-      setIsCreatingFolder(false);
-    }
   }
 
   // -------------------------------------------------------------------
@@ -713,67 +697,61 @@ export default function ProjectDetailScreen() {
   };
 
   // -------------------------------------------------------------------
-  // Render
+  // Grid items: open and menu, through the screen's existing actions
   // -------------------------------------------------------------------
 
-  const isRoot = breadcrumbs.length <= 1;
+  function openEntry(item: ShelfItem) {
+    if (item.type === 'folder') {
+      const folder = folders.find(f => f.id === item.id);
+      if (folder) navigateIntoFolder(folder);
+      return;
+    }
+    if (item.type === 'lecture') {
+      const session = sessions.find(s => s.id === item.id);
+      if (session) handleSessionPress(session);
+      return;
+    }
+    const file = libraryFiles.find(f => f.id === item.id);
+    if (file) return openLibraryFile(file);
+    showAlert(item.title, 'This kind of file opens with the editor. Coming soon.');
+  }
+
+  function entryMenu(item: ShelfItem, anchor?: Anchor) {
+    setSelectedId(item.id);
+    const folder = item.type === 'folder' ? folders.find(f => f.id === item.id) : undefined;
+    if (folder) return showFolderActions(folder, anchor);
+    const session = item.type === 'lecture' ? sessions.find(s => s.id === item.id) : undefined;
+    if (session) return showSessionActions(session, anchor);
+    const file = libraryFiles.find(f => f.id === item.id);
+    if (file) return showLibraryFileActions(file, anchor);
+    showActionSheet(item.title, [
+      { text: 'Open', onPress: () => openEntry(item) },
+      starButton({ type: 'file', id: item.id }, item.title, item.starredAt, showUndo),
+    ], { anchor });
+  }
+
+  function chooseUpload() {
+    showActionSheet('Upload to this course', [
+      { text: 'Photos', onPress: () => handlePickPhotos().then(() => setLibraryPrefs({ lecturePhotosOpen: true })) },
+      { text: 'PDF', onPress: () => handlePickDocuments().then(() => setLibraryPrefs({ lecturePhotosOpen: true })) },
+    ]);
+  }
+
+  const sortedEntries = sortEntries(entries, libraryPrefs.sort);
+  const view = compact ? libraryPrefs.view : 'grid';
+
+  // -------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------
 
   return (
     <View style={styles.container}>
       <GradientFill />
       <ThemedStatusBar />
 
-      {/* ── Header ────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={navigateUp} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-
-        <View style={styles.headerCenter}>
-          {project && isRoot && (
-            <View style={[styles.projectColorDot, { backgroundColor: project.color }]} />
-          )}
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {currentCrumb?.name ?? project?.name ?? ''}
-          </Text>
-        </View>
-
-        <View style={styles.iconButton} />
-      </View>
-
-      {/* ── Breadcrumbs (when inside a folder) ────────────────── */}
-      {!isRoot && (
-        <View style={styles.breadcrumbRow}>
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <Ionicons
-                  name="chevron-forward"
-                  size={12}
-                  color={c.text.onGradient}
-                  style={styles.breadcrumbChevron}
-                />
-              )}
-              <TouchableOpacity
-                onPress={() => navigateToCrumb(index)}
-                disabled={index === breadcrumbs.length - 1}
-              >
-                <Text
-                  style={[
-                    styles.crumbText,
-                    index === breadcrumbs.length - 1 && styles.crumbTextActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {crumb.name}
-                </Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
-        </View>
-      )}
-
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={c.salmon} />
+        <View style={[styles.center, { paddingTop: insets.top }]}>
+          <ActivityIndicator color={c.text.onGradientStrong} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -783,295 +761,120 @@ export default function ProjectDetailScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 120 },
+            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 48 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={c.salmon}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
           }
         >
-          {/* ── Upload action buttons ────────────────────────── */}
-          <View style={styles.uploadRow}>
-              <UploadButton
-                icon="camera-outline"
-                label="Take Photo"
-                loading={uploadingCamera}
-                onPress={handleTakePhoto}
-              />
-              <UploadButton
-                icon="images-outline"
-                label="Upload Photo"
-                loading={uploadingGallery}
-                onPress={handlePickPhotos}
-              />
-              <UploadButton
-                icon="document-outline"
-                label="Upload File"
-                loading={uploadingDocs}
-                onPress={handlePickDocuments}
-              />
-            </View>
+          {/* ── My library › Course › Folder · N items, Sort, grid/list ── */}
+          <LibraryHeader
+            crumbs={breadcrumbs.map(b => b.name)}
+            onLibrary={() => router.navigate('/library')}
+            onCrumb={navigateToCrumb}
+            count={entries.length}
+            sort={libraryPrefs.sort}
+            onSort={sort => setLibraryPrefs({ sort })}
+            view={view}
+            onToggleView={() => setLibraryPrefs({ view: view === 'grid' ? 'list' : 'grid' })}
+            showViewToggle={compact}
+            onBack={navigateUp}
+          />
 
-          {/* ── Project Files section ────────────────────────── */}
-          {projectFiles.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, { marginTop: 4 }]}>PROJECT FILES</Text>
-              <View style={styles.filesList}>
-                {projectFiles.map((file, index) => {
-                  const isPhoto = file.file_type === 'photo';
-                  const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+          <LibraryToolbar
+            onNewFolder={startNewFolder}
+            onUpload={chooseUpload}
+            onTakePhoto={handleTakePhoto}
+            onRecord={() =>
+              router.push({
+                pathname: '/record',
+                params: { projectId: id, ...(currentFolderId ? { folderId: currentFolderId } : {}) },
+              })
+            }
+            uploading={uploadingCamera || uploadingGallery || uploadingDocs}
+          />
 
-                  return (
-                    <TouchableOpacity
-                      key={file.id}
-                      style={[
-                        styles.fileRow,
-                        index < projectFiles.length - 1 && styles.fileRowDivider,
-                      ]}
-                      onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                      {...menuTriggerProps(anchor => showFileActions(file, anchor))}
-                      activeOpacity={0.75}
-                    >
-                      {isPhoto ? (
-                        <Image
-                          source={{ uri: file.file_path }}
-                          style={styles.fileThumb}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.fileIconWrap}>
-                          <Ionicons name="document-text" size={18} color={c.text.secondary} />
-                        </View>
-                      )}
-                      <View style={styles.fileInfo}>
-                        <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
-                        <Text style={styles.fileMeta}>
-                          {formatShortDate(file.created_at)}
-                          {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
-                        </Text>
-                      </View>
-                      {isPhoto && (
-                        <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* ── Folder grid ──────────────────────────────────── */}
-          {folders.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, projectFiles.length > 0 && { marginTop: 24 }]}>FOLDERS</Text>
-              <View style={styles.folderGrid}>
-                {folders.map(folder => (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={styles.folderCard}
-                    onPress={() => navigateIntoFolder(folder)}
-                    {...menuTriggerProps(anchor => showFolderActions(folder, anchor))}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.folderIconWrap}>
-                      <Ionicons name="folder" size={28} color={c.salmon} />
-                    </View>
-                    <Text style={styles.folderName} numberOfLines={2}>
-                      {folder.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* ── Files saved to the library ────────────────────── */}
-          {libraryFiles.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, folders.length > 0 && { marginTop: 24 }]}>FILES</Text>
-              <View style={styles.filesList}>
-                {libraryFiles.map((file, index) => (
-                  <TouchableOpacity
-                    key={file.id}
-                    style={[styles.fileRow, index < libraryFiles.length - 1 && styles.fileRowDivider]}
-                    onPress={() => openLibraryFile(file)}
-                    {...menuTriggerProps(anchor => showLibraryFileActions(file, anchor))}
-                    activeOpacity={0.75}
-                  >
-                    {file.kind === 'image' && file.media?.file_path ? (
-                      <Image source={{ uri: file.media.file_path }} style={styles.fileThumb} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.fileIconWrap}>
-                        <Ionicons
-                          name={file.kind === 'image' ? 'image-outline' : 'document-text'}
-                          size={18}
-                          color={c.text.secondary}
-                        />
-                      </View>
-                    )}
-                    <View style={styles.fileInfo}>
-                      <Text style={styles.fileName} numberOfLines={1}>{file.title}</Text>
-                      <Text style={styles.fileMeta}>
-                        {formatShortDate(file.createdAt)}
-                        {file.media?.file_size_bytes != null ? ` · ${formatFileSize(file.media.file_size_bytes)}` : ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* ── Sessions list ─────────────────────────────────── */}
-          {sessions.filter(s => s.title !== 'Project Files').length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, (folders.length > 0 || libraryFiles.length > 0) && { marginTop: 24 }]}>
-                SESSIONS
-              </Text>
-              <View style={styles.sessionsList}>
-                {sessions.filter(s => s.title !== 'Project Files').map((session, index, arr) => {
-                  const icon = sessionStatusIcon(session.status, c);
-                  const dur = formatDuration(session.duration_seconds);
-                  const hasNote = sessionNoteIds.has(session.id);
-                  return (
-                    <TouchableOpacity
-                      key={session.id}
-                      style={[
-                        styles.sessionRow,
-                        index < arr.length - 1 && styles.sessionRowDivider,
-                      ]}
-                      onPress={() => handleSessionPress(session)}
-                      {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name={icon.name} size={22} color={icon.color} />
-                      <View style={styles.sessionInfo}>
-                        <Text style={styles.sessionTitle} numberOfLines={1}>
-                          {session.title}
-                        </Text>
-                        <View style={styles.sessionMetaRow}>
-                          <Text style={styles.sessionMeta}>
-                            {formatShortDate(session.created_at)}
-                          </Text>
-                          {hasNote && (
-                            <View style={styles.noteBadge}>
-                              <Text style={styles.noteBadgeText}>Notes ✓</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      {!!dur && <Text style={styles.sessionDuration}>{dur}</Text>}
-                      <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* ── Empty state ───────────────────────────────────── */}
-          {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && libraryFiles.length === 0 && (
+          {/* ── The items (docs/design desktop-04) ─────────────────── */}
+          {sortedEntries.length === 0 && !editing ? (
             <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
-              <Text style={styles.emptyTitle}>
-                {isRoot ? 'No sessions yet' : 'Empty folder'}
-              </Text>
-              <Text style={styles.emptyBody}>
-                {isRoot
-                  ? 'Start a recording or create a folder to organise your sessions.'
-                  : 'Start a recording to add sessions here.'}
-              </Text>
+              <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
+              <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
+              <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
+            </View>
+          ) : (
+            <Pressable onPress={() => setSelectedId(null)} accessible={false} style={styles.gridArea}>
+              <LibraryGrid
+                items={sortedEntries}
+                view={view}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onOpen={openEntry}
+                onMenu={entryMenu}
+                editing={editing}
+                onSaveName={saveName}
+                onCancelName={() => setEditing(null)}
+                thumbnailFor={item =>
+                  item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
+                }
+              />
+            </Pressable>
+          )}
+
+          {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
+          {projectFiles.length > 0 && (
+            <View style={styles.lecturePhotos}>
+              <Pressable
+                style={styles.lecturePhotosHeader}
+                onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
+              >
+                <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
+                <Ionicons
+                  name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={c.text.onGradient}
+                />
+              </Pressable>
+              {libraryPrefs.lecturePhotosOpen && (
+                <View style={styles.filesList}>
+                  {projectFiles.map((file, index) => {
+                    const isPhoto = file.file_type === 'photo';
+                    const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+                    return (
+                      <TouchableOpacity
+                        key={file.id}
+                        style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
+                        onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
+                        {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                        activeOpacity={0.75}
+                      >
+                        {isPhoto ? (
+                          <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                        ) : (
+                          <View style={styles.fileIconWrap}>
+                            <Ionicons name="document-text" size={18} color={c.text.secondary} />
+                          </View>
+                        )}
+                        <View style={styles.fileInfo}>
+                          <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
+                          <Text style={styles.fileMeta}>
+                            {formatShortDate(file.created_at)}
+                            {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
+                          </Text>
+                        </View>
+                        {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           )}
         </ScrollView>
       )}
-
-      {/* ── Dual FAB ──────────────────────────────────────────── */}
-      {!loading && !error && (
-        <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}>
-          <TouchableOpacity
-            style={[styles.fab, styles.fabSecondary]}
-            onPress={() => {
-              setNewFolderName('');
-              setShowNewFolder(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="folder-outline" size={18} color={c.text.primary} />
-            <Text style={styles.fabSecondaryText}>New Folder</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => {
-              router.push({
-                pathname: '/record',
-                params: {
-                  projectId: id,
-                  ...(currentFolderId ? { folderId: currentFolderId } : {}),
-                },
-              });
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="mic-outline" size={18} color={c.white} />
-            <Text style={styles.fabText}>New Recording</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── New Folder modal ──────────────────────────────────── */}
-      <Modal
-        visible={showNewFolder}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowNewFolder(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowNewFolder(false)}>
-          <KeyboardAvoidingView
-            style={styles.modalKAV}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <Pressable>
-              <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
-                <Text style={styles.modalTitle}>New Folder</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Folder name"
-                  placeholderTextColor={c.text.placeholder}
-                  value={newFolderName}
-                  onChangeText={setNewFolderName}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateFolder}
-                />
-                <TouchableOpacity
-                  style={[styles.createButton, isCreatingFolder && { opacity: 0.6 }]}
-                  onPress={handleCreateFolder}
-                  disabled={isCreatingFolder || !newFolderName.trim()}
-                  activeOpacity={0.85}
-                >
-                  {isCreatingFolder ? (
-                    <ActivityIndicator color={c.white} size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>Create</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowNewFolder(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
 
       {move.modal}
 
@@ -1106,42 +909,6 @@ export default function ProjectDetailScreen() {
 }
 
 // -------------------------------------------------------------------
-// UploadButton sub-component
-// -------------------------------------------------------------------
-
-function UploadButton({
-  icon,
-  label,
-  loading,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  loading: boolean;
-  onPress: () => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
-  return (
-    <TouchableOpacity
-      style={styles.uploadButton}
-      onPress={onPress}
-      disabled={loading}
-      activeOpacity={0.8}
-    >
-      <View style={styles.uploadButtonIcon}>
-        {loading ? (
-          <ActivityIndicator color={c.text.secondary} size="small" />
-        ) : (
-          <Ionicons name={icon} size={22} color={c.text.secondary} />
-        )}
-      </View>
-      <Text style={styles.uploadButtonLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-// -------------------------------------------------------------------
 // Styles
 // -------------------------------------------------------------------
 
@@ -1150,69 +917,17 @@ const makeStyles = (c: ThemeColors) =>
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  projectColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  headerTitle: {
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.onGradientStrong,
-    flexShrink: 1,
-  },
-
-  // Breadcrumbs
-  breadcrumbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    paddingHorizontal: H_PADDING,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-    gap: 2,
-  },
-  crumbText: {
-    fontSize: Typography.size.xs,
-    color: c.text.onGradient,
-  },
-  crumbTextActive: {
-    color: c.text.onGradientStrong,
-    fontWeight: Typography.weight.medium as '500',
-  },
-  breadcrumbChevron: {
-    marginHorizontal: 2,
-  },
-
   // Scroll
   scrollContent: {
     paddingHorizontal: H_PADDING,
-    paddingTop: 20,
+    gap: 16,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
+  gridArea: { minHeight: 140 },
+  lecturePhotos: { gap: 10, marginTop: 8 },
+  lecturePhotosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
 
   sectionLabel: {
     fontSize: Typography.size.xs,
@@ -1220,90 +935,6 @@ const makeStyles = (c: ThemeColors) =>
     color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 12,
-  },
-
-  // Folder grid
-  folderGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_GAP,
-  },
-  folderCard: {
-    width: FOLDER_CARD_WIDTH,
-    backgroundColor: c.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: c.surfaceMuted,
-    padding: 14,
-    gap: 10,
-  },
-  folderIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: c.salmonLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  folderName: {
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.text.primary,
-  },
-
-  // Sessions list
-  sessionsList: {
-    backgroundColor: c.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: c.surfaceMuted,
-    overflow: 'hidden',
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-  },
-  sessionRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  sessionInfo: { flex: 1, gap: 2 },
-  sessionTitle: {
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.text.primary,
-  },
-  sessionMetaRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    flexWrap: 'wrap' as const,
-  },
-  sessionMeta: {
-    fontSize: Typography.size.xs,
-    color: c.text.secondary,
-  },
-  noteBadge: {
-    backgroundColor: c.success + '22',
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  noteBadgeText: {
-    fontSize: Typography.size.xs,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.success,
-    letterSpacing: 0.2,
-  },
-  sessionDuration: {
-    fontSize: Typography.size.xs,
-    fontWeight: Typography.weight.medium as '500',
-    color: c.text.secondary,
-    minWidth: 40,
-    textAlign: 'right',
   },
 
   // Empty state
@@ -1325,134 +956,10 @@ const makeStyles = (c: ThemeColors) =>
     maxWidth: 280,
   },
 
-  // Dual FAB
-  fabContainer: {
-    position: 'absolute',
-    left: H_PADDING,
-    right: H_PADDING,
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: c.black,
-    borderRadius: 100,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  fabSecondary: {
-    backgroundColor: c.white,
-    borderWidth: 1.5,
-    borderColor: c.surfaceMuted,
-    // Its own width (React Native Web reads `flex: 0` as a zero width).
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: 'auto',
-    paddingHorizontal: 18,
-  },
-  fabText: {
-    color: c.white,
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.semibold as '600',
-    letterSpacing: Typography.tracking.wide,
-  },
-  fabSecondaryText: {
-    color: c.text.primary,
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.medium as '500',
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: c.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalKAV: {
-    width: '100%',
-  },
-  modalSheet: {
-    backgroundColor: c.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 28,
-    paddingHorizontal: 24,
-    gap: 14,
-  },
-  modalTitle: {
-    fontSize: Typography.size.xl,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.primary,
-    marginBottom: 4,
-  },
-  modalInput: {
-    backgroundColor: c.surfaceMuted,
-    borderRadius: 100,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    fontSize: Typography.size.base,
-    color: c.text.primary,
-  },
-  createButton: {
-    backgroundColor: c.black,
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
-    minHeight: 54,
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  createButtonText: {
-    color: c.white,
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.semibold as '600',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    fontSize: Typography.size.base,
-    color: c.text.secondary,
-    fontWeight: Typography.weight.medium as '500',
-  },
-
   // Error
   errorText: {
     fontSize: Typography.size.base,
     color: c.error,
-  },
-
-  // Upload action buttons
-  uploadRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  uploadButton: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  uploadButtonIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: c.salmonLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadButtonLabel: {
-    fontSize: Typography.size.xs,
-    color: c.text.onGradient,
-    fontWeight: Typography.weight.medium as '500',
-    textAlign: 'center',
   },
 
   // Project files list
