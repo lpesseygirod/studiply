@@ -182,3 +182,28 @@ describe('summarizeProfiles: what the screen shows to choose', () => {
     expect(test).toMatchObject({ id: 'local-test', name: 'test', courses: 1, lectures: 1, notes: 0 });
   });
 });
+
+describe('planned rows match the database', () => {
+  // run.ts sends rows as plain objects; every key must be a real column
+  // (read from the generated types, so a renamed column fails here).
+  const fs = jest.requireActual('fs') as typeof import('fs');
+  const path = jest.requireActual('path') as typeof import('path');
+  const types = fs.readFileSync(path.join(__dirname, '../../../types/supabase.ts'), 'utf8');
+  const insertColumns = (table: string) => {
+    const start = types.indexOf(`"${table}": {`);
+    const insert = types.indexOf('Insert: {', start);
+    const end = types.indexOf('}', insert);
+    return new Set([...types.slice(insert, end).matchAll(/"(\w+)"\??:/g)].map((m) => m[1]));
+  };
+
+  it('courses, folders, files, lectures and summaries use only existing columns', () => {
+    const plan = mine();
+    for (const [table, rows] of Object.entries({
+      courses: plan.courses, folders: plan.folders, files: plan.files, lectures: plan.lectures, summaries: plan.summaries,
+    })) {
+      const columns = insertColumns(table);
+      expect(columns.size).toBeGreaterThan(3);
+      for (const row of rows) for (const key of Object.keys(row)) expect([table, key, columns.has(key)]).toEqual([table, key, true]);
+    }
+  });
+});

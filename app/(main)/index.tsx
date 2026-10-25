@@ -11,7 +11,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/constants/colors';
@@ -33,6 +33,7 @@ import { errorMessage } from '../../src/utils/errors';
 import { promptRenameLecture } from '../../src/utils/rename';
 import { lectureItem } from '../../src/utils/libraryItems';
 import { useMoveFlow } from '../../src/hooks/useMoveFlow';
+import { shouldOfferEarlierVersion } from '../../src/services/legacyImport';
 import { useLibraryUpdates } from '../../src/lib/cache';
 import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
@@ -72,6 +73,9 @@ function formatDuration(seconds: number | null): string {
 // Component
 // -------------------------------------------------------------------
 
+/** "Later" on the earlier-version card: hidden until the app starts again. */
+let earlierDismissed = false;
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -107,6 +111,15 @@ export default function HomeScreen() {
   }, [fetchData]);
   useLibraryUpdates(fetchData);
   const move = useMoveFlow({ showUndo, onChanged: fetchData });
+
+  // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
+  const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id || earlierDismissed) return;
+      shouldOfferEarlierVersion(profile.id).then(setEarlier).catch(() => setEarlier(null));
+    }, [profile?.id]),
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -301,6 +314,34 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Recent sessions ───────────────────────────────────── */}
+        {earlier && (
+          <View style={styles.earlierCard}>
+            <Text style={styles.earlierTitle}>Found data from the earlier version on this iPhone</Text>
+            <Text style={styles.earlierText}>
+              {earlier.courses} {earlier.courses === 1 ? 'course' : 'courses'} · {earlier.lectures}{' '}
+              {earlier.lectures === 1 ? 'lecture' : 'lectures'} · {earlier.notes} {earlier.notes === 1 ? 'note' : 'notes'}
+            </Text>
+            <View style={styles.earlierButtons}>
+              <TouchableOpacity
+                style={styles.earlierPrimary}
+                onPress={() => router.push('/settings/earlier-version')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.earlierPrimaryText}>Review & upload</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  earlierDismissed = true;
+                  setEarlier(null);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.earlierLater}>Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <Text style={[styles.sectionLabel, { marginTop: 28 }]}>RECENT SESSIONS</Text>
 
         {sessions.length === 0 ? (
@@ -414,6 +455,21 @@ const styles = StyleSheet.create({
     letterSpacing: Typography.tracking.widest,
     marginBottom: 2,
   },
+  // Earlier version card (step 1.9)
+  earlierCard: {
+    marginTop: 20,
+    backgroundColor: Colors.accentLight,
+    borderRadius: 16,
+    padding: 16,
+    gap: 6,
+  },
+  earlierTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
+  earlierText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  earlierButtons: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
+  earlierPrimary: { backgroundColor: Colors.button.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  earlierPrimaryText: { color: Colors.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  earlierLater: { color: Colors.text.secondary, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium },
+
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,

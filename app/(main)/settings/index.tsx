@@ -10,13 +10,14 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import { syncEnabled, syncNow, useSyncCounts } from '../../../src/lib/sync';
+import { legacyDataExists } from '../../../src/services/legacyImport';
 import UserAvatar from '../../../src/components/UserAvatar';
 import {
   formatClaude,
@@ -51,6 +52,14 @@ const SETTINGS_ROWS = [
     icon: 'trash-outline' as const,
   },
 ];
+
+/** Shown while the earlier version's data is still on this iPhone (step 1.9). */
+const EARLIER_VERSION_ROW = {
+  label: 'Earlier version data',
+  subtitle: 'Upload what the earlier app kept on this iPhone',
+  icon: 'phone-portrait-outline' as const,
+  route: '/settings/earlier-version',
+};
 
 // -------------------------------------------------------------------
 // AiUsageBanner — today's AI use against the daily limits
@@ -155,6 +164,15 @@ export default function SettingsScreen() {
     runCheck();
   }, [runCheck]);
 
+  // Checked again each time Settings is shown (the old copy may have been removed).
+  const [hasEarlier, setHasEarlier] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      legacyDataExists().then(setHasEarlier).catch(() => setHasEarlier(false));
+    }, []),
+  );
+  const rows = hasEarlier ? [...SETTINGS_ROWS, EARLIER_VERSION_ROW] : SETTINGS_ROWS;
+
   const username = profile?.username ?? '—';
 
   return (
@@ -190,7 +208,7 @@ export default function SettingsScreen() {
 
         {/* ── Settings rows ─────────────────────────────────────── */}
         <View style={styles.settingsSection}>
-          {SETTINGS_ROWS.map((row, index) => (
+          {rows.map((row, index) => (
             <React.Fragment key={row.route}>
               <TouchableOpacity
                 style={styles.settingsRow}
@@ -206,7 +224,7 @@ export default function SettingsScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
               </TouchableOpacity>
-              {index < SETTINGS_ROWS.length - 1 && <View style={styles.divider} />}
+              {index < rows.length - 1 && <View style={styles.divider} />}
             </React.Fragment>
           ))}
         </View>
