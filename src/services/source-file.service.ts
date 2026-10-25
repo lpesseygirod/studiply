@@ -40,6 +40,9 @@ import { extensionFor, nameWithoutExtension, withExtension } from '../utils/file
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
 import type { SourceFile } from '../types/database';
+// Registers the library uploads' queue job at start, so uploads queued
+// before the app was closed are sent without opening a course first.
+import './library-upload.service';
 
 /**
  * A lecture's files, in Supabase Storage (step 1.4 buckets):
