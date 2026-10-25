@@ -14,7 +14,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.4 — File storage (private buckets + policies + helper)
 - [x] 1.5 — Transcription on the server (`transcribe-chunk` Edge Function)
 - [x] 1.6 — Claude on the server (`assistant-chat` + `summarize` skeletons)
-- [ ] 1.7 — The app uses the backend (switch services, remove EXPO_PUBLIC keys, prove bundle clean) — **part A (local) done 25 Oct 2026**; part B (remote project) open
+- [x] 1.7 — The app uses the backend (switch services, remove EXPO_PUBLIC keys, prove bundle clean) — part A (local) done 25 Oct 2026; part B (remote project) done; Lea's real data uploaded to the remote on 26 Oct (step 1.9)
 - [x] 1.8 — Offline cache and sync (SQLite cache + conflict rule) — done 25 Oct 2026 (iPhone; web stays online-only)
 - [x] 1.9 — Move existing data (one-time idempotent migration) — built 26 Oct 2026; the real upload of Lea's own data is done by Lea (steps in the decision below)
 
