@@ -241,7 +241,15 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Favorites pulled forward from 3.4** (Lea, 26 Oct): "Add to / Remove from Favorites" in the menus of courses, folders, lectures and library files, and in the laptop sidebar's right-click menus; online only; Undo restores the previous value (`src/utils/star.ts`). The rest of the 3.4 menus stays in 3.4.
   - **Starred → Favorites** (Lea): every user-visible "Starred / Star / Unstar" became Favorites / Add to Favorites / Remove from Favorites; the URL is `?section=favorites`. The database column (`starred_at`) and the code names (`getStarredItems`, `setStarredAt`) stay.
   - **Bug fixed (Chrome):** the laptop sidebar's courses and course tree had no right-click menu, so there was no way to add them to Favorites there (the iPhone has no sidebar). They now have Open + Add to / Remove from Favorites; checked in `shell-data.mjs`.
-  - **Side effect to know:** adding to Favorites updates the row, so the database's `updated_at` trigger moves the item to the top of Recent (and a course to the top of the course list).
+  - **Favorites for everything, without reordering** (Lea):
+    - **Lecture photos/PDFs:** `media.starred_at`, in the menus of Project Files, post-session and the note's Source Files. They show in Favorites as "Photo 2 · Clase 1" and open their lecture.
+    - **Migration `20261026090100_favorites_everywhere`:**
+      - on courses, folders, files and media only, a favorite-only change keeps `updated_at`;
+      - every other table keeps the plain trigger (Lea: so big rows such as summaries aren't serialized);
+      - `changed_at` moves on every update of those four tables, and the iPhone downloads them by it, so a favorite set on the laptop still reaches the iPhone.
+      - pgTAP: `05_favorites`.
+      - **Applied locally; the remote push waits for Lea's OK.**
+    - **Project Files numbering:** photos there are now numbered within their lecture (oldest first), like the lecture's own screens and Favorites. Before, "Photo 2" there could be "Photo 1" in the lecture.
   - **PDFs and images** open their course at their folder until files get a viewer; documents, unit summaries and exam packs the same until Phases 4 and 7.
   - **Checks:** `.claude/skills/web-check/scripts/shell-data.mjs` (counts, badge, sections, top bar, crumbs, folder links, Record lecture, Star / Unstar with Undo in the database, iPhone chips and long-press). `flows.mjs` clicks scoped away from the sidebar's course tree.
 

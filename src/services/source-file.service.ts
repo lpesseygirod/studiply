@@ -89,6 +89,17 @@ export function fileLabel(file: SourceFile, allFiles: SourceFile[]): string {
   return 'Document';
 }
 
+/**
+ * The files of the same lecture, oldest first: lists that mix lectures
+ * (the course's Project Files, newest first) number "Photo 2" the way the
+ * lecture's own screens and Favorites do.
+ */
+export function sameLectureFiles(file: SourceFile, allFiles: SourceFile[]): SourceFile[] {
+  return allFiles
+    .filter((f) => f.session_id === file.session_id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
 /** The extension a photo or PDF keeps when renamed ("png", "pdf"…). */
 export function fileExtension(file: SourceFile): string {
   return extensionFor({

@@ -40,6 +40,7 @@ import {
   markDeleted as markSourceFileDeleted,
   sourceFileName,
   fileLabel,
+  sameLectureFiles,
   getLibraryFiles,
   type LibraryFile,
 } from '../../../src/services/source-file.service';
@@ -341,7 +342,7 @@ export default function ProjectDetailScreen() {
   }
 
   function showFileActions(file: SourceFile, anchor?: Anchor) {
-    const name = fileLabel(file, projectFiles);
+    const name = fileLabel(file, sameLectureFiles(file, projectFiles));
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
       { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
@@ -355,7 +356,7 @@ export default function ProjectDetailScreen() {
   }
 
   async function renameFile(file: SourceFile) {
-    const renamed = await promptRenameFile(file, projectFiles);
+    const renamed = await promptRenameFile(file, sameLectureFiles(file, projectFiles));
     if (renamed) setProjectFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
   }
 
@@ -819,7 +820,7 @@ export default function ProjectDetailScreen() {
               <View style={styles.filesList}>
                 {projectFiles.map((file, index) => {
                   const isPhoto = file.file_type === 'photo';
-                  const label = fileLabel(file, projectFiles);
+                  const label = fileLabel(file, sameLectureFiles(file, projectFiles));
 
                   return (
                     <TouchableOpacity

@@ -2,8 +2,8 @@
 // Review today badge, the Recent / Favorites / Exam packs sections, the open
 // course expanding, the top bar's breadcrumb, title and "Saved · time",
 // links to a folder, Record lecture preselecting the course, Add to / Remove
-// from Favorites with Undo (also from the sidebar's right-click menus), and
-// the iPhone chips. Favorites (starred_at), an exam pack, a note and a due
+// from Favorites with Undo (also from the sidebar's right-click menus and on
+// a lecture's photos), favorites not reordering anything, and the iPhone chips. Favorites (starred_at), an exam pack, a note and a due
 // review are inserted with the service role (nothing in the app can make
 // exam packs or reviews yet). Screenshots: shell-*.png. Exit 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
@@ -72,6 +72,20 @@ const { data: pack } = await admin
   .select()
   .single();
 await admin.from('review_schedule').insert({ user_id: user.id, file_id: data.lecture.id, due_at: now.toISOString() });
+// Two photos inside Lecture 1 ("Photo 1", "Photo 2"; the files themselves don't exist).
+const { data: photos } = await admin
+  .from('media')
+  .insert([
+    { user_id: user.id, lecture_id: data.lecture.id, kind: 'photo', storage_path: `${user.id}/${data.lecture.id}/p1.jpg`, created_at: new Date(now - 120_000).toISOString() },
+    { user_id: user.id, lecture_id: data.lecture.id, kind: 'photo', storage_path: `${user.id}/${data.lecture.id}/p2.jpg`, created_at: new Date(now - 60_000).toISOString() },
+  ])
+  .select()
+  .order('created_at');
+const [photo1, photo2] = photos;
+/** The titles in a list, in order (meta lines and icon glyphs left out). */
+const titles = (text) =>
+  text.split('\n').map((l) => l.replace(/[^\p{L}\p{N}\s·().-]/gu, '').trim()).filter((l) => l && !l.includes('·'));
+const updatedAt = async (table, id) => (await admin.from(table).select('updated_at').eq('id', id).single()).data.updated_at;
 
 const b = await launch({ width: 1280, height: 900 });
 
@@ -134,7 +148,7 @@ try {
     expect(await sidebarClick('Funcions'), 'no Funcions in the sidebar');
     await b.sleep(1500);
     expect((await search()).includes(`folder=${data.folder.id}`), await search());
-    await b.waitText('Empty folder', { timeout: 5000 });
+    await b.waitText('Funcions', { exact: true, timeout: 5000, ...MAIN });
   });
 
   await step('Record lecture preselects the course', async () => {
@@ -197,6 +211,63 @@ try {
     await admin.from('courses').update({ starred_at: null }).eq('id', data.course.id);
   });
 
+  await step('Favorites don\'t reorder: updated_at, Recent and the course list stay as they were', async () => {
+    await open('/library?section=recent', 'Lecture 1');
+    const recentBefore = titles(await textOf('[data-testid=section-list]')).join(' | ');
+    const coursesBefore = titles((await textOf(SIDEBAR)).split('COURSES')[1]).join(' | ');
+    const before = { course: await updatedAt('courses', data.course.id), lecture: await updatedAt('files', data.lecture.id) };
+    await open('/library', 'COURSES');
+    await b.click('Math', { button: 'right', ...MAIN });
+    await b.click('Add to Favorites', { exact: true });
+    await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
+    await b.click('Lecture 1', { button: 'right', ...MAIN });
+    await b.click('Remove from Favorites', { exact: true });
+    await b.waitText('Removed from Favorites', { exact: true, timeout: 5000 });
+    await b.sleep(800);
+    expect((await starredAt('courses', data.course.id)) !== null && (await starredAt('files', data.lecture.id)) === null, 'favorites not written');
+    const after = { course: await updatedAt('courses', data.course.id), lecture: await updatedAt('files', data.lecture.id) };
+    expect(JSON.stringify(after) === JSON.stringify(before), `updated_at changed: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+    await open('/library?section=recent', 'Lecture 1');
+    const recentAfter = titles(await textOf('[data-testid=section-list]')).join(' | ');
+    expect(recentAfter === recentBefore, `Recent order changed:\n${recentBefore}\n---\n${recentAfter}`);
+    const coursesAfter = titles((await textOf(SIDEBAR)).split('COURSES')[1]).join(' | ');
+    expect(coursesAfter === coursesBefore, `course order changed: ${coursesBefore} -> ${coursesAfter}`);
+    await admin.from('courses').update({ starred_at: null }).eq('id', data.course.id);
+  });
+
+  await step('Project Files: a lecture photo goes to Favorites as "Photo 2 · Lecture 1" and opens the lecture', async () => {
+    await open(`/project/${data.course.id}`, 'Photo 2');
+    await b.click('Photo 2', { button: 'right', ...MAIN });
+    await b.click('Add to Favorites', { exact: true });
+    await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
+    expect((await starredAt('media', photo2.id)) !== null, 'media.starred_at not set');
+    expect((await updatedAt('media', photo2.id)) === photo2.updated_at, 'the photo\'s updated_at changed');
+    await b.click('Photo 2', { button: 'right', ...MAIN });
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 3000 });
+    await b.press('Escape');
+    await open('/library?section=favorites', 'Photo 2 · Lecture 1');
+    await b.shot('shell-1280-favorites-photo');
+    await b.click('Photo 2 · Lecture 1', { exact: true, ...MAIN });
+    await b.sleep(1500);
+    expect((await pathname()) === `/note/${data.lecture.id}`, await pathname());
+  });
+
+  await step('The note\'s Source Files: Remove from Favorites', async () => {
+    await b.waitText('Photo 2', { exact: true, ...MAIN, timeout: 10000 });
+    await b.click('Photo 2', { button: 'right', ...MAIN });
+    await b.click('Remove from Favorites', { exact: true });
+    await b.waitText('Removed from Favorites', { exact: true, timeout: 5000 });
+    expect((await starredAt('media', photo2.id)) === null, 'still a favorite');
+  });
+
+  await step('Post-session: Add to Favorites on a lecture photo', async () => {
+    await open(`/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Photo 1');
+    await b.click('Photo 1', { button: 'right', ...MAIN });
+    await b.click('Add to Favorites', { exact: true });
+    await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
+    expect((await starredAt('media', photo1.id)) !== null, 'media.starred_at not set');
+  });
+
   await step('iPhone (390 px): chips switch sections and back; Review today count', async () => {
     await b.resize(390, 844);
     await open('/library', 'COURSES');
@@ -210,6 +281,17 @@ try {
     await b.click('Favorites', { exact: true });
     await b.waitText('COURSES', { exact: true });
     expect(!(await search()).includes('section'), await search());
+  });
+
+  await step('iPhone: a long press (mouse hold) on a lecture photo offers Favorites', async () => {
+    await open(`/note/${data.lecture.id}`, 'Photo 1');
+    await b.click('Photo 2', { holdMs: 800 });
+    await b.waitText('Add to Favorites', { exact: true, timeout: 3000 });
+    await b.press('Escape');
+    await b.click('Photo 1', { holdMs: 800 });
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 3000 });
+    await b.press('Escape');
+    await open('/library', 'COURSES');
   });
 
   await step('iPhone: a long press (mouse hold) on a course offers Favorites', async () => {
