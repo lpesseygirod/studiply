@@ -10,6 +10,7 @@ import { Typography } from '../../src/constants/typography';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
+import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
 import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
 import { Sidebar } from '../../src/components/shell/Sidebar';
@@ -151,6 +152,7 @@ export default function MainLayout() {
         {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
         {wide && toast}
         {Platform.OS === 'web' && <KeyboardShortcuts />}
+        {__DEV__ && <DragDebugOverlay />}
       </View>
     </ShellProvider>
   );

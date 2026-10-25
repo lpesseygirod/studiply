@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { showAlert } from '../components/dialogs/dialogs';
 import type { DropHandlers } from '../lib/dnd/useHtml5Drag';
+import { dragLog } from '../lib/dnd/dragDebug';
 import { canDrop, draggedTitle, type DropCheck, type Dragged, type DropTarget } from '../lib/dnd/rules';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../lib/cache';
 import { getFolderLinks } from '../services/folder.service';
@@ -33,7 +34,11 @@ export function useLibraryDrop({ showUndo }: { showUndo: ShowUndo }) {
 
   const drop = useCallback(
     async (dragged: Dragged, target: DropTarget) => {
-      if (!check(dragged, target).ok) return;
+      const verdict = check(dragged, target);
+      if (!verdict.ok) {
+        dragLog(`not moved: ${verdict.reason}`);
+        return;
+      }
       const title = draggedTitle(dragged);
       try {
         if (target.kind === 'trash') {
@@ -54,10 +59,12 @@ export function useLibraryDrop({ showUndo }: { showUndo: ShowUndo }) {
           dragged.kind === 'item'
             ? await moveItem(dragged.item, target.place)
             : await moveMediaToLibrary(dragged.file, dragged.name, target.place);
+        dragLog(`moved to ${target.place.label}`);
         showUndo(`Moved '${title}' to ${target.place.label}`, () => {
           result.undo().catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
         });
       } catch (err) {
+        dragLog(`move failed: ${err instanceof Error ? err.message : String(err)}`);
         showAlert('Could not move it', err instanceof MoveError ? err.message : errorMessage(err, 'Please try again.'));
       }
     },

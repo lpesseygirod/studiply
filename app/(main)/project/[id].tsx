@@ -56,9 +56,12 @@ import { useLibraryDrop } from '../../../src/hooks/useLibraryDrop';
 import { useDragSource } from '../../../src/lib/dnd/useHtml5Drag';
 import { DraggableView, GestureDragProvider, lastItemGestureAt, type Scroller } from '../../../src/lib/dnd/GestureDrag';
 import {
+  Gesture,
+  GestureDetector,
   RefreshControl as GestureRefreshControl,
   ScrollView as GestureScrollView,
 } from 'react-native-gesture-handler';
+import { dragLog, useDragDebug } from '../../../src/lib/dnd/dragDebug';
 import type { Dragged } from '../../../src/lib/dnd/rules';
 import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
 import { useLibraryUpdates } from '../../../src/lib/cache';
@@ -432,6 +435,11 @@ export default function ProjectDetailScreen() {
     renameFolderInPlace: folderId => setEditing({ mode: 'rename', id: folderId }),
   });
   const move = itemMenu.move;
+  // Development: the list without gesture-handler, to compare the iPhone drag (dragDebug.ts).
+  const { plainScroll } = useDragDebug();
+  const Scroll = plainScroll ? ScrollView : ListScroll;
+  const Refresh = plainScroll ? RefreshControl : ListRefresh;
+
   // Drag and drop (step 3.3): onto folder tiles and the breadcrumb.
   const dnd = useLibraryDrop({ showUndo });
 
@@ -611,7 +619,11 @@ export default function ProjectDetailScreen() {
   /** Empty space: right-click (laptop) or long-press (iPhone), like Finder. The toolbar stays. */
   function spaceMenu(anchor?: Anchor) {
     // iPhone: a long-press on a tile is the tile's (its drag or its menu), not the space around it.
-    if (editing || Date.now() - lastItemGestureAt() < 1000) return;
+    if (editing || Date.now() - lastItemGestureAt() < 1000) {
+      dragLog('empty-space menu: ignored (an item took the press)');
+      return;
+    }
+    dragLog('empty-space menu: opened');
     setSelectedId(null);
     const run: Record<SpaceAction, () => void> = {
       newFolder: startNewFolder,
@@ -656,7 +668,7 @@ export default function ProjectDetailScreen() {
         </View>
       ) : (
         <DragArea check={dnd.check} onDrop={dnd.drop} scroller={scroller}>
-          <ListScroll
+          <Scroll
             ref={scrollRef}
             contentContainerStyle={[
               styles.scrollContent,
@@ -666,10 +678,11 @@ export default function ProjectDetailScreen() {
             keyboardShouldPersistTaps="handled"
             scrollEventThrottle={16}
             onScroll={e => (scrollState.current.y = e.nativeEvent.contentOffset.y)}
+            onScrollBeginDrag={() => dragLog('list scroll started')}
             onContentSizeChange={(_w, h) => (scrollState.current.content = h)}
             onLayout={e => (scrollState.current.height = e.nativeEvent.layout.height)}
             refreshControl={
-              <ListRefresh refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
+              <Refresh refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
             }
           >
             {/* ── My library › Course › Folder · N items, Sort, grid/list ── */}
@@ -701,13 +714,7 @@ export default function ProjectDetailScreen() {
             />
 
             {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
-            <Pressable
-              onPress={() => setSelectedId(null)}
-              {...menuTriggerProps(spaceMenu)}
-              accessible={false}
-              style={styles.space}
-              testID="library-space"
-            >
+            <SpaceArea onPress={() => setSelectedId(null)} onMenu={spaceMenu} style={styles.space}>
               {sortedEntries.length === 0 && !editing ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
@@ -785,8 +792,8 @@ export default function ProjectDetailScreen() {
                   )}
                 </View>
               )}
-            </Pressable>
-          </ListScroll>
+            </SpaceArea>
+          </Scroll>
         </DragArea>
       )}
 
@@ -823,6 +830,51 @@ export default function ProjectDetailScreen() {
 // iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight (step 3.3).
 const ListScroll = (Platform.OS === 'web' ? ScrollView : GestureScrollView) as typeof ScrollView;
 const ListRefresh = (Platform.OS === 'web' ? RefreshControl : GestureRefreshControl) as typeof RefreshControl;
+
+/**
+ * The empty space around the tiles: a click clears the selection and a
+ * right-click shows the empty-space menu (laptop); a long-press shows it on
+ * the iPhone. There it is a gesture-handler long-press (500 ms), so a tile's
+ * own hold (350 ms, its drag or its menu) wins natively, with no race
+ * between the two (step 3.3 iPhone fix).
+ */
+function SpaceArea({
+  onPress,
+  onMenu,
+  style,
+  children,
+}: {
+  onPress: () => void;
+  onMenu: (anchor?: Anchor) => void;
+  style: React.ComponentProps<typeof View>['style'];
+  children: React.ReactNode;
+}) {
+  const menuRef = useRef(onMenu);
+  menuRef.current = onMenu;
+  const longPress = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(500)
+        .runOnJS(true)
+        .withTestId('space-long-press')
+        .onStart(() => menuRef.current()),
+    [],
+  );
+  if (Platform.OS === 'web') {
+    return (
+      <Pressable onPress={onPress} {...menuTriggerProps(onMenu)} accessible={false} style={style} testID="library-space">
+        {children}
+      </Pressable>
+    );
+  }
+  return (
+    <GestureDetector gesture={longPress}>
+      <View style={style} collapsable={false} testID="library-space">
+        {children}
+      </View>
+    </GestureDetector>
+  );
+}
 
 /** The iPhone's drag (the laptop uses the browser's own drag, no provider needed). */
 function DragArea({ children, ...props }: React.ComponentProps<typeof GestureDragProvider>) {

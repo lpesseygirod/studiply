@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useThemedStyles } from '../../theme/ThemeProvider';
+import { dragDebugSet, dragLog } from './dragDebug';
 import { draggedId, draggedTitle, hitTest, type DropCheck, type Dragged, type DropTarget, type MeasuredTarget, type Rect } from './rules';
 
 export interface Hover {
@@ -57,6 +58,20 @@ const ViewContext = createContext<DragView>({ item: null, hover: null });
 /** How close to the top or bottom edge (pt) the list starts scrolling, and how fast at the edge. */
 const EDGE = 80;
 const MAX_SPEED = 14;
+
+/**
+ * How far the list scrolls per frame with the finger at `y` in a drag area
+ * starting at `top`, `height` tall: up near the top, down near the bottom,
+ * faster closer to the edge. 0 until the area has been measured (height 0),
+ * or the list would run away at the start of every drag.
+ */
+export function edgeSpeed(y: number, top: number, height: number): number {
+  if (height <= 0) return 0;
+  const bottom = top + height;
+  if (y < top + EDGE) return -MAX_SPEED * (1 - Math.max(0, y - top) / EDGE);
+  if (y > bottom - EDGE) return MAX_SPEED * (1 - Math.max(0, bottom - y) / EDGE);
+  return 0;
+}
 
 // When an item's long-press last started a drag or its menu: the empty
 // space around it has a long-press menu too, and must not open as well.
@@ -103,6 +118,8 @@ export function GestureDragProvider({
   const root = useRef<Rect>({ x: 0, y: 0, width: 0, height: 0 });
   const pointer = useRef({ x: 0, y: 0 });
   const frame = useRef<number | null>(null);
+  // Settles when the targets measured at the start of the current drag are known.
+  const measuredAll = useRef<Promise<void>>(Promise.resolve());
   const ghost = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const [item, setItem] = useState<Dragged | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
@@ -132,6 +149,7 @@ export function GestureDragProvider({
     if (prev?.id === next?.id && prev?.ok === next?.ok) return;
     current.current.hover = next;
     setHover(next);
+    dragDebugSet({ hover: next ? `${labelOf(next.id, rects.current)} ${next.ok ? '✓' : `✗ ${next.reason}`}` : null });
   }, []);
 
   const stopScrolling = useCallback(() => {
@@ -145,13 +163,11 @@ export function GestureDragProvider({
     const s = scrollerRef.current;
     if (!s || !current.current.item) return;
     const { y } = pointer.current;
-    const top = root.current.y;
-    const bottom = top + root.current.height;
-    const speed =
-      y < top + EDGE ? -MAX_SPEED * (1 - Math.max(0, y - top) / EDGE) : y > bottom - EDGE ? MAX_SPEED * (1 - Math.max(0, bottom - y) / EDGE) : 0;
+    const speed = edgeSpeed(y, root.current.y, root.current.height);
     if (speed === 0) return;
     const moved = s.scrollBy(speed);
     if (moved !== 0) {
+      dragLog(`auto-scroll ${Math.round(moved)}`);
       // Everything in the list moved up by `moved` on screen.
       rects.current = rects.current.map((t) => ({ ...t, rect: { ...t.rect, y: t.rect.y - moved } }));
       setHoverIfChanged(hoverAt(pointer.current.x, y));
@@ -168,15 +184,19 @@ export function GestureDragProvider({
       start: (dragged, x, y) => {
         current.current = { item: dragged, hover: null };
         pointer.current = { x, y };
+        // Not measured yet: no auto-scroll until it is (edgeSpeed).
+        root.current = { x: 0, y: 0, width: 0, height: 0 };
+        rects.current = [];
         setItem(dragged);
         lightHaptic();
         placeGhost(x, y);
+        dragLog(`drag start: ${draggedTitle(dragged)}`);
         // Where everything is now (the list may have scrolled since it was drawn).
-        measureView(rootRef.current).then((r) => {
+        const measured = measureView(rootRef.current).then((r) => {
           if (r) root.current = r;
           placeGhost(pointer.current.x, pointer.current.y);
         });
-        Promise.all(
+        const targets = Promise.all(
           [...registry.current.values()].map(async (reg) => {
             const rect = await reg.measure();
             return rect ? { ...reg.target(), rect } : null;
@@ -184,8 +204,15 @@ export function GestureDragProvider({
         ).then((list) => {
           rects.current = list.filter((t): t is MeasuredTarget => t !== null);
         });
+        measuredAll.current = Promise.all([measured, targets]).then(() => {
+          const r = root.current;
+          dragDebugSet({
+            targets: `${rects.current.length} of ${registry.current.size} measured · area y ${Math.round(r.y)} h ${Math.round(r.height)}`,
+          });
+        });
       },
       move: (x, y) => {
+        dragDebugSet({ finger: { x, y } });
         pointer.current = { x, y };
         placeGhost(x, y);
         setHoverIfChanged(hoverAt(x, y));
@@ -194,16 +221,32 @@ export function GestureDragProvider({
       end: (x, y) => {
         stopScrolling();
         const dragged = current.current.item;
-        const target = dragged ? hitTest({ x, y }, rects.current) : null;
         current.current = { item: null, hover: null };
         setItem(null);
         setHover(null);
-        if (dragged && target && checkRef.current(dragged, target).ok) {
-          lightHaptic();
-          onDropRef.current(dragged, target);
+        if (!dragged) {
+          dragLog('drop: nothing was being dragged');
+          return;
         }
+        // A quick drag can end before the targets are measured: wait for them.
+        measuredAll.current.then(() => {
+          const target = hitTest({ x, y }, rects.current);
+          const verdict = target ? checkRef.current(dragged, target) : null;
+          dragLog(
+            !target
+              ? `drop at ${Math.round(x)}, ${Math.round(y)}: no target there`
+              : verdict?.ok
+                ? `drop on ${labelOf(target.id, [target])}`
+                : `drop refused: ${verdict && !verdict.ok ? verdict.reason : ''}`,
+          );
+          if (target && verdict?.ok) {
+            lightHaptic();
+            onDropRef.current(dragged, target);
+          }
+        });
       },
       cancel: () => {
+        if (current.current.item) dragLog('drag cancelled');
         stopScrolling();
         current.current = { item: null, hover: null };
         setItem(null);
@@ -258,13 +301,21 @@ export function GestureDraggable({
     const pan = Gesture.Pan().runOnJS(true).mouseButton(MouseButton.LEFT);
     if (Platform.OS === 'web') pan.minDistance(5);
     else pan.activateAfterLongPress(350);
+    const id = draggedId(itemRef.current);
     pan
+      .withTestId(`drag-${id}`)
+      .onBegin((e) => {
+        dragLog(`touch on ${draggedTitle(itemRef.current)}`, { touchStart: true });
+        dragDebugSet({ finger: { x: e.absoluteX, y: e.absoluteY }, hover: null });
+      })
       .onStart((e) => {
         lastItemGesture = Date.now();
+        dragLog('pan active (lifted)');
         drag.start(itemRef.current, e.absoluteX, e.absoluteY);
       })
       .onUpdate((e) => drag.move(e.absoluteX, e.absoluteY))
-      .onEnd((e) => {
+      .onEnd((e, success) => {
+        dragLog(`pan end ${success ? 'ok' : 'failed'}, moved ${Math.round(Math.hypot(e.translationX, e.translationY))}`);
         // iPhone: long-press and release without moving = the menu (DESIGN.md)
         if (Platform.OS !== 'web' && Math.hypot(e.translationX, e.translationY) < 8) {
           drag.cancel();
@@ -275,12 +326,17 @@ export function GestureDraggable({
         drag.end(e.absoluteX, e.absoluteY);
       })
       .onFinalize((_e, success) => {
-        if (!success) drag.cancel();
+        if (!success) {
+          dragLog('pan stopped before it was active (moved too soon, or another gesture took the touch)');
+          drag.cancel();
+        }
       });
     const tap = Gesture.Tap()
       .runOnJS(true)
       .mouseButton(MouseButton.LEFT)
+      .withTestId(`tap-${id}`)
       .onEnd((_e, success) => {
+        dragLog(`tap ${success ? 'ok → open' : 'failed'}`);
         if (success) onOpenRef.current();
       });
     return Gesture.Exclusive(pan, tap);
@@ -352,10 +408,17 @@ export function GestureDropTarget({
   );
   const hover = hovered?.id === target.id ? hovered : null;
   return (
-    <View ref={ref} collapsable={false}>
+    <View ref={ref} collapsable={false} testID={`drop-${target.id}`}>
       {children(hover)}
     </View>
   );
+}
+
+/** A target's name for the debug overlay. */
+function labelOf(id: string, targets: MeasuredTarget[]): string {
+  const t = targets.find((x) => x.id === id);
+  if (!t) return id;
+  return t.kind === 'trash' ? 'Trash' : t.place.label;
 }
 
 const localStyles = StyleSheet.create({

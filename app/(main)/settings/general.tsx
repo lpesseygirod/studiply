@@ -26,6 +26,7 @@ import { getUserSettings, upsertUserSettings } from '../../../src/services/setti
 import type { UserSettings } from '../../../src/types/database';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { setSimulatedOffline, useSimulatedOffline } from '../../../src/lib/connectivity';
+import { setDragDebug, setPlainScroll, useDragDebug } from '../../../src/lib/dnd/dragDebug';
 import { SyncDebugPanel } from '../../../src/components/SyncDebugPanel';
 import { legacyImportAvailable, setUseSampleData, usesSampleData } from '../../../src/services/legacyImport';
 import { createSampleEarlierVersion } from '../../../src/services/legacyImport/sample';
@@ -76,6 +77,7 @@ export default function GeneralScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   const simulatedOffline = useSimulatedOffline();
+  const dragDebug = useDragDebug();
   // Development: step 1.9 tested on sample data, never the real earlier-version data.
   const [useSample, setUseSample] = useState(false);
   const [creatingSample, setCreatingSample] = useState(false);
@@ -441,6 +443,30 @@ export default function GeneralScreen() {
               <View style={styles.divider} />
               <View style={styles.row}>
                 <SyncDebugPanel />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.toggleRow}>
+                <Text style={styles.rowLabel}>Drag debug overlay</Text>
+                <Switch
+                  value={dragDebug.on}
+                  onValueChange={setDragDebug}
+                  trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+                  thumbColor={c.white}
+                  ios_backgroundColor={c.surfaceMuted}
+                  accessibilityLabel="Drag debug overlay"
+                />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.toggleRow}>
+                <Text style={styles.rowLabel}>Drag: plain ScrollView</Text>
+                <Switch
+                  value={dragDebug.plainScroll}
+                  onValueChange={setPlainScroll}
+                  trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+                  thumbColor={c.white}
+                  ios_backgroundColor={c.surfaceMuted}
+                  accessibilityLabel="Drag: plain ScrollView"
+                />
               </View>
               {legacyImportAvailable && (
               <>
