@@ -140,6 +140,18 @@ export function courseAt(courseId: string | null, folderId: string | null): Href
   return folderId ? { pathname: '/project/[id]', params: { id: courseId, folder: folderId } } : `/project/${courseId}`;
 }
 
+/** Ionicons names per kind (sidebar tree and section lists). */
+export const TYPE_ICON = {
+  course: 'folder-outline',
+  folder: 'folder-outline',
+  lecture: 'document-text-outline',
+  document: 'create-outline',
+  pdf: 'document-outline',
+  image: 'image-outline',
+  unit_summary: 'albums-outline',
+  exam_pack: 'school-outline',
+} as const satisfies Record<ShelfType, string>;
+
 const TYPE_LABEL: Record<ShelfType, string> = {
   course: 'Course',
   folder: 'Folder',

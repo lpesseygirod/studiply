@@ -12,7 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
@@ -20,7 +20,13 @@ import { Colors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
 import { getProjects, updateProject, type ProjectWithCount } from '../../../src/services/project.service';
-import { getRecentSessions } from '../../../src/services/session.service';
+import { getSession } from '../../../src/services/session.service';
+import {
+  getExamPacks,
+  getRecentItems,
+  getReviewDueCount,
+  getStarredItems,
+} from '../../../src/services/shelf.service';
 import { trashSession, trashProject } from '../../../src/services/trash.service';
 import { getNoteBySession } from '../../../src/services/note.service';
 import { exportNoteToPDF } from '../../../src/services/export.service';
@@ -41,40 +47,34 @@ import { promptRenameLecture } from '../../../src/utils/rename';
 import { lectureItem } from '../../../src/utils/libraryItems';
 import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
+import { itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
+import { starButton } from '../../../src/utils/star';
 import type { Session } from '../../../src/types/database';
 
 const H_PADDING = 18;
 const CARD_GAP = 10;
 
-// Filters shown under the search field (docs/design iphone-01). They fill
-// in with step 2.2 (Recent, Starred) and the study phase (Exam packs, Review).
-const CHIPS = ['Recent', 'Starred', 'Exam packs', 'Review today'] as const;
+// The sections (docs/design iphone-01 chips; the laptop sidebar links here
+// with ?section=). Review today opens the Review tab.
+const SECTIONS = [
+  { key: 'recent', label: 'Recent', empty: 'Nothing here yet.' },
+  { key: 'starred', label: 'Starred', empty: 'Nothing starred yet. Long-press (or right-click) an item and choose Star.' },
+  { key: 'exam-packs', label: 'Exam packs', empty: 'Exam packs you make from a course show up here.' },
+] as const;
+type SectionKey = (typeof SECTIONS)[number]['key'];
 
-// -------------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------------
-
-function formatDay(isoString: string): string {
-  const date = new Date(isoString);
-  const today = new Date();
-  const days = Math.round(
-    (new Date(today.toDateString()).getTime() - new Date(date.toDateString()).getTime()) / 86_400_000,
-  );
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+function sectionFor(param: string | undefined) {
+  return SECTIONS.find(s => s.key === param) ?? null;
 }
 
-function sessionState(status: Session['status']): string {
-  if (status === 'completed') return 'Summary ready';
-  if (status === 'processing' || status === 'transcribing') return 'Processing';
-  if (status === 'failed') return 'Needs attention';
-  return 'Not processed yet';
+function loadSection(key: SectionKey): Promise<ShelfItem[]> {
+  if (key === 'starred') return getStarredItems();
+  if (key === 'exam-packs') return getExamPacks();
+  return getRecentItems(50);
 }
 
-function lectureCount(n: number): string {
-  return `${n} lecture${n === 1 ? '' : 's'}`;
+function itemCount(n: number): string {
+  return `${n} item${n === 1 ? '' : 's'}`;
 }
 
 // -------------------------------------------------------------------
@@ -90,9 +90,13 @@ export default function LibraryScreen() {
   const router = useRouter();
   const wide = useLayoutMode() === 'wide';
   const { width } = useWindowDimensions();
+  const section = sectionFor(useLocalSearchParams<{ section?: string }>().section);
 
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [recent, setRecent] = useState<ShelfItem[]>([]);
+  // The open section's items (null while loading).
+  const [sectionItems, setSectionItems] = useState<ShelfItem[] | null>(null);
+  const [reviewDue, setReviewDue] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
 
@@ -104,19 +108,27 @@ export default function LibraryScreen() {
   const contentWidth = wide ? Layout.pageMaxWidth : width - H_PADDING * 2;
   const recentWidth = wide ? 220 : (contentWidth - CARD_GAP) / 2;
 
+  const sectionKey = section?.key ?? null;
   const fetchData = useCallback(async () => {
     if (!profile?.id) return;
+    getReviewDueCount().then(setReviewDue);
     try {
-      const [projectsData, sessionsData] = await Promise.all([
+      const [projectsData, items] = await Promise.all([
         getProjects(profile.id),
-        getRecentSessions(profile.id, 6),
+        sectionKey ? loadSection(sectionKey) : getRecentItems(6),
       ]);
       setProjects(projectsData);
-      setSessions(sessionsData);
+      if (sectionKey) setSectionItems(items);
+      else setRecent(items);
     } catch {
       // non-fatal — just show empty state
+      if (sectionKey) setSectionItems([]);
     }
-  }, [profile?.id]);
+  }, [profile?.id, sectionKey]);
+
+  useEffect(() => {
+    setSectionItems(null);
+  }, [sectionKey]);
 
   useEffect(() => {
     fetchData();
@@ -139,16 +151,10 @@ export default function LibraryScreen() {
     setRefreshing(false);
   };
 
-  const handleSessionPress = (session: Session) => {
-    if (session.status === 'completed') {
-      router.push(`/note/${session.id}`);
-    } else {
-      router.push({
-        pathname: '/record/post-session',
-        params: { sessionId: session.id, title: session.title },
-      });
-    }
-  };
+  /** A chip: open its section, or close it again (back to the overview). */
+  function toggleSection(key: SectionKey) {
+    router.setParams({ section: sectionKey === key ? undefined : key });
+  }
 
   function showUndo(message: string, onUndo: () => void) {
     undoCallbackRef.current = onUndo;
@@ -162,14 +168,32 @@ export default function LibraryScreen() {
     undoCallbackRef.current = null;
   }
 
-  function comingSoon(what: string) {
-    showAlert(what, 'Coming soon.');
+  /** Menus for the items in Recent and the sections: each kind gets its own. */
+  async function showItemActions(item: ShelfItem, anchor?: Anchor) {
+    if (item.type === 'course') {
+      const project = projects.find(p => p.id === item.id);
+      if (project) showProjectActions(project, anchor);
+      return;
+    }
+    if (item.type === 'lecture') {
+      try {
+        showSessionActions(await getSession(item.id), anchor);
+      } catch (err) {
+        showAlert('Error', errorMessage(err, 'Could not open this lecture.'));
+      }
+      return;
+    }
+    showActionSheet(item.title, [
+      { text: 'Open', onPress: () => router.push(openTarget(item)) },
+      starButton({ type: item.type === 'folder' ? 'folder' : 'file', id: item.id }, item.title, item.starredAt, showUndo),
+    ], { anchor });
   }
 
   function showSessionActions(session: Session, anchor?: Anchor) {
     showActionSheet(session.title, [
       { text: 'Rename…', onPress: () => renameLecture(session) },
       { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
       { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
     ], { anchor });
@@ -195,6 +219,7 @@ export default function LibraryScreen() {
   function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
     showActionSheet(project.name, [
       { text: 'Rename', onPress: () => promptRenameProject(project) },
+      starButton({ type: 'course', id: project.id }, project.name, project.starred_at, showUndo),
       { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
     ], { anchor });
   }
@@ -251,7 +276,8 @@ export default function LibraryScreen() {
           onPress: async () => {
             try {
               await trashSession(session.id);
-              setSessions(prev => prev.filter(s => s.id !== session.id));
+              setRecent(prev => prev.filter(s => s.id !== session.id));
+              setSectionItems(prev => prev && prev.filter(s => s.id !== session.id));
               showUndo(`"${session.title}" moved to trash`, async () => {
                 const { restoreItem } = await import('../../../src/services/trash.service');
                 await restoreItem({ id: session.id, type: 'session' });
@@ -283,7 +309,17 @@ export default function LibraryScreen() {
       >
         {/* ── Header: on the laptop, search and the avatar are in the top bar ── */}
         <View style={styles.headerRow}>
-          <Text style={[styles.title, wide && styles.titleWide]}>{wide ? 'My library' : 'Library'}</Text>
+          {wide && section ? (
+            <View style={styles.crumbRow}>
+              <TouchableOpacity onPress={() => router.setParams({ section: undefined })} accessibilityRole="link">
+                <Text style={[styles.title, styles.titleWide, styles.crumbMuted]}>My library</Text>
+              </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={18} color={Colors.text.onGradient} />
+              <Text style={[styles.title, styles.titleWide]}>{section.label}</Text>
+            </View>
+          ) : (
+            <Text style={[styles.title, wide && styles.titleWide]}>{wide ? 'My library' : 'Library'}</Text>
+          )}
           <View style={styles.headerButtons}>
             <TouchableOpacity
               style={styles.newButton}
@@ -319,16 +355,31 @@ export default function LibraryScreen() {
               style={styles.chipsScroll}
               contentContainerStyle={styles.chips}
             >
-              {CHIPS.map(chip => (
-                <TouchableOpacity
-                  key={chip}
-                  style={[styles.chip, chip === 'Review today' && styles.chipAccent]}
-                  onPress={() => comingSoon(chip)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.chipText, chip === 'Review today' && styles.chipTextAccent]}>{chip}</Text>
-                </TouchableOpacity>
-              ))}
+              {SECTIONS.map(chip => {
+                const active = chip.key === sectionKey;
+                return (
+                  <TouchableOpacity
+                    key={chip.key}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => toggleSection(chip.key)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[styles.chip, styles.chipAccent]}
+                onPress={() => router.push('/review')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chipText, styles.chipTextAccent]}>
+                  {reviewDue ? `Review today · ${reviewDue}` : 'Review today'}
+                </Text>
+              </TouchableOpacity>
             </ScrollView>
           </>
         )}
@@ -362,74 +413,120 @@ export default function LibraryScreen() {
           </View>
         )}
 
-        {/* ── Courses ────────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>COURSES</Text>
-        {projects.length === 0 ? (
-          <TouchableOpacity style={styles.emptyCard} onPress={() => setShowNewCourse(true)} activeOpacity={0.85}>
-            <Text style={styles.emptyText}>No courses yet. Tap + to create your first one.</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.listCard}>
-            {projects.map((project, index) => (
-              <TouchableOpacity
-                key={project.id}
-                style={[styles.courseRow, index < projects.length - 1 && styles.rowDivider]}
-                onPress={() => router.push(`/project/${project.id}`)}
-                {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
-                activeOpacity={0.75}
-                accessibilityLabel={`${project.name}, ${lectureCount(project.sessionCount)}`}
-              >
-                <View style={[styles.courseSquare, { backgroundColor: project.color }]} />
-                <Text style={styles.courseName} numberOfLines={1}>
-                  {project.name}
-                </Text>
-                <Text style={styles.courseCount}>{project.sessionCount}</Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* ── A section (Recent, Starred, Exam packs) ───────────── */}
+        {section && (
+          <>
+            {!wide && <Text style={styles.sectionLabel}>{section.label.toUpperCase()}</Text>}
+            {sectionItems === null ? null : sectionItems.length === 0 ? (
+              <View style={[styles.emptyCard, wide && styles.sectionTop]}>
+                <Text style={styles.emptyText}>{section.empty}</Text>
+              </View>
+            ) : (
+              <View style={[styles.listCard, wide && styles.sectionTop]} testID="section-list">
+                {sectionItems.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.type}-${item.id}`}
+                    style={[styles.itemRow, index < sectionItems.length - 1 && styles.rowDivider]}
+                    onPress={() => router.push(openTarget(item))}
+                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.itemIcon, { backgroundColor: item.color ?? Colors.surfaceMuted }]}>
+                      <Ionicons name={TYPE_ICON[item.type]} size={16} color={Colors.text.primary} />
+                    </View>
+                    <View style={styles.itemText}>
+                      <Text style={styles.itemTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.recentMeta} numberOfLines={1}>
+                        {item.type !== 'course' && item.courseName ? `${item.courseName} · ` : ''}
+                        {itemMeta(item)}
+                      </Text>
+                    </View>
+                    {item.starredAt && (
+                      <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="Starred" />
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
         )}
 
-        {/* ── Recent ─────────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>RECENT</Text>
-        {sessions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No lectures yet. Record your first one with the red button.</Text>
-          </View>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.recentScroll}
-            contentContainerStyle={styles.recentRow}
-          >
-            {sessions.map(session => (
-              <TouchableOpacity
-                key={session.id}
-                style={[styles.recentCard, { width: recentWidth }]}
-                onPress={() => handleSessionPress(session)}
-                {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={[Colors.accent, Colors.gradient.bottomMid, Colors.gradient.bottomEnd]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.recentLine}
-                />
-                <Text style={styles.recentTitle} numberOfLines={2}>
-                  {session.title}
-                </Text>
-                <Text style={styles.recentMeta} numberOfLines={1}>
-                  {formatDay(session.created_at)} · {sessionState(session.status)}
-                </Text>
+        {!section && (
+          <>
+            {/* ── Courses ────────────────────────────────────────────── */}
+            <Text style={styles.sectionLabel}>COURSES</Text>
+            {projects.length === 0 ? (
+              <TouchableOpacity style={styles.emptyCard} onPress={() => setShowNewCourse(true)} activeOpacity={0.85}>
+                <Text style={styles.emptyText}>No courses yet. Tap + to create your first one.</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            ) : (
+              <View style={styles.listCard}>
+                {projects.map((project, index) => (
+                  <TouchableOpacity
+                    key={project.id}
+                    style={[styles.courseRow, index < projects.length - 1 && styles.rowDivider]}
+                    onPress={() => router.push(`/project/${project.id}`)}
+                    {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
+                    activeOpacity={0.75}
+                    accessibilityLabel={`${project.name}, ${itemCount(project.itemCount)}`}
+                  >
+                    <View style={[styles.courseSquare, { backgroundColor: project.color }]} />
+                    <Text style={styles.courseName} numberOfLines={1}>
+                      {project.name}
+                    </Text>
+                    {project.starred_at && <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="Starred" />}
+                    <Text style={styles.courseCount}>{project.itemCount}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* ── Recent ─────────────────────────────────────────────── */}
+            <Text style={styles.sectionLabel}>RECENT</Text>
+            {recent.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No lectures yet. Record your first one with the red button.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.recentScroll}
+                contentContainerStyle={styles.recentRow}
+              >
+                {recent.map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.recentCard, { width: recentWidth }]}
+                    onPress={() => router.push(openTarget(item))}
+                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient
+                      colors={[Colors.accent, Colors.gradient.bottomMid, Colors.gradient.bottomEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.recentLine}
+                    />
+                    <Text style={styles.recentTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.recentMeta} numberOfLines={1}>
+                      {itemMeta(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </>
         )}
 
         <Text style={styles.hint}>
-          {wide ? 'Right-click any item to rename, move or delete it' : 'Long-press any item to rename, move or star it'}
+          {wide ? 'Right-click any item to rename, move or star it' : 'Long-press any item to rename, move or star it'}
         </Text>
       </ScrollView>
 
@@ -486,6 +583,8 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.bold,
   },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  crumbRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  crumbMuted: { color: Colors.text.onGradient, fontWeight: Typography.weight.medium },
   newButton: {
     width: 40,
     height: 40,
@@ -517,6 +616,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
+  chipActive: { backgroundColor: Colors.accent },
+  chipTextActive: { color: Colors.white, fontWeight: Typography.weight.semibold },
   chipAccent: { backgroundColor: Colors.accentLight },
   chipText: {
     fontSize: Typography.size.sm,
@@ -577,6 +678,19 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.base,
     color: Colors.text.secondary,
   },
+
+  // Section lists
+  sectionTop: { marginTop: 8 },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    minHeight: 60,
+  },
+  itemIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  itemText: { flex: 1, gap: 2 },
+  itemTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
 
   // Recent
   recentScroll: { flexGrow: 0, marginHorizontal: -H_PADDING },

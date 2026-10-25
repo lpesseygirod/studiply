@@ -12,7 +12,7 @@ import { notifyLibraryUpdated, useLibraryUpdates } from '../../lib/cache';
 import { getFolderBreadcrumbs } from '../../services/folder.service';
 import { getProjects, type ProjectWithCount } from '../../services/project.service';
 import { getCourseLevel, getReviewDueCount } from '../../services/shelf.service';
-import { openTarget, type ShelfItem, type ShelfType } from '../../utils/shelf';
+import { openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
 import { NewProjectModal } from '../NewProjectModal';
 import { useShell } from './ShellContext';
 
@@ -29,18 +29,6 @@ export const SECTIONS = [
   { key: 'exam-packs', label: 'Exam packs' },
 ] as const;
 
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
-export const TYPE_ICON: Record<ShelfType, IconName> = {
-  course: 'folder-outline',
-  folder: 'folder-outline',
-  lecture: 'document-text-outline',
-  document: 'create-outline',
-  pdf: 'document-outline',
-  image: 'image-outline',
-  unit_summary: 'albums-outline',
-  exam_pack: 'school-outline',
-};
 
 export function Sidebar({ kind }: { kind: ScreenKind }) {
   const router = useRouter();
