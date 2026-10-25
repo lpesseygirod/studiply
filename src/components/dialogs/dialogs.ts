@@ -34,6 +34,28 @@ export interface Anchor {
   y: number;
 }
 
+/**
+ * Keyboard in a menu (step 3.4): the item to move to from `current` for
+ * ↑ / ↓ (wrapping) and Home / End, skipping greyed-out items; null for any
+ * other key, or when nothing can be chosen.
+ */
+export function nextMenuIndex(enabled: boolean[], current: number, key: string): number | null {
+  const usable = enabled.flatMap((on, i) => (on ? [i] : []));
+  if (usable.length === 0) return null;
+  switch (key) {
+    case 'Home':
+      return usable[0];
+    case 'End':
+      return usable[usable.length - 1];
+    case 'ArrowDown':
+      return usable.find((i) => i > current) ?? usable[0];
+    case 'ArrowUp':
+      return [...usable].reverse().find((i) => i < current) ?? usable[usable.length - 1];
+    default:
+      return null;
+  }
+}
+
 /** Where a menu should open: just below the button. */
 export function anchorBelow(ref: RefObject<View | null>): Promise<Anchor | undefined> {
   return new Promise((resolve) => {

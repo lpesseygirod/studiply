@@ -64,8 +64,8 @@ import {
 } from 'react-native-gesture-handler';
 import { dragLog, useDragDebug } from '../../../src/lib/dnd/dragDebug';
 import type { Dragged, DropTarget } from '../../../src/lib/dnd/rules';
-import { emptySpaceActions, pasteLabel, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
-import { getClip } from '../../../src/lib/clipboard';
+import { actionHint, emptySpaceActions, movableItem, pasteLabel, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
+import { getClip, setClip } from '../../../src/lib/clipboard';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
@@ -214,6 +214,15 @@ export default function ProjectDetailScreen() {
 
   // ⌥⇧N on the web, and the New menu: a new folder here, named in place.
   useShellCommand('newFolder', () => startNewFolder());
+  // Laptop keys (step 3.4): ⇧F10 opens the selected tile's menu (or the empty space's); ⌘X / ⌘C cut or copy it.
+  useShellCommand('contextMenu', () => {
+    const item = selectedId ? entries.find(e => e.id === selectedId) : undefined;
+    const anchor = anchorOf(item ? `[data-testid="entry-selected-${item.id}"]` : '[data-testid=library-grid]');
+    if (item) entryMenu(item, anchor);
+    else spaceMenu(anchor);
+  });
+  useShellCommand('cut', () => clipSelected('cut'));
+  useShellCommand('copy', () => clipSelected('copy'));
   // The New menu's "Upload photo or PDF".
   useShellCommand('upload', () => chooseUpload());
 
@@ -475,21 +484,26 @@ export default function ProjectDetailScreen() {
   // Drag and drop (step 3.3): onto folder tiles and the breadcrumb; files from the Finder are uploaded there.
   const dnd = useLibraryDrop({ showUndo, upload: uploader.upload });
 
-  // Laptop: ⌘V with an image or PDF (a screenshot, a copied file) adds it here (not while typing in a field).
-  const uploadRef = useRef({ upload: uploader.upload, herePlace });
-  uploadRef.current = { upload: uploader.upload, herePlace };
+  // Laptop: ⌘V pastes here (not while typing in a field): an image or PDF in the system
+  // clipboard (a screenshot, a copied file) is added as a file; otherwise a cut or copied item.
+  const uploadRef = useRef({ upload: uploader.upload, herePlace, pasteHere: dnd.pasteHere });
+  uploadRef.current = { upload: uploader.upload, herePlace, pasteHere: dnd.pasteHere };
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onPaste = (e: ClipboardEvent) => {
       if (isEditable(document.activeElement) || isDialogOpen()) return;
+      const { upload, herePlace: here, pasteHere } = uploadRef.current;
       const files = Array.from(e.clipboardData?.files ?? []);
-      if (files.length === 0) return;
-      e.preventDefault();
-      const { upload, herePlace: here } = uploadRef.current;
-      upload(
-        here(),
-        files.map(f => ({ uri: URL.createObjectURL(f), name: f.name || null, mimeType: f.type || null, sizeBytes: f.size })),
-      );
+      if (files.length > 0) {
+        e.preventDefault();
+        upload(
+          here(),
+          files.map(f => ({ uri: URL.createObjectURL(f), name: f.name || null, mimeType: f.type || null, sizeBytes: f.size })),
+        );
+      } else if (getClip()) {
+        e.preventDefault();
+        pasteHere(here());
+      }
     };
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
@@ -623,6 +637,18 @@ export default function ProjectDetailScreen() {
   function entryMenu(item: ShelfItem, anchor?: Anchor) {
     setSelectedId(item.id);
     itemMenu.open(item, anchor);
+  }
+
+  /** ⌘X / ⌘C: the selected tile onto the clipboard; false (the browser's own) when none is selected or it can't be. */
+  function clipSelected(mode: 'cut' | 'copy'): boolean {
+    const item = selectedId ? entries.find(e => e.id === selectedId) : undefined;
+    if (!item || !movableItem(item)) return false;
+    if (mode === 'copy' && actionHint('copy', item.type)) {
+      showAlert(`Can't copy '${item.title}'`, 'Copying lectures and folders is coming soon.');
+      return true;
+    }
+    setClip({ mode, item });
+    return true;
   }
 
   function recordHere() {
@@ -864,6 +890,13 @@ export default function ProjectDetailScreen() {
 // iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight (step 3.3).
 const ListScroll = (Platform.OS === 'web' ? ScrollView : GestureScrollView) as typeof ScrollView;
 const ListRefresh = (Platform.OS === 'web' ? RefreshControl : GestureRefreshControl) as typeof RefreshControl;
+
+/** Laptop: where a keyboard-opened menu goes (just below the element). */
+function anchorOf(selector: string): Anchor | undefined {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return undefined;
+  const r = document.querySelector(selector)?.getBoundingClientRect();
+  return r ? { x: r.x + 8, y: r.y + Math.min(r.height, 120) } : undefined;
+}
 
 /**
  * The empty space around the tiles: a click clears the selection and a

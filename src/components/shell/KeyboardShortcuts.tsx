@@ -43,6 +43,13 @@ export function KeyboardShortcuts() {
         dialogOpen: isDialogOpen(),
       });
       if (!action) return;
+      // ⌘X / ⌘C / ⇧F10 only when a screen has something to do with them
+      // (a selected tile); otherwise they stay the browser's (copying text).
+      if (action === 'cut' || action === 'copy' || action === 'contextMenu') {
+        if (action !== 'contextMenu' && window.getSelection()?.toString()) return;
+        if (runShellCommand(action)) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       switch (action) {
         case 'record':

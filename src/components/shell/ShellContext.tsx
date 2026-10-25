@@ -95,17 +95,19 @@ export function useShellScreen(location: ShellLocation | null, header: DocumentH
 // Commands (keyboard shortcuts): the focused screen that can do it does it
 // -------------------------------------------------------------------
 
-export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts';
+export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts' | 'contextMenu' | 'cut' | 'copy';
 
-const commandHandlers = new Map<ShellCommand, (() => void)[]>();
+/** A handler may return false: "nothing to do here now" (⌘C with no tile selected stays the browser's). */
+type CommandHandler = () => void | boolean;
 
-/** Runs the command on the screen that registered it last; false when none can. */
+const commandHandlers = new Map<ShellCommand, CommandHandler[]>();
+
+/** Runs the command on the screen that registered it last; false when none can (or it didn't). */
 export function runShellCommand(command: ShellCommand): boolean {
   const list = commandHandlers.get(command);
   const handler = list?.[list.length - 1];
   if (!handler) return false;
-  handler();
-  return true;
+  return handler() !== false;
 }
 
 /** Whether a focused screen can run the command now (the New menu greys out what it can't). */
@@ -114,7 +116,7 @@ export function hasShellCommand(command: ShellCommand): boolean {
 }
 
 /** Registers a command handler for as long as the calling component is mounted. */
-export function registerShellCommand(command: ShellCommand, handler: () => void): () => void {
+export function registerShellCommand(command: ShellCommand, handler: CommandHandler): () => void {
   const list = commandHandlers.get(command) ?? [];
   commandHandlers.set(command, [...list, handler]);
   return () => {
@@ -123,7 +125,7 @@ export function registerShellCommand(command: ShellCommand, handler: () => void)
 }
 
 /** A screen handles the command while it is focused. */
-export function useShellCommand(command: ShellCommand, handler: () => void): void {
+export function useShellCommand(command: ShellCommand, handler: CommandHandler): void {
   const ref = useRef(handler);
   ref.current = handler;
   useFocusEffect(useCallback(() => registerShellCommand(command, () => ref.current()), [command]));

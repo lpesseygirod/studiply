@@ -5,10 +5,13 @@
  * renders nothing. Mounted once in app/_layout.tsx.
  *
  * Keyboard: Escape cancels; Enter confirms a prompt or a one-button alert.
+ * In a menu (step 3.4) the first available item has the focus; ↑ / ↓ / Tab
+ * move (wrapping, skipping greyed-out items), Home / End jump, Enter or
+ * Space chooses, and the focus goes back where it was when it closes.
  * Clicking outside cancels a menu or prompt (and an alert that has Cancel).
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -27,6 +30,7 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import {
   dismissDialog,
+  nextMenuIndex,
   runButton,
   subscribeDialogs,
   type DialogButton,
@@ -53,6 +57,13 @@ function Dialog({ request }: { request: DialogRequest }) {
   const { colors: c } = useTheme();
   const { width, height } = useWindowDimensions();
   const [text, setText] = useState(request.kind === 'prompt' ? request.defaultValue : '');
+
+  // A menu's items (anchored menus have no Cancel line: Escape or a click outside), and the keyboard's place in them.
+  const menuItems = request.kind === 'menu' ? (request.anchor ? request.buttons.filter((b) => b.style !== 'cancel') : request.buttons) : [];
+  const enabled = menuItems.map((b) => !b.disabled);
+  const [active, setActive] = useState(() => nextMenuIndex(enabled, -1, 'Home') ?? -1);
+  const itemNodes = useRef<(HTMLElement | null)[]>([]);
+  const web = Platform.OS === 'web' && typeof window !== 'undefined';
 
   const choose = (button: DialogButton | undefined) => {
     dismissDialog(request.id);
@@ -88,6 +99,37 @@ function Dialog({ request }: { request: DialogRequest }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Menus: the focus goes back where it was (the tile, the button) when the menu closes.
+  useEffect(() => {
+    if (!web || request.kind !== 'menu') return;
+    const before = document.activeElement as HTMLElement | null;
+    return () => before?.focus?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (web && active >= 0) itemNodes.current[active]?.focus?.();
+  }, [active, web]);
+
+  // Captured before the focused item sees the key, so Enter chooses exactly once.
+  useEffect(() => {
+    if (!web || request.kind !== 'menu') return;
+    const onKey = (e: KeyboardEvent) => {
+      const key = e.key === 'Tab' ? (e.shiftKey ? 'ArrowUp' : 'ArrowDown') : e.key;
+      const next = nextMenuIndex(enabled, active, key);
+      if (next !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        setActive(next);
+      } else if ((e.key === 'Enter' || e.key === ' ') && active >= 0 && enabled[active]) {
+        e.preventDefault();
+        e.stopPropagation();
+        choose(menuItems[active]);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
+
   const buttonRow = (buttons: DialogButton[]) => (
     <View style={styles.buttonRow}>
       {buttons.map((b) => (
@@ -109,7 +151,7 @@ function Dialog({ request }: { request: DialogRequest }) {
 
   let body: React.ReactNode;
   if (request.kind === 'menu') {
-    const items = request.anchor ? request.buttons.filter((b) => b.style !== 'cancel') : request.buttons;
+    const items = menuItems;
     const anchored = request.anchor
       ? {
           position: 'absolute' as const,
@@ -125,9 +167,13 @@ function Dialog({ request }: { request: DialogRequest }) {
             {request.title}
           </Text>
         )}
-        {items.map((b) => (
+        {items.map((b, i) => (
           <Pressable
             key={b.text}
+            ref={(node) => {
+              itemNodes.current[i] = node as unknown as HTMLElement | null;
+            }}
+            onHoverIn={() => !b.disabled && setActive(i)}
             accessibilityRole="menuitem"
             accessibilityState={{ disabled: !!b.disabled }}
             accessibilityHint={b.hint}
@@ -136,7 +182,7 @@ function Dialog({ request }: { request: DialogRequest }) {
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
               styles.menuItem,
               b.icon ? styles.menuItemWithIcon : null,
-              !b.disabled && (pressed || hovered) && styles.menuItemActive,
+              !b.disabled && (pressed || hovered || i === active) && styles.menuItemActive,
             ]}
           >
             {!!b.icon && (

@@ -1,4 +1,4 @@
-import { courseCrumbs } from '../ShellContext';
+import { courseCrumbs, registerShellCommand, runShellCommand } from '../ShellContext';
 
 jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
 
@@ -19,5 +19,17 @@ describe('courseCrumbs (the laptop top bar)', () => {
 
   it('a lecture outside any course sits in My library', () => {
     expect(courseCrumbs(null, [])).toEqual([{ label: 'My library', href: '/library' }]);
+  });
+});
+
+describe('shell commands', () => {
+  it('a screen can decline (⌘C with no tile selected stays the browser\'s copy)', () => {
+    expect(runShellCommand('copy')).toBe(false);
+    const stop = registerShellCommand('copy', () => false);
+    expect(runShellCommand('copy')).toBe(false);
+    const stopAgain = registerShellCommand('copy', () => {});
+    expect(runShellCommand('copy')).toBe(true);
+    stopAgain();
+    stop();
   });
 });

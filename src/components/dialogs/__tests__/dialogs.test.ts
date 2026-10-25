@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import {
   dismissDialog,
   menuTriggerProps,
+  nextMenuIndex,
   promptText,
   runButton,
   showActionSheet,
@@ -125,5 +126,29 @@ describe('disabled menu items (step 3.2, the New menu)', () => {
     runButton(menu.buttons[0]);
     await Promise.resolve();
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('nextMenuIndex (keyboard in a menu, step 3.4)', () => {
+  // Rename… · Move to… · Copy (greyed out) · Delete
+  const enabled = [true, true, false, true];
+
+  it('↓ and ↑ move, skip greyed-out items and wrap around', () => {
+    expect(nextMenuIndex(enabled, 0, 'ArrowDown')).toBe(1);
+    expect(nextMenuIndex(enabled, 1, 'ArrowDown')).toBe(3);
+    expect(nextMenuIndex(enabled, 3, 'ArrowDown')).toBe(0);
+    expect(nextMenuIndex(enabled, 3, 'ArrowUp')).toBe(1);
+    expect(nextMenuIndex(enabled, 0, 'ArrowUp')).toBe(3);
+  });
+
+  it('Home and End jump to the first and last available item; nothing focused yet (-1) starts at the top', () => {
+    expect(nextMenuIndex([false, true, true, false], 3, 'Home')).toBe(1);
+    expect(nextMenuIndex([false, true, true, false], 0, 'End')).toBe(2);
+    expect(nextMenuIndex(enabled, -1, 'ArrowDown')).toBe(0);
+  });
+
+  it('other keys, or a menu with nothing available: null', () => {
+    expect(nextMenuIndex(enabled, 0, 'a')).toBeNull();
+    expect(nextMenuIndex([false, false], 0, 'ArrowDown')).toBeNull();
   });
 });
