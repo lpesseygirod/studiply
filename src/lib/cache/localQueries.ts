@@ -205,6 +205,27 @@ export function starredRows(
   };
 }
 
+/**
+ * Favorite photos and PDFs inside lectures whose lecture isn't in Trash,
+ * with their lecture and its other media (to number "Photo 2").
+ */
+export function starredLectureMedia(
+  media: MediaRow[],
+  files: FileRow[],
+  lectures: LectureRow[],
+): { media: MediaRow; lectureMedia: MediaRow[]; file: FileRow; lecture: LectureRow | null }[] {
+  const liveFiles = new Map(files.filter((f) => f.deleted_at === null).map((f) => [f.id, f]));
+  const lectureById = new Map(lectures.map((l) => [l.id, l]));
+  return media
+    .filter((m) => m.starred_at !== null && m.lecture_id !== null && liveFiles.has(m.lecture_id))
+    .map((m) => ({
+      media: m,
+      lectureMedia: media.filter((o) => o.lecture_id === m.lecture_id),
+      file: liveFiles.get(m.lecture_id as string) as FileRow,
+      lecture: lectureById.get(m.lecture_id as string) ?? null,
+    }));
+}
+
 /** Exam packs not in Trash, newest first. */
 export function examPackFiles(files: FileRow[]): FileRow[] {
   return files.filter((f) => f.kind === 'exam_pack' && f.deleted_at === null).sort(newestFirst);

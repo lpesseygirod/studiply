@@ -26,6 +26,7 @@ import {
   getRecentItems,
   getReviewDueCount,
   getStarredItems,
+  type StarTarget,
 } from '../../../src/services/shelf.service';
 import { trashSession, trashProject } from '../../../src/services/trash.service';
 import { getNoteBySession } from '../../../src/services/note.service';
@@ -71,6 +72,13 @@ function loadSection(key: SectionKey): Promise<ShelfItem[]> {
   if (key === 'favorites') return getStarredItems();
   if (key === 'exam-packs') return getExamPacks();
   return getRecentItems(50);
+}
+
+/** Which table an item's favorite lives in. */
+function starTargetType(item: ShelfItem): StarTarget['type'] {
+  if (item.type === 'folder') return 'folder';
+  if (item.type === 'lecture_photo' || item.type === 'lecture_pdf') return 'media';
+  return 'file';
 }
 
 function itemCount(n: number): string {
@@ -185,7 +193,7 @@ export default function LibraryScreen() {
     }
     showActionSheet(item.title, [
       { text: 'Open', onPress: () => router.push(openTarget(item)) },
-      starButton({ type: item.type === 'folder' ? 'folder' : 'file', id: item.id }, item.title, item.starredAt, showUndo),
+      starButton({ type: starTargetType(item), id: item.id }, item.title, item.starredAt, showUndo),
     ], { anchor });
   }
 

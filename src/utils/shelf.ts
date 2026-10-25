@@ -9,10 +9,13 @@
 import type { Href } from 'expo-router';
 
 import { statusFromDb, type CourseRow, type FileRow, type FolderRow, type LectureRow } from '../lib/cloudRows';
+import type { MediaRow } from '../lib/cache/localQueries';
 import type { Folder, Project, Session } from '../types/database';
 
 export type FileKind = 'lecture' | 'document' | 'pdf' | 'image' | 'unit_summary' | 'exam_pack';
-export type ShelfType = 'course' | 'folder' | FileKind;
+/** A photo or PDF inside a lecture (media), in Favorites. */
+export type LectureMediaKind = 'lecture_photo' | 'lecture_pdf';
+export type ShelfType = 'course' | 'folder' | FileKind | LectureMediaKind;
 
 const FILE_KINDS: readonly string[] = ['lecture', 'document', 'pdf', 'image', 'unit_summary', 'exam_pack'];
 
@@ -28,8 +31,11 @@ export interface ShelfItem {
   color?: string;
   updatedAt: string;
   starredAt: string | null;
-  /** Lectures only. */
+  /** Lectures (and a lecture's photos/PDFs: their lecture's status). */
   status?: Session['status'];
+  /** A lecture's photo or PDF: the lecture it opens. */
+  lectureId?: string;
+  lectureTitle?: string;
 }
 
 export type CourseInfo = Pick<CourseRow, 'id' | 'name' | 'color'>;
@@ -95,6 +101,43 @@ export function fileShelfItem(row: FileRow, lecture: LectureRow | null, course?:
   };
 }
 
+/**
+ * A lecture's photo or PDF as the lecture screens name it: its caption, else
+ * "Photo 2" by its place among the lecture's photos (oldest first), else
+ * "Document" (as fileLabel in source-file.service).
+ */
+export function lectureMediaLabel(media: MediaRow, lectureMedia: MediaRow[]): string {
+  if (media.caption) return media.caption;
+  if (media.kind === 'photo') {
+    const photos = lectureMedia
+      .filter((m) => m.kind === 'photo')
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    return `Photo ${photos.findIndex((m) => m.id === media.id) + 1}`;
+  }
+  return 'Document';
+}
+
+/** "Photo 2 · Clase 1": a favorite photo or PDF with its lecture's name; it opens the lecture. */
+export function lectureMediaShelfItem(
+  media: MediaRow,
+  lectureMedia: MediaRow[],
+  lectureFile: FileRow,
+  lecture: LectureRow | null,
+): ShelfItem {
+  return {
+    id: media.id,
+    type: media.kind === 'photo' ? 'lecture_photo' : 'lecture_pdf',
+    title: `${lectureMediaLabel(media, lectureMedia)} · ${lectureFile.title}`,
+    courseId: lectureFile.course_id,
+    folderId: lectureFile.folder_id,
+    updatedAt: media.updated_at,
+    starredAt: media.starred_at,
+    status: statusFromDb(lecture?.status ?? 'draft'),
+    lectureId: lectureFile.id,
+    lectureTitle: lectureFile.title,
+  };
+}
+
 /** Course names and colors, by id, for the items' second line. */
 export function withCourses(items: ShelfItem[], courses: CourseInfo[]): ShelfItem[] {
   const byId = new Map(courses.map((c) => [c.id, c]));
@@ -126,12 +169,19 @@ export function openTarget(item: ShelfItem): Href {
     case 'folder':
       return courseAt(item.courseId, item.id);
     case 'lecture':
-      return item.status === 'completed'
-        ? `/note/${item.id}`
-        : { pathname: '/record/post-session', params: { sessionId: item.id, title: item.title } };
+      return lectureTarget(item.id, item.title, item.status);
+    case 'lecture_photo':
+    case 'lecture_pdf':
+      return lectureTarget(item.lectureId ?? '', item.lectureTitle ?? '', item.status);
     default:
       return courseAt(item.courseId, item.folderId);
   }
+}
+
+function lectureTarget(id: string, title: string, status: Session['status'] | undefined): Href {
+  return status === 'completed'
+    ? `/note/${id}`
+    : { pathname: '/record/post-session', params: { sessionId: id, title } };
 }
 
 /** A course screen, open at a folder; without a course, Library. */
@@ -150,6 +200,8 @@ export const TYPE_ICON = {
   image: 'image-outline',
   unit_summary: 'albums-outline',
   exam_pack: 'school-outline',
+  lecture_photo: 'image-outline',
+  lecture_pdf: 'document-attach-outline',
 } as const satisfies Record<ShelfType, string>;
 
 const TYPE_LABEL: Record<ShelfType, string> = {
@@ -161,6 +213,8 @@ const TYPE_LABEL: Record<ShelfType, string> = {
   image: 'Image',
   unit_summary: 'Unit summary',
   exam_pack: 'Exam pack',
+  lecture_photo: 'Photo',
+  lecture_pdf: 'PDF',
 };
 
 export function typeLabel(type: ShelfType): string {

@@ -67,6 +67,35 @@ describe('sections', () => {
   });
 });
 
+describe('Favorites with lecture photos', () => {
+  it('a favorite photo shows as "Photo 2 · Lecture"; a photo of a trashed lecture is left out', async () => {
+    answer('courses', { data: [] }, { data: [math] });
+    answer('folders', { data: [] });
+    answer(
+      'files',
+      { data: [] },
+      { data: [fileRow('l1', { title: 'Clase 1', lectures: { id: 'l1', status: 'ready' } })] },
+    );
+    const photo = (id: string, lecture: string, created: number, starred: string | null) => ({
+      id, lecture_id: lecture, file_id: null, kind: 'photo', caption: null, starred_at: starred,
+      created_at: T(created), updated_at: T(created),
+    });
+    answer(
+      'media',
+      { data: [photo('p2', 'l1', 3, T(9)), photo('gone', 'l9', 1, T(8))] },
+      { data: [photo('p1', 'l1', 1, null), photo('p2', 'l1', 3, T(9)), photo('gone', 'l9', 1, T(8))] },
+    );
+    const items = await getStarredItems();
+    expect(items.map((i) => [i.type, i.title, i.lectureId])).toEqual([['lecture_photo', 'Photo 2 · Clase 1', 'l1']]);
+    expect(items[0].courseName).toBe('Math');
+  });
+
+  it('a lecture photo is written on media', async () => {
+    await setStarredAt({ type: 'media', id: 'p2' }, T(5));
+    expect(callsOn('media', 'update')).toEqual([[{ starred_at: T(5) }]]);
+  });
+});
+
 describe('getCourseLevel', () => {
   it('a course top level: its folders first, then its files', async () => {
     answer('folders', { data: [{ id: 'f', name: 'Funcions', course_id: 'math', parent_id: null, deleted_at: null, sort_order: 0, starred_at: null, updated_at: T(1) }] });

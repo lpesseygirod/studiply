@@ -11,7 +11,15 @@
 import { supabase } from '../lib/supabase';
 import { NetworkError, serviceError, type CourseRow, type FileRow, type FolderRow, type LectureFileRow, type LectureRow } from '../lib/cloudRows';
 import { notifyLibraryUpdated, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
-import { examPackFiles, filesAtLevel, foldersIn, recentFiles, starredRows } from '../lib/cache/localQueries';
+import {
+  examPackFiles,
+  filesAtLevel,
+  foldersIn,
+  recentFiles,
+  starredLectureMedia,
+  starredRows,
+  type MediaRow,
+} from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
 import {
   byRecent,
@@ -19,6 +27,7 @@ import {
   courseShelfItem,
   fileShelfItem,
   folderShelfItem,
+  lectureMediaShelfItem,
   withCourses,
   type CourseInfo,
   type ShelfItem,
@@ -98,29 +107,39 @@ export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
 // Favorites (the starred_at column)
 // -------------------------------------------------------------------
 
-/** Favorite (starred) courses, folders and files, newest first. */
+/**
+ * Favorite courses, folders, files and photos/PDFs inside lectures ("Photo 2
+ * · Clase 1", opening the lecture), newest first.
+ */
 export async function getStarredItems(): Promise<ShelfItem[]> {
   const rows = await readThrough(
     async () => {
-      const [courses, folders, files] = await Promise.all([
+      const [courses, folders, files, media] = await Promise.all([
         supabase.from('courses').select('*').not('starred_at', 'is', null).is('deleted_at', null).eq('is_archived', false),
         supabase.from('folders').select('*').not('starred_at', 'is', null).is('deleted_at', null),
         supabase.from('files').select(FILE_SELECT).not('starred_at', 'is', null).is('deleted_at', null),
+        supabase.from('media').select('*').not('starred_at', 'is', null).not('lecture_id', 'is', null),
       ]);
-      const error = courses.error ?? folders.error ?? files.error;
-      if (error) throw serviceError(error, 'Could not load your starred items.');
+      const error = courses.error ?? folders.error ?? files.error ?? media.error;
+      if (error) throw serviceError(error, 'Could not load your favorites.');
       remember('courses', courses.data ?? []);
       remember('folders', folders.data ?? []);
       const split = rememberFiles((files.data ?? []) as LectureFileRow[]);
-      return { courses: (courses.data ?? []) as CourseRow[], folders: (folders.data ?? []) as FolderRow[], ...split };
+      return {
+        courses: (courses.data ?? []) as CourseRow[],
+        folders: (folders.data ?? []) as FolderRow[],
+        ...split,
+        lectureMedia: await lectureMediaOf((media.data ?? []) as MediaRow[]),
+      };
     },
     async () => {
-      const [courses, folders, { files, lectures }] = await Promise.all([
+      const [courses, folders, media, { files, lectures }] = await Promise.all([
         readRows<CourseRow>('courses'),
         readRows<FolderRow>('folders'),
+        readRows<MediaRow>('media'),
         cachedFiles(),
       ]);
-      return { ...starredRows(courses, folders, files), lectures };
+      return { ...starredRows(courses, folders, files), lectures, lectureMedia: starredLectureMedia(media, files, lectures) };
     },
   );
   const courses = await courseInfo().catch(() => []);
@@ -128,8 +147,24 @@ export async function getStarredItems(): Promise<ShelfItem[]> {
     ...rows.courses.map(courseShelfItem),
     ...rows.folders.map((f) => folderShelfItem(f)),
     ...fileItems(rows.files, rows.lectures),
+    ...rows.lectureMedia.map((m) => lectureMediaShelfItem(m.media, m.lectureMedia, m.file, m.lecture)),
   ];
   return withCourses(items, courses).sort(byStarred);
+}
+
+/** Favorite lecture photos/PDFs with their lecture (not in Trash) and its other media. */
+async function lectureMediaOf(starred: MediaRow[]): Promise<ReturnType<typeof starredLectureMedia>> {
+  const ids = [...new Set(starred.map((m) => m.lecture_id).filter((id): id is string => !!id))];
+  if (ids.length === 0) return [];
+  const [lectureFiles, siblings] = await Promise.all([
+    supabase.from('files').select(FILE_SELECT).in('id', ids).is('deleted_at', null),
+    supabase.from('media').select('*').in('lecture_id', ids),
+  ]);
+  const error = lectureFiles.error ?? siblings.error;
+  if (error) throw serviceError(error, 'Could not load your favorites.');
+  const { files, lectures } = rememberFiles((lectureFiles.data ?? []) as LectureFileRow[]);
+  remember('media', siblings.data ?? []);
+  return starredLectureMedia((siblings.data ?? []) as MediaRow[], files, lectures);
 }
 
 // -------------------------------------------------------------------

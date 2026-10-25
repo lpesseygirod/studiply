@@ -1,6 +1,7 @@
 // The library sections and course tree answered from cached rows (step 2.2).
 import type { CourseRow, FileRow, FolderRow } from '../../cloudRows';
-import { examPackFiles, filesAtLevel, itemCounts, recentFiles, starredRows } from '../localQueries';
+import { examPackFiles, filesAtLevel, itemCounts, recentFiles, starredLectureMedia, starredRows, type MediaRow } from '../localQueries';
+import type { LectureRow } from '../../cloudRows';
 
 const T = (n: number) => `2026-10-${String(n).padStart(2, '0')}T10:00:00.000Z`;
 
@@ -80,5 +81,19 @@ describe('itemCounts', () => {
       file('root', { course_id: null }),
     ]);
     expect(Object.fromEntries(counts)).toEqual({ math: 2, science: 1 });
+  });
+});
+
+describe('starredLectureMedia', () => {
+  const m = (id: string, lecture: string | null, starred: string | null) =>
+    ({ id, lecture_id: lecture, file_id: lecture ? null : 'lib', kind: 'photo', starred_at: starred, created_at: T(1) }) as MediaRow;
+  it('favorite photos of lectures not in Trash, with the lecture and its other media', () => {
+    const media = [m('fav', 'l1', T(2)), m('other', 'l1', null), m('trashed-lecture', 'l2', T(2)), m('library', null, T(2))];
+    const files = [file('l1'), file('l2', { deleted_at: T(3) })];
+    const rows = starredLectureMedia(media, files, [{ id: 'l1', status: 'ready' } as LectureRow]);
+    expect(rows.map((r) => r.media.id)).toEqual(['fav']);
+    expect(rows[0].file.id).toBe('l1');
+    expect(rows[0].lecture?.status).toBe('ready');
+    expect(rows[0].lectureMedia.map((x) => x.id)).toEqual(['fav', 'other']);
   });
 });

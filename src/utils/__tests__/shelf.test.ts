@@ -1,4 +1,5 @@
 import type { CourseRow, FileRow, FolderRow, LectureRow } from '../../lib/cloudRows';
+import type { MediaRow } from '../../lib/cache/localQueries';
 import {
   byRecent,
   byStarred,
@@ -8,6 +9,8 @@ import {
   folderShelfItem,
   formatSaved,
   itemMeta,
+  lectureMediaLabel,
+  lectureMediaShelfItem,
   openTarget,
   withCourses,
   type ShelfItem,
@@ -80,5 +83,28 @@ describe('texts', () => {
   it('says when a document was saved', () => {
     expect(formatSaved(T, now)).toBe('Saved · 10:31');
     expect(formatSaved('2026-10-23T09:00:00', now)).toBe('Saved · 23 Oct');
+  });
+});
+
+describe('photos and PDFs inside a lecture', () => {
+  const m = (id: string, kind: string, created: string, over: Partial<MediaRow> = {}) =>
+    ({ id, kind, lecture_id: 'l1', caption: null, created_at: created, updated_at: created, starred_at: null, ...over }) as MediaRow;
+  const photos = [m('p1', 'photo', '2026-10-01'), m('pdf', 'slides', '2026-10-02'), m('p2', 'photo', '2026-10-03')];
+  const lectureFile = { id: 'l1', title: 'Clase 1', course_id: 'math', folder_id: 'f' } as FileRow;
+
+  it('are named as on the lecture screens', () => {
+    expect(lectureMediaLabel(photos[2], photos)).toBe('Photo 2');
+    expect(lectureMediaLabel(m('x', 'photo', '2026-10-04', { caption: 'Board' }), photos)).toBe('Board');
+    expect(lectureMediaLabel(photos[1], photos)).toBe('Document');
+  });
+
+  it('show with their lecture and open it', () => {
+    const item = lectureMediaShelfItem({ ...photos[2], starred_at: T }, photos, lectureFile, { status: 'ready' } as LectureRow);
+    expect(item).toMatchObject({ type: 'lecture_photo', title: 'Photo 2 · Clase 1', lectureId: 'l1', starredAt: T, courseId: 'math' });
+    expect(openTarget(item)).toBe('/note/l1');
+    const pdf = lectureMediaShelfItem(photos[1], photos, lectureFile, { status: 'transcribing' } as LectureRow);
+    expect(pdf.type).toBe('lecture_pdf');
+    expect(openTarget(pdf)).toEqual({ pathname: '/record/post-session', params: { sessionId: 'l1', title: 'Clase 1' } });
+    expect(itemMeta(item, now)).toBe('3 Oct · Photo');
   });
 });
