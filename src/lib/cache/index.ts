@@ -33,9 +33,26 @@ let sessionLive = false;
  * cache until the session has been refreshed.
  */
 export function setCacheSession(userId: string | null, live: boolean): void {
+  const was = sessionLive;
   setCacheUser(userId);
   sessionLive = !!userId && live;
   setPullsEnabled(sessionLive);
+  if (sessionLive && !was) liveListeners.forEach((fn) => fn());
+}
+
+const liveListeners = new Set<() => void>();
+
+/** Online requests can be made for the signed-in student (Supabase has a valid session). */
+export function isSessionLive(): boolean {
+  return sessionLive;
+}
+
+/** Runs `fn` each time the session becomes usable (sign-in, refresh after offline). */
+export function onSessionLive(fn: () => void): () => void {
+  liveListeners.add(fn);
+  return () => {
+    liveListeners.delete(fn);
+  };
 }
 
 /** How long a cold start waits for the first probe before trying the server. */

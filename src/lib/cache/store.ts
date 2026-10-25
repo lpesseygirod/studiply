@@ -57,6 +57,23 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // 2: the sync queue (src/lib/sync), oldest first by seq.
+  `
+  CREATE TABLE outbox (
+    seq             INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT NOT NULL UNIQUE,
+    user_id         TEXT NOT NULL,
+    kind            TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    payload         TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT,
+    status          TEXT NOT NULL DEFAULT 'pending',
+    last_error      TEXT
+  );
+  CREATE INDEX outbox_user_idx ON outbox (user_id, seq);
+  `,
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -263,5 +280,6 @@ export async function clearCache(userId: string): Promise<void> {
     await db.runAsync(`DELETE FROM rows WHERE user_id = ?`, [userId]);
     await db.runAsync(`DELETE FROM segments WHERE user_id = ?`, [userId]);
     await db.runAsync(`DELETE FROM meta WHERE key LIKE ?`, [`${userId}:%`]);
+    await db.runAsync(`DELETE FROM outbox WHERE user_id = ?`, [userId]);
   });
 }
