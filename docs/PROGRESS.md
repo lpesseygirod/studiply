@@ -24,7 +24,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts) — built on `phase-2-shell`; Lea's iPhone/Chrome test and the merge into main are pending (decision below)
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
-- [ ] 3.1 — Spike: drag and drop (web + iPhone)
+- [ ] 3.1 — Spike: drag and drop (web + iPhone) — spike built on `phase-3-library`; waiting for Lea to try both options and choose (notes below)
 - [ ] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
 - [ ] 3.3 — Moving files (drop targets, cycle protection, undo, tests)
 - **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
@@ -279,6 +279,32 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     - the course screen is not yet the Finder grid of desktop-04 (Phase 3);
     - post-session and the recording screen will be redesigned in Phase 5.
   - **Checks:** `.claude/skills/web-check/scripts/look.mjs` (light/dark colors, Appearance surviving a reload, 44 pt named icon buttons at 390 px, every shortcut).
+
+- **Drag-and-drop spike (step 3.1, throwaway).** Settings → General → DEVELOPMENT → Drag-and-drop spike (development builds only). It has 3 folders and 5 files in memory, plus the top level and Trash as targets. Nothing is saved.
+  - **Option A, gesture (`src/lib/dnd/GestureDrag.tsx`, ~280 lines, both devices):**
+    - built on `react-native-gesture-handler`;
+    - **iPhone:** a 350 ms long-press lifts the item with a light haptic. Releasing without moving opens the menu, as DESIGN.md asks; moving drags.
+    - **Web:** the drag starts after 5 px, so a click opens and a right-click shows the menu;
+    - the ghost follows the pointer on the JS thread (no `react-native-reanimated` yet).
+  - **Option B, the browser's own drag (`src/lib/dnd/html5.web.ts`, ~80 lines, web only):**
+    - the native drag image;
+    - the page scrolls while dragging;
+    - **files dragged from Finder arrive** (`dataTransfer.files`), which Option A can't do.
+  - **Shared (`src/lib/dnd/rules.ts`, tested):**
+    - `hitTest`;
+    - `canDrop`: not where it already is; a folder never into itself or its own subfolders; Trash always.
+  - **Measured in Chrome (`dnd-spike.mjs`, 10 steps pass):**
+    - **A:** a real mouse drag onto a folder (dashed highlight while hovering) and onto Trash; Undo; the subfolder rule; click and right-click.
+    - **B:** the same moves, plus a PDF "from Finder" onto a folder.
+    - Both feel immediate on the laptop.
+  - **Not done in the spike:** scrolling the list while dragging with Option A (it needs auto-scroll near the edges; 3.3 adds it).
+  - **The iPhone can't be checked here.** Lea checks long-press then move, long-press then release (the menu), normal scrolling, the haptic, and smoothness. If it isn't smooth, `react-native-reanimated` is added (Lea's OK) to move the ghost on the native thread.
+  - **Recommendation:** **B on the web + A on the iPhone**, with `rules.ts` and the drop handlers shared.
+    - **Why:** the sidebar's "COURSES · DROP FILES HERE" needs files from Finder (only B), and B gives native auto-scroll and drag image. The iPhone has no native drag without a new library, and A works there.
+    - **The cost:** two small drag front-ends (~80 + ~280 lines) over one set of rules.
+    - **The alternative:** A everywhere is one code path, but no Finder files and its own auto-scroll.
+  - **Cleanup:** the spike screen and its DEVELOPMENT link are removed in 3.3; `src/lib/dnd` stays for the chosen option.
+  - **New dependency:** `expo-haptics` (Lea's OK).
 
 ## Things Lea must do
 

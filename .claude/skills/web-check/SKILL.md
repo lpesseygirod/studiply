@@ -55,6 +55,13 @@ node .claude/skills/web-check/scripts/shell-data.mjs
 node .claude/skills/web-check/scripts/look.mjs
 ```
 
+## Check the drag-and-drop spike (step 3.1)
+
+`scripts/dnd-spike.mjs`: opens Settings → General → DEVELOPMENT → Drag-and-drop spike; Option A with a real mouse drag (`mouseDrag`), Option B with Chrome's drag interception (`htmlDrag`), including a PDF dropped "from Finder" (`htmlDrag(null, to, { files: [path] })`); the folder-into-its-subfolder refusal, Undo, click and right-click.
+```bash
+node .claude/skills/web-check/scripts/dnd-spike.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
@@ -92,7 +99,7 @@ try {
 }
 ```
 
-Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(url)`, `waitText(text, {exact, timeout, exclude})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth, exclude})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `chord({ code, key, alt, shift, meta, ctrl, text })` (keys with modifiers, e.g. ⌥R is `{ code: 'KeyR', key: '®', alt: true }`), `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
+Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(url)`, `waitText(text, {exact, timeout, exclude})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth, exclude})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `chord({ code, key, alt, shift, meta, ctrl, text })`, `mouseDrag(from, to, { steps, midway })`, `htmlDrag(from, to, { files, midway })`, `onEvent(method, fn)` (keys with modifiers, e.g. ⌥R is `{ code: 'KeyR', key: '®', alt: true }`), `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
 
 Check results in the database with `admin` (service role, local only), not just on screen.
 

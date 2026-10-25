@@ -42,6 +42,7 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   const pending = new Map();
   const logs = [];
   const dialogs = [];
+  const eventListeners = new Map(); // method -> [fn]
   ws.addEventListener('message', (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.id && pending.has(msg.id)) {
@@ -52,6 +53,8 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       logs.push({ type: msg.params.type, text: msg.params.args.map((a) => a.value ?? a.description ?? '').join(' ') });
     } else if (msg.method === 'Runtime.exceptionThrown') {
       logs.push({ type: 'exception', text: msg.params.exceptionDetails?.exception?.description ?? msg.params.exceptionDetails?.text });
+    } else if (msg.method && eventListeners.has(msg.method)) {
+      for (const fn of eventListeners.get(msg.method)) fn(msg.params);
     } else if (msg.method === 'Page.javascriptDialogOpening') {
       dialogs.push(msg.params.message);
       send('Page.handleJavaScriptDialog', { accept: true });
@@ -139,6 +142,59 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       if (holdMs) await sleep(holdMs);
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
       await sleep(350);
+    },
+    /** Calls fn(params) for every CDP event `method` (e.g. 'Input.dragIntercepted'). */
+    onEvent(method, fn) {
+      eventListeners.set(method, [...(eventListeners.get(method) ?? []), fn]);
+    },
+    /**
+     * A real mouse drag (left button held) from one point to another, in
+     * steps. `midway(i)` runs after each step, e.g. to screenshot or check
+     * the highlight while still dragging.
+     */
+    async mouseDrag(from, to, { steps = 12, midway } = {}) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+      for (let i = 1; i <= steps; i++) {
+        const x = from.x + ((to.x - from.x) * i) / steps;
+        const y = from.y + ((to.y - from.y) * i) / steps;
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 });
+        await sleep(40);
+        if (midway) await midway(i);
+      }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', buttons: 0, clickCount: 1 });
+      await sleep(400);
+    },
+    /**
+     * The browser's own drag and drop (HTML5), through Chrome's drag
+     * interception. With `files` (paths on disk) it drops files as if they
+     * came from Finder; otherwise it drags the element at `from`.
+     */
+    async htmlDrag(from, to, { files, midway } = {}) {
+      let data;
+      if (files) {
+        data = { items: [], files, dragOperationsMask: 1 };
+      } else {
+        await send('Input.setInterceptDrags', { enabled: true });
+        const intercepted = new Promise((resolve) => api.onEvent('Input.dragIntercepted', (p) => resolve(p.data)));
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x, y: from.y });
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: from.x, y: from.y, button: 'left', buttons: 1, clickCount: 1 });
+        for (let i = 1; i <= 4; i++) {
+          await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.x + i * 6, y: from.y + i * 6, button: 'left', buttons: 1 });
+        }
+        data = await Promise.race([intercepted, sleep(3000).then(() => null)]);
+        if (!data) throw new Error('the browser did not start a drag');
+      }
+      await send('Input.dispatchDragEvent', { type: 'dragEnter', x: to.x, y: to.y, data });
+      await send('Input.dispatchDragEvent', { type: 'dragOver', x: to.x, y: to.y, data });
+      await sleep(200);
+      if (midway) await midway();
+      await send('Input.dispatchDragEvent', { type: 'drop', x: to.x, y: to.y, data });
+      if (!files) {
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: to.x, y: to.y, button: 'left', buttons: 0, clickCount: 1 });
+        await send('Input.setInterceptDrags', { enabled: false });
+      }
+      await sleep(400);
     },
     async clickSelector(selector) {
       const p = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
