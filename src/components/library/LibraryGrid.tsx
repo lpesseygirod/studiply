@@ -4,7 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import type { Dragged, DropTarget } from '../../lib/dnd/rules';
+import { useDragSource, useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
 import { isEditable } from '../../lib/shortcuts';
+import { movableItem } from '../../utils/itemMenu';
 import { tileMeta } from '../../utils/libraryGrid';
 import type { ShelfItem } from '../../utils/shelf';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
@@ -22,7 +25,8 @@ export const NEW_FOLDER_ID = '__new-folder__';
  * One level of a course as tiles (or rows on the iPhone, list view), like
  * docs/design desktop-04. On the iPhone a tap opens and a long-press shows
  * the menu. On the web a click selects, a double-click or Enter opens, Esc
- * clears the selection and a right-click shows the menu.
+ * clears the selection and a right-click shows the menu. Items can be
+ * dragged (step 3.3); folders take drops, with a dashed highlight.
  */
 export function LibraryGrid({
   items,
@@ -35,6 +39,7 @@ export function LibraryGrid({
   onSaveName,
   onCancelName,
   thumbnailFor,
+  dnd,
 }: {
   items: ShelfItem[];
   view: 'grid' | 'list';
@@ -46,6 +51,8 @@ export function LibraryGrid({
   onSaveName: (name: string) => Promise<boolean>;
   onCancelName: () => void;
   thumbnailFor?: (item: ShelfItem) => string | undefined;
+  /** Drag and drop (useLibraryDrop). */
+  dnd: DropHandlers;
 }) {
   const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
@@ -99,10 +106,15 @@ export function LibraryGrid({
               onCancel={onCancelName}
             />
           ) : null;
+        const real = item.id !== NEW_FOLDER_ID;
+        const movable = real && !nameEditing ? movableItem(item) : null;
         return (
           <Entry
             key={item.id}
             item={item}
+            dragged={movable && { kind: 'item', item: movable }}
+            dropTarget={real && item.type === 'folder' ? folderTarget(item) : null}
+            dnd={dnd}
             view={view}
             last={i === shown.length - 1}
             width={tileWidth}
@@ -121,6 +133,10 @@ export function LibraryGrid({
       })}
     </View>
   );
+}
+
+function folderTarget(folder: ShelfItem): DropTarget {
+  return { id: folder.id, kind: 'place', place: { courseId: folder.courseId, folderId: folder.id, label: folder.title } };
 }
 
 function iconFor(item: ShelfItem, c: ThemeColors): { name: IconName; color: string } {
@@ -155,8 +171,14 @@ function Entry({
   onPress,
   onDoubleClick,
   onMenu,
+  dragged,
+  dropTarget,
+  dnd,
 }: {
   item: ShelfItem;
+  dragged: Dragged | null;
+  dropTarget: DropTarget | null;
+  dnd: DropHandlers;
   view: 'grid' | 'list';
   last: boolean;
   width: number;
@@ -174,10 +196,14 @@ function Entry({
   const dbl = useRef(onDoubleClick);
   dbl.current = onDoubleClick;
   const cleanup = useRef<(() => void) | null>(null);
+  const dragRef = useDragSource(dragged);
+  const drop = useDropZone(dropTarget, dnd);
 
-  // Web: the right-click menu and the double-click both need the DOM node.
+  // Web: the right-click menu, the double-click and drag and drop all need the DOM node.
   const ref = (node: unknown) => {
     menu.ref?.(node);
+    dragRef(node);
+    drop.ref(node);
     cleanup.current?.();
     cleanup.current = null;
     const el = node as HTMLElement | null;
@@ -197,7 +223,7 @@ function Entry({
         onPress={onPress}
         onLongPress={menu.onLongPress}
         delayLongPress={menu.delayLongPress}
-        style={[styles.row, !last && styles.rowDivider, selected && styles.selected]}
+        style={[styles.row, !last && styles.rowDivider, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
         accessibilityRole="button"
         accessibilityLabel={label}
         testID={`entry-${item.id}`}
@@ -224,7 +250,7 @@ function Entry({
       onPress={onPress}
       onLongPress={menu.onLongPress}
       delayLongPress={menu.delayLongPress}
-      style={[styles.tile, { width }, selected && styles.selected]}
+      style={[styles.tile, { width }, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
@@ -268,6 +294,8 @@ const makeStyles = (c: ThemeColors) =>
       minHeight: 132,
     },
     selected: { borderColor: c.accent, backgroundColor: c.accentLight },
+    // A drag over a folder that takes it (docs/DESIGN.md: dashed purple).
+    dropOk: { borderStyle: 'dashed', borderColor: c.accent, backgroundColor: c.accentLight },
     tileIcon: { width: 64, height: 56, alignItems: 'center', justifyContent: 'center' },
     thumb: { width: 64, height: 56, borderRadius: 8 },
     pdfBadge: {

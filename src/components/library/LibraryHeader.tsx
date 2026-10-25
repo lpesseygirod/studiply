@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import type { DropTarget } from '../../lib/dnd/rules';
+import { useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
 import { SORT_LABELS, type LibrarySort } from '../../utils/libraryGrid';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { showActionSheet, type Anchor } from '../dialogs/dialogs';
@@ -36,6 +38,8 @@ export function LibraryHeader({
   onToggleView,
   showViewToggle,
   onBack,
+  crumbTargets,
+  dnd,
 }: {
   crumbs: string[];
   onLibrary: () => void;
@@ -47,6 +51,9 @@ export function LibraryHeader({
   onToggleView: () => void;
   showViewToggle: boolean;
   onBack: () => void;
+  /** Where a drop on each crumb moves things (step 3.3); null = not a target. */
+  crumbTargets: (DropTarget | null)[];
+  dnd: DropHandlers;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -70,11 +77,7 @@ export function LibraryHeader({
                   {name}
                 </Text>
               ) : (
-                <Pressable onPress={() => onCrumb(i)} accessibilityRole="link" hitSlop={6}>
-                  <Text style={styles.crumbMuted} numberOfLines={1}>
-                    {name}
-                  </Text>
-                </Pressable>
+                <Crumb name={name} onPress={() => onCrumb(i)} target={crumbTargets[i] ?? null} dnd={dnd} />
               )}
             </Fragment>
           ))}
@@ -102,11 +105,32 @@ export function LibraryHeader({
   );
 }
 
+/** A crumb above the current level: opens it, and takes drops to move things up to it. */
+function Crumb({ name, onPress, target, dnd }: { name: string; onPress: () => void; target: DropTarget | null; dnd: DropHandlers }) {
+  const styles = useThemedStyles(makeStyles);
+  const drop = useDropZone(target, dnd);
+  return (
+    <Pressable
+      ref={drop.ref as never}
+      onPress={onPress}
+      accessibilityRole="link"
+      hitSlop={6}
+      style={[styles.crumb, drop.hover === 'ok' && styles.crumbDropOk]}
+    >
+      <Text style={styles.crumbMuted} numberOfLines={1}>
+        {name}
+      </Text>
+    </Pressable>
+  );
+}
+
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     wrap: { gap: 6 },
     crumbRow: { flexDirection: 'row', alignItems: 'center', marginLeft: -10 },
     crumbs: { flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 6, rowGap: 2 },
+    crumb: { paddingHorizontal: 4, marginHorizontal: -6, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
+    crumbDropOk: { borderStyle: 'dashed', borderColor: c.accent, backgroundColor: c.accentLight },
     crumbMuted: { fontSize: Typography.size.lg, fontWeight: Typography.weight.medium, color: c.text.onGradient },
     crumbCurrent: {
       flexShrink: 1,

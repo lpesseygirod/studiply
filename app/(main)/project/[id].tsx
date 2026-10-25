@@ -52,6 +52,9 @@ import {
 import { errorMessage } from '../../../src/utils/errors';
 import { promptRenameFile } from '../../../src/utils/rename';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
+import { useLibraryDrop } from '../../../src/hooks/useLibraryDrop';
+import { useDragSource } from '../../../src/lib/dnd/useHtml5Drag';
+import type { Dragged } from '../../../src/lib/dnd/rules';
 import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
@@ -424,6 +427,8 @@ export default function ProjectDetailScreen() {
     renameFolderInPlace: folderId => setEditing({ mode: 'rename', id: folderId }),
   });
   const move = itemMenu.move;
+  // Drag and drop (step 3.3): onto folder tiles and the breadcrumb.
+  const dnd = useLibraryDrop({ showUndo });
   useLibraryUpdates(fetchProjectFiles);
 
   // -------------------------------------------------------------------
@@ -648,6 +653,12 @@ export default function ProjectDetailScreen() {
             onToggleView={() => setLibraryPrefs({ view: view === 'grid' ? 'list' : 'grid' })}
             showViewToggle={compact}
             onBack={navigateUp}
+            crumbTargets={breadcrumbs.map((b, i) =>
+              i === breadcrumbs.length - 1 || !id
+                ? null
+                : { id: b.id ?? id, kind: 'place', place: { courseId: id, folderId: b.type === 'folder' ? b.id : null, label: b.name } },
+            )}
+            dnd={dnd}
           />
 
           <LibraryToolbar
@@ -684,6 +695,7 @@ export default function ProjectDetailScreen() {
                   editing={editing}
                   onSaveName={saveName}
                   onCancelName={() => setEditing(null)}
+                  dnd={dnd}
                   thumbnailFor={item =>
                     item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
                   }
@@ -713,29 +725,30 @@ export default function ProjectDetailScreen() {
                       const isPhoto = file.file_type === 'photo';
                       const label = fileLabel(file, sameLectureFiles(file, projectFiles));
                       return (
-                        <TouchableOpacity
-                          key={file.id}
-                          style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
-                          onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                          {...menuTriggerProps(anchor => showFileActions(file, anchor))}
-                          activeOpacity={0.75}
-                        >
-                          {isPhoto ? (
-                            <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
-                          ) : (
-                            <View style={styles.fileIconWrap}>
-                              <Ionicons name="document-text" size={18} color={c.text.secondary} />
+                        <MediaDragSource key={file.id} dragged={{ kind: 'media', file, name: label }}>
+                          <TouchableOpacity
+                            style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
+                            onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
+                            {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                            activeOpacity={0.75}
+                          >
+                            {isPhoto ? (
+                              <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                            ) : (
+                              <View style={styles.fileIconWrap}>
+                                <Ionicons name="document-text" size={18} color={c.text.secondary} />
+                              </View>
+                            )}
+                            <View style={styles.fileInfo}>
+                              <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
+                              <Text style={styles.fileMeta}>
+                                {formatShortDate(file.created_at)}
+                                {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
+                              </Text>
                             </View>
-                          )}
-                          <View style={styles.fileInfo}>
-                            <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
-                            <Text style={styles.fileMeta}>
-                              {formatShortDate(file.created_at)}
-                              {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
-                            </Text>
-                          </View>
-                          {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
-                        </TouchableOpacity>
+                            {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
+                          </TouchableOpacity>
+                        </MediaDragSource>
                       );
                     })}
                   </View>
@@ -775,6 +788,16 @@ export default function ProjectDetailScreen() {
 // -------------------------------------------------------------------
 // Styles
 // -------------------------------------------------------------------
+
+/** A lecture's photo or PDF row, dragged onto a folder to make it a library file (laptop; step 3.3). */
+function MediaDragSource({ dragged, children }: { dragged: Dragged; children: React.ReactNode }) {
+  const ref = useDragSource(dragged);
+  return (
+    <View ref={ref as never} collapsable={false}>
+      {children}
+    </View>
+  );
+}
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({

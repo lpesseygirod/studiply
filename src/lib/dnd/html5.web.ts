@@ -19,12 +19,18 @@ function isElement(node: unknown): node is HTMLElement {
   return !!node && typeof (node as HTMLElement).addEventListener === 'function';
 }
 
-export function attachDraggable(node: unknown, dragged: Dragged, onEnd?: () => void): () => void {
+/** `get` is asked when a drag starts; null cancels it (e.g. while the name is being edited). */
+export function attachDraggable(node: unknown, get: () => Dragged | null, onEnd?: () => void): () => void {
   if (!isElement(node)) return () => {};
   node.setAttribute('draggable', 'true');
   const start = (e: DragEvent) => {
     // A drag that starts inside a nested draggable (a row in a row) is that one's.
     if (dragging) return;
+    const dragged = get();
+    if (!dragged) {
+      e.preventDefault();
+      return;
+    }
     dragging = dragged;
     e.dataTransfer?.setData(MIME, dragged.kind === 'item' ? dragged.item.id : dragged.file.id);
     e.dataTransfer?.setData('text/plain', dragged.kind === 'item' ? dragged.item.title : dragged.name);

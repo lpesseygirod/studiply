@@ -15,7 +15,7 @@ export interface Html5DropHandlers {
   onDrop: (dragged: Dragged | null, files: { name: string }[]) => void;
 }
 
-export function attachDraggable(_node: unknown, _dragged: Dragged, _onEnd?: () => void): () => void {
+export function attachDraggable(_node: unknown, _get: () => Dragged | null, _onEnd?: () => void): () => void {
   return () => {};
 }
 

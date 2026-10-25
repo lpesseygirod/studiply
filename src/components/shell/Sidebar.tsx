@@ -14,6 +14,10 @@ import { getFolderBreadcrumbs } from '../../services/folder.service';
 import { getProjects, type ProjectWithCount } from '../../services/project.service';
 import { getCourseLevel, getReviewDueCount } from '../../services/shelf.service';
 import { useItemMenu } from '../../hooks/useItemMenu';
+import { useLibraryDrop } from '../../hooks/useLibraryDrop';
+import type { DropTarget } from '../../lib/dnd/rules';
+import { mergeRefs, NO_DROP, useDragSource, useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
+import { movableItem } from '../../utils/itemMenu';
 import { courseShelfItem, openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
 import type { ShowUndo } from '../../utils/star';
 import { menuTriggerProps, type Anchor } from '../dialogs/dialogs';
@@ -55,6 +59,9 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
       else if (item.type === 'folder' && item.id === location?.folderId) router.navigate(`/project/${item.courseId}`);
     },
   });
+  // Drag and drop (step 3.3): courses, folders and Trash take drops; the tree's items can be dragged.
+  const dnd = useLibraryDrop({ showUndo });
+  const trashDrop = useDropZone(TRASH, dnd);
 
   const load = useCallback(() => {
     if (!profile?.id) return;
@@ -126,10 +133,13 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
                   bold={open}
                   onPress={() => router.navigate(`/project/${course.id}`)}
                   onMenu={anchor => itemMenu.open(courseShelfItem(course), anchor)}
+                  dropTarget={{ id: course.id, kind: 'place', place: { courseId: course.id, folderId: null, label: course.name } }}
+                  dnd={dnd}
                 />
                 {open && (
                   <CourseTree
                     onMenu={itemMenu.open}
+                    dnd={dnd}
                     courseId={course.id}
                     folderId={location?.folderId ?? null}
                     itemId={location?.itemId ?? null}
@@ -142,7 +152,13 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
         </View>
       </ScrollView>
 
-      <Pressable style={styles.trash} onPress={() => router.navigate('/settings/trash')} accessibilityRole="link">
+      <Pressable
+        ref={trashDrop.ref as never}
+        style={[styles.trash, trashDrop.hover === 'ok' && styles.dropOk]}
+        onPress={() => router.navigate('/settings/trash')}
+        accessibilityRole="link"
+        testID="sidebar-trash"
+      >
         <Ionicons name="trash-outline" size={16} color={c.text.primary} />
         <Text style={styles.itemText}>Trash</Text>
       </Pressable>
@@ -162,14 +178,15 @@ function CourseTree({
   folderId,
   itemId,
   onMenu,
+  dnd,
 }: {
   courseId: string;
   folderId: string | null;
   itemId: string | null;
   onMenu: (item: ShelfItem, anchor?: Anchor) => void;
+  dnd: DropHandlers;
 }) {
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
   const router = useRouter();
   const [levels, setLevels] = useState<Record<string, ShelfItem[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -226,37 +243,21 @@ function CourseTree({
     return items.map(item => {
       const isFolder = item.type === 'folder';
       const open = isFolder && expanded.has(item.id);
-      const active = item.id === itemId || (isFolder && !itemId && item.id === folderId);
       return (
         <View key={item.id}>
-          <Pressable
-            style={[styles.treeItem, { paddingLeft: 14 + depth * 14 }, active && styles.treeItemActive]}
+          <TreeRow
+            item={item}
+            depth={depth}
+            open={open}
+            active={item.id === itemId || (isFolder && !itemId && item.id === folderId)}
             onPress={() => {
               if (isFolder && !open) toggle(item.id);
               router.navigate(openTarget(item));
             }}
-            accessibilityRole="link"
-            accessibilityState={{ selected: active }}
-            testID={active ? 'sidebar-current' : undefined}
-            {...menuTriggerProps(anchor => onMenu(item, anchor))}
-          >
-            {isFolder ? (
-              <Pressable
-                onPress={() => toggle(item.id)}
-                style={styles.chevron}
-                accessibilityRole="button"
-                accessibilityLabel={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
-              >
-                <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={14} color={c.text.secondary} />
-              </Pressable>
-            ) : (
-              <View style={styles.chevronSpace} />
-            )}
-            <Ionicons name={TYPE_ICON[item.type]} size={14} color={active ? c.accentDark : c.text.secondary} />
-            <Text style={[styles.treeText, active && styles.treeTextActive]} numberOfLines={1}>
-              {item.title}
-            </Text>
-          </Pressable>
+            onToggle={() => toggle(item.id)}
+            onMenu={anchor => onMenu(item, anchor)}
+            dnd={dnd}
+          />
           {open && renderLevel(item.id, depth + 1)}
         </View>
       );
@@ -275,6 +276,8 @@ function Item({
   count,
   badge,
   onMenu,
+  dropTarget = null,
+  dnd = NO_DROP,
 }: {
   label: string;
   onPress: () => void;
@@ -285,15 +288,22 @@ function Item({
   color?: string;
   count?: number;
   badge?: number;
+  /** Drops move things here (a course). */
+  dropTarget?: DropTarget | null;
+  dnd?: DropHandlers;
 }) {
   const styles = useThemedStyles(makeStyles);
+  const menu = onMenu ? menuTriggerProps(onMenu) : null;
+  const drop = useDropZone(dropTarget, dnd);
   return (
     <Pressable
-      style={[styles.item, active && styles.itemActive]}
+      ref={mergeRefs(menu?.ref, drop.ref) as never}
+      style={[styles.item, active && styles.itemActive, drop.hover === 'ok' && styles.dropOk]}
       onPress={onPress}
       accessibilityRole="link"
       accessibilityState={{ selected: !!active }}
-      {...(onMenu && menuTriggerProps(onMenu))}
+      onLongPress={menu?.onLongPress}
+      delayLongPress={menu?.delayLongPress}
     >
       {color && <View style={[styles.square, { backgroundColor: color }]} />}
       <Text style={[styles.itemText, (active || bold) && styles.itemTextActive]} numberOfLines={1}>
@@ -308,6 +318,69 @@ function Item({
     </Pressable>
   );
 }
+
+/** A row of the open course's tree: opens; a folder takes drops; everything can be dragged. */
+function TreeRow({
+  item,
+  depth,
+  open,
+  active,
+  onPress,
+  onToggle,
+  onMenu,
+  dnd,
+}: {
+  item: ShelfItem;
+  depth: number;
+  open: boolean;
+  active: boolean;
+  onPress: () => void;
+  onToggle: () => void;
+  onMenu: (anchor?: Anchor) => void;
+  dnd: DropHandlers;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
+  const isFolder = item.type === 'folder';
+  const movable = movableItem(item);
+  const dragRef = useDragSource(movable && { kind: 'item', item: movable });
+  const drop = useDropZone(
+    isFolder ? { id: item.id, kind: 'place', place: { courseId: item.courseId, folderId: item.id, label: item.title } } : null,
+    dnd,
+  );
+  const menu = menuTriggerProps(onMenu);
+  return (
+    <Pressable
+      ref={mergeRefs(menu.ref, dragRef, drop.ref) as never}
+      style={[styles.treeItem, { paddingLeft: 12 + depth * 14 }, active && styles.treeItemActive, drop.hover === 'ok' && styles.dropOk]}
+      onPress={onPress}
+      onLongPress={menu.onLongPress}
+      delayLongPress={menu.delayLongPress}
+      accessibilityRole="link"
+      accessibilityState={{ selected: active }}
+      testID={active ? 'sidebar-current' : undefined}
+    >
+      {isFolder ? (
+        <Pressable
+          onPress={onToggle}
+          style={styles.chevron}
+          accessibilityRole="button"
+          accessibilityLabel={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
+        >
+          <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={14} color={c.text.secondary} />
+        </Pressable>
+      ) : (
+        <View style={styles.chevronSpace} />
+      )}
+      <Ionicons name={TYPE_ICON[item.type]} size={14} color={active ? c.accentDark : c.text.secondary} />
+      <Text style={[styles.treeText, active && styles.treeTextActive]} numberOfLines={1}>
+        {item.title}
+      </Text>
+    </Pressable>
+  );
+}
+
+const TRASH: DropTarget = { id: 'trash', kind: 'trash' };
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
@@ -354,14 +427,18 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: 6,
     paddingHorizontal: 10,
   },
+  // The 2 px border is there for the drop highlight (padding is 2 px less to keep the text in place).
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     minHeight: 36,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
+  dropOk: { borderStyle: 'dashed', borderColor: c.accent, backgroundColor: c.accentLight },
   itemActive: { backgroundColor: c.accentLight },
   itemText: { flex: 1, fontSize: Typography.size.base, color: c.text.primary },
   itemTextActive: { fontWeight: Typography.weight.semibold },
@@ -386,8 +463,10 @@ const makeStyles = (c: ThemeColors) =>
     alignItems: 'center',
     gap: 6,
     minHeight: 30,
-    paddingRight: 10,
+    paddingRight: 8,
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   treeItemActive: { backgroundColor: c.salmonLight },
   chevronSpace: { width: 24 },
@@ -399,7 +478,11 @@ const makeStyles = (c: ThemeColors) =>
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    margin: 2,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
 });

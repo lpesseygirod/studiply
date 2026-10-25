@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { showAlert } from '../components/dialogs/dialogs';
+import type { DropHandlers } from '../lib/dnd/useHtml5Drag';
 import { canDrop, draggedTitle, type DropCheck, type Dragged, type DropTarget } from '../lib/dnd/rules';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../lib/cache';
 import { getFolderLinks } from '../services/folder.service';
@@ -68,5 +69,5 @@ export function useLibraryDrop({ showUndo }: { showUndo: ShowUndo }) {
     showAlert('Coming soon', 'Dropping files from your computer comes in the next update. For now, use Upload.');
   }, []);
 
-  return { check, drop, filesFromComputer };
+  return { check, drop, filesFromComputer } satisfies DropHandlers;
 }
