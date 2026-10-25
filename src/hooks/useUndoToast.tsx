@@ -1,21 +1,33 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import UndoToast from '../components/UndoToast';
+import { offerUndo, onUndone, settleUndo } from '../lib/undo';
 
 /**
- * The "… · Undo" toast for screens that don't have one yet. Returns the
- * function to show it and the element to render once at the screen's root.
+ * The "… · Undo" toast. Returns the function to show it and the element to
+ * render once at the screen's root. Every offer is also ⌘Z's (src/lib/undo.ts).
  */
 export function useUndoToast() {
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState('');
-  const undoRef = useRef<(() => void) | null>(null);
+  const offerRef = useRef<{ id: number; run: () => void } | null>(null);
 
   const showUndo = useCallback((text: string, onUndo: () => void) => {
-    undoRef.current = onUndo;
+    offerRef.current = { id: offerUndo(text, onUndo), run: onUndo };
     setMessage(text);
     setVisible(true);
   }, []);
+
+  // ⌘Z undid this toast's action: hide it.
+  useEffect(
+    () =>
+      onUndone((id) => {
+        if (offerRef.current?.id !== id) return;
+        offerRef.current = null;
+        setVisible(false);
+      }),
+    [],
+  );
 
   const toast = (
     <UndoToast
@@ -23,8 +35,11 @@ export function useUndoToast() {
       message={message}
       onUndo={() => {
         setVisible(false);
-        undoRef.current?.();
-        undoRef.current = null;
+        const offer = offerRef.current;
+        offerRef.current = null;
+        if (!offer) return;
+        settleUndo(offer.id);
+        offer.run();
       }}
       onDismiss={() => setVisible(false)}
     />

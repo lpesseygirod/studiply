@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { isEditable, SHORTCUTS, shortcutFor } from '../../lib/shortcuts';
+import { undoLast } from '../../lib/undo';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { isDialogOpen, showAlert } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
@@ -58,6 +59,9 @@ export function KeyboardShortcuts() {
           break;
         case 'showShortcuts':
           setSheetOpen(true);
+          break;
+        case 'undo':
+          undoLast();
           break;
       }
     };

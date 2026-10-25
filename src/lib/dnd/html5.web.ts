@@ -1,31 +1,33 @@
 /**
- * html5.web.ts — Option B of the step 3.1 spike: the browser's own drag and
- * drop on the DOM nodes behind React Native Web views. It shows the native
- * drag image, scrolls while dragging, and receives files dragged from the
- * computer (Finder), which a gesture-based drag can't.
+ * html5.web.ts — the laptop's drag and drop (step 3.1, Option B): the
+ * browser's own drag on the DOM nodes behind React Native Web views. It
+ * shows the native drag image, scrolls while dragging, and receives files
+ * dragged from the computer (Finder), which a gesture-based drag can't.
  */
 
-import type { DragItem } from './rules';
+import type { Dragged } from './rules';
 import type { Html5DropHandlers } from './html5';
 
 export const html5Supported = true;
 
 const MIME = 'application/x-studiply-item';
-// The item being dragged inside the page: its data can't be read during
+// What is being dragged inside the page: its data can't be read during
 // dragover (the browser hides it until the drop), so it is kept here.
-let dragging: DragItem | null = null;
+let dragging: Dragged | null = null;
 
 function isElement(node: unknown): node is HTMLElement {
   return !!node && typeof (node as HTMLElement).addEventListener === 'function';
 }
 
-export function attachDraggable(node: unknown, item: DragItem, onEnd?: () => void): () => void {
+export function attachDraggable(node: unknown, dragged: Dragged, onEnd?: () => void): () => void {
   if (!isElement(node)) return () => {};
   node.setAttribute('draggable', 'true');
   const start = (e: DragEvent) => {
-    dragging = item;
-    e.dataTransfer?.setData(MIME, item.id);
-    e.dataTransfer?.setData('text/plain', item.title);
+    // A drag that starts inside a nested draggable (a row in a row) is that one's.
+    if (dragging) return;
+    dragging = dragged;
+    e.dataTransfer?.setData(MIME, dragged.kind === 'item' ? dragged.item.id : dragged.file.id);
+    e.dataTransfer?.setData('text/plain', dragged.kind === 'item' ? dragged.item.title : dragged.name);
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   };
   const end = () => {
@@ -46,13 +48,21 @@ export function attachDropTarget(node: unknown, h: Html5DropHandlers): () => voi
   // dragenter/dragleave fire for every child too; count to know when the pointer really left.
   let depth = 0;
   const fromComputer = (e: DragEvent) => !dragging && !!e.dataTransfer?.types.includes('Files');
+  const relevant = (e: DragEvent) => !!dragging || fromComputer(e);
   const enter = (e: DragEvent) => {
+    if (!relevant(e)) return;
     e.preventDefault();
     depth++;
     h.onHover(dragging, fromComputer(e));
   };
   const over = (e: DragEvent) => {
-    e.preventDefault(); // allows the drop
+    if (!relevant(e)) return;
+    // Only an accepted drag is allowed to drop (preventDefault); a refused one shows "not allowed".
+    if (!h.accepts(dragging, fromComputer(e))) {
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = dragging ? 'move' : 'copy';
   };
   const leave = () => {
@@ -64,9 +74,10 @@ export function attachDropTarget(node: unknown, h: Html5DropHandlers): () => voi
     e.stopPropagation();
     depth = 0;
     const files = Array.from(e.dataTransfer?.files ?? []).map((f) => ({ name: f.name }));
-    h.onDrop(dragging, files);
-    h.onLeave();
+    const dropped = dragging;
     dragging = null;
+    h.onLeave();
+    if (h.accepts(dropped, !dropped && files.length > 0)) h.onDrop(dropped, files);
   };
   node.addEventListener('dragenter', enter);
   node.addEventListener('dragover', over);

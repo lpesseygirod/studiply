@@ -42,7 +42,7 @@ import {
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
-import UndoToast from '../../../src/components/UndoToast';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import {
   menuTriggerProps,
   showActionSheet,
@@ -115,10 +115,8 @@ export default function ProjectDetailScreen() {
   const [libraryPrefs, setLibraryPrefs] = useLibraryPrefs();
   const compact = useLayoutMode() === 'compact';
 
-  // Undo toast state
-  const [undoVisible, setUndoVisible] = useState(false);
-  const [undoMessage, setUndoMessage] = useState('');
-  const undoCallbackRef = useRef<(() => void) | null>(null);
+  // The Undo toast (also ⌘Z's, src/lib/undo.ts)
+  const { showUndo, toast: undoToast } = useUndoToast();
 
   // Photos and PDFs saved to the library, at the current level
   const [libraryFiles, setLibraryFiles] = useState<LibraryFile[]>([]);
@@ -397,22 +395,6 @@ export default function ProjectDetailScreen() {
       if (current.mode === 'rename') setEditing(current);
       return false;
     }
-  }
-
-  // -------------------------------------------------------------------
-  // Undo toast
-  // -------------------------------------------------------------------
-
-  function showUndo(message: string, onUndo: () => void) {
-    undoCallbackRef.current = onUndo;
-    setUndoMessage(message);
-    setUndoVisible(true);
-  }
-
-  function handleUndo() {
-    setUndoVisible(false);
-    undoCallbackRef.current?.();
-    undoCallbackRef.current = null;
   }
 
   // -------------------------------------------------------------------
@@ -766,13 +748,7 @@ export default function ProjectDetailScreen() {
 
       {move.modal}
 
-      {/* ── Undo toast ────────────────────────────────────────── */}
-      <UndoToast
-        visible={undoVisible}
-        message={undoMessage}
-        onUndo={handleUndo}
-        onDismiss={() => setUndoVisible(false)}
-      />
+      {undoToast}
 
       {/* ── Photo preview modal ───────────────────────────────── */}
       <Modal

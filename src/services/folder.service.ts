@@ -75,6 +75,18 @@ export async function getFolders(params: {
   return rows.map(folderFromRow);
 }
 
+/** Every folder's id and parent: drop targets use it to keep a folder out of its own subfolders. */
+export async function getFolderLinks(): Promise<{ id: string; parent_id: string | null }[]> {
+  return readThrough(
+    async () => {
+      const { data, error } = await supabase.from('folders').select('id, parent_id');
+      if (error) throw serviceError(error, 'Could not load the folders.');
+      return data;
+    },
+    async () => (await readRows<FolderRow>('folders')).map((f) => ({ id: f.id, parent_id: f.parent_id })),
+  );
+}
+
 export async function getFolder(folderId: string): Promise<Folder> {
   const row = await readThrough(
     async () => {

@@ -1,19 +1,21 @@
 /**
  * html5.ts (iPhone): the browser's drag and drop doesn't exist here; the
- * web twin (html5.web.ts) implements Option B of the step 3.1 spike.
+ * web twin (html5.web.ts) is the laptop's drag (step 3.1, Option B).
  */
 
-import type { DragItem } from './rules';
+import type { Dragged } from './rules';
 
 export const html5Supported = false;
 
 export interface Html5DropHandlers {
-  onHover: (item: DragItem | null, fromComputer: boolean) => void;
+  /** Whether a drop is allowed here; refused targets show "not allowed" and get no drop. */
+  accepts: (dragged: Dragged | null, fromComputer: boolean) => boolean;
+  onHover: (dragged: Dragged | null, fromComputer: boolean) => void;
   onLeave: () => void;
-  onDrop: (item: DragItem | null, files: { name: string }[]) => void;
+  onDrop: (dragged: Dragged | null, files: { name: string }[]) => void;
 }
 
-export function attachDraggable(_node: unknown, _item: DragItem, _onEnd?: () => void): () => void {
+export function attachDraggable(_node: unknown, _dragged: Dragged, _onEnd?: () => void): () => void {
   return () => {};
 }
 

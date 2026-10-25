@@ -442,17 +442,6 @@ export default function GeneralScreen() {
               <View style={styles.row}>
                 <SyncDebugPanel />
               </View>
-              <View style={styles.divider} />
-              {/* Step 3.1 spike (removed in 3.3) */}
-              <TouchableOpacity
-                style={styles.toggleRow}
-                onPress={() => router.push('/dev/dnd-spike')}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-              >
-                <Text style={styles.rowLabel}>Drag-and-drop spike</Text>
-                <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
-              </TouchableOpacity>
               {legacyImportAvailable && (
               <>
               <View style={styles.divider} />

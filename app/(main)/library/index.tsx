@@ -30,7 +30,7 @@ import { shouldOfferEarlierVersion } from '../../../src/services/legacyImport';
 import { GradientBackground } from '../../../src/components/GradientBackground';
 import { anchorBelow, useNewMenu } from '../../../src/components/NewMenu';
 import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
-import UndoToast from '../../../src/components/UndoToast';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import UserAvatar from '../../../src/components/UserAvatar';
 import { menuTriggerProps } from '../../../src/components/dialogs/dialogs';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
@@ -92,9 +92,7 @@ export default function LibraryScreen() {
   const newMenu = useNewMenu();
   const newButtonRef = useRef<View>(null);
 
-  const [undoVisible, setUndoVisible] = useState(false);
-  const [undoMessage, setUndoMessage] = useState('');
-  const undoCallbackRef = useRef<(() => void) | null>(null);
+  const { showUndo, toast: undoToast } = useUndoToast();
 
   // Two recent cards per row on the iPhone (the last one peeks when there are more).
   const contentWidth = wide ? Layout.pageMaxWidth : width - H_PADDING * 2;
@@ -147,18 +145,6 @@ export default function LibraryScreen() {
   /** A chip: open its section, or close it again (back to the overview). */
   function toggleSection(key: SectionKey) {
     router.setParams({ section: sectionKey === key ? undefined : key });
-  }
-
-  function showUndo(message: string, onUndo: () => void) {
-    undoCallbackRef.current = onUndo;
-    setUndoMessage(message);
-    setUndoVisible(true);
-  }
-
-  function handleUndo() {
-    setUndoVisible(false);
-    undoCallbackRef.current?.();
-    undoCallbackRef.current = null;
   }
 
   return (
@@ -418,12 +404,7 @@ export default function LibraryScreen() {
         />
       )}
       {itemMenu.modal}
-      <UndoToast
-        visible={undoVisible}
-        message={undoMessage}
-        onUndo={handleUndo}
-        onDismiss={() => setUndoVisible(false)}
-      />
+      {undoToast}
     </GradientBackground>
   );
 }

@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useThemedStyles } from '../../theme/ThemeProvider';
-import { hitTest, type DragItem, type DropCheck, type DropTarget, type Rect } from './rules';
+import { draggedId, draggedTitle, hitTest, type DropCheck, type Dragged, type DropTarget, type MeasuredTarget, type Rect } from './rules';
 
 export interface Hover {
   id: string;
@@ -26,13 +26,13 @@ export interface Hover {
 }
 
 interface Registration {
-  target: Omit<DropTarget, 'rect'>;
+  target: DropTarget;
   measure: () => Promise<Rect | null>;
 }
 
 /** Stable for the whole drag (a gesture built from them is never rebuilt mid-drag). */
 interface DragActions {
-  start: (item: DragItem, x: number, y: number) => void;
+  start: (item: Dragged, x: number, y: number) => void;
   move: (x: number, y: number) => void;
   end: (x: number, y: number) => void;
   cancel: () => void;
@@ -41,7 +41,7 @@ interface DragActions {
 
 /** Changes as the drag moves. */
 interface DragView {
-  item: DragItem | null;
+  item: Dragged | null;
   hover: Hover | null;
 }
 
@@ -72,19 +72,19 @@ export function GestureDragProvider({
 }: {
   children: ReactNode;
   /** Whether the item may go onto the target (canDrop). */
-  check: (item: DragItem, target: Omit<DropTarget, 'rect'>) => DropCheck;
+  check: (item: Dragged, target: DropTarget) => DropCheck;
   /** A valid drop. */
-  onDrop: (item: DragItem, target: Omit<DropTarget, 'rect'>) => void;
+  onDrop: (item: Dragged, target: DropTarget) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const registry = useRef(new Map<string, Registration>());
-  const rects = useRef<DropTarget[]>([]);
+  const rects = useRef<MeasuredTarget[]>([]);
   const rootRef = useRef<View>(null);
   const origin = useRef({ x: 0, y: 0 });
   const ghost = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const [item, setItem] = useState<DragItem | null>(null);
+  const [item, setItem] = useState<Dragged | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
-  const current = useRef<{ item: DragItem | null; hover: Hover | null }>({ item: null, hover: null });
+  const current = useRef<{ item: Dragged | null; hover: Hover | null }>({ item: null, hover: null });
   const checkRef = useRef(check);
   checkRef.current = check;
   const onDropRef = useRef(onDrop);
@@ -132,7 +132,7 @@ export function GestureDragProvider({
             return rect ? { ...reg.target, rect } : null;
           }),
         ).then((list) => {
-          rects.current = list.filter((t): t is DropTarget => t !== null);
+          rects.current = list.filter((t): t is MeasuredTarget => t !== null);
         });
       },
       move: (x, y) => {
@@ -168,7 +168,7 @@ export function GestureDragProvider({
           {item && (
             <Animated.View pointerEvents="none" style={[styles.ghost, { transform: ghost.getTranslateTransform() }]}>
               <Text style={styles.ghostText} numberOfLines={1}>
-                {item.title}
+                {draggedTitle(item)}
               </Text>
               {hover && !hover.ok && <Text style={styles.ghostReason}>{hover.reason}</Text>}
             </Animated.View>
@@ -186,7 +186,7 @@ export function GestureDraggable({
   onMenu,
   children,
 }: {
-  item: DragItem;
+  item: Dragged;
   onOpen: () => void;
   onMenu: () => void;
   children: ReactNode;
@@ -224,7 +224,7 @@ export function GestureDraggable({
 
   return (
     <GestureDetector gesture={gesture}>
-      <View collapsable={false} style={dragging?.id === item.id && localStyles.lifted}>
+      <View collapsable={false} style={dragging && draggedId(dragging) === draggedId(item) && localStyles.lifted}>
         {children}
       </View>
     </GestureDetector>
@@ -236,7 +236,7 @@ export function GestureDropTarget({
   target,
   children,
 }: {
-  target: Omit<DropTarget, 'rect'>;
+  target: DropTarget;
   children: (hover: Hover | null) => ReactNode;
 }) {
   const { register } = useDragActions();
@@ -244,7 +244,7 @@ export function GestureDropTarget({
   const ref = useRef<View>(null);
   useEffect(
     () => register(target.id, { target, measure: () => measureView(ref.current) }),
-    [register, target.id, target.kind, target.title], // eslint-disable-line react-hooks/exhaustive-deps
+    [register, target.id, target.kind], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const hover = hovered?.id === target.id ? hovered : null;
   return (

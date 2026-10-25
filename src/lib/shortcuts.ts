@@ -3,14 +3,15 @@
  * The web app's keyboard shortcuts (step 2.3, Lea's choice):
  *   ⌥N   new document          ⌥⇧N  new folder        ⌥R  record lecture
  *   /    search                ?    the shortcuts sheet
+ *   ⌘Z / Ctrl+Z  undo the last move, delete or favourite (step 3.3)
  * Option combinations are matched by the key's position (`code`), so the
  * special characters Option types (˜, ®…) don't matter; "/" and "?" by the
  * character typed, so they work on keyboards where "/" is ⇧7. Nothing fires
- * while typing in a field, while a dialog or menu is open, or with ⌘/Ctrl
- * held (those stay the browser's).
+ * while typing in a field (⌘Z there is the field's own undo) or while a
+ * dialog or menu is open; other ⌘/Ctrl combinations stay the browser's.
  */
 
-export type ShortcutAction = 'newDocument' | 'newFolder' | 'record' | 'focusSearch' | 'showShortcuts';
+export type ShortcutAction = 'newDocument' | 'newFolder' | 'record' | 'focusSearch' | 'showShortcuts' | 'undo';
 
 export interface KeyInput {
   code: string;
@@ -26,7 +27,10 @@ export interface KeyInput {
 }
 
 export function shortcutFor(e: KeyInput): ShortcutAction | null {
-  if (e.targetIsEditable || e.dialogOpen || e.metaKey || e.ctrlKey) return null;
+  if (e.targetIsEditable || e.dialogOpen) return null;
+  if (e.metaKey || e.ctrlKey) {
+    return e.code === 'KeyZ' && !e.shiftKey && !e.altKey ? 'undo' : null;
+  }
   if (e.altKey) {
     if (e.code === 'KeyN') return e.shiftKey ? 'newFolder' : 'newDocument';
     if (e.code === 'KeyR' && !e.shiftKey) return 'record';
@@ -44,6 +48,7 @@ export const SHORTCUTS: { keys: string; action: string; soon?: boolean }[] = [
   { keys: '⌥ R', action: 'Record lecture' },
   { keys: '/', action: 'Search' },
   { keys: '?', action: 'Show these shortcuts' },
+  { keys: '⌘ Z', action: 'Undo the last move, delete or favourite' },
   { keys: 'Esc', action: 'Close a menu, dialog or this sheet' },
 ];
 
