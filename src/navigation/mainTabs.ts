@@ -27,7 +27,7 @@ export const MAIN_TABS: readonly MainTab[] = [
 ];
 
 /** Routes in the tab navigator that have no tab of their own. */
-export const HIDDEN_ROUTES = ['index', 'project/[id]', 'note/[id]'] as const;
+export const HIDDEN_ROUTES = ['index', 'project/[id]', 'note/[id]', 'dev/dnd-spike'] as const;
 
 /** Screens shown full screen on the iPhone (no tab bar): documents and the recording flow after setup. */
 export function isFullScreenRoute(pathname: string): boolean {
