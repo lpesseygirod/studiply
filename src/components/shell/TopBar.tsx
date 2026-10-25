@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { LightColors, type ThemeColors } from '../../constants/colors';
@@ -9,7 +9,7 @@ import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
 import UserAvatar from '../UserAvatar';
-import { useShell, type Crumb } from './ShellContext';
+import { recordHref, useShell, type Crumb } from './ShellContext';
 
 /**
  * The laptop's top bar (docs/design desktop-01/04/05). What sits in the
@@ -37,12 +37,6 @@ export function TopBar({
   const router = useRouter();
   const { location, header } = useShell();
   const crumbs: Crumb[] = header?.crumbs ?? [{ label: 'My library', href: '/library' }];
-  const recordHref: Href = location?.courseId
-    ? {
-        pathname: '/record',
-        params: { projectId: location.courseId, ...(location.folderId && { folderId: location.folderId }) },
-      }
-    : '/record';
 
   return (
     <View style={styles.bar} testID="top-bar">
@@ -111,7 +105,7 @@ export function TopBar({
         {kind === 'library' && (
           <TouchableOpacity
             style={styles.recordPill}
-            onPress={() => router.navigate(recordHref)}
+            onPress={() => router.navigate(recordHref(location))}
             activeOpacity={0.85}
             accessibilityRole="link"
           >

@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
+import { runShellCommand } from '../../../src/components/shell/ShellContext';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
@@ -209,6 +211,27 @@ export default function GeneralScreen() {
             })}
           </View>
         </View>
+
+        {/* ── KEYBOARD (laptop) ─────────────────────────────────── */}
+        {Platform.OS === 'web' && (
+          <>
+            <Text style={styles.sectionHeader}>KEYBOARD</Text>
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.toggleRow}
+                onPress={() => runShellCommand('showShortcuts')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <Text style={styles.rowLabel}>Keyboard shortcuts</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.rowValueText}>?</Text>
+                  <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* ── RECORDING ──────────────────────────────────────────── */}
         <Text style={styles.sectionHeader}>RECORDING</Text>

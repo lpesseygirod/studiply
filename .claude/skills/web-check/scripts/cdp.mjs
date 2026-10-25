@@ -161,6 +161,16 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: codes[key] });
       await sleep(300);
     },
+    /**
+     * A key with modifiers, as the keyboard sends it: e.g. ⌥R is
+     * { code: 'KeyR', key: '®', alt: true } on a Mac. `text` types a character.
+     */
+    async chord({ code, key, alt = false, shift = false, meta = false, ctrl = false, text }) {
+      const modifiers = (alt ? 1 : 0) | (ctrl ? 2 : 0) | (meta ? 4 : 0) | (shift ? 8 : 0);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, text });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers });
+      await sleep(400);
+    },
     async shot(name) {
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
       const file = join(SHOTS, `${name}.png`);

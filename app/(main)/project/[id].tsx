@@ -62,7 +62,7 @@ import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
-import { useShellScreen } from '../../../src/components/shell/ShellContext';
+import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { starButton } from '../../../src/utils/star';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
@@ -212,6 +212,12 @@ export default function ProjectDetailScreen() {
     shownRef.current = { id, folderId };
     router.setParams({ folder: folderId ?? undefined });
   }
+
+  // ⌥⇧N on the web: a new folder here.
+  useShellCommand('newFolder', () => {
+    setNewFolderName('');
+    setShowNewFolder(true);
+  });
 
   // The laptop shell: Record lecture preselects this course and folder;
   // the sidebar expands this course.

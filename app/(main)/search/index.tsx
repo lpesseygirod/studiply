@@ -17,6 +17,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { useShellCommand } from '../../../src/components/shell/ShellContext';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { searchAll } from '../../../src/services/search.service';
@@ -38,6 +39,9 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // "/" on the web while Search is open: back to the field.
+  useShellCommand('focusSearch', () => inputRef.current?.focus());
 
   // Auto-focus input whenever this tab becomes active.
   useFocusEffect(

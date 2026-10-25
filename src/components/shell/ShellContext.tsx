@@ -91,6 +91,49 @@ export function useShellScreen(location: ShellLocation | null, header: DocumentH
   );
 }
 
+// -------------------------------------------------------------------
+// Commands (keyboard shortcuts): the focused screen that can do it does it
+// -------------------------------------------------------------------
+
+export type ShellCommand = 'newFolder' | 'focusSearch' | 'showShortcuts';
+
+const commandHandlers = new Map<ShellCommand, (() => void)[]>();
+
+/** Runs the command on the screen that registered it last; false when none can. */
+export function runShellCommand(command: ShellCommand): boolean {
+  const list = commandHandlers.get(command);
+  const handler = list?.[list.length - 1];
+  if (!handler) return false;
+  handler();
+  return true;
+}
+
+/** Registers a command handler for as long as the calling component is mounted. */
+export function registerShellCommand(command: ShellCommand, handler: () => void): () => void {
+  const list = commandHandlers.get(command) ?? [];
+  commandHandlers.set(command, [...list, handler]);
+  return () => {
+    commandHandlers.set(command, (commandHandlers.get(command) ?? []).filter((h) => h !== handler));
+  };
+}
+
+/** A screen handles the command while it is focused. */
+export function useShellCommand(command: ShellCommand, handler: () => void): void {
+  const ref = useRef(handler);
+  ref.current = handler;
+  useFocusEffect(useCallback(() => registerShellCommand(command, () => ref.current()), [command]));
+}
+
+/** Record lecture: preselects the course and folder the student is in. */
+export function recordHref(location: ShellLocation | null): Href {
+  return location?.courseId
+    ? {
+        pathname: '/record',
+        params: { projectId: location.courseId, ...(location.folderId && { folderId: location.folderId }) },
+      }
+    : '/record';
+}
+
 /**
  * The top bar's crumbs for something in a course: the course, then its
  * folders (getFolderBreadcrumbs gives course › folder › subfolder).

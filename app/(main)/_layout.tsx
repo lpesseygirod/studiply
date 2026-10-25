@@ -1,5 +1,5 @@
 import { Tabs, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,7 @@ import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
+import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
 import { Sidebar } from '../../src/components/shell/Sidebar';
 import { TopBar } from '../../src/components/shell/TopBar';
 import { screenKindFor, useLayoutMode } from '../../src/hooks/useLayoutMode';
@@ -149,6 +150,7 @@ export default function MainLayout() {
         </View>
         {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
         {wide && toast}
+        {Platform.OS === 'web' && <KeyboardShortcuts />}
       </View>
     </ShellProvider>
   );
