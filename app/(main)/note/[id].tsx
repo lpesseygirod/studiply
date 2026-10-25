@@ -19,7 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import { getSession } from '../../../src/services/session.service';
+import { followNoteTitle, getSession, RenameIncompleteError } from '../../../src/services/session.service';
 import {
   getNoteBySession,
   updateNote,
@@ -34,7 +34,8 @@ import { useConnectivity } from '../../../src/lib/connectivity';
 import { BLOCK_LABELS, type NoteBlock } from '../../../src/lib/noteBlocks';
 import { onSyncEvent, syncEnabled } from '../../../src/lib/sync';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
-import { getActiveSourceFiles } from '../../../src/services/source-file.service';
+import { fileLabel, getActiveSourceFiles } from '../../../src/services/source-file.service';
+import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
 import { getProject } from '../../../src/services/project.service';
 import { formatFileSize } from '../../../src/utils/file-size';
 import { exportNoteToPDF } from '../../../src/services/export.service';
@@ -261,6 +262,18 @@ export default function NoteDetailScreen() {
       setNote(updated);
       setIsEditing(false);
       setSyncState(syncEnabled && (await noteHasUnsyncedEdit(updated.id)) ? 'pending' : 'saved');
+      // A new title on the note renames the lecture too, so they stay one title.
+      if (session && updated.title !== (editBaseRef.current ?? note).title && updated.title !== session.title) {
+        try {
+          await followNoteTitle(session.id, updated.title, session.title);
+          setSession({ ...session, title: updated.title });
+        } catch (followErr) {
+          showAlert(
+            'Rename not complete',
+            followErr instanceof RenameIncompleteError ? followErr.message : errorMessage(followErr, 'Could not rename the lecture.'),
+          );
+        }
+      }
     } catch (err) {
       showAlert('Error', errorMessage(err, 'Could not save note. Please try again.'));
     } finally {
@@ -352,10 +365,27 @@ export default function NoteDetailScreen() {
   function showNoteActions(anchor?: Anchor) {
     if (!note || !session) return;
     showActionSheet(note.title, [
+      { text: 'Rename…', onPress: renameThisLecture },
       { text: 'Export as PDF', onPress: handleExportPDF },
       { text: 'Edit Note', onPress: enterEditMode },
       { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
     ], { anchor });
+  }
+
+  // The lecture and its note keep one title (see renameSession).
+  async function renameThisLecture() {
+    if (!note || !session) return;
+    if (await promptRenameLecture({ id: session.id, title: note.title })) load();
+  }
+
+  function showFileActions(file: SourceFile, anchor?: Anchor) {
+    if (file.file_type === 'audio') return;
+    showActionSheet(fileLabel(file, sourceFiles), [{ text: 'Rename…', onPress: () => renameFile(file) }], { anchor });
+  }
+
+  async function renameFile(file: SourceFile) {
+    const renamed = await promptRenameFile(file, sourceFiles);
+    if (renamed) setSourceFiles((prev) => prev.map((f) => (f.id === renamed.id ? renamed : f)));
   }
 
   function confirmDeleteSession() {
@@ -482,7 +512,6 @@ export default function NoteDetailScreen() {
   const viewUnclearParts = (note.unclear_parts as unknown as UP[]) ?? [];
 
   // Photo index counter for labelling
-  let photoIdx = 0;
 
   // -------------------------------------------------------------------
   // Full note view / edit view
@@ -1052,16 +1081,16 @@ export default function NoteDetailScreen() {
               <Text style={styles.sourceFilesEmpty}>Source files have been removed.</Text>
             ) : (
               sourceFiles.map((file, i) => {
-                const isPhoto = file.file_type === 'photo';
-                const label = isPhoto
-                  ? `Photo ${photoIdx++ + 1}`
-                  : file.file_type === 'audio'
-                  ? 'Recording'
-                  : 'PDF Document';
+                const label = fileLabel(file, sourceFiles);
                 const retLabel = retentionLabel(file);
                 const isDeleted = file.is_deleted;
                 return (
-                  <View key={file.id} style={styles.sourceFileRow}>
+                  <TouchableOpacity
+                    key={file.id}
+                    style={styles.sourceFileRow}
+                    activeOpacity={1}
+                    {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                  >
                     <View style={styles.sourceFileIconWrap}>
                       <Ionicons
                         name={fileTypeIcon(file.file_type)}
@@ -1098,7 +1127,7 @@ export default function NoteDetailScreen() {
                         {isDeleted ? 'Deleted' : file.retention_policy === 'keep_permanently' ? 'Kept' : '~Del'}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}

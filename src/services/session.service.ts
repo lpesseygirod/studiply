@@ -22,7 +22,7 @@ import {
   saveLocalRow,
   withLocalRows,
 } from '../lib/cache';
-import { isNetworkError } from '../lib/cloudRows';
+import { isNetworkError, NetworkError } from '../lib/cloudRows';
 import { isOffline } from '../lib/connectivity';
 import { newId } from '../lib/mappers';
 import {
@@ -37,7 +37,8 @@ import {
 import { syncError } from '../lib/sync/errors';
 import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
-import type { Session } from '../types/database';
+import type { Note, Session } from '../types/database';
+import { getNoteBySession, updateNote } from './note.service';
 
 /**
  * A session is a lecture in the step 1.2 schema: a `files` row (kind
@@ -603,4 +604,101 @@ export async function getRecentSessions(_userId: string, limit = 10): Promise<Se
 export async function deleteSession(sessionId: string): Promise<void> {
   const { error } = await supabase.from('files').delete().eq('id', sessionId);
   if (error) throw serviceError(error, 'Could not delete the lecture.');
+}
+
+// -------------------------------------------------------------------
+// renameSession
+// A lecture's title is stored twice: on its file (library, Home, course)
+// and in its note (note screen, PDF). Renaming changes both and never
+// leaves them different without saying so: the note is tried twice; if it
+// still fails the file's old title is put back; if even that fails, the
+// student is told exactly which title is where. Online only.
+// -------------------------------------------------------------------
+export const MAX_TITLE_LENGTH = 200;
+
+/** Both titles couldn't be brought in line; the message says what is where. */
+export class RenameIncompleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RenameIncompleteError';
+  }
+}
+
+/** The title to store, or an error the student can act on. */
+export function cleanTitle(title: string): string {
+  const next = title.trim().replace(/\s+/g, ' ');
+  if (!next) throw new Error('Enter a name.');
+  if (next.length > MAX_TITLE_LENGTH) throw new Error(`Use at most ${MAX_TITLE_LENGTH} characters.`);
+  return next;
+}
+
+export interface RenameDeps {
+  getSession: (id: string) => Promise<Session>;
+  getNote: (sessionId: string) => Promise<Note | null>;
+  setLectureTitle: (id: string, title: string) => Promise<Session>;
+  setNoteTitle: (note: Note, title: string) => Promise<unknown>;
+  online: () => boolean;
+}
+
+async function twice<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return fn();
+  }
+}
+
+export async function renameLecture(deps: RenameDeps, sessionId: string, title: string): Promise<Session> {
+  const next = cleanTitle(title);
+  if (!deps.online()) throw new NetworkError();
+
+  const before = await deps.getSession(sessionId);
+  const note = await deps.getNote(sessionId);
+  const renamed = await deps.setLectureTitle(sessionId, next);
+  if (!note || note.title === next) return renamed;
+
+  try {
+    await twice(() => deps.setNoteTitle(note, next));
+    return renamed;
+  } catch (err) {
+    try {
+      await deps.setLectureTitle(sessionId, before.title);
+    } catch {
+      throw new RenameIncompleteError(
+        `The lecture is now called “${next}”, but its note still says “${note.title}”. Rename it again to fix this.`,
+      );
+    }
+    if (isNetworkError(err)) throw err;
+    throw new Error('Could not rename the lecture. Nothing was changed.');
+  }
+}
+
+export function renameSession(sessionId: string, title: string): Promise<Session> {
+  return renameLecture(
+    {
+      getSession,
+      getNote: getNoteBySession,
+      setLectureTitle: (id, t) => updateSession(id, { title: t }),
+      setNoteTitle: (note, t) => updateNote(note.id, { title: t }, note),
+      online: () => !isOffline(),
+    },
+    sessionId,
+    title,
+  );
+}
+
+/**
+ * The note's title was changed in Edit Note: the lecture follows (tried
+ * twice). If it can't, the student is told the library still shows the old
+ * name; the note itself is already saved.
+ */
+export async function followNoteTitle(sessionId: string, title: string, oldTitle: string): Promise<void> {
+  const next = cleanTitle(title);
+  try {
+    await twice(() => updateSession(sessionId, { title: next }));
+  } catch {
+    throw new RenameIncompleteError(
+      `The note is now called “${next}”, but the lecture in your library is still “${oldTitle}”. Rename the lecture to fix this.`,
+    );
+  }
 }

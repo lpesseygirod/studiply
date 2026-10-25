@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { newId } from '../lib/mappers';
-import { serviceError, type FileRow, type LectureRow } from '../lib/cloudRows';
+import { NetworkError, serviceError, type FileRow, type LectureRow } from '../lib/cloudRows';
 import {
   cacheUser,
   isSessionLive,
@@ -30,6 +30,7 @@ import {
 import { syncError } from '../lib/sync/errors';
 import { ensureLectureOnServer, updateSession } from './session.service';
 import { toJpeg } from '../utils/toJpeg';
+import { extensionFor, nameWithoutExtension, withExtension } from '../utils/fileNames';
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
 import type { SourceFile } from '../types/database';
@@ -65,6 +66,56 @@ function asRetention(value: string | null | undefined): Retention {
 export function sourceFileName(file: SourceFile): string {
   if (file.file_type === 'audio') return 'Recording';
   return file.display_name || 'Document';
+}
+
+/**
+ * The label a list shows for a file: its name once it has one (a PDF's
+ * original name, or one the student gave it), otherwise "Photo 2" by its
+ * place among the list's photos, "Document", or "Recording".
+ */
+export function fileLabel(file: SourceFile, allFiles: SourceFile[]): string {
+  if (file.file_type === 'audio') return 'Recording';
+  if (file.display_name) return file.display_name;
+  if (file.file_type === 'photo') {
+    const photos = allFiles.filter((f) => f.file_type === 'photo');
+    return `Photo ${photos.findIndex((f) => f.id === file.id) + 1}`;
+  }
+  return 'Document';
+}
+
+/** The extension a photo or PDF keeps when renamed ("png", "pdf"…). */
+export function fileExtension(file: SourceFile): string {
+  return extensionFor({
+    storagePath: file.storage_path,
+    mimeType: file.mime_type,
+    kind: file.file_type === 'pdf' ? 'pdf' : 'photo',
+  });
+}
+
+/** The part of a file's name the student edits (without the extension). */
+export function editableName(file: SourceFile, allFiles: SourceFile[]): string {
+  return nameWithoutExtension(fileLabel(file, allFiles));
+}
+
+// -------------------------------------------------------------------
+// renameSourceFile
+// Photos and PDFs: the name is stored in media.caption with the file's real
+// extension, which the student can't change. Online only.
+// -------------------------------------------------------------------
+export async function renameSourceFile(file: SourceFile, name: string): Promise<SourceFile> {
+  if (file.file_type === 'audio') throw new Error('A recording has no name to change.');
+  const base = name.trim().replace(/\s+/g, ' ');
+  if (!base || !nameWithoutExtension(base).trim()) throw new Error('Enter a name.');
+  if (base.length > 200) throw new Error('Use at most 200 characters.');
+  if (isOffline()) throw new NetworkError();
+
+  const caption = withExtension(base, fileExtension(file));
+  const { data, error } = await supabase.from('media').update({ caption }).eq('id', file.id).select('*');
+  if (error) throw serviceError(error, 'Could not rename the file.');
+  // Added on this iPhone and not on the server yet.
+  if (data.length === 0) throw new Error('This file is still uploading. Try again in a moment.');
+  remember('media', data);
+  return { ...file, display_name: caption };
 }
 
 function mediaBucket(kind: string): Bucket {

@@ -8,3 +8,8 @@ jest.mock('../lib/cache/store', () => jest.requireActual('../lib/cache/store.web
 // Likewise the sync queue: services send changes straight to Supabase, as
 // on the web. The queue's rules are tested in src/lib/sync/__tests__.
 jest.mock('../lib/sync', () => jest.requireActual('../lib/sync/index.web'));
+
+// AsyncStorage has no native module in Jest: the package's own in-memory mock.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);

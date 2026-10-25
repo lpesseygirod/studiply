@@ -21,14 +21,15 @@ import { getSession, updateSession } from '../../../src/services/session.service
 import {
   getActiveSourceFiles,
   createSourceFile,
+  fileLabel,
   markDeleted,
-  sourceFileName,
 } from '../../../src/services/source-file.service';
+import { promptRenameFile } from '../../../src/utils/rename';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
-import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import { syncEnabled, usePendingSync } from '../../../src/lib/sync';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
@@ -62,15 +63,6 @@ function formatDuration(seconds: number | null): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function getFileLabel(file: SourceFile, allFiles: SourceFile[]): string {
-  if (file.file_type === 'audio') return 'Recording';
-  if (file.file_type === 'photo') {
-    const photos = allFiles.filter(f => f.file_type === 'photo');
-    const idx = photos.findIndex(f => f.id === file.id) + 1;
-    return `Photo ${idx}`;
-  }
-  return sourceFileName(file);
-}
 
 function getLanguageLabel(lang: string): string {
   return lang === 'auto' ? 'AUTO' : lang.toUpperCase().slice(0, 2);
@@ -235,6 +227,19 @@ export default function PostSessionScreen() {
   };
 
   // ── Delete file ──────────────────────────────────────────────
+  // Long-press (iPhone) or right-click (web) on a photo or PDF.
+  const showFileActions = (file: SourceFile, anchor?: Anchor) => {
+    showActionSheet(fileLabel(file, sourceFiles), [
+      { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Remove', style: 'destructive', onPress: () => handleDeleteFile(file) },
+    ], { anchor });
+  };
+
+  const renameFile = async (file: SourceFile) => {
+    const renamed = await promptRenameFile(file, sourceFiles);
+    if (renamed) setSourceFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
+  };
+
   const handleDeleteFile = (file: SourceFile) => {
     showAlert(
       'Remove File',
@@ -380,7 +385,11 @@ export default function PostSessionScreen() {
               {/* Individual non-audio files */}
               {nonAudioFiles.map(file => (
                 <View key={file.id}>
-                  <View style={styles.fileRow}>
+                  <TouchableOpacity
+                    style={styles.fileRow}
+                    activeOpacity={1}
+                    {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                  >
                     <View style={styles.fileIcon}>
                       <Ionicons
                         name={FILE_ICONS[file.file_type]}
@@ -390,7 +399,7 @@ export default function PostSessionScreen() {
                     </View>
                     <View style={styles.fileInfo}>
                       <Text style={styles.fileName} numberOfLines={1}>
-                        {getFileLabel(file, sourceFiles)}
+                        {fileLabel(file, sourceFiles)}
                       </Text>
                       {file.file_size_bytes != null && (
                         <Text style={styles.fileSize}>
@@ -406,7 +415,7 @@ export default function PostSessionScreen() {
                     >
                       <Ionicons name="close" size={14} color={Colors.text.secondary} />
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.fileSeparator} />
                 </View>
               ))}

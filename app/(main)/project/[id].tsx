@@ -40,6 +40,7 @@ import {
   createSourceFile,
   markDeleted as markSourceFileDeleted,
   sourceFileName,
+  fileLabel,
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
@@ -53,6 +54,7 @@ import {
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
+import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
@@ -284,6 +286,7 @@ export default function ProjectDetailScreen() {
   function showSessionActions(session: Session, anchor?: Anchor) {
     showActionSheet(session.title, [
       { text: 'View Notes', onPress: () => handleSessionPress(session) },
+      { text: 'Rename…', onPress: () => renameLecture(session) },
       { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
       { text: 'Move to…', onPress: () => openMoveSession(session) },
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
@@ -325,10 +328,20 @@ export default function ProjectDetailScreen() {
   }
 
   function showFileActions(file: SourceFile, anchor?: Anchor) {
-    showActionSheet(file.file_type === 'photo' ? 'Photo' : sourceFileName(file), [
+    showActionSheet(fileLabel(file, projectFiles), [
+      { text: 'Rename…', onPress: () => renameFile(file) },
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Export / Share', onPress: () => shareFile(file) },
       { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
     ], { anchor });
+  }
+
+  async function renameFile(file: SourceFile) {
+    const renamed = await promptRenameFile(file, projectFiles);
+    if (renamed) setProjectFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
+  }
+
+  async function renameLecture(session: Session) {
+    if (await promptRenameLecture(session)) fetchData(currentFolderId);
   }
 
   async function shareFile(file: SourceFile) {
@@ -757,11 +770,7 @@ export default function ProjectDetailScreen() {
               <View style={styles.filesList}>
                 {projectFiles.map((file, index) => {
                   const isPhoto = file.file_type === 'photo';
-                  const photos = projectFiles.filter(f => f.file_type === 'photo');
-                  const photoIdx = photos.findIndex(f => f.id === file.id) + 1;
-                  const label = isPhoto
-                    ? `Photo ${photoIdx}`
-                    : sourceFileName(file);
+                  const label = fileLabel(file, projectFiles);
 
                   return (
                     <TouchableOpacity
