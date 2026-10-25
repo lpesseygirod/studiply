@@ -30,7 +30,6 @@ import {
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
 import { getFolders, createFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
-import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
 import {
   getProjectSourceFiles,
   createSourceFile,
@@ -51,15 +50,14 @@ import {
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
-import { promptRenameFile, promptRenameLecture, promptRenameLibraryFile } from '../../../src/utils/rename';
-import { folderItem, lectureItem, libraryFileItem } from '../../../src/utils/libraryItems';
-import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
-import { confirmAction } from '../../../src/utils/confirm';
+import { promptRenameFile } from '../../../src/utils/rename';
+import { useItemMenu } from '../../../src/hooks/useItemMenu';
+import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
-import { LibraryHeader } from '../../../src/components/library/LibraryHeader';
+import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
 import { LibraryToolbar } from '../../../src/components/library/LibraryToolbar';
 import { getCourseContents } from '../../../src/services/shelf.service';
 import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
@@ -67,7 +65,7 @@ import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { sortEntries } from '../../../src/utils/libraryGrid';
 import type { ShelfItem } from '../../../src/utils/shelf';
 import { starButton } from '../../../src/utils/star';
-import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
+import type { Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
 
 // -------------------------------------------------------------------
@@ -98,7 +96,6 @@ export default function ProjectDetailScreen() {
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
 
-  const [project, setProject] = useState<Project | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,7 +144,6 @@ export default function ProjectDetailScreen() {
         getLibraryFiles(id, folderId),
         getCourseContents(id, folderId),
       ]);
-      setProject(p);
       setFolders(folderList);
       setSessions(sessionList);
       setLibraryFiles(fileList);
@@ -173,7 +169,6 @@ export default function ProjectDetailScreen() {
     if (shown && shown.id === id && shown.folderId === target) return; // already there
     shownRef.current = { id, folderId: target };
     setBreadcrumbs([]);
-    setProject(null);
     setFolders([]);
     setSessions([]);
     setEntries([]);
@@ -305,41 +300,6 @@ export default function ProjectDetailScreen() {
   // Long-press action sheets
   // -------------------------------------------------------------------
 
-  function showFolderActions(folder: Folder, anchor?: Anchor) {
-    showActionSheet(folder.name, [
-      { text: 'Rename', onPress: () => setEditing({ mode: 'rename', id: folder.id }) },
-      { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
-      starButton({ type: 'folder', id: folder.id }, folder.name, folder.starred_at, showUndo),
-      { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
-    ], { anchor });
-  }
-
-  function showSessionActions(session: Session, anchor?: Anchor) {
-    showActionSheet(session.title, [
-      { text: 'View Notes', onPress: () => handleSessionPress(session) },
-      { text: 'Rename…', onPress: () => renameLecture(session) },
-      { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
-      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
-      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
-      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-    ], { anchor });
-  }
-
-  async function exportSessionPDF(session: Session) {
-    try {
-      const { getNoteBySession } = await import('../../../src/services/note.service');
-      const { exportNoteToPDF } = await import('../../../src/services/export.service');
-      const note = await getNoteBySession(session.id);
-      if (!note) {
-        showAlert('No Note', 'This session has not been processed yet.');
-        return;
-      }
-      await exportNoteToPDF({ note, session, transcript: null, projectName: project?.name });
-    } catch {
-      showAlert('Error', 'Could not export PDF.');
-    }
-  }
-
   function showFileActions(file: SourceFile, anchor?: Anchor) {
     const name = fileLabel(file, sameLectureFiles(file, projectFiles));
     showActionSheet(name, [
@@ -357,10 +317,6 @@ export default function ProjectDetailScreen() {
   async function renameFile(file: SourceFile) {
     const renamed = await promptRenameFile(file, sameLectureFiles(file, projectFiles));
     if (renamed) setProjectFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
-  }
-
-  async function renameLecture(session: Session) {
-    if (await promptRenameLecture(session)) fetchData(currentFolderId);
   }
 
   async function shareFile(file: SourceFile) {
@@ -444,68 +400,6 @@ export default function ProjectDetailScreen() {
   }
 
   // -------------------------------------------------------------------
-  // Folder trash
-  // -------------------------------------------------------------------
-
-  function confirmTrashFolder(folder: Folder) {
-    showAlert(
-      'Delete Folder',
-      `"${folder.name}" and all its contents will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashFolder(folder.id);
-              setFolders(prev => prev.filter(f => f.id !== folder.id));
-              showUndo(`"${folder.name}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: folder.id, type: 'folder' });
-                fetchData(currentFolderId);
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete folder.'));
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // Session trash
-  // -------------------------------------------------------------------
-
-  function confirmTrashSession(session: Session) {
-    showAlert(
-      'Delete Session',
-      `"${session.title}" will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashSession(session.id);
-              setSessions(prev => prev.filter(s => s.id !== session.id));
-              showUndo(`"${session.title}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: session.id, type: 'session' });
-                fetchData(currentFolderId);
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete session.'));
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  // -------------------------------------------------------------------
   // Undo toast
   // -------------------------------------------------------------------
 
@@ -539,28 +433,20 @@ export default function ProjectDetailScreen() {
     fetchProjectFiles();
   }, [fetchProjectFiles]);
 
-  // "Move to…", "Move to another lecture…", "Save to library…" (with Undo).
-  const move = useMoveFlow({
+  // The items' menu (shared with the sidebar and Library), and Move to…
+  // for the lecture photos below the grid. Changes reload through
+  // useLibraryUpdates; the lecture photos reload here.
+  const itemMenu = useItemMenu({
     showUndo,
-    onChanged: () => {
-      fetchData(currentFolderIdRef.current);
-      fetchProjectFiles();
-    },
+    onOpen: item => openEntry(item),
+    renameFolderInPlace: folderId => setEditing({ mode: 'rename', id: folderId }),
   });
+  const move = itemMenu.move;
+  useLibraryUpdates(fetchProjectFiles);
 
   // -------------------------------------------------------------------
   // Files saved to the library
   // -------------------------------------------------------------------
-
-  function showLibraryFileActions(file: LibraryFile, anchor?: Anchor) {
-    showActionSheet(file.title, [
-      { text: Platform.OS === 'web' ? 'Open / Download' : 'Open / Share', onPress: () => openLibraryFile(file) },
-      { text: 'Rename…', onPress: () => renameLibraryFile(file) },
-      { text: 'Move to…', onPress: () => move.openMove(libraryFileItem(file)) },
-      starButton({ type: 'file', id: file.id }, file.title, file.starredAt, showUndo),
-      { text: 'Delete', style: 'destructive', onPress: () => trashLibraryFile(file) },
-    ], { anchor });
-  }
 
   function openLibraryFile(file: LibraryFile) {
     if (!file.media?.file_path) {
@@ -569,25 +455,6 @@ export default function ProjectDetailScreen() {
     }
     if (file.kind === 'image') setPreviewUri(file.media.file_path);
     else shareFile({ ...file.media, display_name: file.title });
-  }
-
-  async function renameLibraryFile(file: LibraryFile) {
-    const renamed = await promptRenameLibraryFile(file);
-    if (renamed) setLibraryFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
-  }
-
-  async function trashLibraryFile(file: LibraryFile) {
-    if (!(await confirmAction('Delete File', `"${file.title}" will be moved to Recently Deleted.`, 'Delete'))) return;
-    try {
-      await trashSession(file.id);
-      setLibraryFiles(prev => prev.filter(f => f.id !== file.id));
-      showUndo(`"${file.title}" moved to trash`, async () => {
-        await restoreItem({ id: file.id, type: 'session' });
-        fetchData(currentFolderIdRef.current);
-      });
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not delete the file.'));
-    }
   }
 
   // ── Take Photo ────────────────────────────────────────────────
@@ -720,16 +587,32 @@ export default function ProjectDetailScreen() {
 
   function entryMenu(item: ShelfItem, anchor?: Anchor) {
     setSelectedId(item.id);
-    const folder = item.type === 'folder' ? folders.find(f => f.id === item.id) : undefined;
-    if (folder) return showFolderActions(folder, anchor);
-    const session = item.type === 'lecture' ? sessions.find(s => s.id === item.id) : undefined;
-    if (session) return showSessionActions(session, anchor);
-    const file = libraryFiles.find(f => f.id === item.id);
-    if (file) return showLibraryFileActions(file, anchor);
-    showActionSheet(item.title, [
-      { text: 'Open', onPress: () => openEntry(item) },
-      starButton({ type: 'file', id: item.id }, item.title, item.starredAt, showUndo),
-    ], { anchor });
+    itemMenu.open(item, anchor);
+  }
+
+  function recordHere() {
+    router.push({
+      pathname: '/record',
+      params: { projectId: id, ...(currentFolderId ? { folderId: currentFolderId } : {}) },
+    });
+  }
+
+  /** Empty space: right-click (laptop) or long-press (iPhone), like Finder. The toolbar stays. */
+  function spaceMenu(anchor?: Anchor) {
+    if (editing) return;
+    setSelectedId(null);
+    const run: Record<SpaceAction, () => void> = {
+      newFolder: startNewFolder,
+      upload: chooseUpload,
+      takePhoto: handleTakePhoto,
+      record: recordHere,
+      sort: () => showSortMenu(libraryPrefs.sort, sort => setLibraryPrefs({ sort }), anchor),
+    };
+    showActionSheet(
+      currentCrumb?.name,
+      emptySpaceActions(Platform.OS !== 'web').map(action => ({ text: SPACE_LABELS[action], onPress: run[action] })),
+      { anchor },
+    );
   }
 
   function chooseUpload() {
@@ -789,92 +672,95 @@ export default function ProjectDetailScreen() {
             onNewFolder={startNewFolder}
             onUpload={chooseUpload}
             onTakePhoto={handleTakePhoto}
-            onRecord={() =>
-              router.push({
-                pathname: '/record',
-                params: { projectId: id, ...(currentFolderId ? { folderId: currentFolderId } : {}) },
-              })
-            }
+            onRecord={recordHere}
             uploading={uploadingCamera || uploadingGallery || uploadingDocs}
           />
 
-          {/* ── The items (docs/design desktop-04) ─────────────────── */}
-          {sortedEntries.length === 0 && !editing ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
-              <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
-              <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
-            </View>
-          ) : (
-            <Pressable onPress={() => setSelectedId(null)} accessible={false} style={styles.gridArea}>
-              <LibraryGrid
-                items={sortedEntries}
-                view={view}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onOpen={openEntry}
-                onMenu={entryMenu}
-                editing={editing}
-                onSaveName={saveName}
-                onCancelName={() => setEditing(null)}
-                thumbnailFor={item =>
-                  item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
-                }
-              />
-            </Pressable>
-          )}
-
-          {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
-          {projectFiles.length > 0 && (
-            <View style={styles.lecturePhotos}>
-              <Pressable
-                style={styles.lecturePhotosHeader}
-                onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
-              >
-                <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
-                <Ionicons
-                  name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={c.text.onGradient}
+          {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
+          <Pressable
+            onPress={() => setSelectedId(null)}
+            {...menuTriggerProps(spaceMenu)}
+            accessible={false}
+            style={styles.space}
+            testID="library-space"
+          >
+            {sortedEntries.length === 0 && !editing ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
+                <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
+                <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
+              </View>
+            ) : (
+              <View style={styles.gridArea}>
+                <LibraryGrid
+                  items={sortedEntries}
+                  view={view}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onOpen={openEntry}
+                  onMenu={entryMenu}
+                  editing={editing}
+                  onSaveName={saveName}
+                  onCancelName={() => setEditing(null)}
+                  thumbnailFor={item =>
+                    item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
+                  }
                 />
-              </Pressable>
-              {libraryPrefs.lecturePhotosOpen && (
-                <View style={styles.filesList}>
-                  {projectFiles.map((file, index) => {
-                    const isPhoto = file.file_type === 'photo';
-                    const label = fileLabel(file, sameLectureFiles(file, projectFiles));
-                    return (
-                      <TouchableOpacity
-                        key={file.id}
-                        style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
-                        onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                        {...menuTriggerProps(anchor => showFileActions(file, anchor))}
-                        activeOpacity={0.75}
-                      >
-                        {isPhoto ? (
-                          <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
-                        ) : (
-                          <View style={styles.fileIconWrap}>
-                            <Ionicons name="document-text" size={18} color={c.text.secondary} />
+              </View>
+            )}
+
+            {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
+            {projectFiles.length > 0 && (
+              <View style={styles.lecturePhotos}>
+                <Pressable
+                  style={styles.lecturePhotosHeader}
+                  onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
+                >
+                  <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
+                  <Ionicons
+                    name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={c.text.onGradient}
+                  />
+                </Pressable>
+                {libraryPrefs.lecturePhotosOpen && (
+                  <View style={styles.filesList}>
+                    {projectFiles.map((file, index) => {
+                      const isPhoto = file.file_type === 'photo';
+                      const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+                      return (
+                        <TouchableOpacity
+                          key={file.id}
+                          style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
+                          onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
+                          {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                          activeOpacity={0.75}
+                        >
+                          {isPhoto ? (
+                            <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.fileIconWrap}>
+                              <Ionicons name="document-text" size={18} color={c.text.secondary} />
+                            </View>
+                          )}
+                          <View style={styles.fileInfo}>
+                            <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
+                            <Text style={styles.fileMeta}>
+                              {formatShortDate(file.created_at)}
+                              {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
+                            </Text>
                           </View>
-                        )}
-                        <View style={styles.fileInfo}>
-                          <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
-                          <Text style={styles.fileMeta}>
-                            {formatShortDate(file.created_at)}
-                            {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
-                          </Text>
-                        </View>
-                        {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
+                          {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
+          </Pressable>
         </ScrollView>
       )}
 
@@ -921,6 +807,7 @@ const makeStyles = (c: ThemeColors) =>
 
   // Scroll
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: H_PADDING,
     gap: 16,
     width: '100%',
@@ -928,6 +815,8 @@ const makeStyles = (c: ThemeColors) =>
     alignSelf: 'center',
   },
   gridArea: { minHeight: 140 },
+  // Fills the rest of the screen, so there is empty space to right-click or long-press.
+  space: { flexGrow: 1, gap: 16, minHeight: 240 },
   lecturePhotos: { gap: 10, marginTop: 8 },
   lecturePhotosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
 

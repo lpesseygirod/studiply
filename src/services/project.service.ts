@@ -150,7 +150,8 @@ export async function updateProject(
   if (Object.values(updates).every((v) => v === undefined)) return getProject(projectId);
 
   // Keys left undefined aren't sent, so those columns stay as they are.
-  const { name, color, icon, sort_order } = updates;
+  const { color, icon, sort_order } = updates;
+  const name = updates.name === undefined ? undefined : cleanName(updates.name);
   const { data, error } = await supabase
     .from('courses')
     .update({ name, color, icon, sort_order })

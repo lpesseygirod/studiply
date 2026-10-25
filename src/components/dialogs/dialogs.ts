@@ -186,6 +186,8 @@ export function menuTriggerProps(open: (anchor?: Anchor) => void): {
   if (Platform.OS !== 'web') return props;
 
   const onContextMenu = (e: MouseEvent) => {
+    // An item inside already showed its menu (empty space around tiles has its own).
+    if (e.defaultPrevented) return;
     e.preventDefault();
     // The menu is drawn in a full-window overlay, so window coordinates.
     open({ x: e.clientX, y: e.clientY });

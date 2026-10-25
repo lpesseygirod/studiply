@@ -19,39 +19,23 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
-import { getProjects, updateProject, type ProjectWithCount } from '../../../src/services/project.service';
-import { getSession } from '../../../src/services/session.service';
+import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
 import {
   getExamPacks,
   getRecentItems,
   getReviewDueCount,
   getStarredItems,
-  type StarTarget,
 } from '../../../src/services/shelf.service';
-import { trashSession, trashProject } from '../../../src/services/trash.service';
-import { getNoteBySession } from '../../../src/services/note.service';
-import { exportNoteToPDF } from '../../../src/services/export.service';
 import { shouldOfferEarlierVersion } from '../../../src/services/legacyImport';
 import { GradientBackground } from '../../../src/components/GradientBackground';
 import { anchorBelow, useNewMenu } from '../../../src/components/NewMenu';
 import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
 import UndoToast from '../../../src/components/UndoToast';
 import UserAvatar from '../../../src/components/UserAvatar';
-import {
-  menuTriggerProps,
-  promptText,
-  showActionSheet,
-  showAlert,
-  type Anchor,
-} from '../../../src/components/dialogs/dialogs';
-import { errorMessage } from '../../../src/utils/errors';
-import { promptRenameLecture } from '../../../src/utils/rename';
-import { lectureItem } from '../../../src/utils/libraryItems';
-import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { menuTriggerProps } from '../../../src/components/dialogs/dialogs';
+import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
-import { itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
-import { starButton } from '../../../src/utils/star';
-import type { Session } from '../../../src/types/database';
+import { courseShelfItem, itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
 
 const H_PADDING = 18;
 // The chips are ~33 pt tall (docs/design); their touch area reaches 44.
@@ -75,13 +59,6 @@ function loadSection(key: SectionKey): Promise<ShelfItem[]> {
   if (key === 'favorites') return getStarredItems();
   if (key === 'exam-packs') return getExamPacks();
   return getRecentItems(50);
-}
-
-/** Which table an item's favorite lives in. */
-function starTargetType(item: ShelfItem): StarTarget['type'] {
-  if (item.type === 'folder') return 'folder';
-  if (item.type === 'lecture_photo' || item.type === 'lecture_pdf') return 'media';
-  return 'file';
 }
 
 function itemCount(n: number): string {
@@ -149,7 +126,8 @@ export default function LibraryScreen() {
     fetchData();
   }, [fetchData]);
   useLibraryUpdates(fetchData);
-  const move = useMoveFlow({ showUndo, onChanged: fetchData });
+  // The same item menu as the course grid and the sidebar; changes reload through useLibraryUpdates.
+  const itemMenu = useItemMenu({ showUndo, onOpen: item => router.push(openTarget(item)) });
 
   // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
   const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
@@ -181,130 +159,6 @@ export default function LibraryScreen() {
     setUndoVisible(false);
     undoCallbackRef.current?.();
     undoCallbackRef.current = null;
-  }
-
-  /** Menus for the items in Recent and the sections: each kind gets its own. */
-  async function showItemActions(item: ShelfItem, anchor?: Anchor) {
-    if (item.type === 'course') {
-      const project = projects.find(p => p.id === item.id);
-      if (project) showProjectActions(project, anchor);
-      return;
-    }
-    if (item.type === 'lecture') {
-      try {
-        showSessionActions(await getSession(item.id), anchor);
-      } catch (err) {
-        showAlert('Error', errorMessage(err, 'Could not open this lecture.'));
-      }
-      return;
-    }
-    showActionSheet(item.title, [
-      { text: 'Open', onPress: () => router.push(openTarget(item)) },
-      starButton({ type: starTargetType(item), id: item.id }, item.title, item.starredAt, showUndo),
-    ], { anchor });
-  }
-
-  function showSessionActions(session: Session, anchor?: Anchor) {
-    showActionSheet(session.title, [
-      { text: 'Rename…', onPress: () => renameLecture(session) },
-      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
-      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
-      { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
-      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-    ], { anchor });
-  }
-
-  async function renameLecture(session: Session) {
-    if (await promptRenameLecture(session)) fetchData();
-  }
-
-  async function exportSessionPDF(session: Session) {
-    try {
-      const note = await getNoteBySession(session.id);
-      if (!note) {
-        showAlert('No notes yet', 'Process this session first to generate notes for export.');
-        return;
-      }
-      await exportNoteToPDF({ note, session, transcript: null });
-    } catch (err) {
-      showAlert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
-    }
-  }
-
-  function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
-    showActionSheet(project.name, [
-      { text: 'Rename', onPress: () => promptRenameProject(project) },
-      starButton({ type: 'course', id: project.id }, project.name, project.starred_at, showUndo),
-      { text: 'Delete Course', style: 'destructive', onPress: () => confirmTrashProject(project) },
-    ], { anchor });
-  }
-
-  async function promptRenameProject(project: ProjectWithCount) {
-    const name = await promptText('Rename Course', { defaultValue: project.name, placeholder: 'Course name' });
-    if (!name) return;
-    try {
-      await updateProject(project.id, { name });
-      setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, name } : p)));
-      notifyLibraryUpdated(); // the laptop sidebar lists the courses too
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not rename the course.'));
-    }
-  }
-
-  function confirmTrashProject(project: ProjectWithCount) {
-    showAlert(
-      'Delete Course',
-      `"${project.name}" and all its contents will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashProject(project.id);
-              setProjects(prev => prev.filter(p => p.id !== project.id));
-              notifyLibraryUpdated();
-              showUndo(`"${project.name}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: project.id, type: 'project' });
-                notifyLibraryUpdated();
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete the course.'));
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  function confirmTrashSession(session: Session) {
-    showAlert(
-      'Delete Session',
-      `"${session.title}" will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashSession(session.id);
-              setRecent(prev => prev.filter(s => s.id !== session.id));
-              setSectionItems(prev => prev && prev.filter(s => s.id !== session.id));
-              showUndo(`"${session.title}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: session.id, type: 'session' });
-                fetchData();
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete session.'));
-            }
-          },
-        },
-      ]
-    );
   }
 
   return (
@@ -449,7 +303,7 @@ export default function LibraryScreen() {
                     key={`${item.type}-${item.id}`}
                     style={[styles.itemRow, index < sectionItems.length - 1 && styles.rowDivider]}
                     onPress={() => router.push(openTarget(item))}
-                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    {...menuTriggerProps(anchor => itemMenu.open(item, anchor))}
                     activeOpacity={0.75}
                   >
                     <View style={[styles.itemIcon, { backgroundColor: item.color ?? c.surfaceMuted }]}>
@@ -490,7 +344,7 @@ export default function LibraryScreen() {
                     key={project.id}
                     style={[styles.courseRow, index < projects.length - 1 && styles.rowDivider]}
                     onPress={() => router.push(`/project/${project.id}`)}
-                    {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
+                    {...menuTriggerProps(anchor => itemMenu.open(courseShelfItem(project), anchor))}
                     activeOpacity={0.75}
                     accessibilityLabel={`${project.name}, ${itemCount(project.itemCount)}`}
                   >
@@ -524,7 +378,7 @@ export default function LibraryScreen() {
                     key={item.id}
                     style={[styles.recentCard, { width: recentWidth }]}
                     onPress={() => router.push(openTarget(item))}
-                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    {...menuTriggerProps(anchor => itemMenu.open(item, anchor))}
                     activeOpacity={0.85}
                   >
                     <LinearGradient
@@ -563,7 +417,7 @@ export default function LibraryScreen() {
           }}
         />
       )}
-      {move.modal}
+      {itemMenu.modal}
       <UndoToast
         visible={undoVisible}
         message={undoMessage}

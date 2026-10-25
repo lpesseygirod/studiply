@@ -126,7 +126,7 @@ try {
     pages.push(await b.evaluate('document.body.innerText'));
     await open('/library', 'COURSES');
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.waitText('Delete Course', { exact: true, timeout: 3000 });
+    await b.waitText('Rename…', { exact: true, timeout: 3000 });
     pages.push(await b.evaluate('document.body.innerText'));
     await b.press('Escape');
     await open('/search', 'Cancel');

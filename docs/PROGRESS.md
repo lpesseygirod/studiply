@@ -317,6 +317,10 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **New course dialog** (`src/components/NewCourseDialog.tsx`) replaces the full-width `NewProjectModal` (deleted) in the sidebar, the Library and the recording setup.
   - **"Project" → "Course"** in every user-facing text (menus, dialogs, recording setup, search, Move to…, account deletion text, error messages).
   - Checks: `.claude/skills/web-check/scripts/new-menu.mjs` (1280 and 390 px, results checked in the database).
+  - **Remote:** `20261026090200_restore_updated_at` pushed with Lea's OK (25 Oct), after a pgTAP control showing the trigger would overwrite the restore if left on, that it is switched on again on all four tables, and that `changed_at` moves so the iPhone downloads the corrected times (its pull saves whole rows). Local and remote migration lists match.
+  - **One item menu** (`src/hooks/useItemMenu.tsx`, the pure part in `src/utils/itemMenu.ts`) for the grid, the laptop sidebar (which only had Open and Favorites) and Library's Recent and sections; the per-screen menus in `project/[id].tsx` and `library/index.tsx` are gone. Labels are now the same everywhere ("Delete", "Rename…", "Export PDF"; "Session" is "Lecture" in the confirmations). Changes reload every screen through `notifyLibraryUpdated()`. Deleting the open course or folder from the sidebar leaves it. Renaming a course follows the name rule (`updateProject` uses `cleanName`).
+  - **Empty-space menu** in the course grid (right-click / long-press), moved forward from 3.4 at Lea's request; the toolbar stays. A right-click a tile already handled no longer reaches the space around it (`menuTriggerProps` skips handled events). Sort's menu is shared with the header (`showSortMenu`).
+  - Checks: `.claude/skills/web-check/scripts/item-menus.mjs` (12 steps at 1280 and 390 px, results checked in the database).
 
 ## Things Lea must do
 

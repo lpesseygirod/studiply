@@ -13,9 +13,10 @@ import { useLibraryUpdates } from '../../lib/cache';
 import { getFolderBreadcrumbs } from '../../services/folder.service';
 import { getProjects, type ProjectWithCount } from '../../services/project.service';
 import { getCourseLevel, getReviewDueCount } from '../../services/shelf.service';
-import { openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
-import { starButton, type ShowUndo } from '../../utils/star';
-import { menuTriggerProps, showActionSheet, type Anchor } from '../dialogs/dialogs';
+import { useItemMenu } from '../../hooks/useItemMenu';
+import { courseShelfItem, openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
+import type { ShowUndo } from '../../utils/star';
+import { menuTriggerProps, type Anchor } from '../dialogs/dialogs';
 import { anchorBelow, useNewMenu } from '../NewMenu';
 import { useShell } from './ShellContext';
 
@@ -23,8 +24,8 @@ import { useShell } from './ShellContext';
  * The laptop's library sidebar (docs/design desktop-01/04): + New, the
  * sections (Recent, Favorites, Exam packs open on Library; Review today with
  * its count), the courses with their item counts, the open course expanded
- * to its folders and files, Trash. Right-click a course or an item for its
- * menu (Open, Add to / Remove from Favorites).
+ * to its folders and files, Trash. Right-click a course or an item for the
+ * same menu as in the grid (useItemMenu).
  */
 
 export const SECTIONS = [
@@ -46,6 +47,14 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
   const [reviewDue, setReviewDue] = useState<number | null>(null);
   const newMenu = useNewMenu();
   const newButtonRef = useRef<View>(null);
+  const itemMenu = useItemMenu({
+    showUndo,
+    // Leave a course or folder that was just deleted.
+    onTrashed: item => {
+      if (item.type === 'course' && item.id === location?.courseId) router.navigate('/library');
+      else if (item.type === 'folder' && item.id === location?.folderId) router.navigate(`/project/${item.courseId}`);
+    },
+  });
 
   const load = useCallback(() => {
     if (!profile?.id) return;
@@ -116,16 +125,11 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
                   active={open && pathname === `/project/${course.id}` && !location?.folderId}
                   bold={open}
                   onPress={() => router.navigate(`/project/${course.id}`)}
-                  onMenu={anchor =>
-                    showActionSheet(course.name, [
-                      { text: 'Open', onPress: () => router.navigate(`/project/${course.id}`) },
-                      starButton({ type: 'course', id: course.id }, course.name, course.starred_at, showUndo),
-                    ], { anchor })
-                  }
+                  onMenu={anchor => itemMenu.open(courseShelfItem(course), anchor)}
                 />
                 {open && (
                   <CourseTree
-                    showUndo={showUndo}
+                    onMenu={itemMenu.open}
                     courseId={course.id}
                     folderId={location?.folderId ?? null}
                     itemId={location?.itemId ?? null}
@@ -144,6 +148,7 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
       </Pressable>
 
       {newMenu.dialog}
+      {itemMenu.modal}
     </View>
   );
 }
@@ -156,12 +161,12 @@ function CourseTree({
   courseId,
   folderId,
   itemId,
-  showUndo,
+  onMenu,
 }: {
   courseId: string;
   folderId: string | null;
   itemId: string | null;
-  showUndo: ShowUndo;
+  onMenu: (item: ShelfItem, anchor?: Anchor) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -214,13 +219,6 @@ function CourseTree({
     if (willOpen) loadLevel(id);
   }
 
-  function showItemMenu(item: ShelfItem, anchor?: Anchor) {
-    showActionSheet(item.title, [
-      { text: 'Open', onPress: () => router.navigate(openTarget(item)) },
-      starButton({ type: item.type === 'folder' ? 'folder' : 'file', id: item.id }, item.title, item.starredAt, showUndo),
-    ], { anchor });
-  }
-
   function renderLevel(parent: string | null, depth: number): React.ReactNode {
     const items = levels[parent ?? ''];
     if (!items) return null;
@@ -240,7 +238,7 @@ function CourseTree({
             accessibilityRole="link"
             accessibilityState={{ selected: active }}
             testID={active ? 'sidebar-current' : undefined}
-            {...menuTriggerProps(anchor => showItemMenu(item, anchor))}
+            {...menuTriggerProps(anchor => onMenu(item, anchor))}
           >
             {isFolder ? (
               <Pressable

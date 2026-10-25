@@ -76,6 +76,13 @@ node .claude/skills/web-check/scripts/library-grid.mjs
 node .claude/skills/web-check/scripts/new-menu.mjs
 ```
 
+## Check the item and empty-space menus (step 3.2 feedback)
+
+`scripts/item-menus.mjs`: the sidebar's right-click menu for a course, folder and lecture equals the grid's; Rename…, Add to Favorites and Delete (+ Undo) from the sidebar; the empty-space menu in a course (right-click; long-press at 390 px), its New folder, Sort by… and Record lecture here; a right-click on a tile still shows the tile's menu.
+```bash
+node .claude/skills/web-check/scripts/item-menus.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).

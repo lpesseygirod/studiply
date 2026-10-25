@@ -31,20 +31,20 @@ try {
 
   await step('Library: right-click a course opens its menu at the pointer', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.waitText('Rename', { timeout: 3000, exact: true });
-    expect(await b.hasText('Delete Course', true), 'no Delete Course item');
+    await b.waitText('Rename…', { timeout: 3000, exact: true });
+    expect(await b.hasText('Delete', true), 'no Delete item');
     await b.shot('10-home-course-menu');
   });
 
   await step('Library: Escape closes the menu', async () => {
     await b.press('Escape');
     await b.sleep(300);
-    expect(!(await b.hasText('Delete Course', true)), 'menu still open');
+    expect(!(await b.hasText('Rename…', true)), 'menu still open');
   });
 
   await step('Library: Rename a course through the prompt', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.click('Rename');
+    await b.click('Rename…');
     await b.waitText('Rename Course');
     await b.shot('11-home-rename-prompt');
     await b.fill('input[placeholder="Course name"]', 'Algebra');
@@ -59,13 +59,13 @@ try {
 
   await step('Library: long-press (mouse hold) also opens the menu', async () => {
     await b.click('Science', { holdMs: 800, ...MAIN });
-    await b.waitText('Delete Course', { timeout: 3000, exact: true });
+    await b.waitText('Rename…', { timeout: 3000, exact: true });
     await b.press('Escape');
   });
 
   await step('Library: Delete a lecture asks first, Cancel keeps it', async () => {
     await b.click('Lecture 1', { button: 'right' });
-    await b.click('Delete Session');
+    await b.click('Delete');
     await b.waitText('will be moved to Recently Deleted');
     await b.shot('12-home-delete-confirm');
     await b.click('Cancel');
@@ -78,7 +78,7 @@ try {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true, ...MAIN });
     await b.click('Science', { button: 'right', ...MAIN });
-    await b.click('Delete Course');
+    await b.click('Delete');
     await b.waitText('will be moved to Recently Deleted');
     await b.click('Delete', { exact: true });
     await b.sleep(800);
@@ -116,7 +116,7 @@ try {
     await b.waitText('Lecture 1', { exact: true, ...MAIN });
     await b.click('Lecture 1', { button: 'right', ...MAIN });
     await b.waitText('Move to…', { exact: true });
-    expect(await b.hasText('Export as PDF', true), 'no Export as PDF');
+    expect(await b.hasText('Export PDF', true), 'no Export PDF');
     await b.press('Escape');
   });
 
@@ -190,7 +190,7 @@ try {
     await b.nav(BASE);
     await b.waitText('Lecture 1', { exact: true });
     await b.click('Lecture 1', { button: 'right' });
-    await b.click('Delete Session');
+    await b.click('Delete');
     await b.click('Delete', { exact: true });
     await b.sleep(800);
     await b.nav(`${BASE}/settings/trash`);

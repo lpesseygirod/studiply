@@ -6,8 +6,20 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { SORT_LABELS, type LibrarySort } from '../../utils/libraryGrid';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { showActionSheet } from '../dialogs/dialogs';
+import { showActionSheet, type Anchor } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
+
+/** Sort by Kind / Name / Date edited, the current one ticked (the header and the empty-space menu). */
+export function showSortMenu(sort: LibrarySort, onSort: (sort: LibrarySort) => void, anchor?: Anchor): void {
+  showActionSheet(
+    'Sort by',
+    (Object.keys(SORT_LABELS) as LibrarySort[]).map((s) => ({
+      text: s === sort ? `✓ ${SORT_LABELS[s]}` : SORT_LABELS[s],
+      onPress: () => onSort(s),
+    })),
+    { anchor },
+  );
+}
 
 /**
  * "My library › Course › Folder · 7 items", Sort, and on the iPhone the
@@ -40,14 +52,7 @@ export function LibraryHeader({
   const { colors: c } = useTheme();
   const last = crumbs.length - 1;
 
-  const chooseSort = () =>
-    showActionSheet(
-      'Sort by',
-      (Object.keys(SORT_LABELS) as LibrarySort[]).map((s) => ({
-        text: s === sort ? `✓ ${SORT_LABELS[s]}` : SORT_LABELS[s],
-        onPress: () => onSort(s),
-      })),
-    );
+  const chooseSort = () => showSortMenu(sort, onSort);
 
   return (
     <View style={styles.wrap}>
