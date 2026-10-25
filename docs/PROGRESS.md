@@ -29,6 +29,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); tested by Lea on the iPhone (drag onto folders and the breadcrumb, Undo, haptic) and in Chrome, plus the title's menu
 - [x] 3.4 — Menus (empty-space + item context menus), uploads as library files, Cut / Copy / Paste, keyboard — waiting for Lea's test; migration `20261026090300` on local and remote
 - [ ] 3.5 — Trash, stars, recent, search
+- [ ] 3.6 — Settings in sections (laptop two columns as desktop-05, iPhone list → pages; existing settings moved; added by Lea after 3.4, planned and approved, built after 3.5; Phase 3 merges here)
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
 - [ ] 4.1 — Development build on iPhone (EAS profiles, device registration)
