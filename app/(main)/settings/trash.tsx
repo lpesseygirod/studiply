@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -24,6 +23,9 @@ import {
   emptyTrash,
   type TrashItem,
 } from '../../../src/services/trash.service';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
+import { useConnectivity } from '../../../src/lib/connectivity';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -34,7 +36,6 @@ function typeLabel(type: TrashItem['type']): string {
     case 'project': return 'Project';
     case 'session': return 'Session';
     case 'folder':  return 'Folder';
-    case 'note':    return 'Note';
   }
 }
 
@@ -43,7 +44,6 @@ function typeIcon(type: TrashItem['type']): React.ComponentProps<typeof Ionicons
     case 'project': return 'folder';
     case 'session': return 'mic-outline';
     case 'folder':  return 'folder-open-outline';
-    case 'note':    return 'document-text-outline';
   }
 }
 
@@ -60,6 +60,7 @@ export default function TrashScreen() {
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const offline = useConnectivity() === 'offline';
 
   const fetchItems = useCallback(async () => {
     if (!userId) return;
@@ -87,13 +88,13 @@ export default function TrashScreen() {
     try {
       await restoreItem(item);
       setItems(prev => prev.filter(i => i.id !== item.id));
-    } catch {
-      Alert.alert('Error', 'Could not restore item. Please try again.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not restore item. Please try again.'));
     }
   };
 
   const handleDelete = (item: TrashItem) => {
-    Alert.alert(
+    showAlert(
       'Delete Permanently',
       `"${item.name}" will be permanently deleted and cannot be recovered.`,
       [
@@ -105,8 +106,8 @@ export default function TrashScreen() {
             try {
               await permanentlyDelete(item);
               setItems(prev => prev.filter(i => i.id !== item.id));
-            } catch {
-              Alert.alert('Error', 'Could not delete item. Please try again.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete item. Please try again.'));
             }
           },
         },
@@ -116,7 +117,7 @@ export default function TrashScreen() {
 
   const handleEmptyTrash = () => {
     if (items.length === 0) return;
-    Alert.alert(
+    showAlert(
       'Empty Recently Deleted',
       'All items will be permanently deleted and cannot be recovered.',
       [
@@ -128,8 +129,8 @@ export default function TrashScreen() {
             try {
               await emptyTrash(userId);
               setItems([]);
-            } catch {
-              Alert.alert('Error', 'Could not empty trash. Please try again.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not empty trash. Please try again.'));
             }
           },
         },
@@ -189,9 +190,11 @@ export default function TrashScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="trash-outline" size={48} color={Colors.text.placeholder} />
-              <Text style={styles.emptyTitle}>No deleted items</Text>
+              <Text style={styles.emptyTitle}>{offline ? 'Needs a connection' : 'No deleted items'}</Text>
               <Text style={styles.emptyBody}>
-                Items you delete will appear here for 30 days before being permanently removed.
+                {offline
+                  ? "Recently Deleted can be opened when you're back online."
+                  : 'Items you delete will appear here for 30 days before being permanently removed.'}
               </Text>
             </View>
           }

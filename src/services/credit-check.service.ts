@@ -1,218 +1,83 @@
 /**
  * credit-check.service.ts
- * Lightweight pre-flight checks for OpenAI and Anthropic API keys/credits.
- * Called before the user starts a recording so they get an early warning
- * rather than losing a recording to a failed transcription.
+ * How much AI the student has used today, against the server's daily limits.
  *
- * Both checks return { ok: true } when no keys are configured — that means
- * mock mode is active and no credits are needed.
+ * Since step 1.7 nobody brings their own OpenAI or Anthropic account: the
+ * Edge Functions call them with Studiply's keys and enforce a daily limit
+ * per student, counted over a rolling 24 hours from ai_usage (which the
+ * student can read but not write). The limits are imported from the
+ * functions' own rules, so the app and the server never disagree. Plans and
+ * real limits come in step 10.2.
  */
 
-import { logAiUsage } from './ai.service';
-import { getSpendingByProvider } from './ai-usage.service';
-import { getUserSettings, upsertUserSettings } from './settings.service';
+import { supabase } from '../lib/supabase';
+import { serviceError } from '../lib/cloudRows';
+import { isMockAiForced } from '../lib/aiMode';
+import { DAILY_LIMIT_SECONDS } from '../../supabase/functions/_shared/transcript';
+import { DAILY_CLAUDE_LIMIT_USD } from '../../supabase/functions/_shared/claude';
+import { LIMIT_WINDOW_MS } from '../../supabase/functions/_shared/policy';
 
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '';
-const ANTHROPIC_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '';
+const PAGE = 1000;
 
-export interface CreditCheckResult {
-  ok: boolean;
-  error?: string;
+export interface TodayUsage {
+  /** Audio transcribed in the last 24 hours, and the limit, in seconds. */
+  transcriptionSeconds: number;
+  transcriptionLimitSeconds: number;
+  /** Claude (notes, assistant, clarifications) in the last 24 hours, and the limit, in USD. */
+  claudeUsd: number;
+  claudeLimitUsd: number;
+  transcriptionReached: boolean;
+  claudeReached: boolean;
+  /** Development with EXPO_PUBLIC_MOCK_AI=1: nothing is sent or counted. */
+  simulated: boolean;
 }
 
-export interface AICreditStatus {
-  openai: CreditCheckResult;
-  anthropic: CreditCheckResult;
-  /** Always true — worst case the app falls back to mock mode. */
-  canProceed: boolean;
-}
-
-// -------------------------------------------------------------------
-// OpenAI — hits /v1/models which is free and auth-checked
-// -------------------------------------------------------------------
-export async function checkOpenAICredits(): Promise<CreditCheckResult> {
-  try {
-    if (!OPENAI_API_KEY || OPENAI_API_KEY.includes('your_') || OPENAI_API_KEY.includes('here')) {
-      return { ok: true }; // No key = mock mode, no credits needed
-    }
-
-    const response = await fetch('https://api.openai.com/v1/models', {
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-    });
-
-    if (response.status === 401) return { ok: false, error: 'openai_invalid_key' };
-    if (response.status === 402) return { ok: false, error: 'openai_rate_limit' };
-    if (response.status === 429) {
-      const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-      const code = (body as any)?.error?.code ?? '';
-      return { ok: false, error: code === 'insufficient_quota' ? 'openai_rate_limit' : 'openai_rate_limit' };
-    }
-    if (!response.ok) return { ok: false, error: 'openai_error' };
-
-    return { ok: true };
-  } catch {
-    return { ok: true }; // Network failure — assume fine, don't crash
+/** Usage over the last 24 hours, summed the way the Edge Functions sum it. */
+export function sumToday(rows: { operation: string; audio_seconds: number | string | null; cost_usd: number | string | null }[]) {
+  let transcriptionSeconds = 0;
+  let claudeUsd = 0;
+  for (const row of rows) {
+    if (row.operation === 'transcription') transcriptionSeconds += Number(row.audio_seconds ?? 0);
+    if (row.operation === 'assistant' || row.operation === 'summary') claudeUsd += Number(row.cost_usd ?? 0);
   }
-}
-
-// -------------------------------------------------------------------
-// Anthropic — sends a minimal 1-token message to verify key + credits
-// -------------------------------------------------------------------
-export async function checkAnthropicCredits(userId?: string): Promise<CreditCheckResult> {
-  try {
-    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY.includes('your_') || ANTHROPIC_API_KEY.includes('here')) {
-      return { ok: true }; // No key = mock mode, no credits needed
-    }
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'Hi' }],
-      }),
-    });
-
-    // Log the cost of this ping regardless of outcome (we sent the request)
-    if (userId) {
-      logAiUsage({
-        userId,
-        sessionId: '',
-        operation: 'summarization',
-        tokensInput: 1,
-        tokensOutput: 0,
-        estimatedCostUsd: 0.001,
-        modelUsed: 'claude-haiku-4-5-20251001',
-      }).catch(() => {});
-    }
-
-    if (!response.ok) {
-      if (response.status === 401) return { ok: false, error: 'anthropic_invalid_key' };
-      if (response.status === 429) return { ok: false, error: 'anthropic_rate_limit' };
-
-      const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-      const msg: string = (body as any)?.error?.message ?? '';
-      if (msg.toLowerCase().includes('credit') || msg.toLowerCase().includes('billing')) {
-        return { ok: false, error: 'anthropic_no_credits' };
-      }
-      return { ok: false, error: 'anthropic_error' };
-    }
-
-    return { ok: true };
-  } catch {
-    return { ok: true }; // Network failure — assume fine, don't crash
-  }
-}
-
-// -------------------------------------------------------------------
-// Combined check
-// -------------------------------------------------------------------
-export async function checkAICredits(userId?: string): Promise<AICreditStatus> {
-  try {
-    const [openai, anthropic] = await Promise.all([
-      checkOpenAICredits(),
-      checkAnthropicCredits(userId),
-    ]);
-    return { openai, anthropic, canProceed: true };
-  } catch {
-    return {
-      openai: { ok: true },
-      anthropic: { ok: true },
-      canProceed: true,
-    };
-  }
-}
-
-// -------------------------------------------------------------------
-// Helper — used in the review screen to identify billing failures
-// -------------------------------------------------------------------
-export function isCreditError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes('insufficient') ||
-    lower.includes('credit') ||
-    lower.includes('billing') ||
-    lower.includes('quota') ||
-    lower.includes('402') ||
-    lower.includes('429')
-  );
-}
-
-// -------------------------------------------------------------------
-// getEstimatedBalances
-// Combines user-set budget amounts (from user_settings) with actual
-// spending (from ai_usage) to produce a running estimated balance.
-// No API calls — purely local data.
-// -------------------------------------------------------------------
-
-export interface ProviderBalance {
-  deposited: number;
-  used: number;
-  remaining: number;
-  status: 'good' | 'low' | 'empty';
-}
-
-export interface EstimatedBalances {
-  openai: ProviderBalance;
-  anthropic: ProviderBalance;
-}
-
-function balanceStatus(remaining: number): 'good' | 'low' | 'empty' {
-  if (remaining >= 2) return 'good';
-  if (remaining >= 0.5) return 'low';
-  return 'empty';
-}
-
-export async function getEstimatedBalances(userId: string): Promise<EstimatedBalances> {
-  const [settings, spending] = await Promise.all([
-    getUserSettings(userId),
-    getSpendingByProvider(userId),
-  ]);
-
-  // Falls back to the $10 starter default when no settings row exists yet.
-  const openaiDeposited = settings?.openai_budget ?? 10;
-  const anthropicDeposited = settings?.anthropic_budget ?? 10;
-
-  const openaiUsed = spending.openai.totalCost;
-  const anthropicUsed = spending.anthropic.totalCost;
-
-  const openaiRemaining = Math.max(0, openaiDeposited - openaiUsed);
-  const anthropicRemaining = Math.max(0, anthropicDeposited - anthropicUsed);
-
   return {
-    openai: {
-      deposited: openaiDeposited,
-      used: openaiUsed,
-      remaining: openaiRemaining,
-      status: balanceStatus(openaiRemaining),
-    },
-    anthropic: {
-      deposited: anthropicDeposited,
-      used: anthropicUsed,
-      remaining: anthropicRemaining,
-      status: balanceStatus(anthropicRemaining),
-    },
+    transcriptionSeconds,
+    transcriptionLimitSeconds: DAILY_LIMIT_SECONDS,
+    claudeUsd,
+    claudeLimitUsd: DAILY_CLAUDE_LIMIT_USD,
+    transcriptionReached: transcriptionSeconds >= DAILY_LIMIT_SECONDS,
+    claudeReached: claudeUsd >= DAILY_CLAUDE_LIMIT_USD,
   };
 }
 
 // -------------------------------------------------------------------
-// updateBudget
-// Saves user-entered deposit amount to user_settings.
-// Creates the row if it doesn't exist yet (upsert).
+// getTodayUsage
 // -------------------------------------------------------------------
-export async function updateBudget(
-  userId: string,
-  provider: 'openai' | 'anthropic',
-  amount: number,
-): Promise<void> {
-  await upsertUserSettings(
-    userId,
-    provider === 'openai' ? { openai_budget: amount } : { anthropic_budget: amount },
-  );
+export async function getTodayUsage(): Promise<TodayUsage> {
+  const since = new Date(Date.now() - LIMIT_WINDOW_MS).toISOString();
+  const rows: { operation: string; audio_seconds: number | null; cost_usd: number | null }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('ai_usage')
+      .select('operation, audio_seconds, cost_usd')
+      .gte('created_at', since)
+      .order('created_at')
+      .range(from, from + PAGE - 1);
+    if (error) throw serviceError(error, 'Could not load your AI usage.');
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return { ...sumToday(rows), simulated: isMockAiForced() };
+}
+
+/** "12 min of 6 h", for banners. */
+export function formatTranscription(usage: Pick<TodayUsage, 'transcriptionSeconds' | 'transcriptionLimitSeconds'>): string {
+  const used = Math.round(usage.transcriptionSeconds / 60);
+  const usedLabel = used >= 60 ? `${(used / 60).toFixed(1).replace(/\.0$/, '')} h` : `${used} min`;
+  return `${usedLabel} of ${usage.transcriptionLimitSeconds / 3600} h`;
+}
+
+/** "$0.40 of $3", for banners. */
+export function formatClaude(usage: Pick<TodayUsage, 'claudeUsd' | 'claudeLimitUsd'>): string {
+  return `$${usage.claudeUsd.toFixed(2)} of $${usage.claudeLimitUsd}`;
 }

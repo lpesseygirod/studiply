@@ -56,7 +56,8 @@
           "cameraPermission": "Studiply needs camera access to take photos of whiteboards and slides."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

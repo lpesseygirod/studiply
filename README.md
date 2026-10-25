@@ -1,7 +1,7 @@
 # Studiply
 
-Turn a recorded lecture into structured, searchable study notes — on-device,
-with no backend.
+Turn a recorded lecture into structured, searchable study notes — on iPhone
+and in the browser, with your library in the cloud.
 
 Students record lectures and never revisit them, because a 50-minute audio file
 isn't studiable. Studiply records the lecture, transcribes it, and produces
@@ -13,86 +13,99 @@ export as a PDF — filed under the project and folder it belongs to.
 
 ## Stack
 
-- **Expo** (SDK 54) / **React Native** 0.81 — iOS and Android from one codebase
-- **TypeScript** — strict, ~16k lines across `app/` and `src/`
+- **Expo** (SDK 54) / **React Native** 0.81 — iPhone app and desktop web app from one codebase
+- **TypeScript** — strict, across `app/` and `src/`
 - **expo-router** — file-based routing with typed routes
-- **expo-sqlite** — local SQLite; the app's only persistence layer
-- **OpenAI Whisper** (`whisper-1`) — speech-to-text
-- **Anthropic Claude** — summarisation, note generation, and follow-up Q&A
-- **expo-av / expo-file-system / expo-print** — recording, on-device storage, PDF export
+- **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
+- **OpenAI Whisper** (`whisper-1`) — speech-to-text, called only by the `transcribe-chunk` Edge Function
+- **Anthropic Claude** (`claude-opus-5-5`) — notes and clarifications, called only by the `summarize` and `assistant-chat` Edge Functions
+- **expo-av / expo-print** — recording and PDF export
 
-### Why no backend
+### The backend (since step 1.7)
 
-An earlier version ran on Postgres and object storage. It was replaced with
-on-device SQLite and the app's document directory, which removed the hosting
-cost and the account system, and made the app work fully offline. The schema
-in `src/lib/db.ts` still mirrors the Postgres one it replaced, with three
-adaptations SQLite forces: booleans as `INTEGER 0/1`, JSON columns as `TEXT`,
-and timestamps as ISO-8601 `TEXT` (fixed-width, so lexicographic ordering is
-chronological ordering).
+All data lives in Supabase: the schema and its owner-only RLS policies are in
+`supabase/migrations/`, private files (audio chunks, photos, slides) in
+Storage buckets whose paths start with the owner's user id. **The app holds no
+AI key.** Whisper and Claude are called by Edge Functions with keys kept on
+the server; the app sends only the student's own login token, and the
+functions check consent and a daily limit before anything leaves the server.
+`expo-sqlite` stays on iPhone only, for the earlier version's data (read and
+uploaded by step 1.9, `src/services/legacyImport`) and the offline cache
+(step 1.8); the web build never loads it.
 
-The tradeoff is that Whisper and Claude are called directly from the client,
-so the API keys ship in the bundle. That's acceptable for personal use and is
-documented as such in `src/services/ai.service.ts`; the fix is a thin server
-proxy, which is the main thing standing between this and distribution.
+### Offline on iPhone (since step 1.8)
+
+The iPhone keeps a copy of the library in `studiply-cache.db` (`src/lib/cache`)
+and keeps working without a connection:
+
+- **Reading:** reads go to Supabase when it answers and to the copy when it doesn't (`readThrough`).
+- **Background download:** a library download keeps the copy complete.
+- **Sync queue:** note edits, lectures started offline, recordings, photos and PDFs are saved on the phone first and sent in order by the sync queue (`src/lib/sync`).
+- **Conflicts:** a note block edited on two devices keeps the newer edit; the other one goes to `document_versions` (`src/lib/noteBlocks.ts`).
+- **Detecting offline:** connectivity is decided by probing Supabase (`src/lib/connectivity.ts`).
+- **Staying signed in:** the student stays signed in offline even after the token has expired.
+- **The web:** it stays online-only and shows a banner when the backend can't be reached.
 
 ## Architecture: how audio becomes notes
 
-    record/active.tsx          expo-av captures audio to a cache URI
+    record/active.tsx          expo-av records 20-minute chunks; after Stop
+            │                  they are uploaded (source-file.service →
+            │                  cloud-storage.service, with progress and retries;
+            │                  on iPhone through the sync queue, so offline
+            │                  recordings upload later)
+            ▼
+    Storage audio-chunks       {userId}/{lectureId}/{seq}.m4a, plus an
+                               audio_chunks row each
             │
             ▼
-    storage.service.ts         copies it into the app's document directory,
-                               so an OS cache purge can't orphan the session
+    ai.service.ts              asks consent once per kind of data (consent.service)
+      ├── transcribeAudio()    → Edge Function transcribe-chunk, per chunk
+      │                          → Whisper → transcript_segments
+      ├── generateNotes()      → Edge Function summarize (task notes): reads
+      │                          the transcript, photos and PDFs itself → Claude
+      │                          (structured JSON note)
+      └── clarifyContent()     → Edge Function assistant-chat (mode clarify)
+            │                    Each function logs its cost in ai_usage.
+            ▼
+    note.service.ts            the confirmed note, in summaries.result
             │
             ▼
-    session.service.ts         creates the session row (SQLite)
-            │
-            ▼
-    ai.service.ts
-      ├── transcribeAudio()    multipart POST → OpenAI Whisper
-      │                        (25 MB hard limit enforced client-side)
-      ├── generateNotes()      transcript + any attached slides/photos
-      │                        → Claude → structured summary
-      └── logAiUsage()         token counts and per-call cost → ai_usage table
-            │
-            ▼
-    note.service.ts            note persisted, then user-confirmed
-            │
-            ▼
-    note/[id].tsx              read, edit, highlight, ask follow-ups,
-                               export to PDF
+    note/[id].tsx              read, edit, highlight, clarify, export to PDF
 
-Everything is layered the same way: screens in `app/` call services in
-`src/services/`, services own all SQL and talk to `src/lib/db.ts`, and
-`src/lib/mappers.ts` is the single place SQLite rows convert to and from
-domain types. No screen writes SQL.
+Screens in `app/` call services in `src/services/`; services talk to Supabase
+through `src/lib/supabase.ts` (tables) and `src/lib/functions.ts` (Edge
+Functions), and `src/lib/cloudRows.ts` maps the new schema onto the types the
+screens use. No screen queries the database. Alerts, menus and prompts go
+through `src/components/dialogs` so they also work in a browser.
 
-**With no API keys configured, the app still runs end-to-end.** `processSession()`
-routes to a mock pipeline that returns a simulated transcript and summary, so
-recording, storage, organisation, search and export are all exercisable without
-an API account. This was deliberate — it keeps the non-AI 80% of the app
-testable for free.
+**Without network AI in development, the app still runs end-to-end.** Set
+`EXPO_PUBLIC_MOCK_AI=1` (or leave `supabase functions serve` off) and
+`ai.service.ts` uses a simulated transcript and note: nothing is sent and
+nothing is counted. Store builds never simulate.
 
 ## Status
 
 **Built and working:**
 
-- Audio recording with background-audio support and a live session screen
-- Whisper transcription and Claude note generation, with a full offline mock path
-- Local anonymous profiles — multiple profiles per device, no remote auth
+- Audio recording with background-audio support, uploaded to private cloud storage
+- Whisper transcription and Claude note generation through Edge Functions (no keys in the app), with consent asked first and a development-only simulated path
+- Email + password login with Supabase Auth (6-digit email codes for sign-up and password reset); sessions persist in the Keychain on iPhone and localStorage on web
 - Projects, nested folders, and sessions, with move and breadcrumb navigation
 - Note editing, text highlighting, and AI follow-up questions on a note
 - Attach slides, photos, and documents to a session as extra context
 - Full-text search across projects, sessions and notes
 - Soft-delete trash with undo, plus per-file retention policies
 - PDF export and share
-- Per-call AI cost tracking, spend-by-provider breakdown, and a budget cap
+- Per-call AI cost tracking on the server, today's use against a daily limit, spend by provider and operation
+- The same library, notes and recordings on iPhone and in the browser
+- Offline on iPhone: library, notes and transcripts readable, note edits and new recordings saved and synced later, with a per-block conflict rule
+- Moving the earlier version's on-device data to the account (Settings → Earlier version data), safe to repeat and checked on the server
 
 **Planned:**
 
 - Quiz generation from notes (`app/(main)/quiz/` is scaffolded and empty)
-- A server proxy for the AI calls, so keys leave the client bundle
-- Optional sync and cross-device backup
+- The remote Supabase project (step 1.7 part B)
+- The app shell, library, editor and summary engine from `docs/BUILD-PLAN.md`
 
 ## Running it locally
 
@@ -101,22 +114,39 @@ Requires Node 18+ and the Expo Go app, or an iOS Simulator / Android emulator.
     git clone <repo-url>
     cd Studiply
     npm install
-    cp .env.example .env     # optional — see below
+    cp .env.example .env     # then add the local Supabase URL and anon key
     npm start
 
-Then press `i` for iOS, `a` for Android, or scan the QR code with Expo Go.
+Then press `i` for iOS, `w` for the browser, or scan the QR code with Expo Go.
 
 `node verify-setup.js` checks the environment and reports what's missing.
 
-### API keys are optional
+### Local Supabase, login and email
 
-Without them the app runs on the mock AI pipeline and every non-AI feature
-works. To enable real transcription and note generation, put your own keys in
-`.env`:
+Everything runs against local Supabase. Start Docker Desktop, then:
 
-    EXPO_PUBLIC_OPENAI_API_KEY=sk-proj-...
-    EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-...
+    supabase start
+    supabase functions serve     # second terminal: transcription and Claude
+    npx expo start
 
-`.env` is gitignored. Note that Expo inlines `EXPO_PUBLIC_*` variables into the
-bundle, so keys added this way are readable in any build you distribute — use a
-key with a spend limit, and see the backend note above.
+- **Emails** (sign-up and password-reset codes) never leave your Mac. They land
+  in Mailpit: http://127.0.0.1:54324 (from an iPhone: `http://<Mac IP>:54324`).
+- **Users** are listed in Studio: http://127.0.0.1:54323 → Authentication.
+- **Real iPhone:** `.env` keeps `http://127.0.0.1:54321`. In development the app
+  swaps `127.0.0.1` for your Mac's network address (the one Expo Go already uses
+  to load the app, see `src/lib/supabaseUrl.ts`). The iPhone and Mac must be on
+  the same Wi-Fi; if the network blocks devices from seeing each other (common
+  on school Wi-Fi), use the iPhone's Personal Hotspot.
+- **Web:** the browser reads and writes the same Supabase data as the iPhone.
+
+### AI keys live on the server
+
+The app never holds an OpenAI or Anthropic key (Expo inlines every
+`EXPO_PUBLIC_*` variable into the bundle, so none may be a secret). The Edge
+Functions read them from `supabase/functions/.env` locally (git-ignored; see
+`supabase/functions/.env.example`, restart `supabase functions serve` after
+changing it) and from `supabase secrets set` on the remote project. Without
+them, develop with `EXPO_PUBLIC_MOCK_AI=1`.
+
+`npm run check:bundle` builds the web and iOS bundles and proves that no key
+is inside.

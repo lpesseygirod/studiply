@@ -25,6 +25,7 @@ Studiply is an **iPhone app** (App Store, main recording device) and a **laptop 
 - Commit after each working step with a clear message. One phase = one branch (`phase-1-backend`, etc.).
 - **Commits stay local.** Never run `git push`, create pull requests, or change anything on GitHub unless Lea explicitly asks in that message. GitHub is a separate copy she updates herself.
 - Don't delete or rewrite working features unless the plan says so; reuse existing services and components (`folder.service.ts`, `MoveToModal.tsx`, `UndoToast.tsx`, `export.service.ts`, etc.).
+- Migrations stay in order: every new migration's timestamp must be later than the newest file in `supabase/migrations/` (currently `20261026090000`). Until that time has passed, name new migrations by hand after it (`20261026090100_…`, `20261026090200_…`) instead of trusting `supabase migration new`. Never rename a migration that is already on the remote.
 - Ask before adding a new dependency; prefer Expo-supported packages and check they work on both iOS and web.
 - Never put API keys, secrets or user data in the client bundle, logs or git.
 - When something can't be tested in Expo Go (custom native modules, TenTap custom extensions), say so and use an EAS development build.

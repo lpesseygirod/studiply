@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +21,20 @@ import { getSession, updateSession } from '../../../src/services/session.service
 import {
   getActiveSourceFiles,
   createSourceFile,
+  fileLabel,
   markDeleted,
 } from '../../../src/services/source-file.service';
+import { promptRenameFile } from '../../../src/utils/rename';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
+import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
+import { useConnectivity } from '../../../src/lib/connectivity';
+import { syncEnabled, usePendingSync } from '../../../src/lib/sync';
+import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -58,17 +65,6 @@ function formatDuration(seconds: number | null): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function getFileLabel(file: SourceFile, allFiles: SourceFile[]): string {
-  if (file.file_type === 'audio') return 'Recording';
-  if (file.file_type === 'photo') {
-    const photos = allFiles.filter(f => f.file_type === 'photo');
-    const idx = photos.findIndex(f => f.id === file.id) + 1;
-    return `Photo ${idx}`;
-  }
-  // PDF — extract filename from path
-  const parts = file.file_path.split('/');
-  return parts[parts.length - 1] ?? 'Document';
-}
 
 function getLanguageLabel(lang: string): string {
   return lang === 'auto' ? 'AUTO' : lang.toUpperCase().slice(0, 2);
@@ -80,7 +76,8 @@ export default function PostSessionScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
-  const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  // `mode` comes from the recording screen; the lecture has no column for it.
+  const { sessionId, mode } = useLocalSearchParams<{ sessionId: string; mode?: string }>();
 
   const [session, setSession] = useState<Session | null>(null);
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
@@ -91,6 +88,10 @@ export default function PostSessionScreen() {
   const [uploadingCamera, setUploadingCamera] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
+  // iPhone: the recording and files still on their way to Studiply.
+  const offline = useConnectivity() === 'offline';
+  const waitingUploads = usePendingSync(sessionId);
+  const generateBlocked = syncEnabled && (offline || waitingUploads > 0);
 
   // ── Initial data load ────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -119,6 +120,10 @@ export default function PostSessionScreen() {
     loadData();
   }, [loadData]);
 
+  // "Move to another lecture…" / "Save to library…" for photos and PDFs, with Undo.
+  const { showUndo, toast: undoToast } = useUndoToast();
+  const move = useMoveFlow({ showUndo, onChanged: loadData });
+
   // ── Material upload — Take Photo ─────────────────────────────
   const handleTakePhoto = async () => {
     if (!profile?.id || !sessionId) return;
@@ -140,6 +145,7 @@ export default function PostSessionScreen() {
           sessionId,
           fileType: 'photo',
           filePath: asset.uri,
+          size: { width: asset.width, height: asset.height },
           fileSizeBytes: fileSize,
           mimeType: 'image/jpeg',
           retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
@@ -147,7 +153,7 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, newFile]);
       }
     } catch {
-      Alert.alert('Error', 'Could not capture photo. Please try again.');
+      showAlert('Error', 'Could not capture photo. Please try again.');
     } finally {
       setUploadingCamera(false);
     }
@@ -175,6 +181,7 @@ export default function PostSessionScreen() {
               sessionId,
               fileType: 'photo',
               filePath: asset.uri,
+              size: { width: asset.width, height: asset.height },
               fileSizeBytes: fileSize,
               mimeType: 'image/jpeg',
               retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
@@ -184,7 +191,7 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, ...newFiles]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick photos. Please try again.');
+      showAlert('Error', 'Could not pick photos. Please try again.');
     } finally {
       setUploadingGallery(false);
     }
@@ -209,6 +216,7 @@ export default function PostSessionScreen() {
               sessionId,
               fileType: 'pdf',
               filePath: asset.uri,
+              fileName: asset.name,
               fileSizeBytes: fileSize,
               mimeType: asset.mimeType ?? 'application/pdf',
               retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
@@ -218,15 +226,31 @@ export default function PostSessionScreen() {
         setSourceFiles(prev => [...prev, ...newFiles]);
       }
     } catch {
-      Alert.alert('Error', 'Could not pick documents. Please try again.');
+      showAlert('Error', 'Could not pick documents. Please try again.');
     } finally {
       setUploadingDocs(false);
     }
   };
 
   // ── Delete file ──────────────────────────────────────────────
+  // Long-press (iPhone) or right-click (web) on a photo or PDF.
+  const showFileActions = (file: SourceFile, anchor?: Anchor) => {
+    const name = fileLabel(file, sourceFiles);
+    showActionSheet(name, [
+      { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Remove', style: 'destructive', onPress: () => handleDeleteFile(file) },
+    ], { anchor });
+  };
+
+  const renameFile = async (file: SourceFile) => {
+    const renamed = await promptRenameFile(file, sourceFiles);
+    if (renamed) setSourceFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
+  };
+
   const handleDeleteFile = (file: SourceFile) => {
-    Alert.alert(
+    showAlert(
       'Remove File',
       'Remove this file from the session?',
       [
@@ -239,7 +263,7 @@ export default function PostSessionScreen() {
               await markDeleted(file.id);
               setSourceFiles(prev => prev.filter(f => f.id !== file.id));
             } catch {
-              Alert.alert('Error', 'Could not remove the file. Please try again.');
+              showAlert('Error', 'Could not remove the file. Please try again.');
             }
           },
         },
@@ -249,16 +273,16 @@ export default function PostSessionScreen() {
 
   // ── Generate Notes ───────────────────────────────────────────
   const handleGenerateNotes = async () => {
-    if (!sessionId) return;
+    if (!sessionId || generateBlocked) return;
     setIsGenerating(true);
     try {
       await updateSession(sessionId, { status: 'processing' });
       router.replace({
         pathname: '/record/review',
-        params: { sessionId, summaryLevel },
+        params: { sessionId, summaryLevel, mode: mode ?? session?.recording_mode ?? 'lecture' },
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not start processing. Please try again.');
+      showAlert('Error', err?.message ?? 'Could not start processing. Please try again.');
       setIsGenerating(false);
     }
   };
@@ -290,7 +314,8 @@ export default function PostSessionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Header — the recording is saved, so leaving loses nothing */}
+        <FlowCloseButton onPress={() => leaveRecordingFlow(router)} />
         <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>Post-Session</Text>
 
@@ -308,7 +333,7 @@ export default function PostSessionScreen() {
               </View>
               <View style={styles.metaBadge}>
                 <Text style={styles.metaBadgeText}>
-                  {MODE_LABELS[session.recording_mode] ?? session.recording_mode}
+                  {MODE_LABELS[mode || session.recording_mode] ?? session.recording_mode}
                 </Text>
               </View>
               <View style={styles.metaBadge}>
@@ -369,7 +394,11 @@ export default function PostSessionScreen() {
               {/* Individual non-audio files */}
               {nonAudioFiles.map(file => (
                 <View key={file.id}>
-                  <View style={styles.fileRow}>
+                  <TouchableOpacity
+                    style={styles.fileRow}
+                    activeOpacity={1}
+                    {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                  >
                     <View style={styles.fileIcon}>
                       <Ionicons
                         name={FILE_ICONS[file.file_type]}
@@ -379,7 +408,7 @@ export default function PostSessionScreen() {
                     </View>
                     <View style={styles.fileInfo}>
                       <Text style={styles.fileName} numberOfLines={1}>
-                        {getFileLabel(file, sourceFiles)}
+                        {fileLabel(file, sourceFiles)}
                       </Text>
                       {file.file_size_bytes != null && (
                         <Text style={styles.fileSize}>
@@ -395,7 +424,7 @@ export default function PostSessionScreen() {
                     >
                       <Ionicons name="close" size={14} color={Colors.text.secondary} />
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                   <View style={styles.fileSeparator} />
                 </View>
               ))}
@@ -434,10 +463,17 @@ export default function PostSessionScreen() {
 
       {/* ── Fixed Generate Notes button ───────────────────────── */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + 16 }]}>
+        {generateBlocked && (
+          <Text style={styles.generateHint}>
+            {offline
+              ? 'Generating needs a connection. This lecture is saved in your library.'
+              : `Uploading to Studiply… ${waitingUploads} ${waitingUploads === 1 ? 'step' : 'steps'} left`}
+          </Text>
+        )}
         <TouchableOpacity
-          style={[styles.generateButton, isGenerating && { opacity: 0.6 }]}
+          style={[styles.generateButton, (isGenerating || generateBlocked) && { opacity: 0.6 }]}
           onPress={handleGenerateNotes}
-          disabled={isGenerating}
+          disabled={isGenerating || generateBlocked}
           activeOpacity={0.85}
         >
           {isGenerating ? (
@@ -447,6 +483,8 @@ export default function PostSessionScreen() {
           )}
         </TouchableOpacity>
       </View>
+      {move.modal}
+      {undoToast}
     </View>
   );
 }
@@ -481,6 +519,12 @@ function MaterialButton({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  generateHint: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   container: { flex: 1, backgroundColor: '#FFFDF9' },
   center: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: {

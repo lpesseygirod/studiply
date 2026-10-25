@@ -1,6 +1,14 @@
-import { all, count, first, run } from '../lib/db';
-import { mapFolder, newId, now, type FolderRow } from '../lib/mappers';
+import { supabase } from '../lib/supabase';
+import { folderFromRow, PgCodes, serviceError, type FolderRow } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
+import { foldersIn, inFolderScope } from '../lib/cache/localQueries';
 import type { Folder } from '../types/database';
+
+/**
+ * Folders live in the `folders` table (step 1.2 schema): `course_id` is the
+ * old project id and `parent_id` the old parent folder. The database keeps a
+ * folder's course equal to its parent's and refuses cycles itself.
+ */
 
 // -------------------------------------------------------------------
 // Breadcrumb type used for folder navigation
@@ -20,25 +28,17 @@ export async function createFolder(params: {
   parentFolderId?: string | null;
   name: string;
 }): Promise<Folder> {
-  const id = newId();
-  const timestamp = now();
-
-  await run(
-    `INSERT INTO folders (id, user_id, project_id, parent_folder_id, name, sort_order,
-                          is_deleted, deleted_at, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 0, 0, NULL, ?, ?)`,
-    [
-      id,
-      params.userId,
-      params.projectId,
-      params.parentFolderId ?? null,
-      params.name,
-      timestamp,
-      timestamp,
-    ],
-  );
-
-  return getFolder(id);
+  const { data, error } = await supabase
+    .from('folders')
+    .insert({
+      course_id: params.projectId,
+      parent_id: params.parentFolderId ?? null,
+      name: params.name,
+    })
+    .select('*')
+    .single();
+  if (error) throw serviceError(error, 'Could not create the folder.');
+  return folderFromRow(data);
 }
 
 // -------------------------------------------------------------------
@@ -51,31 +51,38 @@ export async function getFolders(params: {
   projectId: string;
   parentFolderId?: string | null;
 }): Promise<Folder[]> {
-  let sql = `SELECT * FROM folders WHERE project_id = ? AND is_deleted = 0`;
-  const values: (string | null)[] = [params.projectId];
+  const { projectId, parentFolderId } = params;
+  const rows = await readThrough(
+    async () => {
+      let query = supabase.from('folders').select('*').eq('course_id', projectId).is('deleted_at', null);
 
-  if (params.parentFolderId !== undefined) {
-    if (params.parentFolderId === null) {
-      sql += ` AND parent_folder_id IS NULL`;
-    } else {
-      sql += ` AND parent_folder_id = ?`;
-      values.push(params.parentFolderId);
-    }
-  }
+      if (parentFolderId === null) query = query.is('parent_id', null);
+      else if (parentFolderId !== undefined) query = query.eq('parent_id', parentFolderId);
 
-  sql += ` ORDER BY sort_order ASC, name ASC`;
-
-  const rows = await all<FolderRow>(sql, values);
-  return rows.map(mapFolder);
+      const { data, error } = await query
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) throw serviceError(error, 'Could not load the folders.');
+      rememberScope('folders', data, (f) => inFolderScope(f, projectId, parentFolderId));
+      return data;
+    },
+    async () => foldersIn(await readRows<FolderRow>('folders'), projectId, parentFolderId),
+  );
+  return rows.map(folderFromRow);
 }
 
-// -------------------------------------------------------------------
-// getFolder
-// -------------------------------------------------------------------
 export async function getFolder(folderId: string): Promise<Folder> {
-  const row = await first<FolderRow>(`SELECT * FROM folders WHERE id = ?`, [folderId]);
+  const row = await readThrough(
+    async () => {
+      const { data, error } = await supabase.from('folders').select('*').eq('id', folderId).maybeSingle();
+      if (error) throw serviceError(error, 'Could not load the folder.');
+      if (data) remember('folders', [data]);
+      return data;
+    },
+    () => readRow<FolderRow>('folders', folderId),
+  );
   if (!row) throw new Error('Folder not found.');
-  return mapFolder(row);
+  return folderFromRow(row);
 }
 
 // -------------------------------------------------------------------
@@ -110,59 +117,40 @@ export async function getFolderBreadcrumbs(
 // renameFolder
 // -------------------------------------------------------------------
 export async function renameFolder(folderId: string, name: string): Promise<void> {
-  await run(`UPDATE folders SET name = ?, updated_at = ? WHERE id = ?`, [
-    name,
-    now(),
-    folderId,
-  ]);
+  const { error } = await supabase.from('folders').update({ name }).eq('id', folderId);
+  if (error) throw serviceError(error, 'Could not rename the folder.');
 }
 
 // -------------------------------------------------------------------
-// isDescendantOf — true when `candidateId` sits somewhere under `folderId`
-// -------------------------------------------------------------------
-async function isDescendantOf(candidateId: string, folderId: string): Promise<boolean> {
-  const visited = new Set<string>();
-  let currentId: string | null = candidateId;
-
-  while (currentId) {
-    if (currentId === folderId) return true;
-    if (visited.has(currentId)) return false;
-    visited.add(currentId);
-
-    const row: FolderRow | null = await first<FolderRow>(
-      `SELECT * FROM folders WHERE id = ?`,
-      [currentId],
-    );
-    if (!row) return false;
-    currentId = row.parent_folder_id;
-  }
-
-  return false;
-}
-
-// -------------------------------------------------------------------
-// moveFolder — change parent (within same project)
+// moveFolder — change parent, and the project when one is given
+// With a parent folder, the database takes the course from that parent;
+// at a course's top level (parent null) the course must be sent, or the
+// folder would stay in its old course. The database moves the folder's
+// subfolders and files to the new course too.
 // -------------------------------------------------------------------
 export async function moveFolder(
   folderId: string,
   newParentFolderId: string | null,
+  newProjectId?: string,
 ): Promise<void> {
-  if (newParentFolderId !== null) {
-    // Reparenting a folder into itself or into one of its own descendants
-    // would detach that whole subtree into an unreachable cycle.
-    if (newParentFolderId === folderId) {
-      throw new Error("A folder can't be moved into itself.");
-    }
-    if (await isDescendantOf(newParentFolderId, folderId)) {
-      throw new Error("A folder can't be moved into one of its own subfolders.");
-    }
+  if (newParentFolderId === folderId) {
+    throw new Error("A folder can't be moved into itself.");
   }
 
-  await run(`UPDATE folders SET parent_folder_id = ?, updated_at = ? WHERE id = ?`, [
-    newParentFolderId,
-    now(),
-    folderId,
-  ]);
+  const { error } = await supabase
+    .from('folders')
+    .update(
+      newProjectId === undefined
+        ? { parent_id: newParentFolderId }
+        : { parent_id: newParentFolderId, course_id: newProjectId },
+    )
+    .eq('id', folderId);
+  // The database refuses a move into one of the folder's own subfolders,
+  // which would detach that whole subtree into an unreachable cycle.
+  if (error?.code === PgCodes.checkViolation) {
+    throw new Error("A folder can't be moved into one of its own subfolders.");
+  }
+  if (error) throw serviceError(error, 'Could not move the folder.');
 }
 
 // -------------------------------------------------------------------
@@ -172,17 +160,21 @@ export async function getFolderCount(params: {
   projectId: string;
   parentFolderId?: string | null;
 }): Promise<number> {
-  let sql = `SELECT COUNT(*) AS count FROM folders WHERE project_id = ? AND is_deleted = 0`;
-  const values: (string | null)[] = [params.projectId];
+  return readThrough(
+    async () => {
+      let query = supabase
+        .from('folders')
+        .select('id', { count: 'exact', head: true })
+        .eq('course_id', params.projectId)
+        .is('deleted_at', null);
 
-  if (params.parentFolderId !== undefined) {
-    if (params.parentFolderId === null) {
-      sql += ` AND parent_folder_id IS NULL`;
-    } else {
-      sql += ` AND parent_folder_id = ?`;
-      values.push(params.parentFolderId);
-    }
-  }
+      if (params.parentFolderId === null) query = query.is('parent_id', null);
+      else if (params.parentFolderId !== undefined) query = query.eq('parent_id', params.parentFolderId);
 
-  return count(sql, values);
+      const { count, error } = await query;
+      if (error) throw serviceError(error, 'Could not load the folders.');
+      return count ?? 0;
+    },
+    async () => foldersIn(await readRows<FolderRow>('folders'), params.projectId, params.parentFolderId).length,
+  );
 }

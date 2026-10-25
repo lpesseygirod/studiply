@@ -4,8 +4,10 @@ import { Slot, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/providers/AuthProvider';
+import '../src/services/sync-handlers';
 import { useAuth } from '../src/hooks/useAuth';
 import SplashScreen from '../src/components/SplashScreen';
+import DialogHost from '../src/components/dialogs/DialogHost';
 
 // Inner component that handles navigation once auth state is known.
 function RootNavigator() {
@@ -52,6 +54,7 @@ export default function RootLayout() {
         <AuthProvider>
           <RootNavigator />
         </AuthProvider>
+        <DialogHost />
 
         {showSplash && (
           <Animated.View

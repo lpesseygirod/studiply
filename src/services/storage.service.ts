@@ -1,21 +1,16 @@
 /**
  * storage.service.ts
- * On-device file store. Replaces what used to be a Supabase Storage bucket.
+ * On-device file store (iPhone), from before step 1.7.
  *
- * Recordings and picked files arrive as URIs in temporary locations — the
- * recorder's cache directory, or an OS-owned picker cache. Those can be
- * cleared by the system at any time, which would leave a session pointing at
- * a file that no longer exists. "Uploading" now means copying the file into
- * the app's own document directory, which persists until we delete it.
- *
- * Layout mirrors the old bucket keys so existing storage_path values still
- * read correctly:
+ * Since step 1.7 recordings, photos and PDFs are uploaded to Supabase
+ * Storage instead (cloud-storage.service, source-file.service). This store
+ * only holds copies made by earlier versions of the app: step 1.9 uploads
+ * them, and "Delete all data" removes them (deleteUserStorage).
  *
  *   {documentDirectory}source-files/{userId}/{sessionId}/{filename}
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { markUploaded as dbMarkUploaded } from './source-file.service';
 
 const ROOT = `${FileSystem.documentDirectory}source-files`;
 
@@ -55,29 +50,6 @@ export async function uploadFile(params: {
 
   await FileSystem.copyAsync({ from: params.localUri, to: destination });
   return params.storagePath;
-}
-
-// -------------------------------------------------------------------
-// uploadSourceFile — store a source file and record it in the database
-// -------------------------------------------------------------------
-export async function uploadSourceFile(params: {
-  sourceFileId: string;
-  userId: string;
-  sessionId: string;
-  localUri: string;
-  filename: string;
-  mimeType: string;
-}): Promise<string> {
-  const storagePath = `${params.userId}/${params.sessionId}/${params.filename}`;
-
-  await uploadFile({
-    localUri: params.localUri,
-    storagePath,
-    mimeType: params.mimeType,
-  });
-
-  await dbMarkUploaded(params.sourceFileId, storagePath);
-  return storagePath;
 }
 
 // -------------------------------------------------------------------

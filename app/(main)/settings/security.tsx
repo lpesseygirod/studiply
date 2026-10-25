@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { confirmSignOut } from '../../../src/utils/signOut';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 
@@ -23,11 +23,8 @@ export default function SecurityScreen() {
 
   const username = profile?.username ?? '—';
 
-  const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
-    ]);
+  const handleSignOut = async () => {
+    await confirmSignOut(signOut, { title: 'Sign Out', message: 'Are you sure you want to sign out?' });
   };
 
   return (
@@ -56,7 +53,13 @@ export default function SecurityScreen() {
           <Ionicons name="person-circle-outline" size={28} color={Colors.text.secondary} />
           <View style={styles.infoText}>
             <Text style={styles.infoName}>{username}</Text>
-            <Text style={styles.infoHint}>Your data is stored on this device</Text>
+            <Text style={styles.infoHint}>
+              Your library, notes and recordings are stored in your Studiply account in the cloud (Supabase, EU),
+              protected by your password.
+            </Text>
+            <Text style={styles.infoHint}>
+              Recordings, notes and photos are sent to OpenAI or Anthropic only after you allow it.
+            </Text>
           </View>
         </View>
 
@@ -129,6 +132,8 @@ const styles = StyleSheet.create({
   infoHint: {
     fontSize: Typography.size.sm,
     color: Colors.text.secondary,
+    lineHeight: 19,
+    marginTop: 4,
   },
 
   card: {

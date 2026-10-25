@@ -1,26 +1,34 @@
 /**
  * db.ts
- * Local SQLite database — the app's only persistence layer.
+ * The earlier version's database on the iPhone (`studiply.db`).
  *
- * Everything runs on-device; there is no backend. The schema mirrors the
- * Postgres one this replaced, with three storage differences SQLite forces
- * on us:
+ * Before step 1.7 this was the app's only storage. Now the app uses
+ * Supabase (and the 1.8 cache, a separate file), and this database is only
+ * read by step 1.9 to upload what is in it (src/services/legacyImport), and
+ * removed when the student chooses to. Development can use a sample copy of
+ * the same schema in its own file (SAMPLE_DB_NAME) so the real one is never
+ * touched while testing.
+ *
+ * Storage conventions of the old schema:
  *
  *   - booleans are INTEGER 0/1
  *   - jsonb / text[] columns are TEXT holding a JSON string
  *   - timestamps are TEXT holding an ISO-8601 UTC string
- *
- * ISO-8601 UTC strings are fixed-width, so lexicographic comparison equals
- * chronological comparison — ORDER BY and `deleted_at < cutoff` work directly.
- *
- * Row mapping in and out of these representations lives in ./mappers.
  */
 
 import * as SQLite from 'expo-sqlite';
 
-const DB_NAME = 'studiply.db';
+export const DB_NAME = 'studiply.db';
+/** Development only: sample earlier-version data, never the real database. */
+export const SAMPLE_DB_NAME = 'studiply-sample.db';
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+const dbPromises = new Map<string, Promise<SQLite.SQLiteDatabase>>();
+
+/** The database file's URI, to check that it exists without opening (and so creating) it. */
+export function databaseFileUri(name: string = DB_NAME): string {
+  const dir = String(SQLite.defaultDatabaseDirectory).replace(/\/$/, '');
+  return `${dir.startsWith('file://') ? dir : `file://${dir}`}/${name}`;
+}
 
 // -------------------------------------------------------------------
 // Schema
@@ -188,73 +196,71 @@ CREATE INDEX IF NOT EXISTS idx_ai_usage_user      ON ai_usage(user_id);
  * memoised, so concurrent callers share one connection and the schema
  * script runs exactly once per app launch.
  */
-export function getDb(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = (async () => {
-      const db = await SQLite.openDatabaseAsync(DB_NAME);
+export function getDb(name: string = DB_NAME): Promise<SQLite.SQLiteDatabase> {
+  let promise = dbPromises.get(name);
+  if (!promise) {
+    promise = (async () => {
+      const db = await SQLite.openDatabaseAsync(name);
       await db.execAsync(SCHEMA);
       return db;
     })();
+    dbPromises.set(name, promise);
     // A failed init must not be cached, or every later call rejects with a
     // stale error and the app can never recover.
-    dbPromise.catch(() => {
-      dbPromise = null;
+    promise.catch(() => {
+      dbPromises.delete(name);
     });
   }
-  return dbPromise;
+  return promise;
 }
 
 // -------------------------------------------------------------------
-// Query helpers
+// Query helpers (the last parameter picks the database; default studiply.db)
 // -------------------------------------------------------------------
 
 export type SqlParam = string | number | null;
 
 /** Runs a statement that returns no rows (INSERT/UPDATE/DELETE). */
-export async function run(sql: string, params: SqlParam[] = []): Promise<void> {
-  const db = await getDb();
+export async function run(sql: string, params: SqlParam[] = [], name?: string): Promise<void> {
+  const db = await getDb(name);
   await db.runAsync(sql, params);
 }
 
 /** Returns every matching row. */
-export async function all<T>(sql: string, params: SqlParam[] = []): Promise<T[]> {
-  const db = await getDb();
+export async function all<T>(sql: string, params: SqlParam[] = [], name?: string): Promise<T[]> {
+  const db = await getDb(name);
   return db.getAllAsync<T>(sql, params);
 }
 
 /** Returns the first matching row, or null when there are none. */
-export async function first<T>(sql: string, params: SqlParam[] = []): Promise<T | null> {
-  const db = await getDb();
+export async function first<T>(sql: string, params: SqlParam[] = [], name?: string): Promise<T | null> {
+  const db = await getDb(name);
   const row = await db.getFirstAsync<T>(sql, params);
   return row ?? null;
 }
 
 /** Returns the count from a `SELECT COUNT(*) AS count ...` query. */
-export async function count(sql: string, params: SqlParam[] = []): Promise<number> {
-  const row = await first<{ count: number }>(sql, params);
+export async function count(sql: string, params: SqlParam[] = [], name?: string): Promise<number> {
+  const row = await first<{ count: number }>(sql, params, name);
   return row?.count ?? 0;
 }
 
-/**
- * Runs `fn` inside a transaction, rolling back if it throws.
- *
- * Used by the multi-table writes (trash cascades, delete-all-data) that
- * previously ran as loose sequential requests and could half-apply.
- */
-export async function transaction(fn: () => Promise<void>): Promise<void> {
-  const db = await getDb();
+/** Runs `fn` inside a transaction, rolling back if it throws. */
+export async function transaction(fn: () => Promise<void>, name?: string): Promise<void> {
+  const db = await getDb(name);
   await db.withTransactionAsync(fn);
 }
 
 /**
- * Deletes the entire database file. Used by "delete all my data".
- * The next getDb() call recreates an empty database from SCHEMA.
+ * Deletes the entire database file ("Remove the old copy", or the sample).
+ * The next getDb() call would recreate an empty database from SCHEMA.
  */
-export async function resetDb(): Promise<void> {
-  if (dbPromise) {
-    const db = await dbPromise;
+export async function resetDb(name: string = DB_NAME): Promise<void> {
+  const promise = dbPromises.get(name);
+  if (promise) {
+    const db = await promise;
     await db.closeAsync();
-    dbPromise = null;
+    dbPromises.delete(name);
   }
-  await SQLite.deleteDatabaseAsync(DB_NAME);
+  await SQLite.deleteDatabaseAsync(name);
 }

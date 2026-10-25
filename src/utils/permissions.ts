@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
+import { showAlert } from '../components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // requestCameraPermission
@@ -8,7 +9,7 @@ export async function requestCameraPermission(): Promise<boolean> {
   const { status } = await ImagePicker.requestCameraPermissionsAsync();
   if (status === 'granted') return true;
 
-  Alert.alert(
+  showAlert(
     'Camera Access Needed',
     'Studiply needs camera access to take photos of whiteboards and slides.',
     [
@@ -26,7 +27,7 @@ export async function requestMediaLibraryPermission(): Promise<boolean> {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status === 'granted') return true;
 
-  Alert.alert(
+  showAlert(
     'Photo Library Access Needed',
     'Studiply needs access to your photo library to upload images.',
     [

@@ -11,7 +11,6 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Alert,
   Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -27,7 +26,9 @@ import { getProjects, type ProjectWithCount } from '../../../src/services/projec
 import { NewProjectModal } from '../../../src/components/NewProjectModal';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { createSession } from '../../../src/services/session.service';
-import { checkAICredits, type AICreditStatus } from '../../../src/services/credit-check.service';
+import { getTodayUsage, type TodayUsage } from '../../../src/services/credit-check.service';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { isOffline } from '../../../src/lib/connectivity';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export default function RecordSetupScreen() {
   const [loadingSettings, setLoadingSettings] = useState(true);
 
   // Credit check
-  const [creditStatus, setCreditStatus] = useState<AICreditStatus | null>(null);
+  const [usage, setUsage] = useState<TodayUsage | null>(null);
   const [dismissedBanners, setDismissedBanners] = useState<Set<string>>(new Set());
 
   // ── Load settings and projects on mount ────────────────────────
@@ -115,16 +116,11 @@ export default function RecordSetupScreen() {
     loadData();
   }, [loadData]);
 
-  // Run credit check in background once settings have loaded
+  // Today's AI use, to warn when a daily limit is reached (best-effort)
+  // Skipped offline: recording never waits for it.
   useEffect(() => {
-    (async () => {
-      try {
-        const credits = await checkAICredits();
-        setCreditStatus(credits);
-      } catch {
-        // Non-fatal — credit check is best-effort
-      }
-    })();
+    if (isOffline()) return;
+    getTodayUsage().then(setUsage).catch(() => {});
   }, []);
 
   // ── Start Recording ────────────────────────────────────────────
@@ -135,7 +131,7 @@ export default function RecordSetupScreen() {
       // 1. Request microphone permission
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showAlert(
           'Microphone Access Required',
           'Studiply needs microphone access to record lectures. Please enable it in Settings.',
           [
@@ -166,7 +162,7 @@ export default function RecordSetupScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not start recording. Please try again.');
+      showAlert('Error', err?.message ?? 'Could not start recording. Please try again.');
     } finally {
       setIsStarting(false);
     }
@@ -175,30 +171,15 @@ export default function RecordSetupScreen() {
   const canStart = title.trim().length > 0 && !isStarting;
 
   // ── Credit warning banners ──────────────────────────────────
-  const openAIError = creditStatus?.openai.error;
-  const anthropicError = creditStatus?.anthropic.error;
-
-  const openAIWarning = creditStatus && !creditStatus.openai.ok && !dismissedBanners.has('openai')
-    ? {
-        message:
-          openAIError === 'openai_invalid_key'
-            ? '🐷 OpenAI piggy bank needs a key! Transcription won\'t work.'
-            : openAIError === 'network_error'
-            ? '⚠️ Can\'t check AI credits — no internet connection'
-            : '🐷 OpenAI piggy bank is empty! Add credits at platform.openai.com',
-        url: openAIError === 'network_error' ? null : 'https://platform.openai.com/settings/organization/billing',
-      }
-    : null;
-
-  const anthropicWarning = creditStatus && !creditStatus.anthropic.ok && !dismissedBanners.has('anthropic')
-    ? {
-        message:
-          anthropicError === 'anthropic_invalid_key'
-            ? '🐷 Claude piggy bank needs a key! Notes won\'t generate.'
-            : '🐷 Claude piggy bank is empty! Add credits at console.anthropic.com',
-        url: 'https://console.anthropic.com/settings/billing',
-      }
-    : null;
+  // Recording always works; only the AI step waits for the limit to free up.
+  const limitWarning =
+    usage && !usage.simulated && !dismissedBanners.has('limit')
+      ? usage.transcriptionReached
+        ? "You've used today's transcription. You can still record; transcribe it once the limit frees up (it counts the last 24 hours)."
+        : usage.claudeReached
+          ? "Today's limit for notes and the assistant is reached. You can still record and transcribe."
+          : null
+      : null;
 
   if (loadingSettings) {
     return (
@@ -230,35 +211,17 @@ export default function RecordSetupScreen() {
         <Text style={styles.screenSubtitle}>New Recording</Text>
 
         {/* ── Credit warnings ────────────────────────────────── */}
-        {openAIWarning && (
-          <TouchableOpacity
-            style={styles.creditBanner}
-            onPress={() => openAIWarning.url ? Linking.openURL(openAIWarning.url) : undefined}
-            activeOpacity={openAIWarning.url ? 0.75 : 1}
-          >
-            <Text style={styles.creditBannerText}>{openAIWarning.message}</Text>
+        {limitWarning && (
+          <View style={styles.creditBanner}>
+            <Text style={styles.creditBannerText}>{limitWarning}</Text>
             <TouchableOpacity
-              onPress={() => setDismissedBanners(prev => new Set([...prev, 'openai']))}
+              onPress={() => setDismissedBanners(prev => new Set([...prev, 'limit']))}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Dismiss"
             >
               <Text style={styles.creditBannerDismiss}>×</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
-        )}
-        {anthropicWarning && (
-          <TouchableOpacity
-            style={styles.creditBanner}
-            onPress={() => Linking.openURL(anthropicWarning.url)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.creditBannerText}>{anthropicWarning.message}</Text>
-            <TouchableOpacity
-              onPress={() => setDismissedBanners(prev => new Set([...prev, 'anthropic']))}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.creditBannerDismiss}>×</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* ── Session title ──────────────────────────────────── */}

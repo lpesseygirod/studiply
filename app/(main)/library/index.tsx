@@ -7,9 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  ActionSheetIOS,
-  Platform,
-  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +25,15 @@ import { getFolderCount } from '../../../src/services/folder.service';
 import { trashProject } from '../../../src/services/trash.service';
 import { NewProjectModal } from '../../../src/components/NewProjectModal';
 import UndoToast from '../../../src/components/UndoToast';
+import {
+  menuTriggerProps,
+  promptText,
+  showActionSheet,
+  showAlert,
+  type Anchor,
+} from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
+import { useLibraryUpdates } from '../../../src/lib/cache';
 
 const CARD_GAP = 12;
 const H_PADDING = 24;
@@ -72,6 +78,7 @@ export default function LibraryScreen() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+  useLibraryUpdates(fetchProjects);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -91,47 +98,28 @@ export default function LibraryScreen() {
     undoCallbackRef.current = null;
   }
 
-  function showProjectActions(project: ProjectWithCount) {
-    const options = ['Rename', 'Delete Project', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1, title: project.name },
-        (index) => {
-          if (index === 0) promptRenameProject(project);
-          if (index === 1) confirmTrashProject(project);
-        }
+  function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
+    showActionSheet(project.name, [
+      { text: 'Rename', onPress: () => promptRenameProject(project) },
+      { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
+    ], { anchor });
+  }
+
+  async function promptRenameProject(project: ProjectWithCount) {
+    const name = await promptText('Rename Project', { defaultValue: project.name, placeholder: 'Project name' });
+    if (!name) return;
+    try {
+      await updateProject(project.id, { name });
+      setProjects(prev =>
+        prev.map(p => p.id === project.id ? { ...p, name } : p)
       );
-    } else {
-      Alert.alert(project.name, undefined, [
-        { text: 'Rename', onPress: () => promptRenameProject(project) },
-        { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
   }
 
-  function promptRenameProject(project: ProjectWithCount) {
-    Alert.prompt(
-      'Rename Project',
-      undefined,
-      async (name) => {
-        if (!name?.trim()) return;
-        try {
-          await updateProject(project.id, { name: name.trim() });
-          setProjects(prev =>
-            prev.map(p => p.id === project.id ? { ...p, name: name.trim() } : p)
-          );
-        } catch {
-          Alert.alert('Error', 'Could not rename project.');
-        }
-      },
-      'plain-text',
-      project.name
-    );
-  }
-
   function confirmTrashProject(project: ProjectWithCount) {
-    Alert.alert(
+    showAlert(
       'Delete Project',
       `"${project.name}" and all its contents will be moved to Recently Deleted.`,
       [
@@ -148,8 +136,8 @@ export default function LibraryScreen() {
                 await restoreItem({ id: project.id, type: 'project' });
                 fetchProjects();
               });
-            } catch {
-              Alert.alert('Error', 'Could not delete project.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete project.'));
             }
           },
         },
@@ -193,9 +181,8 @@ export default function LibraryScreen() {
               key={project.id}
               style={[styles.card, { width: cardWidth, backgroundColor: project.color }]}
               onPress={() => router.push(`/project/${project.id}`)}
-              onLongPress={() => showProjectActions(project)}
+              {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
               activeOpacity={0.85}
-              delayLongPress={400}
             >
               <Text style={styles.cardName} numberOfLines={2}>
                 {project.name}

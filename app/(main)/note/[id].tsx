@@ -1,11 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActionSheetIOS,
   ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -22,24 +19,35 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import { getSession } from '../../../src/services/session.service';
+import { followNoteTitle, getSession, RenameIncompleteError } from '../../../src/services/session.service';
 import {
   getNoteBySession,
   updateNote,
   addClarification,
+  noteHasUnsyncedEdit,
   parseClarifications,
+  takeConflictNotice,
   type ClarificationEntry,
 } from '../../../src/services/note.service';
+import { useLibraryUpdates } from '../../../src/lib/cache';
+import { useConnectivity } from '../../../src/lib/connectivity';
+import { BLOCK_LABELS, type NoteBlock } from '../../../src/lib/noteBlocks';
+import { onSyncEvent, syncEnabled } from '../../../src/lib/sync';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
-import { getActiveSourceFiles } from '../../../src/services/source-file.service';
+import { fileLabel, getActiveSourceFiles } from '../../../src/services/source-file.service';
+import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
+import { lectureItem } from '../../../src/utils/libraryItems';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { getProject } from '../../../src/services/project.service';
 import { formatFileSize } from '../../../src/utils/file-size';
 import { exportNoteToPDF } from '../../../src/services/export.service';
 import { trashSession } from '../../../src/services/trash.service';
 import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
-import { useAuth } from '../../../src/hooks/useAuth';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
+import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -94,12 +102,18 @@ const SUMMARY_LABELS: Record<string, string> = {
 // Main component
 // -------------------------------------------------------------------
 
+/** "Summary", "Summary and Tags", "Title, Summary and Tags". */
+function listBlocks(blocks: NoteBlock[]): string {
+  const names = blocks.map((b) => BLOCK_LABELS[b]);
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 export default function NoteDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   // `session` below is the lecture session; this one is the signed-in profile.
-  const { session: authSession } = useAuth();
 
   // --- Core data ---
   const [session, setSession] = useState<Session | null>(null);
@@ -140,45 +154,80 @@ export default function NoteDetailScreen() {
   // --- Export ---
   const [isExporting, setIsExporting] = useState(false);
 
+  // --- Sync (iPhone) ---
+  const offline = useConnectivity() === 'offline';
+  const [syncState, setSyncState] = useState<'pending' | 'saved' | 'failed' | null>(null);
+  // Blocks where another device's newer edit replaced this iPhone's.
+  const [conflictBlocks, setConflictBlocks] = useState<NoteBlock[]>([]);
+  // The note as it was when editing started: tells this edit from another device's.
+  const editBaseRef = useRef<Note | null>(null);
+
   // -------------------------------------------------------------------
   // Load data
   // -------------------------------------------------------------------
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    (async () => {
-      try {
-        const s = await getSession(id);
-        const n = await getNoteBySession(id);
-        const [t, files] = await Promise.all([
-          getTranscriptBySession(id),
-          getActiveSourceFiles(id),
-        ]);
+    try {
+      const s = await getSession(id);
+      const n = await getNoteBySession(id);
+      const [t, files] = await Promise.all([
+        getTranscriptBySession(id),
+        getActiveSourceFiles(id),
+      ]);
 
-        setSession(s);
-        setNote(n);
-        setTranscript(t);
-        setSourceFiles(files);
-        if (n?.manual_annotations) {
-          setClarifications(parseClarifications(n.manual_annotations));
-        }
-        if (s.project_id) {
-          getProject(s.project_id)
-            .then(p => setProject(p))
-            .catch(() => {});
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Could not load note.');
-      } finally {
-        setLoading(false);
+      setSession(s);
+      setNote(n);
+      setTranscript(t);
+      setSourceFiles(files);
+      setClarifications(parseClarifications(n?.manual_annotations));
+      if (n) {
+        if (await noteHasUnsyncedEdit(n.id)) setSyncState('pending');
+        const lost = await takeConflictNotice(n.id);
+        if (lost.length > 0) setConflictBlocks(lost);
       }
-    })();
+      if (s.project_id) {
+        getProject(s.project_id)
+          .then(p => setProject(p))
+          .catch(() => {});
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not load note.');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // A synced edit, or a newer version downloaded from another device.
+  useLibraryUpdates(load);
+
+  // "Move to…" for this lecture and its photos/PDFs, with Undo.
+  const { showUndo, toast: undoToast } = useUndoToast();
+  const move = useMoveFlow({ showUndo, onChanged: load });
+
+  // iPhone: "Saved" once the queued edit has reached Studiply.
+  const noteId = note?.id;
+  useEffect(() => {
+    if (!noteId) return;
+    return onSyncEvent((e) => {
+      if (e.type === 'done' && e.op.key === noteId) {
+        noteHasUnsyncedEdit(noteId).then((waiting) => {
+          if (!waiting) setSyncState('saved');
+        });
+      }
+      if (e.type === 'failed' && e.op.key === noteId) setSyncState('failed');
+    });
+  }, [noteId]);
 
   // -------------------------------------------------------------------
   // Edit mode helpers
   // -------------------------------------------------------------------
   const enterEditMode = () => {
     if (!note) return;
+    editBaseRef.current = note;
     setDraftTitle(note.title);
     setDraftSummary(note.summary ?? '');
     setDraftConcepts((note.key_concepts as unknown as KC[]) ?? []);
@@ -204,19 +253,36 @@ export default function NoteDetailScreen() {
     if (!note) return;
     setIsSaving(true);
     try {
-      const updated = await updateNote(note.id, {
-        title: draftTitle.trim() || note.title,
-        summary: draftSummary,
-        keyConcepts: draftConcepts,
-        formulas: draftFormulas,
-        definitions: draftDefinitions,
-        tags: draftTags,
-        unclearParts: draftUnclearParts,
-      });
+      const updated = await updateNote(
+        note.id,
+        {
+          title: draftTitle.trim() || note.title,
+          summary: draftSummary,
+          keyConcepts: draftConcepts,
+          formulas: draftFormulas,
+          definitions: draftDefinitions,
+          tags: draftTags,
+          unclearParts: draftUnclearParts,
+        },
+        editBaseRef.current ?? note,
+      );
       setNote(updated);
       setIsEditing(false);
-    } catch {
-      Alert.alert('Error', 'Could not save note. Please try again.');
+      setSyncState(syncEnabled && (await noteHasUnsyncedEdit(updated.id)) ? 'pending' : 'saved');
+      // A new title on the note renames the lecture too, so they stay one title.
+      if (session && updated.title !== (editBaseRef.current ?? note).title && updated.title !== session.title) {
+        try {
+          await followNoteTitle(session.id, updated.title, session.title);
+          setSession({ ...session, title: updated.title });
+        } catch (followErr) {
+          showAlert(
+            'Rename not complete',
+            followErr instanceof RenameIncompleteError ? followErr.message : errorMessage(followErr, 'Could not rename the lecture.'),
+          );
+        }
+      }
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not save note. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -253,33 +319,17 @@ export default function NoteDetailScreen() {
         .map(i => sentences[i])
         .filter(Boolean) as string[];
 
-      const userId = authSession?.user.id;
-
       const response = await clarifyContent({
+        lectureId: session.id,
         originalSummary: note.summary ?? '',
         highlightedParts: parts,
-        fullTranscript: transcript?.full_text,
-        language: session.language ?? 'en',
-        logContext: userId ? { userId, sessionId: session.id } : undefined,
       });
 
       const updated = await addClarification(note.id, parts, response);
       setClarifications(parseClarifications(updated.manual_annotations));
       setHighlightedSentences([]);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg === 'piggy_bank_anthropic') {
-        Alert.alert(
-          '🐷 Claude Piggy Bank Empty',
-          'Add credits at console.anthropic.com and try again.',
-          [
-            { text: 'Open Anthropic', onPress: () => Linking.openURL('https://console.anthropic.com/settings/billing') },
-            { text: 'OK', style: 'cancel' },
-          ],
-        );
-      } else {
-        Alert.alert('Error', 'Could not get clarification. Please try again.');
-      }
+      showAlert('Could not clarify', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setIsClarifying(false);
     }
@@ -288,13 +338,14 @@ export default function NoteDetailScreen() {
   const handleClearClarifications = async () => {
     if (!note) return;
     try {
-      const updated = await updateNote(note.id, { manualAnnotations: null });
+      const updated = await updateNote(note.id, { manualAnnotations: null }, note);
       setNote(updated);
+      if (syncEnabled && (await noteHasUnsyncedEdit(updated.id))) setSyncState('pending');
       setClarifications([]);
       setHighlightedSentences([]);
       instructionOpacity.setValue(1);
-    } catch {
-      Alert.alert('Error', 'Could not clear clarification.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not clear clarification.'));
     }
   };
 
@@ -309,7 +360,7 @@ export default function NoteDetailScreen() {
         projectName: project?.name,
       });
     } catch (err) {
-      Alert.alert(
+      showAlert(
         'Export Failed',
         err instanceof Error ? err.message : 'Could not export PDF.',
       );
@@ -318,31 +369,41 @@ export default function NoteDetailScreen() {
     }
   };
 
-  function showNoteActions() {
+  function showNoteActions(anchor?: Anchor) {
     if (!note || !session) return;
-    const options = ['Export as PDF', 'Edit Note', 'Delete Session', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 3, destructiveButtonIndex: 2, title: note.title },
-        (index) => {
-          if (index === 0) handleExportPDF();
-          if (index === 1) enterEditMode();
-          if (index === 2) confirmDeleteSession();
-        }
-      );
-    } else {
-      Alert.alert(note.title, undefined, [
-        { text: 'Export as PDF', onPress: handleExportPDF },
-        { text: 'Edit Note', onPress: enterEditMode },
-        { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+    showActionSheet(note.title, [
+      { text: 'Rename…', onPress: renameThisLecture },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      { text: 'Export as PDF', onPress: handleExportPDF },
+      { text: 'Edit Note', onPress: enterEditMode },
+      { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
+    ], { anchor });
+  }
+
+  // The lecture and its note keep one title (see renameSession).
+  async function renameThisLecture() {
+    if (!note || !session) return;
+    if (await promptRenameLecture({ id: session.id, title: note.title })) load();
+  }
+
+  function showFileActions(file: SourceFile, anchor?: Anchor) {
+    if (file.file_type === 'audio') return;
+    const name = fileLabel(file, sourceFiles);
+    showActionSheet(name, [
+      { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+    ], { anchor });
+  }
+
+  async function renameFile(file: SourceFile) {
+    const renamed = await promptRenameFile(file, sourceFiles);
+    if (renamed) setSourceFiles((prev) => prev.map((f) => (f.id === renamed.id ? renamed : f)));
   }
 
   function confirmDeleteSession() {
     if (!session) return;
-    Alert.alert(
+    showAlert(
       'Delete Session',
       `"${session.title}" will be moved to Recently Deleted.`,
       [
@@ -354,8 +415,8 @@ export default function NoteDetailScreen() {
             try {
               await trashSession(session.id);
               router.back();
-            } catch {
-              Alert.alert('Error', 'Could not delete session.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
             }
           },
         },
@@ -363,33 +424,18 @@ export default function NoteDetailScreen() {
     );
   }
 
-  function showTranscriptActions() {
+  function showTranscriptActions(anchor?: Anchor) {
     if (!transcript) return;
-    const options = ['Copy Transcript', 'Export as PDF', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, title: 'Transcript' },
-        async (index) => {
-          if (index === 0) {
-            await Clipboard.setStringAsync(transcript.full_text);
-            Alert.alert('Copied', 'Transcript copied to clipboard.');
-          }
-          if (index === 1) handleExportPDF();
-        }
-      );
-    } else {
-      Alert.alert('Transcript', undefined, [
-        {
-          text: 'Copy Transcript',
-          onPress: async () => {
-            await Clipboard.setStringAsync(transcript.full_text);
-            Alert.alert('Copied', 'Transcript copied to clipboard.');
-          },
+    showActionSheet('Transcript', [
+      {
+        text: 'Copy Transcript',
+        onPress: async () => {
+          await Clipboard.setStringAsync(transcript.full_text);
+          showAlert('Copied', 'Transcript copied to clipboard.');
         },
-        { text: 'Export as PDF', onPress: handleExportPDF },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+      },
+      { text: 'Export as PDF', onPress: handleExportPDF },
+    ], { anchor });
   }
 
   // -------------------------------------------------------------------
@@ -479,7 +525,6 @@ export default function NoteDetailScreen() {
   const viewUnclearParts = (note.unclear_parts as unknown as UP[]) ?? [];
 
   // Photo index counter for labelling
-  let photoIdx = 0;
 
   // -------------------------------------------------------------------
   // Full note view / edit view
@@ -500,9 +545,8 @@ export default function NoteDetailScreen() {
         >
           {/* ── Title banner ─────────────────────────────────── */}
           <TouchableOpacity
-            onLongPress={showNoteActions}
+            {...menuTriggerProps(showNoteActions)}
             activeOpacity={1}
-            delayLongPress={400}
           >
           <View style={styles.titleBanner}>
             {isEditing ? (
@@ -525,8 +569,37 @@ export default function NoteDetailScreen() {
                 <Text style={styles.bannerDuration}>{formatDuration(session.duration_seconds)}</Text>
               )}
             </View>
+            {syncState && !isEditing && (
+              <Text style={[styles.syncStatus, syncState === 'failed' && styles.syncStatusFailed]}>
+                {syncState === 'saved'
+                  ? 'Saved'
+                  : syncState === 'failed'
+                    ? "Couldn't sync this change. Try again in Settings."
+                    : offline
+                      ? "Saved on this iPhone · syncs when you're back online"
+                      : 'Saved on this iPhone · syncing…'}
+              </Text>
+            )}
           </View>
           </TouchableOpacity>
+
+          {/* ── Edited on another device ─────────────────────── */}
+          {conflictBlocks.length > 0 && (
+            <View style={styles.conflictNotice} accessibilityRole="alert">
+              <Ionicons name="git-compare-outline" size={18} color={Colors.text.secondary} />
+              <Text style={styles.conflictText}>
+                {listBlocks(conflictBlocks)} {conflictBlocks.length === 1 ? 'was' : 'were'} also changed on
+                another device. The newer version is shown; yours is kept in version history.
+              </Text>
+              <TouchableOpacity
+                onPress={() => setConflictBlocks([])}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Dismiss"
+              >
+                <Ionicons name="close" size={18} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ── Metadata pills ────────────────────────────────── */}
           <View style={styles.pillsRow}>
@@ -1000,9 +1073,8 @@ export default function NoteDetailScreen() {
               <TouchableOpacity
                 style={styles.transcriptToggle}
                 onPress={() => setTranscriptExpanded(v => !v)}
-                onLongPress={showTranscriptActions}
+                {...menuTriggerProps(showTranscriptActions)}
                 activeOpacity={0.7}
-                delayLongPress={400}
               >
                 <Text style={styles.sectionTitle}>Full Transcript</Text>
                 <Text style={styles.toggleLabel}>
@@ -1022,16 +1094,16 @@ export default function NoteDetailScreen() {
               <Text style={styles.sourceFilesEmpty}>Source files have been removed.</Text>
             ) : (
               sourceFiles.map((file, i) => {
-                const isPhoto = file.file_type === 'photo';
-                const label = isPhoto
-                  ? `Photo ${photoIdx++ + 1}`
-                  : file.file_type === 'audio'
-                  ? 'Recording'
-                  : 'PDF Document';
+                const label = fileLabel(file, sourceFiles);
                 const retLabel = retentionLabel(file);
                 const isDeleted = file.is_deleted;
                 return (
-                  <View key={file.id} style={styles.sourceFileRow}>
+                  <TouchableOpacity
+                    key={file.id}
+                    style={styles.sourceFileRow}
+                    activeOpacity={1}
+                    {...menuTriggerProps(anchor => showFileActions(file, anchor))}
+                  >
                     <View style={styles.sourceFileIconWrap}>
                       <Ionicons
                         name={fileTypeIcon(file.file_type)}
@@ -1068,7 +1140,7 @@ export default function NoteDetailScreen() {
                         {isDeleted ? 'Deleted' : file.retention_policy === 'keep_permanently' ? 'Kept' : '~Del'}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -1123,6 +1195,8 @@ export default function NoteDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {move.modal}
+      {undoToast}
     </View>
   );
 }
@@ -1231,6 +1305,24 @@ const styles = StyleSheet.create({
   bannerMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
   bannerDate: { fontSize: Typography.size.sm, color: Colors.text.secondary },
   bannerDuration: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  syncStatus: { fontSize: Typography.size.xs, color: Colors.text.secondary, marginTop: 4 },
+  syncStatusFailed: { color: Colors.error },
+
+  // Edited on another device
+  conflictNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.accentLight,
+    borderRadius: 14,
+    padding: 14,
+  },
+  conflictText: {
+    flex: 1,
+    fontSize: Typography.size.sm,
+    color: Colors.text.primary,
+    lineHeight: Typography.size.sm * Typography.leading.normal,
+  },
 
   // Metadata pills
   pillsRow: {

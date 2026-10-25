@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   ScrollView,
@@ -21,6 +20,11 @@ import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
 import type { UserSettings } from '../../../src/types/database';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { setSimulatedOffline, useSimulatedOffline } from '../../../src/lib/connectivity';
+import { SyncDebugPanel } from '../../../src/components/SyncDebugPanel';
+import { legacyImportAvailable, setUseSampleData, usesSampleData } from '../../../src/services/legacyImport';
+import { createSampleEarlierVersion } from '../../../src/services/legacyImport/sample';
 
 // -------------------------------------------------------------------
 // Constants
@@ -64,6 +68,29 @@ export default function GeneralScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
+  const simulatedOffline = useSimulatedOffline();
+  // Development: step 1.9 tested on sample data, never the real earlier-version data.
+  const [useSample, setUseSample] = useState(false);
+  const [creatingSample, setCreatingSample] = useState(false);
+  useEffect(() => {
+    if (__DEV__) usesSampleData().then(setUseSample).catch(() => {});
+  }, []);
+  const toggleSample = async (on: boolean) => {
+    await setUseSampleData(on);
+    setUseSample(on);
+  };
+  const createSample = async () => {
+    setCreatingSample(true);
+    try {
+      await createSampleEarlierVersion();
+      await toggleSample(true);
+      showAlert('Sample created', 'Open Settings → Earlier version data, or go to Home.');
+    } catch (err) {
+      showAlert('Could not create the sample', err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreatingSample(false);
+    }
+  };
 
   const [settings, setSettings] = useState<Partial<UserSettings>>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -98,7 +125,7 @@ export default function GeneralScreen() {
         savedTimerRef.current = setTimeout(() => setSavedLabel(null), 1500);
       } catch {
         setSettings(prev);
-        Alert.alert('Error', 'Could not save setting. Please try again.');
+        showAlert('Error', 'Could not save setting. Please try again.');
       }
     },
     [profile?.id, settings],
@@ -343,6 +370,52 @@ export default function GeneralScreen() {
           ))}
         </View>
 
+        {/* ── DEVELOPMENT (never in a release build) ──────────────── */}
+        {__DEV__ && (
+          <>
+            <Text style={styles.sectionHeader}>DEVELOPMENT</Text>
+            <View style={styles.card}>
+              <View style={styles.toggleRow}>
+                <Text style={styles.rowLabel}>Simulate offline</Text>
+                <Switch
+                  value={simulatedOffline}
+                  onValueChange={setSimulatedOffline}
+                  trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
+                  thumbColor={Colors.white}
+                  ios_backgroundColor={Colors.surfaceMuted}
+                />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <SyncDebugPanel />
+              </View>
+              {legacyImportAvailable && (
+              <>
+              <View style={styles.divider} />
+              <View style={styles.toggleRow}>
+                <Text style={styles.rowLabel}>Use sample earlier-version data</Text>
+                <Switch
+                  value={useSample}
+                  onValueChange={toggleSample}
+                  trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
+                  thumbColor={Colors.white}
+                  ios_backgroundColor={Colors.surfaceMuted}
+                />
+              </View>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.toggleRow} onPress={createSample} disabled={creatingSample} activeOpacity={0.75}>
+                <Text style={styles.rowLabel}>Create sample earlier-version data</Text>
+                {creatingSample ? (
+                  <ActivityIndicator size="small" color={Colors.salmon} />
+                ) : (
+                  <Ionicons name="add-circle-outline" size={20} color={Colors.salmon} />
+                )}
+              </TouchableOpacity>
+              </>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Language picker modal */}

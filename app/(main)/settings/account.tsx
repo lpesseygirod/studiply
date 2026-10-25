@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -18,19 +16,29 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { confirmAction } from '../../../src/utils/confirm';
+import { confirmSignOut } from '../../../src/utils/signOut';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
-import { updateProfile } from '../../../src/services/profile.service';
+import UserAvatar from '../../../src/components/UserAvatar';
+import {
+  removeProfilePhoto,
+  setProfilePhoto,
+  updateProfile,
+} from '../../../src/services/profile.service';
 import { getSpendingByProvider, getSpendingByOperation } from '../../../src/services/ai-usage.service';
 import {
-  getEstimatedBalances,
-  updateBudget,
-  type EstimatedBalances,
+  formatClaude,
+  formatTranscription,
+  getTodayUsage,
+  type TodayUsage,
 } from '../../../src/services/credit-check.service';
 import { getStorageStats } from '../../../src/services/source-file.service';
 import { deleteAllUserData } from '../../../src/services/auth.service';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
 
 // -------------------------------------------------------------------
 // Types
@@ -77,14 +85,10 @@ export default function AccountScreen() {
   const [editName, setEditName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [photoStatus, setPhotoStatus] = useState<string | null>(null);
 
-  // Budget edit modal
-  const [editingBudget, setEditingBudget] = useState<'openai' | 'anthropic' | null>(null);
-  const [budgetText, setBudgetText] = useState('');
-  const [isSavingBudget, setIsSavingBudget] = useState(false);
-
-  // Piggy bank data
-  const [balances, setBalances] = useState<EstimatedBalances | null>(null);
+  // AI usage: today against the daily limits, and all-time spending
+  const [today, setToday] = useState<TodayUsage | null>(null);
   const [providerStats, setProviderStats] = useState<ProviderStats | null>(null);
   const [operationRows, setOperationRows] = useState<OperationRow[]>([]);
   const [piggyLoading, setPiggyLoading] = useState(false);
@@ -93,17 +97,17 @@ export default function AccountScreen() {
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
   // -------------------------------------------------------------------
-  // Load piggy bank data
+  // Load AI usage
   // -------------------------------------------------------------------
   const loadPiggyData = useCallback(async (uid: string) => {
     setPiggyLoading(true);
     try {
-      const [bal, stats, ops] = await Promise.all([
-        getEstimatedBalances(uid),
+      const [usage, stats, ops] = await Promise.all([
+        getTodayUsage(),
         getSpendingByProvider(uid),
         getSpendingByOperation(uid),
       ]);
-      setBalances(bal);
+      setToday(usage);
       setProviderStats(stats);
       setOperationRows(ops);
     } catch {
@@ -169,85 +173,68 @@ export default function AccountScreen() {
   }, [profile, editName, refreshProfile]);
 
   // -------------------------------------------------------------------
-  // Edit budget
+  // Profile photo — uploads right after picking, separate from Save
   // -------------------------------------------------------------------
-  const openBudgetEdit = (provider: 'openai' | 'anthropic') => {
-    const current = provider === 'openai'
-      ? (balances?.openai.deposited ?? 10)
-      : (balances?.anthropic.deposited ?? 10);
-    setBudgetText(String(current));
-    setEditingBudget(provider);
-  };
+  const handleChangePhoto = useCallback(async () => {
+    if (!profile?.id) return;
+    // The system photo picker needs no permission on iPhone.
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (result.canceled || result.assets.length === 0) return;
 
-  const handleSaveBudget = async () => {
-    if (!profile?.id || !editingBudget) return;
-    const amount = parseFloat(budgetText);
-    if (isNaN(amount) || amount < 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid dollar amount (e.g. 20).');
-      return;
-    }
-    setIsSavingBudget(true);
+    setEditError('');
+    setPhotoStatus('Preparing photo…');
     try {
-      await updateBudget(profile.id, editingBudget, amount);
-      // Refresh balances
-      await loadPiggyData(profile.id);
-      setEditingBudget(null);
-    } catch {
-      Alert.alert('Error', 'Could not save budget. Please try again.');
+      await setProfilePhoto(profile.id, result.assets[0], profile.avatar_path, {
+        onProgress: (fraction) => setPhotoStatus(`Uploading ${Math.round(fraction * 100)}%`),
+        onRetry: (retry, max) => setPhotoStatus(`Connection problem. Retrying (${retry}/${max})…`),
+      });
+      await refreshProfile();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Could not upload your photo. Please try again.');
     } finally {
-      setIsSavingBudget(false);
+      setPhotoStatus(null);
     }
-  };
+  }, [profile, refreshProfile]);
 
-  const promptBudgetIOS = (provider: 'openai' | 'anthropic') => {
-    const label = provider === 'openai' ? 'OpenAI' : 'Anthropic';
-    const current = provider === 'openai'
-      ? (balances?.openai.deposited ?? 10)
-      : (balances?.anthropic.deposited ?? 10);
-    Alert.prompt(
-      `${label} Deposit`,
-      `How much have you deposited in your ${label} account? (total, in USD)`,
-      async (value) => {
-        if (!value || !profile?.id) return;
-        const amount = parseFloat(value);
-        if (isNaN(amount) || amount < 0) return;
-        try {
-          await updateBudget(profile.id, provider, amount);
-          await loadPiggyData(profile.id);
-        } catch {
-          Alert.alert('Error', 'Could not save budget.');
-        }
-      },
-      'plain-text',
-      String(current),
-      'numeric',
-    );
-  };
+  const handleRemovePhoto = useCallback(async () => {
+    if (!profile?.id || !profile.avatar_path) return;
+    if (!(await confirmAction('Remove photo', 'Your initials will show instead.', 'Remove'))) return;
 
-  const handleTapDeposited = (provider: 'openai' | 'anthropic') => {
-    if (Platform.OS === 'ios') {
-      promptBudgetIOS(provider);
-    } else {
-      openBudgetEdit(provider);
+    setEditError('');
+    setPhotoStatus('Removing photo…');
+    try {
+      await removeProfilePhoto(profile.id, profile.avatar_path);
+      await refreshProfile();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Could not remove your photo. Please try again.');
+    } finally {
+      setPhotoStatus(null);
     }
-  };
+  }, [profile, refreshProfile]);
+
+  const isBusy = isSaving || photoStatus !== null;
 
   // -------------------------------------------------------------------
   // Delete all data
   // -------------------------------------------------------------------
   const handleDeleteAllData = () => {
-    Alert.alert(
-      'Delete All Data',
-      'This will permanently delete all your projects, sessions, notes, and files. This cannot be undone.',
+    showAlert(
+      'Delete data on this device',
+      'This deletes what earlier versions of Studiply saved on this iPhone, then signs you out. Your library in your Studiply account stays. Deleting the account itself comes in a later update.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Continue',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
+            showAlert(
               'Are you absolutely sure?',
-              'This action is irreversible. Every note, recording, and project will be gone forever.',
+              'The projects, notes and recordings that earlier versions kept on this iPhone will be gone for good.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -258,7 +245,7 @@ export default function AccountScreen() {
                     try {
                       await deleteAllUserData(profile.id);
                     } catch {
-                      Alert.alert('Error', 'Could not delete all data. Please try again.');
+                      showAlert('Error', 'Could not delete all data. Please try again.');
                     }
                   },
                 },
@@ -273,22 +260,10 @@ export default function AccountScreen() {
   // -------------------------------------------------------------------
   // Sign out
   // -------------------------------------------------------------------
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign out',
-      'You will need to create a new account next time you open Studiply.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: () => signOut(),
-        },
-      ],
-    );
+  const handleSignOut = async () => {
+    await confirmSignOut(signOut, { title: 'Sign out', message: 'You can sign in again with your email and password.' });
   };
 
-  const initials = profile?.initials ?? '??';
   const username = profile?.username ?? '—';
   const totalFiles =
     (storageStats?.audioCount ?? 0) +
@@ -322,9 +297,7 @@ export default function AccountScreen() {
         <Text style={styles.sectionHeader}>PROFILE</Text>
         <View style={styles.card}>
           <View style={styles.profileRow}>
-            <View style={styles.initialsCircle}>
-              <Text style={styles.initialsText}>{initials}</Text>
-            </View>
+            <UserAvatar size={52} />
 
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{username}</Text>
@@ -338,52 +311,48 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* ── AI PIGGY BANKS ────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>AI PIGGY BANKS 🐷</Text>
+        {/* ── AI USAGE ──────────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>AI USAGE TODAY</Text>
 
         {piggyLoading ? (
           <View style={styles.piggyLoading}>
             <ActivityIndicator color={Colors.salmon} size="small" />
-            <Text style={styles.piggyLoadingText}>Loading balance data…</Text>
+            <Text style={styles.piggyLoadingText}>Loading usage…</Text>
           </View>
         ) : (
           <>
-            {/* OpenAI card */}
-            <PiggyBankCard
-              title="OpenAI (Transcription)"
+            {today?.simulated && (
+              <Text style={styles.costRefNote}>Simulated AI (development): nothing is sent or counted.</Text>
+            )}
+
+            <UsageCard
+              title="Transcription"
               icon="mic-outline"
               borderColor="#F59E0B"
               bgColor="#FFFBEB"
-              deposited={balances?.openai.deposited ?? 10}
-              used={balances?.openai.used ?? 0}
-              remaining={balances?.openai.remaining ?? 10}
-              status={balances?.openai.status ?? 'good'}
+              usedLabel={today ? formatTranscription(today) : '—'}
+              fraction={today ? today.transcriptionSeconds / today.transcriptionLimitSeconds : 0}
+              reached={today?.transcriptionReached ?? false}
               subStats={
                 providerStats
-                  ? `${fmt(providerStats.openai.totalMinutes, 1)} min transcribed • ${providerStats.openai.callCount} call${providerStats.openai.callCount !== 1 ? 's' : ''}`
+                  ? `All time: ${fmt(providerStats.openai.totalMinutes, 1)} min transcribed • ${providerStats.openai.callCount} part${providerStats.openai.callCount !== 1 ? 's' : ''}`
                   : undefined
               }
-              billingUrl="https://platform.openai.com/settings/organization/billing"
-              onTapDeposited={() => handleTapDeposited('openai')}
             />
 
-            {/* Anthropic card */}
-            <PiggyBankCard
-              title="Claude (Notes)"
+            <UsageCard
+              title="Notes & assistant (Claude)"
               icon="sparkles-outline"
               borderColor="#7B6FD4"
               bgColor="#F5F3FF"
-              deposited={balances?.anthropic.deposited ?? 10}
-              used={balances?.anthropic.used ?? 0}
-              remaining={balances?.anthropic.remaining ?? 10}
-              status={balances?.anthropic.status ?? 'good'}
+              usedLabel={today ? formatClaude(today) : '—'}
+              fraction={today ? today.claudeUsd / today.claudeLimitUsd : 0}
+              reached={today?.claudeReached ?? false}
               subStats={
                 providerStats
-                  ? `${providerStats.anthropic.callCount} operation${providerStats.anthropic.callCount !== 1 ? 's' : ''} • ${Math.round((providerStats.anthropic.totalTokensIn + providerStats.anthropic.totalTokensOut) / 1000)}K tokens`
+                  ? `All time: ${providerStats.anthropic.callCount} request${providerStats.anthropic.callCount !== 1 ? 's' : ''} • ${Math.round((providerStats.anthropic.totalTokensIn + providerStats.anthropic.totalTokensOut) / 1000)}K tokens`
                   : undefined
               }
-              billingUrl="https://console.anthropic.com/settings/billing"
-              onTapDeposited={() => handleTapDeposited('anthropic')}
             />
 
             {/* Cost breakdown */}
@@ -405,7 +374,7 @@ export default function AccountScreen() {
                   ))}
                   <View style={styles.divider} />
                   <View style={[styles.breakdownRow, styles.breakdownTotal]}>
-                    <Text style={styles.breakdownTotalLabel}>Total AI spending</Text>
+                    <Text style={styles.breakdownTotalLabel}>Total AI cost (all time)</Text>
                     <Text style={styles.breakdownTotalCost}>${fmt(totalSpent, 4)}</Text>
                   </View>
                 </View>
@@ -414,13 +383,10 @@ export default function AccountScreen() {
 
             {/* Cost reference */}
             <View style={styles.costRefCard}>
-              <Text style={styles.costRefTitle}>Estimated costs per use</Text>
-              <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.06</Text>
-              <Text style={styles.costRefLine}>• Standard lecture notes ≈ $0.10–0.30</Text>
-              <Text style={styles.costRefLine}>• Clarification ≈ $0.03–0.10</Text>
-              <Text style={styles.costRefNote}>
-                Balance is estimated. Update your deposit amount when you add credits.
-              </Text>
+              <Text style={styles.costRefTitle}>About these limits</Text>
+              <Text style={styles.costRefLine}>• Studiply runs the AI for you; no OpenAI or Anthropic account needed</Text>
+              <Text style={styles.costRefLine}>• Each limit counts the last 24 hours, so it frees up gradually</Text>
+              <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.06 · lecture notes ≈ $0.02–0.30</Text>
             </View>
           </>
         )}
@@ -450,7 +416,7 @@ export default function AccountScreen() {
         <View style={[styles.card, styles.dangerCard]}>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAllData} activeOpacity={0.75}>
             <Ionicons name="trash-outline" size={18} color={Colors.error} />
-            <Text style={styles.dangerLabel}>Delete all my data</Text>
+            <Text style={styles.dangerLabel}>Delete data on this device</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
@@ -478,11 +444,35 @@ export default function AccountScreen() {
               <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
                 <Text style={styles.modalTitle}>Edit Profile</Text>
 
-                {/* ── Initials circle ── */}
+                {/* ── Photo ── */}
                 <View style={styles.modalAvatarSection}>
-                  <View style={[styles.initialsCircle, { width: 80, height: 80, borderRadius: 40 }]}>
-                    <Text style={[styles.initialsText, { fontSize: 28 }]}>{initials}</Text>
-                  </View>
+                  <UserAvatar size={80} />
+                  {photoStatus ? (
+                    <Text style={styles.photoStatusText}>{photoStatus}</Text>
+                  ) : (
+                    <View style={styles.photoActions}>
+                      <TouchableOpacity
+                        onPress={handleChangePhoto}
+                        disabled={isBusy}
+                        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.photoActionText}>
+                          {profile?.avatar_path ? 'Change photo' : 'Add photo'}
+                        </Text>
+                      </TouchableOpacity>
+                      {profile?.avatar_path ? (
+                        <TouchableOpacity
+                          onPress={handleRemovePhoto}
+                          disabled={isBusy}
+                          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                        >
+                          <Text style={styles.photoRemoveText}>Remove photo</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  )}
                 </View>
 
                 {/* ── Name input ── */}
@@ -499,16 +489,16 @@ export default function AccountScreen() {
                   onSubmitEditing={handleSave}
                   placeholder="Your name"
                   placeholderTextColor={Colors.text.placeholder}
-                  editable={!isSaving}
+                  editable={!isBusy}
                 />
 
                 {editError ? <Text style={styles.errorText}>{editError}</Text> : null}
 
                 {/* ── Save ── */}
                 <TouchableOpacity
-                  style={[styles.saveButton, isSaving && { opacity: 0.6 }]}
+                  style={[styles.saveButton, isBusy && { opacity: 0.6 }]}
                   onPress={handleSave}
-                  disabled={isSaving}
+                  disabled={isBusy}
                   activeOpacity={0.85}
                 >
                   {isSaving ? (
@@ -532,167 +522,56 @@ export default function AccountScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Budget edit modal (Android) ──────────────────────── */}
-      <Modal
-        visible={editingBudget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditingBudget(null)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setEditingBudget(null)}>
-          <KeyboardAvoidingView
-            style={styles.modalKAV}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <Pressable>
-              <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
-                <Text style={styles.modalTitle}>
-                  {editingBudget === 'openai' ? 'OpenAI' : 'Anthropic'} Deposit
-                </Text>
-                <Text style={styles.budgetModalHint}>
-                  How much have you deposited in your{' '}
-                  {editingBudget === 'openai' ? 'OpenAI' : 'Anthropic'} account? (total, in USD)
-                </Text>
-
-                <TextInput
-                  style={styles.modalInput}
-                  value={budgetText}
-                  onChangeText={setBudgetText}
-                  autoFocus
-                  keyboardType="decimal-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveBudget}
-                  placeholder="e.g. 20"
-                  placeholderTextColor={Colors.text.placeholder}
-                />
-
-                <TouchableOpacity
-                  style={[styles.saveButton, isSavingBudget && { opacity: 0.6 }]}
-                  onPress={handleSaveBudget}
-                  disabled={isSavingBudget}
-                  activeOpacity={0.85}
-                >
-                  {isSavingBudget ? (
-                    <ActivityIndicator color={Colors.white} size="small" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setEditingBudget(null)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
 
 // -------------------------------------------------------------------
-// PiggyBankCard
+// UsageCard — today's use of one daily limit
 // -------------------------------------------------------------------
-interface PiggyBankCardProps {
+interface UsageCardProps {
   title: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   borderColor: string;
   bgColor: string;
-  deposited: number;
-  used: number;
-  remaining: number;
-  status: 'good' | 'low' | 'empty';
+  /** e.g. "12 min of 6 h" */
+  usedLabel: string;
+  /** Share of the limit used, 0–1. */
+  fraction: number;
+  reached: boolean;
   subStats?: string;
-  billingUrl: string;
-  onTapDeposited: () => void;
 }
 
-function PiggyBankCard({
-  title,
-  icon,
-  borderColor,
-  bgColor,
-  deposited,
-  used,
-  remaining,
-  status,
-  subStats,
-  billingUrl,
-  onTapDeposited,
-}: PiggyBankCardProps) {
-  const pctUsed = deposited > 0 ? Math.min(used / deposited, 1) : 1;
-  const pctRemaining = 1 - pctUsed;
-  const barColor = progressColor(pctRemaining);
+function UsageCard({ title, icon, borderColor, bgColor, usedLabel, fraction, reached, subStats }: UsageCardProps) {
+  const pctLeft = Math.max(0, 1 - Math.min(fraction, 1));
+  const barColor = progressColor(pctLeft);
 
   return (
     <View style={[piggyStyles.card, { borderColor, backgroundColor: bgColor }]}>
-      {/* Header */}
       <View style={piggyStyles.header}>
         <View style={[piggyStyles.iconWrap, { borderColor }]}>
           <Ionicons name={icon} size={16} color={borderColor} />
         </View>
-        <Text style={piggyStyles.title}>{title} 🐷</Text>
-      </View>
-
-      {/* Balance rows */}
-      <TouchableOpacity onPress={onTapDeposited} activeOpacity={0.7}>
-        <View style={piggyStyles.balanceRow}>
-          <Text style={piggyStyles.balanceLabel}>Deposited</Text>
-          <Text style={[piggyStyles.balanceValue, piggyStyles.depositedValue]}>
-            ${deposited.toFixed(2)} <Text style={piggyStyles.tapHint}>(tap to update)</Text>
-          </Text>
-        </View>
-      </TouchableOpacity>
-
-      <View style={piggyStyles.balanceRow}>
-        <Text style={piggyStyles.balanceLabel}>Used</Text>
-        <Text style={piggyStyles.balanceValue}>${used.toFixed(4)}</Text>
+        <Text style={piggyStyles.title}>{title}</Text>
       </View>
 
       <View style={piggyStyles.balanceRow}>
-        <Text style={piggyStyles.balanceLabel}>Remaining</Text>
-        <Text style={[piggyStyles.balanceValue, { color: barColor, fontWeight: Typography.weight.bold }]}>
-          ~${remaining.toFixed(2)}
-        </Text>
+        <Text style={piggyStyles.balanceLabel}>Used today</Text>
+        <Text style={[piggyStyles.balanceValue, { color: barColor, fontWeight: Typography.weight.bold }]}>{usedLabel}</Text>
       </View>
 
-      {/* Progress bar */}
       <View style={piggyStyles.barTrack}>
-        <View
-          style={[
-            piggyStyles.barFill,
-            { width: `${Math.round(pctRemaining * 100)}%`, backgroundColor: barColor },
-          ]}
-        />
+        <View style={[piggyStyles.barFill, { width: `${Math.round(Math.min(fraction, 1) * 100)}%`, backgroundColor: barColor }]} />
       </View>
-      <Text style={[piggyStyles.barLabel, { color: barColor }]}>
-        {Math.round(pctRemaining * 100)}% remaining
-      </Text>
+      <Text style={[piggyStyles.barLabel, { color: barColor }]}>{Math.round(pctLeft * 100)}% left today</Text>
 
-      {/* Sub-stats */}
       {subStats ? <Text style={piggyStyles.subStats}>{subStats}</Text> : null}
 
-      {/* Warnings */}
-      {status === 'low' && (
-        <View style={piggyStyles.warningAmber}>
-          <Ionicons name="warning-outline" size={14} color="#B87B14" />
-          <Text style={piggyStyles.warningTextAmber}>Running low! Consider adding credits.</Text>
-        </View>
-      )}
-      {status === 'empty' && (
-        <TouchableOpacity
-          style={piggyStyles.warningRed}
-          onPress={() => Linking.openURL(billingUrl)}
-          activeOpacity={0.75}
-        >
+      {reached && (
+        <View style={piggyStyles.warningRed}>
           <Ionicons name="alert-circle" size={14} color="#CC3333" />
-          <Text style={piggyStyles.warningTextRed}>Empty! Add credits →</Text>
-        </TouchableOpacity>
+          <Text style={piggyStyles.warningTextRed}>Daily limit reached. It frees up over the next 24 hours.</Text>
+        </View>
       )}
     </View>
   );
@@ -741,14 +620,6 @@ const piggyStyles = StyleSheet.create({
     color: Colors.text.primary,
     fontWeight: Typography.weight.medium,
   },
-  depositedValue: {
-    color: Colors.text.primary,
-  },
-  tapHint: {
-    fontSize: 11,
-    color: Colors.text.placeholder,
-    fontWeight: Typography.weight.regular,
-  },
   barTrack: {
     height: 8,
     backgroundColor: 'rgba(0,0,0,0.08)',
@@ -769,22 +640,6 @@ const piggyStyles = StyleSheet.create({
     fontSize: Typography.size.xs,
     color: Colors.text.secondary,
     marginTop: 2,
-  },
-  warningAmber: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    marginTop: 4,
-  },
-  warningTextAmber: {
-    fontSize: Typography.size.xs,
-    color: '#B87B14',
-    fontWeight: Typography.weight.medium,
-    flex: 1,
   },
   warningRed: {
     flexDirection: 'row',
@@ -859,19 +714,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     gap: 14,
-  },
-  initialsCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Colors.salmon,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initialsText: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
   },
   profileInfo: { flex: 1, gap: 2 },
   profileName: {
@@ -1049,12 +891,6 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     marginBottom: 4,
   },
-  budgetModalHint: {
-    fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
-    marginTop: -8,
-    lineHeight: 20,
-  },
   modalInput: {
     backgroundColor: Colors.surfaceMuted,
     borderRadius: 100,
@@ -1096,5 +932,26 @@ const styles = StyleSheet.create({
   modalAvatarSection: {
     alignItems: 'center',
     paddingVertical: 4,
+    gap: 12,
+  },
+  photoActions: {
+    flexDirection: 'row',
+    gap: 24,
+    minHeight: 22,
+  },
+  photoActionText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.primary,
+    fontWeight: Typography.weight.semibold,
+  },
+  photoRemoveText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    fontWeight: Typography.weight.medium,
+  },
+  photoStatusText: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    minHeight: 22,
   },
 });

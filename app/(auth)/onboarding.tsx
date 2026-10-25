@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,84 +10,164 @@ import {
   ActivityIndicator,
   Keyboard,
   TouchableWithoutFeedback,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { listProfiles, signIn, signUpAnonymous } from '../../src/services/auth.service';
-import { useAuth } from '../../src/hooks/useAuth';
+import {
+  AuthServiceError,
+  MIN_PASSWORD_LENGTH,
+  resendSignUpCode,
+  resetPassword,
+  sendPasswordResetCode,
+  signIn,
+  signUp,
+  verifySignUpCode,
+} from '../../src/services/auth.service';
 import { generateInitials } from '../../src/utils/initials';
 import { Colors } from '../../src/constants/colors';
 import { Typography } from '../../src/constants/typography';
 import Avatar from '../../src/components/Avatar';
-import type { Profile } from '../../src/types/database';
+
+// signUp → code (email confirmation) → signed in
+// signIn → signed in, or → code when the email isn't confirmed yet
+// signIn → "Forgot password?" → reset (code + new password) → signed in
+// AuthProvider picks up the new session and the root layout navigates.
+type Mode = 'signUp' | 'signIn' | 'code' | 'reset';
+
+const TITLES: Record<Mode, string> = {
+  signUp: 'Create your account',
+  signIn: 'Welcome back',
+  code: 'Check your email',
+  reset: 'Choose a new password',
+};
+
+const BUTTONS: Record<Mode, string> = {
+  signUp: 'Create account',
+  signIn: 'Sign in',
+  code: 'Confirm',
+  reset: 'Save password',
+};
+
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+}
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { refreshProfile } = useAuth();
 
-  const [username, setUsername] = useState('');
+  const [mode, setMode] = useState<Mode>('signUp');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [existingProfiles, setExistingProfiles] = useState<Profile[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  // Profiles already on this device. After a sign-out these are the way back
-  // in — without them, the only option would be creating a second profile and
-  // leaving the first one's notes stranded.
-  useEffect(() => {
-    listProfiles()
-      .then(setExistingProfiles)
-      .catch(() => setExistingProfiles([]));
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
+  const switchMode = useCallback((next: Mode) => {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+    setCode('');
+    if (next !== 'signIn' && next !== 'signUp') return;
+    setPassword('');
   }, []);
 
-  const canContinue = username.trim().length >= 2 && !isLoading;
+  const hasEmail = email.trim().length > 0;
+  const canContinue =
+    !isLoading &&
+    {
+      signUp: name.trim().length >= 2 && hasEmail && password.length >= MIN_PASSWORD_LENGTH,
+      signIn: hasEmail && password.length > 0,
+      code: code.trim().length === 6,
+      reset: code.trim().length === 6 && password.length >= MIN_PASSWORD_LENGTH,
+    }[mode];
 
-  const handleContinue = useCallback(async () => {
-    if (!canContinue) return;
+  // Runs one auth call with the shared loading / error handling.
+  const run = useCallback(async (action: () => Promise<void>) => {
     Keyboard.dismiss();
     setError(null);
+    setNotice(null);
     setIsLoading(true);
-
     try {
-      await signUpAnonymous(username.trim());
-      // Refresh profile in AuthProvider → triggers navigation to (main)
-      await refreshProfile();
+      await action();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      setError(message);
+      setError(messageOf(err));
     } finally {
       setIsLoading(false);
     }
-  }, [canContinue, username, refreshProfile]);
+  }, []);
 
-  const handleResume = useCallback(
-    async (profile: Profile) => {
-      if (isLoading) return;
-      Keyboard.dismiss();
-      setError(null);
-      setIsLoading(true);
+  const handleContinue = useCallback(() => {
+    if (!canContinue) return;
 
-      try {
-        await signIn(profile.id);
-        await refreshProfile();
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : 'Could not open that profile.';
-        setError(message);
-      } finally {
-        setIsLoading(false);
+    if (mode === 'signUp') {
+      run(async () => {
+        await signUp(name, email, password);
+        setMode('code');
+        setNotice(`We sent a 6-digit code to ${email.trim()}.`);
+      });
+    } else if (mode === 'signIn') {
+      run(async () => {
+        try {
+          await signIn(email, password);
+        } catch (err: unknown) {
+          if (err instanceof AuthServiceError && err.code === 'email_not_confirmed') {
+            setMode('code');
+            setCode('');
+          }
+          throw err;
+        }
+      });
+    } else if (mode === 'code') {
+      run(() => verifySignUpCode(email, code));
+    } else {
+      run(() => resetPassword(email, code, password));
+    }
+  }, [canContinue, mode, name, email, password, code, run]);
+
+  const handleForgotPassword = useCallback(() => {
+    if (!hasEmail) {
+      setError('Enter your email first, then tap “Forgot password?”.');
+      emailRef.current?.focus();
+      return;
+    }
+    run(async () => {
+      await sendPasswordResetCode(email);
+      setMode('reset');
+      setCode('');
+      setPassword('');
+      setNotice(`We sent a 6-digit code to ${email.trim()}.`);
+    });
+  }, [hasEmail, email, run]);
+
+  const handleResend = useCallback(() => {
+    run(async () => {
+      if (mode === 'reset') {
+        await sendPasswordResetCode(email);
+      } else {
+        await resendSignUpCode(email);
       }
-    },
-    [isLoading, refreshProfile],
-  );
+      setNotice(`We sent a new code to ${email.trim()}.`);
+    });
+  }, [mode, email, run]);
 
-  // Live initials preview
-  const initials = username.trim().length >= 1 ? generateInitials(username) : null;
+  // Live initials preview while creating an account
+  const initials =
+    mode === 'signUp' && name.trim().length >= 1 ? generateInitials(name) : null;
+
+  const clearError = () => {
+    if (error) setError(null);
+  };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <DismissKeyboardArea>
       <View style={styles.container}>
         <StatusBar style="dark" />
 
@@ -112,92 +192,235 @@ export default function OnboardingScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          {/* ── Brand block ── */}
-          <View style={styles.brandBlock}>
-            {/* Initials preview circle — visible once user starts typing */}
-            {initials && (
-              <Avatar
-                size={64}
-                initials={initials}
-                backgroundColor="rgba(0,0,0,0.15)"
-                textColor={Colors.black}
-                style={styles.initialsCircle}
-              />
-            )}
-
-            <Text style={styles.appTitle}>STUDIPLY</Text>
-            <Text style={styles.appSubtitle}>Automative Study</Text>
-          </View>
-
-          {/* ── Input block ── */}
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>Your username</Text>
-
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                if (error) setError(null);
-              }}
-              placeholder="Enter your name..."
-              placeholderTextColor="rgba(255,255,255,0.45)"
-              autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={handleContinue}
-              maxLength={40}
-              editable={!isLoading}
-            />
-
-            {/* Error message */}
-            {error && <Text style={styles.errorText}>{error}</Text>}
-
-            {/* Continue button */}
-            <TouchableOpacity
-              style={[styles.button, !canContinue && styles.buttonDisabled]}
-              onPress={handleContinue}
-              disabled={!canContinue}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={Colors.white} size="small" />
-              ) : (
-                <Text style={[styles.buttonText, !canContinue && styles.buttonTextDisabled]}>
-                  Continue
-                </Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* ── Brand block ── */}
+            <View style={styles.brandBlock}>
+              {/* Initials preview circle — visible once user starts typing */}
+              {initials && (
+                <Avatar
+                  size={64}
+                  initials={initials}
+                  backgroundColor="rgba(0,0,0,0.15)"
+                  textColor={Colors.black}
+                  style={styles.initialsCircle}
+                />
               )}
-            </TouchableOpacity>
 
-            {/* Resume an existing profile on this device */}
-            {existingProfiles.length > 0 && (
-              <View style={styles.resumeBlock}>
-                <Text style={styles.resumeLabel}>Or continue as</Text>
-                {existingProfiles.map((p) => (
-                  <TouchableOpacity
-                    key={p.id}
-                    style={styles.resumeRow}
-                    onPress={() => handleResume(p)}
+              <Text style={styles.appTitle}>STUDIPLY</Text>
+              <Text style={styles.appSubtitle}>Automative Study</Text>
+            </View>
+
+            {/* ── Input block ── */}
+            <View style={styles.inputBlock}>
+              <Text style={styles.inputLabel}>{TITLES[mode]}</Text>
+
+              {notice && <Text style={styles.noticeText}>{notice}</Text>}
+
+              {mode === 'signUp' && (
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={(text) => {
+                    setName(text);
+                    clearError();
+                  }}
+                  placeholder="Your name"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  textContentType="name"
+                  autoComplete="name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                  maxLength={40}
+                  editable={!isLoading}
+                />
+              )}
+
+              {(mode === 'signUp' || mode === 'signIn') && (
+                <>
+                  <TextInput
+                    ref={emailRef}
+                    style={styles.input}
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      clearError();
+                    }}
+                    placeholder="Email"
+                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    textContentType={mode === 'signUp' ? 'username' : 'emailAddress'}
+                    autoComplete="email"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    editable={!isLoading}
+                  />
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.input}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      clearError();
+                    }}
+                    placeholder={
+                      mode === 'signUp' ? `Password (${MIN_PASSWORD_LENGTH}+ characters)` : 'Password'
+                    }
+                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType={mode === 'signUp' ? 'newPassword' : 'password'}
+                    autoComplete={mode === 'signUp' ? 'new-password' : 'current-password'}
+                    returnKeyType="go"
+                    onSubmitEditing={handleContinue}
+                    editable={!isLoading}
+                  />
+                </>
+              )}
+
+              {(mode === 'code' || mode === 'reset') && (
+                <TextInput
+                  style={[styles.input, styles.codeInput]}
+                  value={code}
+                  onChangeText={(text) => {
+                    setCode(text.replace(/\D/g, '').slice(0, 6));
+                    clearError();
+                  }}
+                  placeholder="6-digit code"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  keyboardType="number-pad"
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  returnKeyType={mode === 'code' ? 'go' : 'next'}
+                  onSubmitEditing={mode === 'code' ? handleContinue : () => passwordRef.current?.focus()}
+                  maxLength={6}
+                  editable={!isLoading}
+                />
+              )}
+
+              {mode === 'reset' && (
+                <TextInput
+                  ref={passwordRef}
+                  style={styles.input}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    clearError();
+                  }}
+                  placeholder={`New password (${MIN_PASSWORD_LENGTH}+ characters)`}
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                  autoComplete="new-password"
+                  returnKeyType="go"
+                  onSubmitEditing={handleContinue}
+                  editable={!isLoading}
+                />
+              )}
+
+              {/* Error message */}
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              {/* Continue button */}
+              <TouchableOpacity
+                style={[styles.button, !canContinue && styles.buttonDisabled]}
+                onPress={handleContinue}
+                disabled={!canContinue}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={Colors.white} size="small" />
+                ) : (
+                  <Text style={[styles.buttonText, !canContinue && styles.buttonTextDisabled]}>
+                    {BUTTONS[mode]}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* ── Secondary links ── */}
+              <View style={styles.linkRow}>
+                {mode === 'signUp' && (
+                  <LinkButton
+                    label="Already have an account? Sign in"
+                    onPress={() => switchMode('signIn')}
                     disabled={isLoading}
-                    activeOpacity={0.75}
-                  >
-                    <Avatar
-                      size={32}
-                      initials={p.initials}
-                      backgroundColor="rgba(0,0,0,0.15)"
-                      textColor={Colors.black}
+                  />
+                )}
+                {mode === 'signIn' && (
+                  <>
+                    <LinkButton
+                      label="Forgot password?"
+                      onPress={handleForgotPassword}
+                      disabled={isLoading}
                     />
-                    <Text style={styles.resumeName} numberOfLines={1}>
-                      {p.display_name ?? p.username}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                    <LinkButton
+                      label="New to Studiply? Create an account"
+                      onPress={() => switchMode('signUp')}
+                      disabled={isLoading}
+                    />
+                  </>
+                )}
+                {(mode === 'code' || mode === 'reset') && (
+                  <>
+                    <LinkButton label="Send a new code" onPress={handleResend} disabled={isLoading} />
+                    <LinkButton
+                      label="Back to sign in"
+                      onPress={() => switchMode('signIn')}
+                      disabled={isLoading}
+                    />
+                  </>
+                )}
               </View>
-            )}
-          </View>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </View>
+    </DismissKeyboardArea>
+  );
+}
+
+// Tapping outside the fields hides the iPhone keyboard. Not on web: there is
+// no on-screen keyboard there, and React Native Web's Keyboard.dismiss()
+// blurs the focused field, so every click on an input would unfocus it
+// straight away and nothing could be typed.
+function DismissKeyboardArea({ children }: { children: React.ReactElement }) {
+  if (Platform.OS === 'web') return children;
+  return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      {children}
     </TouchableWithoutFeedback>
+  );
+}
+
+function LinkButton({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.6}
+      style={styles.linkButton}
+      accessibilityRole="button"
+    >
+      <Text style={styles.linkText}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -207,8 +430,11 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: 32,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
 
   // ── Brand ──
@@ -217,6 +443,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    paddingVertical: 32,
   },
   initialsCircle: {
     marginBottom: 20,
@@ -242,6 +469,9 @@ const styles = StyleSheet.create({
   inputBlock: {
     paddingBottom: 20,
     gap: 12,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   inputLabel: {
     fontSize: Typography.size.xs,
@@ -252,6 +482,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
+  noticeText: {
+    fontSize: Typography.size.sm,
+    fontWeight: Typography.weight.medium,
+    color: Colors.black,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
   input: {
     backgroundColor: Colors.inputBackground,
     borderRadius: 100, // pill shape
@@ -261,6 +498,9 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.medium,
     color: Colors.inputText,
     textAlign: 'center',
+  },
+  codeInput: {
+    letterSpacing: Typography.tracking.widest,
   },
   errorText: {
     color: Colors.error,
@@ -289,33 +529,21 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // ── Resume existing profile ──
-  resumeBlock: {
-    marginTop: 8,
-    gap: 8,
+  // ── Secondary links ──
+  linkRow: {
+    marginTop: 4,
+    alignItems: 'center',
   },
-  resumeLabel: {
-    fontSize: Typography.size.xs,
+  linkButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  linkText: {
+    fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
     color: Colors.black,
-    letterSpacing: Typography.tracking.wider,
-    textTransform: 'uppercase',
     textAlign: 'center',
-    opacity: 0.7,
-  },
-  resumeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    borderRadius: 100,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  resumeName: {
-    flex: 1,
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.medium,
-    color: Colors.black,
+    opacity: 0.75,
   },
 });

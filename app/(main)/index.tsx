@@ -7,16 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
-  ActionSheetIOS,
-  Platform,
-  Alert,
-  Modal,
-  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/constants/colors';
@@ -27,7 +22,20 @@ import { trashSession, trashProject } from '../../src/services/trash.service';
 import { getNoteBySession } from '../../src/services/note.service';
 import { exportNoteToPDF } from '../../src/services/export.service';
 import UndoToast from '../../src/components/UndoToast';
-import Avatar from '../../src/components/Avatar';
+import {
+  menuTriggerProps,
+  promptText,
+  showActionSheet,
+  showAlert,
+  type Anchor,
+} from '../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../src/utils/errors';
+import { promptRenameLecture } from '../../src/utils/rename';
+import { lectureItem } from '../../src/utils/libraryItems';
+import { useMoveFlow } from '../../src/hooks/useMoveFlow';
+import { shouldOfferEarlierVersion } from '../../src/services/legacyImport';
+import { useLibraryUpdates } from '../../src/lib/cache';
+import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
 
 const CARD_GAP = 12;
@@ -65,6 +73,9 @@ function formatDuration(seconds: number | null): string {
 // Component
 // -------------------------------------------------------------------
 
+/** "Later" on the earlier-version card: hidden until the app starts again. */
+let earlierDismissed = false;
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
@@ -77,10 +88,6 @@ export default function HomeScreen() {
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoMessage, setUndoMessage] = useState('');
   const undoCallbackRef = useRef<(() => void) | null>(null);
-
-  // Rename modal (Android — iOS uses Alert.prompt)
-  const [renamingProject, setRenamingProject] = useState<ProjectWithCount | null>(null);
-  const [renameText, setRenameText] = useState('');
 
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - H_PADDING * 2 - CARD_GAP) / 2;
@@ -102,6 +109,17 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  useLibraryUpdates(fetchData);
+  const move = useMoveFlow({ showUndo, onChanged: fetchData });
+
+  // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
+  const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id || earlierDismissed) return;
+      shouldOfferEarlierVersion(profile.id).then(setEarlier).catch(() => setEarlier(null));
+    }, [profile?.id]),
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -132,92 +150,55 @@ export default function HomeScreen() {
     undoCallbackRef.current = null;
   }
 
-  function showSessionActions(session: Session) {
-    const options = ['Export PDF', 'Delete Session', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1, title: session.title },
-        (index) => {
-          if (index === 0) exportSessionPDF(session);
-          if (index === 1) confirmTrashSession(session);
-        }
-      );
-    } else {
-      Alert.alert(session.title, undefined, [
-        { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
-        { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showSessionActions(session: Session, anchor?: Anchor) {
+    showActionSheet(session.title, [
+      { text: 'Rename…', onPress: () => renameLecture(session) },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
+      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
+    ], { anchor });
+  }
+
+  async function renameLecture(session: Session) {
+    if (await promptRenameLecture(session)) fetchData();
   }
 
   async function exportSessionPDF(session: Session) {
     try {
       const note = await getNoteBySession(session.id);
       if (!note) {
-        Alert.alert('No notes yet', 'Process this session first to generate notes for export.');
+        showAlert('No notes yet', 'Process this session first to generate notes for export.');
         return;
       }
       await exportNoteToPDF({ note, session, transcript: null });
     } catch (err) {
-      Alert.alert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
+      showAlert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
     }
   }
 
-  function showProjectActions(project: ProjectWithCount) {
-    const options = ['Rename', 'Delete Project', 'Cancel'];
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, destructiveButtonIndex: 1, title: project.name },
-        (index) => {
-          if (index === 0) promptRenameProject(project);
-          if (index === 1) confirmTrashProject(project);
-        }
-      );
-    } else {
-      Alert.alert(project.name, undefined, [
-        { text: 'Rename', onPress: () => promptRenameProject(project) },
-        { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
-    }
+  function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
+    showActionSheet(project.name, [
+      { text: 'Rename', onPress: () => promptRenameProject(project) },
+      { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
+    ], { anchor });
   }
 
-  function promptRenameProject(project: ProjectWithCount) {
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Rename Project',
-        undefined,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save',
-            onPress: (newName: string | undefined) => {
-              const trimmed = newName?.trim();
-              if (trimmed) confirmRenameProject(project, trimmed);
-            },
-          },
-        ],
-        'plain-text',
-        project.name,
-      );
-    } else {
-      setRenameText(project.name);
-      setRenamingProject(project);
-    }
+  async function promptRenameProject(project: ProjectWithCount) {
+    const newName = await promptText('Rename Project', { defaultValue: project.name, placeholder: 'Project name' });
+    if (newName) confirmRenameProject(project, newName);
   }
 
   async function confirmRenameProject(project: ProjectWithCount, newName: string) {
     try {
       await updateProject(project.id, { name: newName });
       setProjects(prev => prev.map(p => p.id === project.id ? { ...p, name: newName } : p));
-    } catch {
-      Alert.alert('Error', 'Could not rename project.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
   }
 
   function confirmTrashProject(project: ProjectWithCount) {
-    Alert.alert(
+    showAlert(
       'Delete Project',
       `"${project.name}" and all its sessions will be moved to Recently Deleted.`,
       [
@@ -234,8 +215,8 @@ export default function HomeScreen() {
                 await restoreItem({ id: project.id, type: 'project' });
                 fetchData();
               });
-            } catch {
-              Alert.alert('Error', 'Could not delete project.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete project.'));
             }
           },
         },
@@ -244,7 +225,7 @@ export default function HomeScreen() {
   }
 
   function confirmTrashSession(session: Session) {
-    Alert.alert(
+    showAlert(
       'Delete Session',
       `"${session.title}" will be moved to Recently Deleted.`,
       [
@@ -261,8 +242,8 @@ export default function HomeScreen() {
                 await restoreItem({ id: session.id, type: 'session' });
                 fetchData();
               });
-            } catch {
-              Alert.alert('Error', 'Could not delete session.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
             }
           },
         },
@@ -299,7 +280,7 @@ export default function HomeScreen() {
             activeOpacity={0.75}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Avatar size={40} initials={profile?.initials ?? '??'} />
+            <UserAvatar size={40} />
           </TouchableOpacity>
         </View>
 
@@ -333,6 +314,34 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Recent sessions ───────────────────────────────────── */}
+        {earlier && (
+          <View style={styles.earlierCard}>
+            <Text style={styles.earlierTitle}>Found data from the earlier version on this iPhone</Text>
+            <Text style={styles.earlierText}>
+              {earlier.courses} {earlier.courses === 1 ? 'course' : 'courses'} · {earlier.lectures}{' '}
+              {earlier.lectures === 1 ? 'lecture' : 'lectures'} · {earlier.notes} {earlier.notes === 1 ? 'note' : 'notes'}
+            </Text>
+            <View style={styles.earlierButtons}>
+              <TouchableOpacity
+                style={styles.earlierPrimary}
+                onPress={() => router.push('/settings/earlier-version')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.earlierPrimaryText}>Review & upload</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  earlierDismissed = true;
+                  setEarlier(null);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.earlierLater}>Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <Text style={[styles.sectionLabel, { marginTop: 28 }]}>RECENT SESSIONS</Text>
 
         {sessions.length === 0 ? (
@@ -354,9 +363,8 @@ export default function HomeScreen() {
                     index < sessions.length - 1 && styles.sessionRowDivider,
                   ]}
                   onPress={() => handleSessionPress(session)}
-                  onLongPress={() => showSessionActions(session)}
+                  {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
                   activeOpacity={0.75}
-                  delayLongPress={400}
                 >
                   <Ionicons name={icon.name} size={20} color={icon.color} />
                   <View style={styles.sessionInfo}>
@@ -396,8 +404,7 @@ export default function HomeScreen() {
                 key={project.id}
                 style={[styles.card, { width: cardWidth, backgroundColor: project.color }]}
                 onPress={() => router.push(`/project/${project.id}`)}
-                onLongPress={() => showProjectActions(project)}
-                delayLongPress={400}
+                {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
                 activeOpacity={0.85}
               >
                 <Text style={styles.cardName} numberOfLines={2}>
@@ -413,6 +420,7 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+      {move.modal}
       <UndoToast
         visible={undoVisible}
         message={undoMessage}
@@ -420,57 +428,6 @@ export default function HomeScreen() {
         onDismiss={() => setUndoVisible(false)}
       />
 
-      {/* ── Rename modal (Android only) ───────────────────────── */}
-      <Modal
-        visible={renamingProject !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => { setRenamingProject(null); setRenameText(''); }}
-      >
-        <View style={styles.renameOverlay}>
-          <View style={styles.renameDialog}>
-            <Text style={styles.renameTitle}>Rename Project</Text>
-            <TextInput
-              style={styles.renameInput}
-              value={renameText}
-              onChangeText={setRenameText}
-              autoFocus
-              placeholder="Project name"
-              placeholderTextColor={Colors.text.placeholder}
-              returnKeyType="done"
-              onSubmitEditing={() => {
-                const trimmed = renameText.trim();
-                if (renamingProject && trimmed) {
-                  confirmRenameProject(renamingProject, trimmed);
-                  setRenamingProject(null);
-                  setRenameText('');
-                }
-              }}
-            />
-            <View style={styles.renameActions}>
-              <TouchableOpacity
-                onPress={() => { setRenamingProject(null); setRenameText(''); }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.renameCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  const trimmed = renameText.trim();
-                  if (renamingProject && trimmed) {
-                    confirmRenameProject(renamingProject, trimmed);
-                    setRenamingProject(null);
-                    setRenameText('');
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.renameSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -498,6 +455,21 @@ const styles = StyleSheet.create({
     letterSpacing: Typography.tracking.widest,
     marginBottom: 2,
   },
+  // Earlier version card (step 1.9)
+  earlierCard: {
+    marginTop: 20,
+    backgroundColor: Colors.accentLight,
+    borderRadius: 16,
+    padding: 16,
+    gap: 6,
+  },
+  earlierTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
+  earlierText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  earlierButtons: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
+  earlierPrimary: { backgroundColor: Colors.button.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  earlierPrimaryText: { color: Colors.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  earlierLater: { color: Colors.text.secondary, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium },
+
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
@@ -635,48 +607,5 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.semibold,
     color: Colors.text.primary,
     textDecorationLine: 'underline',
-  },
-
-  // Rename modal (Android)
-  renameOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  renameDialog: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    gap: 16,
-  },
-  renameTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-  },
-  renameInput: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: Typography.size.base,
-    color: Colors.text.primary,
-  },
-  renameActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 20,
-  },
-  renameCancelText: {
-    fontSize: Typography.size.base,
-    color: Colors.text.secondary,
-    fontWeight: Typography.weight.medium,
-  },
-  renameSaveText: {
-    fontSize: Typography.size.base,
-    color: Colors.salmon,
-    fontWeight: Typography.weight.semibold,
   },
 });
