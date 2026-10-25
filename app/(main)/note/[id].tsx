@@ -52,6 +52,7 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { formatSaved } from '../../../src/utils/shelf';
+import { starButton } from '../../../src/utils/star';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -403,6 +404,7 @@ export default function NoteDetailScreen() {
       { text: 'Rename…', onPress: renameThisLecture },
       { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
       { text: 'Export as PDF', onPress: handleExportPDF },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
       { text: 'Edit Note', onPress: enterEditMode },
       { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
     ], { anchor });

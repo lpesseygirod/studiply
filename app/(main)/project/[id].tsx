@@ -61,6 +61,7 @@ import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellScreen } from '../../../src/components/shell/ShellContext';
+import { starButton } from '../../../src/utils/star';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
 
@@ -308,6 +309,7 @@ export default function ProjectDetailScreen() {
     showActionSheet(folder.name, [
       { text: 'Rename', onPress: () => promptRenameFolder(folder) },
       { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
+      starButton({ type: 'folder', id: folder.id }, folder.name, folder.starred_at, showUndo),
       { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
     ], { anchor });
   }
@@ -318,6 +320,7 @@ export default function ProjectDetailScreen() {
       { text: 'Rename…', onPress: () => renameLecture(session) },
       { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
       { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
     ], { anchor });
   }
@@ -555,6 +558,7 @@ export default function ProjectDetailScreen() {
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Open / Share', onPress: () => openLibraryFile(file) },
       { text: 'Rename…', onPress: () => renameLibraryFile(file) },
       { text: 'Move to…', onPress: () => move.openMove(libraryFileItem(file)) },
+      starButton({ type: 'file', id: file.id }, file.title, file.starredAt, showUndo),
       { text: 'Delete', style: 'destructive', onPress: () => trashLibraryFile(file) },
     ], { anchor });
   }
