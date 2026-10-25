@@ -22,12 +22,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [ ] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive)
 - [ ] 2.2 — Real data in the shell (top bar, sidebar sections, Record button)
 - [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
-- **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [ ] 3.1 — Spike: drag and drop (web + iPhone)
 - [ ] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
 - [ ] 3.3 — Moving files (drop targets, cycle protection, undo, tests)
+- **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
 - [ ] 3.4 — Menus (empty-space + item context menus)
 - [ ] 3.5 — Trash, stars, recent, search
 
@@ -211,6 +211,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - they're readable offline from the iPhone cache like lectures (`libraryFilesIn`).
 - **Deleting goes by rows, never by path prefix.** A photo moved to another lecture keeps its old Storage path (`{uid}/{oldLecture}/…`). `trash.service` collects the objects to remove from the media and audio rows of the files being deleted, so deleting the old lecture can't take the moved photo. Covered by Jest, pgTAP and the Chrome check.
 - **Retention is audio only.** "Delete now / after 3 days" acts on a lecture's `audio_chunks`. Photos, PDFs and library files are never removed by it; only the student deletes them. Covered by a test.
+- **Migration timestamps stay in order (26 Oct).** `20261026090000_standalone_images` was dated in the future and is already on the remote, so it keeps its name; every new migration must be dated after the newest one (rule in `CLAUDE.md` → How to work).
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
 
 ## Things Lea must do
