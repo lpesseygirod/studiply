@@ -62,7 +62,7 @@ export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProj
     setError('');
     try {
       const created = await createProject(userId, trimmed, selectedColor);
-      const withCount: ProjectWithCount = { ...created, sessionCount: 0 };
+      const withCount: ProjectWithCount = { ...created, sessionCount: 0, itemCount: 0 };
       onCreated(withCount);
     } catch (err: any) {
       setError(err?.message ?? 'Could not create project. Please try again.');

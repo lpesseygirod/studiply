@@ -820,6 +820,8 @@ export interface LibraryFile {
   courseId: string | null;
   folderId: string | null;
   createdAt: string;
+  /** null = not starred. */
+  starredAt: string | null;
   /** Its photo or PDF (signed link online; '' offline). */
   media: SourceFile | null;
 }
@@ -833,6 +835,7 @@ async function toLibraryFile(row: FileRow & { media: MediaRow[] }): Promise<Libr
     courseId: row.course_id,
     folderId: row.folder_id,
     createdAt: row.created_at,
+    starredAt: row.starred_at,
     media: m ? mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path)) : null,
   };
 }

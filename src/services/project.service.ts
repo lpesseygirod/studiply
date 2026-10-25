@@ -9,7 +9,7 @@ import {
   type LectureRow,
 } from '../lib/cloudRows';
 import { readRow, readRows, readThrough, remember, rememberLectureFiles, rememberScope } from '../lib/cache';
-import { activeCourses, inLectureScope, isActiveCourse, lectureCounts, lecturesIn } from '../lib/cache/localQueries';
+import { activeCourses, inLectureScope, isActiveCourse, itemCounts, lectureCounts, lecturesIn } from '../lib/cache/localQueries';
 import type { Project, Session } from '../types/database';
 
 /**
@@ -21,11 +21,15 @@ import type { Project, Session } from '../types/database';
  * is kept, and offline the same answer is built from the cached rows.
  */
 
-export type ProjectWithCount = Project & { sessionCount: number };
+export type ProjectWithCount = Project & {
+  sessionCount: number;
+  /** Files of every kind (lectures, PDFs, images, …), as the sidebar shows. */
+  itemCount: number;
+};
 
 /**
- * Courses plus their lecture counts. Trashed lectures aren't counted, so a
- * course's badge matches what the course screen actually lists.
+ * Courses plus their lecture and item counts. Trashed files aren't counted,
+ * so a course's badge matches what the course screen actually lists.
  */
 async function projectsWithCount(limit?: number): Promise<ProjectWithCount[]> {
   return readThrough(
@@ -33,7 +37,12 @@ async function projectsWithCount(limit?: number): Promise<ProjectWithCount[]> {
     async () => {
       const [courses, files] = await Promise.all([readRows<CourseRow>('courses'), readRows<FileRow>('files')]);
       const counts = lectureCounts(files);
-      return activeCourses(courses, limit).map((c) => ({ ...courseToProject(c), sessionCount: counts.get(c.id) ?? 0 }));
+      const items = itemCounts(files);
+      return activeCourses(courses, limit).map((c) => ({
+        ...courseToProject(c),
+        sessionCount: counts.get(c.id) ?? 0,
+        itemCount: items.get(c.id) ?? 0,
+      }));
     },
   );
 }
@@ -55,15 +64,23 @@ async function remoteProjectsWithCount(limit?: number): Promise<ProjectWithCount
 
   const { data: files, error: countError } = await supabase
     .from('files')
-    .select('course_id')
-    .eq('kind', 'lecture')
+    .select('course_id, kind')
     .is('deleted_at', null)
     .in('course_id', courses.map((c) => c.id));
   if (countError) throw serviceError(countError, 'Could not load your courses.');
 
   const counts = new Map<string, number>();
-  for (const f of files) if (f.course_id) counts.set(f.course_id, (counts.get(f.course_id) ?? 0) + 1);
-  return courses.map((c) => ({ ...courseToProject(c), sessionCount: counts.get(c.id) ?? 0 }));
+  const items = new Map<string, number>();
+  for (const f of files) {
+    if (!f.course_id) continue;
+    items.set(f.course_id, (items.get(f.course_id) ?? 0) + 1);
+    if (f.kind === 'lecture') counts.set(f.course_id, (counts.get(f.course_id) ?? 0) + 1);
+  }
+  return courses.map((c) => ({
+    ...courseToProject(c),
+    sessionCount: counts.get(c.id) ?? 0,
+    itemCount: items.get(c.id) ?? 0,
+  }));
 }
 
 // -------------------------------------------------------------------

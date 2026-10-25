@@ -88,6 +88,19 @@ describe('folderFromRow', () => {
   });
 });
 
+describe('stars (step 2.2)', () => {
+  it('courses, folders and lectures keep starred_at', () => {
+    expect(courseToProject({ ...course, starred_at: T }).starred_at).toBe(T);
+    expect(lectureToSession({ ...lectureFile, starred_at: T }).starred_at).toBe(T);
+    expect(lectureToSession(lectureFile).starred_at).toBeNull();
+    const folder = folderFromRow({
+      id: 'f1', user_id: USER, course_id: 'c1', parent_id: null, name: 'Exams', sort_order: 0,
+      starred_at: T, deleted_at: null, created_at: T, updated_at: T,
+    });
+    expect(folder.starred_at).toBe(T);
+  });
+});
+
 describe('folderSubtree', () => {
   const folders = [
     { id: 'a', parent_id: null },

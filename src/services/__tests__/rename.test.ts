@@ -191,7 +191,7 @@ describe('renaming a file saved to the library', () => {
 
   it('sets the file title and its media caption, keeping the real extension', async () => {
     const file: LibraryFile = {
-      id: 'f1', title: 'Board.png', kind: 'image', courseId: 'c', folderId: null, createdAt: T,
+      id: 'f1', title: 'Board.png', kind: 'image', courseId: 'c', folderId: null, createdAt: T, starredAt: null,
       media: { id: 'm1', file_type: 'photo', storage_path: 'u/f1/m1.png', mime_type: 'image/png', display_name: 'Board.png' } as SourceFile,
     };
     answer('files', { data: [{ id: 'f1' }] });

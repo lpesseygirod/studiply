@@ -35,6 +35,8 @@ export interface Project {
   is_archived: boolean;
   is_deleted: boolean;
   deleted_at: string | null;
+  /** null = not starred. */
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +50,7 @@ export interface Folder {
   sort_order: number;
   is_deleted: boolean;
   deleted_at: string | null;
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +67,7 @@ export interface Session {
   duration_seconds: number | null;
   is_deleted: boolean;
   deleted_at: string | null;
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
