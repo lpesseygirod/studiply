@@ -48,10 +48,10 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Courses as colored folders, nested folders | Library tab, list or grid | Left sidebar + main grid | 3 | v1 |
 | Move files between folders | Long-press and drag; or Move to… sheet | Drag and drop onto folder, breadcrumb, sidebar course or Trash | 3 | v1 |
 | Menu on empty space (New folder, New document, New recording, Upload, Paste, Sort) | Long-press empty space or “…” button | Click or right-click empty space | 3 | v1 |
-| Menu on a file (Open, Rename, Move out, Star, Summarize / Exam pack, Trash) | Long-press the file | Right-click the file | 3 | v1 |
+| Menu on a file (Open, Rename, Move out, Add to Favorites, Summarize / Exam pack, Trash) | Long-press the file | Right-click the file | 3 | v1 |
 | New folder with inline rename | Yes | Yes | 3 | v1 |
 | Undo after every move or delete | Undo toast | Undo toast + Cmd+Z | 3 | v1 |
-| Recent, Starred, Exam packs, Review today, Trash | Library tab sections | Sidebar | 3, 9 | v1 |
+| Recent, Favorites, Exam packs, Review today, Trash | Library tab sections | Sidebar | 3, 9 | v1 |
 | Search notes, lectures and terms | Search tab | Search field in top bar | 3 | v1 |
 | Import slides/PDFs from other apps | Share sheet from Mail, Files, Safari (share extension) | Drag files from Mac Finder into a folder | 3, 10 | Later (iPhone extension) |
 
@@ -301,7 +301,7 @@ Step 3.3: add moving with the approach from step 3.1: drop onto a folder tile (d
 **Step 3.4 — Menus**
 
 ```markdown
-Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web, long-press or the "…" button on iPhone): New folder, New document, New recording, Upload slides or PDF, Paste, Sort by name, Sort by date edited. On an item (right-click / long-press): Open, Rename, Move to…, Move out, Star, Summarize recording or Make exam pack (placeholder until Phase 7), Move to Trash. Menus close on Escape or outside click and work with the keyboard.
+Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web, long-press or the "…" button on iPhone): New folder, New document, New recording, Upload slides or PDF, Paste, Sort by name, Sort by date edited. On an item (right-click / long-press): Open, Rename, Move to…, Move out, Add to Favorites (already built in 2.2), Summarize recording or Make exam pack (placeholder until Phase 7), Move to Trash. Menus close on Escape or outside click and work with the keyboard.
 ```
 
 **Check:** every menu item works or clearly says "coming soon".
@@ -309,7 +309,7 @@ Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web
 **Step 3.5 — Trash, stars, recent, search**
 
 ```markdown
-Step 3.5: finish Trash (restore, delete forever, auto-empty after 30 days), Starred, Recent, and search across document titles, note text, transcripts and glossary terms, on both devices.
+Step 3.5: finish Trash (restore, delete forever, auto-empty after 30 days), Favorites, Recent, and search across document titles, note text, transcripts and glossary terms, on both devices.
 ```
 
 **Check:** search a word you said in a recorded lecture and find it. Merge the branch.

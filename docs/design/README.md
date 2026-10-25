@@ -24,3 +24,6 @@ Pictures of the design canvas. They show how the app should LOOK; `docs/DESIGN.m
 - Tab bar: Library · Search · Record (red center) · Review · Settings.
 
 Mockup data (Psicobiología, Tema 1, counts, usage numbers) is sample content, not real.
+
+## Wording that changed after the mockups
+- **Starred → Favorites** (Lea, Oct 2026): the mockups say "Starred" (iPhone chip, laptop sidebar) and "Long-press any item to rename, move or star it". The app says **Favorites**, the menus say **Add to Favorites / Remove from Favorites**, the toast says **Added to Favorites · Undo**, and the hint says "…rename, move or add it to Favorites". The database column stays `starred_at`.

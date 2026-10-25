@@ -52,7 +52,7 @@ try {
     const bar = await b.evaluate(`document.querySelector('[data-testid=top-bar]').innerText`);
     expect(bar.includes('Record lecture') && bar.includes('Search notes'), bar);
     const side = await b.evaluate(`document.querySelector('[data-testid=sidebar]').innerText`);
-    for (const t of ['New', 'Recent', 'Starred', 'Exam packs', 'Review today', 'Math', 'Science', 'Trash']) {
+    for (const t of ['New', 'Recent', 'Favorites', 'Exam packs', 'Review today', 'Math', 'Science', 'Trash']) {
       expect(side.includes(t), `sidebar has no ${t}`);
     }
     expect(!(await visible('[aria-label="Review"]')), 'the tab bar shows on the laptop');

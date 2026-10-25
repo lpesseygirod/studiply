@@ -43,7 +43,7 @@ node .claude/skills/web-check/scripts/layout.mjs
 
 ## Check the shell's real data
 
-`scripts/shell-data.mjs` (about two minutes): stars, an exam pack, a note and a due review are inserted with the service role, then it checks the sidebar counts and Review today badge, Recent / Starred / Exam packs, a note's top bar (Course › title, "Saved · time") and its course expanding in the sidebar, the crumb and folder links, Record lecture preselecting the course, Star / Unstar with Undo (checked in the database), and the iPhone chips and long-press menu at 390 px.
+`scripts/shell-data.mjs` (about two minutes): favorites (`starred_at`), an exam pack, a note and a due review are inserted with the service role, then it checks the sidebar counts and Review today badge, Recent / Favorites / Exam packs, a note's top bar (Course › title, "Saved · time") and its course expanding in the sidebar, the crumb and folder links, Record lecture preselecting the course, Add to / Remove from Favorites with Undo (checked in the database), also from the sidebar's right-click menus, and the iPhone chips and long-press menu at 390 px.
 ```bash
 node .claude/skills/web-check/scripts/shell-data.mjs
 ```

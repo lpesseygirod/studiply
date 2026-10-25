@@ -13,6 +13,7 @@ import { Sidebar } from '../../src/components/shell/Sidebar';
 import { TopBar } from '../../src/components/shell/TopBar';
 import { screenKindFor, useLayoutMode } from '../../src/hooks/useLayoutMode';
 import { useLayoutPrefs } from '../../src/lib/layoutPrefs';
+import { useUndoToast } from '../../src/hooks/useUndoToast';
 import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../../src/navigation/mainTabs';
 
 // The bar's own height, above the home indicator (React Navigation's default).
@@ -64,6 +65,8 @@ export default function MainLayout() {
   const wide = useLayoutMode() === 'wide';
   const kind = screenKindFor(pathname);
   const [prefs, setPrefs] = useLayoutPrefs();
+  // The sidebar's menus (Favorites) show their Undo over the whole window.
+  const { showUndo, toast } = useUndoToast();
   const isFullScreen = isFullScreenRoute(pathname);
 
   const showSidebar = wide && kind !== 'settings' && prefs.sidebarOpen;
@@ -83,7 +86,7 @@ export default function MainLayout() {
         )}
         {/* The recording strip goes here (Phase 5). */}
         <View style={styles.row}>
-          {showSidebar && <Sidebar kind={kind} />}
+          {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
           <View style={styles.center}>
             {wide && <GradientFill />}
             <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
@@ -120,6 +123,7 @@ export default function MainLayout() {
           {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
         </View>
         {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
+        {wide && toast}
       </View>
     </ShellProvider>
   );

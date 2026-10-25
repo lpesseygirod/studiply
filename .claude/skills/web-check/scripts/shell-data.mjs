@@ -1,8 +1,9 @@
 // shell-data.mjs — real data in the shell (step 2.2): sidebar counts, the
-// Review today badge, the Recent / Starred / Exam packs sections, the open
+// Review today badge, the Recent / Favorites / Exam packs sections, the open
 // course expanding, the top bar's breadcrumb, title and "Saved · time",
-// links to a folder, Record lecture preselecting the course, Star / Unstar
-// with Undo, and the iPhone chips. Stars, an exam pack, a note and a due
+// links to a folder, Record lecture preselecting the course, Add to / Remove
+// from Favorites with Undo (also from the sidebar's right-click menus), and
+// the iPhone chips. Favorites (starred_at), an exam pack, a note and a due
 // review are inserted with the service role (nothing in the app can make
 // exam packs or reviews yet). Screenshots: shell-*.png. Exit 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
@@ -39,12 +40,23 @@ const sidebarClick = (text) =>
     el.click();
     return true;
   })()`);
+/** A real right-click (through Chrome) on a sidebar item by its text. */
+const sidebarRightClick = async (text) => {
+  const p = await b.evaluate(`(() => {
+    const el = [...document.querySelectorAll('${SIDEBAR} *')].find((e) => e.childElementCount === 0 && e.innerText?.trim() === ${JSON.stringify(text)});
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  })()`);
+  if (!p) throw new Error(`no ${text} in the sidebar`);
+  await b.clickAt(p.x, p.y, { button: 'right' });
+};
 const starredAt = async (table, id) => (await admin.from(table).select('starred_at').eq('id', id).single()).data.starred_at;
 
 const user = await makeUser();
 const data = await seed(user.client);
 
-// Lecture 1 starred now, Science a minute ago (so Lecture 1 is first in Starred).
+// Lecture 1 a favorite now, Science a minute ago (so Lecture 1 is first in Favorites).
 const now = new Date();
 await admin.from('files').update({ starred_at: now.toISOString() }).eq('id', data.lecture.id);
 await admin.from('courses').update({ starred_at: new Date(now - 60_000).toISOString() }).eq('id', data.science.id);
@@ -77,12 +89,12 @@ try {
     await b.shot('shell-1280-library');
   });
 
-  await step('Starred lists Lecture 1 then Science', async () => {
-    expect(await sidebarClick('Starred'), 'no Starred in the sidebar');
+  await step('Favorites lists Lecture 1 then Science', async () => {
+    expect(await sidebarClick('Favorites'), 'no Favorites in the sidebar');
     await b.waitText('Lecture 1', { exact: true, ...MAIN });
     const list = await textOf('[data-testid=section-list]');
     expect(list.indexOf('Lecture 1') >= 0 && list.indexOf('Lecture 1') < list.indexOf('Science'), list);
-    expect((await search()).includes('section=starred'), await search());
+    expect((await search()).includes('section=favorites'), await search());
     await b.shot('shell-1280-starred');
   });
 
@@ -135,33 +147,54 @@ try {
     expect(header.includes('Math') && header.includes('New recording'), header);
   });
 
-  await step('Star a course from Library (right-click) → Starred; Undo clears it', async () => {
+  await step('Add a course to Favorites from Library (right-click); Undo removes it', async () => {
     await open('/library', 'COURSES');
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.click('Star', { exact: true });
-    await b.waitText('Starred "Math"', { timeout: 5000 });
+    await b.click('Add to Favorites', { exact: true });
+    await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
     expect((await starredAt('courses', data.course.id)) !== null, 'not starred in the database');
     await b.click('UNDO');
     await b.sleep(1500);
     expect((await starredAt('courses', data.course.id)) === null, 'Undo did not clear the star');
   });
 
-  await step('Star a folder from the course screen → it appears in Starred', async () => {
+  await step('Add a folder from the course screen → it appears in Favorites', async () => {
     await open(`/project/${data.course.id}`, 'Funcions');
     await b.click('Funcions', { button: 'right', ...MAIN });
-    await b.click('Star', { exact: true });
+    await b.click('Add to Favorites', { exact: true });
     await b.sleep(1200);
-    expect((await starredAt('folders', data.folder.id)) !== null, 'folder not starred');
-    await open('/library?section=starred', 'Funcions');
+    expect((await starredAt('folders', data.folder.id)) !== null, 'folder not in Favorites');
+    await open('/library?section=favorites', 'Funcions');
   });
 
-  await step('Starred menu says Unstar; unstarring Lecture 1 removes it', async () => {
+  await step('In Favorites the menu says Remove from Favorites; it removes Lecture 1', async () => {
     await b.click('Lecture 1', { button: 'right', ...MAIN });
-    await b.waitText('Unstar', { exact: true, timeout: 5000 });
-    await b.click('Unstar', { exact: true });
-    await b.sleep(1500);
-    expect((await starredAt('files', data.lecture.id)) === null, 'lecture still starred');
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 5000 });
+    await b.click('Remove from Favorites', { exact: true });
+    await b.waitText('Removed from Favorites', { exact: true, timeout: 5000 });
+    await b.sleep(800);
+    expect((await starredAt('files', data.lecture.id)) === null, 'lecture still a favorite');
     expect(!(await textOf('[data-testid=section-list]')).includes('Lecture 1'), 'Lecture 1 still listed');
+  });
+
+  await step('Sidebar (right-click): a course and a lecture in the open course go to Favorites', async () => {
+    await open(`/project/${data.course.id}`, 'Funcions');
+    await sidebarRightClick('Math');
+    await b.click('Add to Favorites', { exact: true });
+    await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
+    await b.sleep(800);
+    expect((await starredAt('courses', data.course.id)) !== null, 'course not in Favorites');
+    await b.waitText('Lecture 1', { exact: true });
+    await sidebarRightClick('Lecture 1');
+    await b.click('Add to Favorites', { exact: true });
+    await b.sleep(1500);
+    expect((await starredAt('files', data.lecture.id)) !== null, 'lecture not in Favorites');
+    await sidebarRightClick('Lecture 1');
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 5000 });
+    await b.shot('shell-1280-sidebar-menu');
+    await b.press('Escape');
+    // Back as before for the iPhone steps: Math not a favorite.
+    await admin.from('courses').update({ starred_at: null }).eq('id', data.course.id);
   });
 
   await step('iPhone (390 px): chips switch sections and back; Review today count', async () => {
@@ -171,20 +204,20 @@ try {
     await b.click('Exam packs', { exact: true });
     await b.waitText('Math exam pack', { exact: true });
     expect((await search()).includes('section=exam-packs'), await search());
-    await b.click('Starred', { exact: true });
+    await b.click('Favorites', { exact: true });
     await b.waitText('Funcions', { exact: true });
-    await b.shot('shell-390-starred');
-    await b.click('Starred', { exact: true });
+    await b.shot('shell-390-favorites');
+    await b.click('Favorites', { exact: true });
     await b.waitText('COURSES', { exact: true });
     expect(!(await search()).includes('section'), await search());
   });
 
-  await step('iPhone: a long press (mouse hold) on a course offers Star', async () => {
+  await step('iPhone: a long press (mouse hold) on a course offers Favorites', async () => {
     await b.click('Science', { holdMs: 800 });
-    await b.waitText('Unstar', { exact: true, timeout: 3000 });
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 3000 });
     await b.press('Escape');
     await b.click('Math', { holdMs: 800 });
-    await b.waitText('Star', { exact: true, timeout: 3000 });
+    await b.waitText('Add to Favorites', { exact: true, timeout: 3000 });
     await b.press('Escape');
     await b.shot('shell-390-library');
   });

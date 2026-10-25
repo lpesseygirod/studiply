@@ -13,24 +13,27 @@ import { getFolderBreadcrumbs } from '../../services/folder.service';
 import { getProjects, type ProjectWithCount } from '../../services/project.service';
 import { getCourseLevel, getReviewDueCount } from '../../services/shelf.service';
 import { openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
+import { starButton, type ShowUndo } from '../../utils/star';
+import { menuTriggerProps, showActionSheet, type Anchor } from '../dialogs/dialogs';
 import { NewProjectModal } from '../NewProjectModal';
 import { useShell } from './ShellContext';
 
 /**
  * The laptop's library sidebar (docs/design desktop-01/04): + New, the
- * sections (Recent, Starred, Exam packs open on Library; Review today with
+ * sections (Recent, Favorites, Exam packs open on Library; Review today with
  * its count), the courses with their item counts, the open course expanded
- * to its folders and files, Trash.
+ * to its folders and files, Trash. Right-click a course or an item for its
+ * menu (Open, Add to / Remove from Favorites).
  */
 
 export const SECTIONS = [
   { key: 'recent', label: 'Recent' },
-  { key: 'starred', label: 'Starred' },
+  { key: 'favorites', label: 'Favorites' },
   { key: 'exam-packs', label: 'Exam packs' },
 ] as const;
 
 
-export function Sidebar({ kind }: { kind: ScreenKind }) {
+export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUndo }) {
   const router = useRouter();
   const pathname = usePathname();
   const { section } = useGlobalSearchParams<{ section?: string }>();
@@ -107,9 +110,16 @@ export function Sidebar({ kind }: { kind: ScreenKind }) {
                   active={open && pathname === `/project/${course.id}` && !location?.folderId}
                   bold={open}
                   onPress={() => router.navigate(`/project/${course.id}`)}
+                  onMenu={anchor =>
+                    showActionSheet(course.name, [
+                      { text: 'Open', onPress: () => router.navigate(`/project/${course.id}`) },
+                      starButton({ type: 'course', id: course.id }, course.name, course.starred_at, showUndo),
+                    ], { anchor })
+                  }
                 />
                 {open && (
                   <CourseTree
+                    showUndo={showUndo}
                     courseId={course.id}
                     folderId={location?.folderId ?? null}
                     itemId={location?.itemId ?? null}
@@ -146,7 +156,17 @@ export function Sidebar({ kind }: { kind: ScreenKind }) {
  * The open course's contents: its top level, and the folders the student
  * opens (the chevron) or is in (expanded on the way down to it).
  */
-function CourseTree({ courseId, folderId, itemId }: { courseId: string; folderId: string | null; itemId: string | null }) {
+function CourseTree({
+  courseId,
+  folderId,
+  itemId,
+  showUndo,
+}: {
+  courseId: string;
+  folderId: string | null;
+  itemId: string | null;
+  showUndo: ShowUndo;
+}) {
   const router = useRouter();
   const [levels, setLevels] = useState<Record<string, ShelfItem[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -196,6 +216,13 @@ function CourseTree({ courseId, folderId, itemId }: { courseId: string; folderId
     if (willOpen) loadLevel(id);
   }
 
+  function showItemMenu(item: ShelfItem, anchor?: Anchor) {
+    showActionSheet(item.title, [
+      { text: 'Open', onPress: () => router.navigate(openTarget(item)) },
+      starButton({ type: item.type === 'folder' ? 'folder' : 'file', id: item.id }, item.title, item.starredAt, showUndo),
+    ], { anchor });
+  }
+
   function renderLevel(parent: string | null, depth: number): React.ReactNode {
     const items = levels[parent ?? ''];
     if (!items) return null;
@@ -215,6 +242,7 @@ function CourseTree({ courseId, folderId, itemId }: { courseId: string; folderId
             accessibilityRole="link"
             accessibilityState={{ selected: active }}
             testID={active ? 'sidebar-current' : undefined}
+            {...menuTriggerProps(anchor => showItemMenu(item, anchor))}
           >
             {isFolder ? (
               <Pressable
@@ -250,9 +278,12 @@ function Item({
   color,
   count,
   badge,
+  onMenu,
 }: {
   label: string;
   onPress: () => void;
+  /** Right-click (web) or long-press: the item's menu. */
+  onMenu?: (anchor?: Anchor) => void;
   active?: boolean;
   bold?: boolean;
   color?: string;
@@ -265,6 +296,7 @@ function Item({
       onPress={onPress}
       accessibilityRole="link"
       accessibilityState={{ selected: !!active }}
+      {...(onMenu && menuTriggerProps(onMenu))}
     >
       {color && <View style={[styles.square, { backgroundColor: color }]} />}
       <Text style={[styles.itemText, (active || bold) && styles.itemTextActive]} numberOfLines={1}>

@@ -58,7 +58,7 @@ const CARD_GAP = 10;
 // with ?section=). Review today opens the Review tab.
 const SECTIONS = [
   { key: 'recent', label: 'Recent', empty: 'Nothing here yet.' },
-  { key: 'starred', label: 'Starred', empty: 'Nothing starred yet. Long-press (or right-click) an item and choose Star.' },
+  { key: 'favorites', label: 'Favorites', empty: 'No favorites yet. Long-press (or right-click) an item and choose Add to Favorites.' },
   { key: 'exam-packs', label: 'Exam packs', empty: 'Exam packs you make from a course show up here.' },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]['key'];
@@ -68,7 +68,7 @@ function sectionFor(param: string | undefined) {
 }
 
 function loadSection(key: SectionKey): Promise<ShelfItem[]> {
-  if (key === 'starred') return getStarredItems();
+  if (key === 'favorites') return getStarredItems();
   if (key === 'exam-packs') return getExamPacks();
   return getRecentItems(50);
 }
@@ -413,7 +413,7 @@ export default function LibraryScreen() {
           </View>
         )}
 
-        {/* ── A section (Recent, Starred, Exam packs) ───────────── */}
+        {/* ── A section (Recent, Favorites, Exam packs) ─────────── */}
         {section && (
           <>
             {!wide && <Text style={styles.sectionLabel}>{section.label.toUpperCase()}</Text>}
@@ -444,7 +444,7 @@ export default function LibraryScreen() {
                       </Text>
                     </View>
                     {item.starredAt && (
-                      <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="Starred" />
+                      <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="In Favorites" />
                     )}
                     <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
                   </TouchableOpacity>
@@ -477,7 +477,7 @@ export default function LibraryScreen() {
                     <Text style={styles.courseName} numberOfLines={1}>
                       {project.name}
                     </Text>
-                    {project.starred_at && <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="Starred" />}
+                    {project.starred_at && <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="In Favorites" />}
                     <Text style={styles.courseCount}>{project.itemCount}</Text>
                     <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
                   </TouchableOpacity>
@@ -526,7 +526,7 @@ export default function LibraryScreen() {
         )}
 
         <Text style={styles.hint}>
-          {wide ? 'Right-click any item to rename, move or star it' : 'Long-press any item to rename, move or star it'}
+          {wide ? 'Right-click any item to rename, move or add it to Favorites' : 'Long-press any item to rename, move or add it to Favorites'}
         </Text>
       </ScrollView>
 

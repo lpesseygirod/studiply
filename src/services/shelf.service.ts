@@ -1,6 +1,6 @@
 /**
  * shelf.service.ts
- * The library sections (Recent, Starred, Exam packs), one level of a course
+ * The library sections (Recent, Favorites, Exam packs), one level of a course
  * for the sidebar tree, the Review today count, and starring.
  *
  * Reads go through the iPhone's cache like the other services, so the
@@ -95,10 +95,10 @@ export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
 }
 
 // -------------------------------------------------------------------
-// Starred
+// Favorites (the starred_at column)
 // -------------------------------------------------------------------
 
-/** Starred courses, folders and files, newest star first. */
+/** Favorite (starred) courses, folders and files, newest first. */
 export async function getStarredItems(): Promise<ShelfItem[]> {
   const rows = await readThrough(
     async () => {
@@ -213,7 +213,7 @@ export async function getReviewDueCount(now: Date = new Date()): Promise<number 
 }
 
 // -------------------------------------------------------------------
-// Star / Unstar (online only)
+// Add to / Remove from Favorites (online only)
 // -------------------------------------------------------------------
 
 export type StarTarget = { type: 'course' | 'folder' | 'file'; id: string };
@@ -222,13 +222,13 @@ const STAR_TABLE = { course: 'courses', folder: 'folders', file: 'files' } as co
 
 /**
  * Stars (a time) or unstars (null) a course, folder or file. Undo passes the
- * item's previous value back, so an older star keeps its place in Starred.
+ * item's previous value back, so an older favorite keeps its place in Favorites.
  */
 export async function setStarredAt(target: StarTarget, starredAt: string | null): Promise<void> {
   if (isOffline()) throw new NetworkError();
   const table = STAR_TABLE[target.type];
   const { data, error } = await supabase.from(table).update({ starred_at: starredAt }).eq('id', target.id).select('*');
-  if (error) throw serviceError(error, starredAt ? 'Could not star this item.' : 'Could not unstar this item.');
+  if (error) throw serviceError(error, starredAt ? 'Could not add this to Favorites.' : 'Could not remove this from Favorites.');
   remember(table, data ?? []);
   notifyLibraryUpdated();
 }

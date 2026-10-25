@@ -42,7 +42,7 @@ describe('sections', () => {
     expect(callsOn('files', 'limit')).toContainEqual([5]);
   });
 
-  it('Starred: courses, folders and files together, newest star first', async () => {
+  it('Favorites: courses, folders and files together, newest first', async () => {
     answer('courses', { data: [{ ...math, starred_at: T(2) }] }, { data: [math] });
     answer('folders', { data: [{ id: 'f', name: 'Funcions', course_id: 'math', parent_id: null, starred_at: T(4), updated_at: T(1) }] });
     answer('files', { data: [fileRow('l1', { starred_at: T(3) })] });
@@ -124,7 +124,7 @@ describe('setStarredAt', () => {
 
   it('a refused write is reported', async () => {
     answer('files', { error: { message: 'denied' } });
-    await expect(setStarredAt({ type: 'file', id: 'l1' }, T(5))).rejects.toThrow('Could not star this item.');
+    await expect(setStarredAt({ type: 'file', id: 'l1' }, T(5))).rejects.toThrow('Could not add this to Favorites.');
   });
 });
 
