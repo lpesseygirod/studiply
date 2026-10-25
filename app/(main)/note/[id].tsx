@@ -488,7 +488,7 @@ export default function NoteDetailScreen() {
         <Ionicons
           name={isEditing ? 'close' : 'chevron-back'}
           size={24}
-          color={c.text.primary}
+          color={c.text.onGradientStrong}
         />
         {!isEditing && (
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -498,11 +498,11 @@ export default function NoteDetailScreen() {
       </TouchableOpacity>
       <View style={styles.iconBtn}>
         {isEditing && (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <TouchableOpacity onPress={handleSave} disabled={isSaving} style={isSaving && { opacity: 0.4 }}>
             <Ionicons
               name="checkmark"
               size={24}
-              color={isSaving ? c.text.placeholder : c.success}
+              color={c.text.onGradientStrong}
             />
           </TouchableOpacity>
         )}
@@ -538,7 +538,7 @@ export default function NoteDetailScreen() {
         <ThemedStatusBar />
         {renderHeader()}
         <View style={styles.center}>
-          <Ionicons name="document-text-outline" size={44} color={c.text.placeholder} />
+          <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
           <Text style={styles.unprocessedTitle}>{session.title}</Text>
           <Text style={styles.unprocessedDate}>{formatDate(session.created_at)}</Text>
           <Text style={styles.unprocessedMsg}>This session hasn&apos;t been processed yet</Text>
@@ -1288,7 +1288,7 @@ const makeStyles = (c: ThemeColors) =>
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     flexShrink: 1,
   },
 
@@ -1308,13 +1308,13 @@ const makeStyles = (c: ThemeColors) =>
   unprocessedTitle: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     textAlign: 'center',
   },
-  unprocessedDate: { fontSize: Typography.size.sm, color: c.text.secondary },
+  unprocessedDate: { fontSize: Typography.size.sm, color: c.text.onGradient },
   unprocessedMsg: {
     fontSize: Typography.size.base,
-    color: c.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
   },
   processBtn: {

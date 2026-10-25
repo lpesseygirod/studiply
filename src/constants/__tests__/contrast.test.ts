@@ -10,12 +10,13 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
   return [
     ...stops.flatMap(([name, bg]) => [
       [`text.onGradient on gradient.${name}`, c.text.onGradient, bg, TEXT] as [string, string, string, number],
-      [`text.primary on gradient.${name}`, c.text.primary, bg, TEXT] as [string, string, string, number],
+      [`text.onGradientStrong on gradient.${name}`, c.text.onGradientStrong, bg, TEXT] as [string, string, string, number],
     ]),
     ...(['card', 'cardMuted', 'offWhite', 'salmonLight', 'accentLight'] as const).flatMap((bg) => [
       [`text.primary on ${bg}`, c.text.primary, c[bg], TEXT] as [string, string, string, number],
       [`text.secondary on ${bg}`, c.text.secondary, c[bg], TEXT] as [string, string, string, number],
     ]),
+    ['text.primary on salmon (pills)', c.text.primary, c.salmon, TEXT],
     ['accentDark on card', c.accentDark, c.card, TEXT],
     ['accentDark on accentLight', c.accentDark, c.accentLight, TEXT],
     ['accentOn on accentDark', c.accentOn, c.accentDark, TEXT],
@@ -35,8 +36,10 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['fromNotes.text on its bg', c.fromNotes.text, c.fromNotes.bg, TEXT],
     ['text.primary on highlight', c.text.primary, c.highlight, TEXT],
     ['accent (active tab icon) on card', c.accent, c.card, ICON],
-    ['recording (Record button) on card', c.recording, c.card, ICON],
+    ['recording (Record button) on its ring', c.recording, c.recordRing, ICON],
     ['favorite star on card', c.favorite, c.card, ICON],
+    ...stops.map(([name, bg]) => [`button.onGradient on gradient.${name}`, c.button.onGradient, bg, ICON] as [string, string, string, number]),
+    ['button.onGradientText on button.onGradient', c.button.onGradientText, c.button.onGradient, TEXT],
   ];
 }
 

@@ -338,7 +338,7 @@ export default function LibraryScreen() {
               accessibilityRole="button"
               accessibilityLabel="New course"
             >
-              <Ionicons name="add" size={22} color={c.button.primaryText} />
+              <Ionicons name="add" size={22} color={c.button.onGradientText} />
             </TouchableOpacity>
             {!wide && (
               <TouchableOpacity
@@ -587,7 +587,7 @@ const makeStyles = (c: ThemeColors) =>
   title: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
   },
   titleWide: {
     fontSize: Typography.size['2xl'],
@@ -600,7 +600,7 @@ const makeStyles = (c: ThemeColors) =>
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: c.button.primary,
+    backgroundColor: c.button.onGradient,
     alignItems: 'center',
     justifyContent: 'center',
   },

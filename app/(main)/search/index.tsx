@@ -207,7 +207,7 @@ const makeStyles = (c: ThemeColors) =>
   appTitle: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     marginBottom: 14,
   },
 
@@ -230,7 +230,7 @@ const makeStyles = (c: ThemeColors) =>
   cancelButton: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
   },
   searchIcon: {
     flexShrink: 0,
@@ -247,9 +247,13 @@ const makeStyles = (c: ThemeColors) =>
   },
 
   // Results list
+  // Results sit on a card (readable on the gradient in both appearances)
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    marginHorizontal: 18,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    backgroundColor: c.card,
+    borderRadius: 18,
   },
   resultRow: {
     flexDirection: 'row',
@@ -296,6 +300,6 @@ const makeStyles = (c: ThemeColors) =>
   },
   promptText: {
     fontSize: Typography.size.base,
-    color: c.text.secondary,
+    color: c.text.onGradient,
   },
 });

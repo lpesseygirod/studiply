@@ -161,7 +161,7 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: Layout.recordButtonSize / 2,
     marginTop: -Layout.recordButtonSize / 2 + 4,
     padding: RING,
-    backgroundColor: c.white,
+    backgroundColor: c.recordRing,
     shadowColor: c.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 8,

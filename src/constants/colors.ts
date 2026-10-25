@@ -1,6 +1,7 @@
 // Studiply color palettes (docs/design README; dark mode from step 2.3).
 // Gradient: lavender → dusty rose → warm amber (sunrise/sunset feel); in
-// dark mode deep indigo → dark plum → dark warm brown.
+// dark mode the same gradient dimmed by about a fifth (Lea: "just dimmed,
+// not a night look"), with dark text on it and dark-grey cards.
 //
 // Screens read the palette of the current appearance with
 // useTheme() / useThemedStyles() (src/theme). `Colors` is the light palette,
@@ -45,6 +46,8 @@ const light = {
     inverse: '#FFFFFF',
     /** Secondary text placed straight on the gradient (readable on every stop). */
     onGradient: '#3A3A48',
+    /** Titles and icons placed straight on the gradient. */
+    onGradientStrong: '#0A0A0A',
   },
 
   // Input / surfaces
@@ -57,6 +60,9 @@ const light = {
   button: {
     primary: '#1A1A2E',
     primaryText: '#FFFFFF',
+    /** A round button placed straight on the gradient (Library's +). */
+    onGradient: '#1A1A2E',
+    onGradientText: '#FFFFFF',
     disabled: '#C0BDD0',
     disabledText: '#8A88A0', // disabled controls are exempt from the contrast rule
   },
@@ -74,6 +80,8 @@ const light = {
   // Recording: the red Record button and recording strip (white text on it)
   recording: '#CC3333',
   onRecording: '#FFFFFF',
+  /** The ring around the raised Record button. */
+  recordRing: '#FFFFFF',
 
   // Status
   error: '#C23B3B',
@@ -118,45 +126,50 @@ export type ThemeColors = Widen<typeof light>;
 export const LightColors: ThemeColors = light;
 
 export const DarkColors: ThemeColors = {
+  // The light gradient dimmed (~20–25 % darker)
   gradient: {
-    top: '#1C1A33',       // deep indigo
-    topMid: '#2A1E3A',
-    mid: '#35202F',       // dark plum
-    bottomMid: '#3A2626',
-    bottom: '#3A2B20',    // dark warm brown
-    bottomEnd: '#2E2218',
+    top: '#8F8BC4',
+    topMid: '#9F86B0',
+    mid: '#AA7F7F',
+    bottomMid: '#BB8D7E',
+    bottom: '#C3A06F',
+    bottomEnd: '#BC8740',
   },
   gradientSubtle: {
-    top: '#1E1C30',
-    bottom: '#2A2018',
+    top: '#BAB6CF',
+    bottom: '#C9BBA6',
   },
 
+  // `white` is the card, `black` the strongest ink (light on dark fills)
   black: '#F2F1F6',
-  white: '#1F1E26',
-  offWhite: '#25242C',
+  white: '#262533',
+  offWhite: '#2C2B3A',
 
-  card: '#1F1E26',
-  cardMuted: '#2A2933',
-  border: '#3A3946',
+  card: '#262533',
+  cardMuted: '#302F3E',
+  border: '#454457',
   overlay: 'rgba(0, 0, 0, 0.55)',
 
   text: {
-    primary: '#F2F1F6',
-    secondary: '#BDBBCB',
+    primary: '#F2F1F6',   // on cards
+    secondary: '#BDBBCB', // on cards
     placeholder: '#8F8DA3',
     inverse: '#1A1A2E',
-    onGradient: '#E8E4F2',
+    onGradient: '#14141F',       // dark text straight on the dimmed gradient
+    onGradientStrong: '#14141F',
   },
 
-  inputBackground: '#2A2933',
+  inputBackground: '#302F3E',
   inputText: '#F2F1F6',
-  surface: '#1F1E26',
-  surfaceMuted: '#2A2933',
+  surface: '#262533',
+  surfaceMuted: '#302F3E',
 
   button: {
     primary: '#EAE8F7',
     primaryText: '#1A1A2E',
-    disabled: '#3A3946',
+    onGradient: '#1A1A2E',
+    onGradientText: '#FFFFFF',
+    disabled: '#454457',
     disabledText: '#A9A7BA',
   },
 
@@ -170,6 +183,7 @@ export const DarkColors: ThemeColors = {
 
   recording: '#CC3333',
   onRecording: '#FFFFFF',
+  recordRing: '#F2F1F6',
 
   error: '#F08A8A',
   errorLight: '#3A1F22',

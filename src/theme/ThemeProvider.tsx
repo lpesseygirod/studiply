@@ -70,8 +70,10 @@ export function useThemedStyles<T extends StyleSheet.NamedStyles<T>>(factory: (c
   return themedStyles(factory, useTheme().scheme);
 }
 
-/** Light status bar text on dark screens, dark on light ones. */
+/**
+ * The status bar over the gradient: dark text in both appearances (the
+ * dark gradient is the light one dimmed, with dark text on it).
+ */
 export function ThemedStatusBar() {
-  const { scheme } = useTheme();
-  return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
+  return <StatusBar style="dark" />;
 }

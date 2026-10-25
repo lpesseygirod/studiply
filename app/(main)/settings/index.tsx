@@ -273,7 +273,7 @@ const makeStyles = (c: ThemeColors) =>
   screenTitle: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     marginBottom: 20,
   },
 
@@ -387,7 +387,7 @@ const makeStyles = (c: ThemeColors) =>
   // Version
   versionText: {
     fontSize: Typography.size.xs,
-    color: c.text.placeholder,
+    color: c.text.onGradient,
     textAlign: 'center',
     marginTop: 4,
   },

@@ -723,7 +723,7 @@ export default function ProjectDetailScreen() {
           onPress={navigateUp}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="chevron-back" size={24} color={c.text.primary} />
+          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
@@ -747,7 +747,7 @@ export default function ProjectDetailScreen() {
                 <Ionicons
                   name="chevron-forward"
                   size={12}
-                  color={c.text.secondary}
+                  color={c.text.onGradient}
                   style={styles.breadcrumbChevron}
                 />
               )}
@@ -975,7 +975,7 @@ export default function ProjectDetailScreen() {
           {/* ── Empty state ───────────────────────────────────── */}
           {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && libraryFiles.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={44} color={c.text.placeholder} />
+              <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
               <Text style={styles.emptyTitle}>
                 {isRoot ? 'No sessions yet' : 'Empty folder'}
               </Text>
@@ -1186,7 +1186,7 @@ const makeStyles = (c: ThemeColors) =>
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold as '700',
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     flexShrink: 1,
   },
 
@@ -1203,10 +1203,10 @@ const makeStyles = (c: ThemeColors) =>
   },
   crumbText: {
     fontSize: Typography.size.xs,
-    color: c.text.secondary,
+    color: c.text.onGradient,
   },
   crumbTextActive: {
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     fontWeight: Typography.weight.medium as '500',
   },
   breadcrumbChevron: {
@@ -1222,7 +1222,7 @@ const makeStyles = (c: ThemeColors) =>
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold as '700',
-    color: c.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 12,
   },
@@ -1320,11 +1320,11 @@ const makeStyles = (c: ThemeColors) =>
   emptyTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold as '700',
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
   },
   emptyBody: {
     fontSize: Typography.size.base,
-    color: c.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
     lineHeight: Typography.size.base * Typography.leading.relaxed,
     maxWidth: 280,
@@ -1455,7 +1455,7 @@ const makeStyles = (c: ThemeColors) =>
   },
   uploadButtonLabel: {
     fontSize: Typography.size.xs,
-    color: c.text.secondary,
+    color: c.text.onGradient,
     fontWeight: Typography.weight.medium as '500',
     textAlign: 'center',
   },

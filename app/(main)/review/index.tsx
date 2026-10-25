@@ -42,7 +42,7 @@ const makeStyles = (c: ThemeColors) =>
   title: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: c.text.primary,
+    color: c.text.onGradientStrong,
     marginBottom: 16,
   },
   card: {
