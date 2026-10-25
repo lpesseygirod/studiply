@@ -24,8 +24,8 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts) — built on `phase-2-shell`; Lea's iPhone/Chrome test and the merge into main are pending (decision below)
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
-- [ ] 3.1 — Spike: drag and drop (web + iPhone) — spike built on `phase-3-library`; waiting for Lea to try both options and choose (notes below)
-- [ ] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
+- [x] 3.1 — Spike: drag and drop (web + iPhone) — Lea chose Option B (the browser's drag) on the laptop and Option A (gesture) on the iPhone; the iPhone drag is smooth, the haptic works
+- [x] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
 - [ ] 3.3 — Moving files (drop targets, cycle protection, undo, tests)
 - **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
 - [ ] 3.4 — Menus (empty-space + item context menus)
@@ -305,6 +305,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     - **The alternative:** A everywhere is one code path, but no Finder files and its own auto-scroll.
   - **Cleanup:** the spike screen and its DEVELOPMENT link are removed in 3.3; `src/lib/dnd` stays for the chosen option.
   - **New dependency:** `expo-haptics` (Lea's OK).
+
+- **Library grid (step 3.2).** The course screen is now the Finder-style view: header with breadcrumb, Sort and (iPhone) grid/list; a toolbar; tiles with meta; select / double-click / Enter on the laptop, tap on the iPhone; folders created and renamed in place (Lea: clicking elsewhere saves, Esc cancels). Components in `src/components/library/`, data from `getCourseContents` (`shelf.service.ts`), helpers in `src/utils/libraryGrid.ts`, preferences in `src/lib/libraryPrefs.ts`, one name rule in `src/utils/names.ts`.
+  - The old Project Files list stays as "Photos & PDFs from lectures", collapsible (Lea), and opens after an upload: toolbar uploads still go to the course's hidden "Project Files" lecture until 3.4 adds "Upload slides or PDF" as a library file.
+  - Removed: the separate FOLDERS / FILES / SESSIONS sections, the floating New Folder / New Recording buttons and the New Folder sheet; the "Notes ✓" badge (the tile shows the lecture's state instead).
+  - Waits for 3.3: moving by drag (with the 3.1 choice), the dashed highlight on real folders, Undo and ⌘Z; the spike screen is removed then. Waits for 3.4: the empty-space menu, New document, Upload as a library file.
+  - Checks: `.claude/skills/web-check/scripts/library-grid.mjs` (10 steps, results checked in the database).
 
 ## Things Lea must do
 

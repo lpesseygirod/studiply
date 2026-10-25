@@ -121,7 +121,7 @@ try {
   });
 
   await step('Post-session: Library button leaves to the library', async () => {
-    await b.click('Lecture 1', { ...MAIN });
+    await b.doubleClick('Lecture 1', { ...MAIN }); // on the web a click selects, a double-click opens (step 3.2)
     await b.waitText('Post-Session');
     await b.shot('16-post-session');
     await b.click('Library', { exact: true });

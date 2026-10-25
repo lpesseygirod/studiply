@@ -96,6 +96,13 @@ Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, 
 - Answers use the live transcript (time-windowed: "last 10 min" = now−10 min → now), cite timestamps, stream in, and are saved as Q&A into the lecture.
 
 ## Library (Finder / Drive)
+- **Built in step 3.2 (inside a course):**
+  - **Header:** "My library › Course › Folder · N items" (every part clickable; "My library" goes to Library); **Sort** Kind / Name / Date edited (folders always first, natural name order); on the iPhone a **grid/list** toggle. Sort and view are remembered per device.
+  - **Toolbar:** New folder · Upload (photos or PDF) · Take photo (iPhone) · Record (here).
+  - **Tiles:** a folder shows "7 items" (or "Empty"); a lecture shows a red mic with its state until processed, then a notes icon and its length ("1 h 32 min"); PDFs, images and documents show "Edited today / yesterday / 3 days ago / 23 Oct"; images show their thumbnail.
+  - **Opening:** iPhone: tap opens, long-press = the menu. Laptop: a click selects, a double-click or Enter opens, Esc clears the selection, right-click = the menu.
+  - **New folder** appears as "Untitled folder" with its name selected; Enter or clicking/tapping elsewhere saves, Esc cancels (nothing created). **Rename** on a folder edits the name in place the same way. Names: spaces trimmed, not empty, at most 200 characters (the same rule as lecture titles).
+  - **Photos & PDFs from lectures** (and files uploaded from the toolbar, which go to the course's lectures until 3.4 makes them library files): a collapsible list under the grid.
 - Breadcrumb `My library › Course`; Sort (Kind, Name, Date edited); grid of tiles (folder, document, recording, PDF icons) with name + meta.
 - **Drag & drop:** drag any item onto a folder tile (dashed purple highlight) to move it in; onto "My library" in the breadcrumb to move it up; onto a course in the sidebar; onto Trash. Folders cannot be dropped into themselves or their children.
 - **Click or right-click empty space** → menu: New folder (⌥⇧N), New document (⌥N), New recording (⌥R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.

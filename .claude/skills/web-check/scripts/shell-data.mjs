@@ -236,7 +236,10 @@ try {
   });
 
   await step('Project Files: a lecture photo goes to Favorites as "Photo 2 · Lecture 1" and opens the lecture', async () => {
-    await open(`/project/${data.course.id}`, 'Photo 2');
+    await open(`/project/${data.course.id}`, 'PHOTOS & PDFS FROM LECTURES');
+    // The lecture photos are folded away under the grid (step 3.2)
+    if (!(await b.hasText('Photo 2', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false, ...MAIN });
+    await b.waitText('Photo 2', { exact: true, ...MAIN });
     await b.click('Photo 2', { button: 'right', ...MAIN });
     await b.click('Add to Favorites', { exact: true });
     await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });

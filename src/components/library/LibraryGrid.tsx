@@ -68,8 +68,9 @@ export function LibraryGrid({
         }
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Capture phase: the focused tile (a button) handles Enter itself and stops it.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [web]);
 
   const newTile: ShelfItem | null =
@@ -227,7 +228,7 @@ function Entry({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
-      testID={`entry-${item.id}`}
+      testID={selected ? `entry-selected-${item.id}` : `entry-${item.id}`}
     >
       <View style={styles.tileIcon}>
         {thumbnail ? (

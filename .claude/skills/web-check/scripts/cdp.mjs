@@ -196,6 +196,17 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       }
       await sleep(400);
     },
+    /** A real double-click by visible text (the browser fires dblclick). */
+    async doubleClick(text, { exact = true, nth = 0, exclude = null } = {}) {
+      const p = await locate(text, { exact, nth, exclude });
+      if (!p) throw new Error(`no element with text: ${text}`);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
+      for (const clickCount of [1, 2]) {
+        await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p.x, y: p.y, button: 'left', buttons: 1, clickCount });
+        await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: p.x, y: p.y, button: 'left', buttons: 0, clickCount });
+      }
+      await sleep(500);
+    },
     async clickSelector(selector) {
       const p = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
       if (!p) throw new Error(`no element: ${selector}`);
