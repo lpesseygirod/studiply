@@ -22,6 +22,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [ ] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive)
 - [ ] 2.2 — Real data in the shell (top bar, sidebar sections, Record button)
 - [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
+- **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [ ] 3.1 — Spike: drag and drop (web + iPhone)
