@@ -71,9 +71,12 @@ export interface SyncHandler<P = unknown> {
   merge?: (earlier: P, later: P) => P;
 }
 
-/** A failure retrying can't fix. */
+/** A failure retrying can't fix. `detail` is the server's own error, for the logs. */
 export class PermanentSyncError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly detail?: string,
+  ) {
     super(message);
     this.name = 'PermanentSyncError';
   }
@@ -84,10 +87,22 @@ export class SyncHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly detail?: string,
   ) {
     super(message);
     this.name = 'SyncHttpError';
   }
+}
+
+/** The message plus the status and server error, as kept in lastError and logged. */
+export function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const { status, detail } = err as { status?: unknown; detail?: unknown };
+  const parts = [
+    typeof status === 'number' ? `HTTP ${status}` : null,
+    typeof detail === 'string' && detail ? detail : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? `${err.message} (${parts.join(' · ')})` : err.message;
 }
 
 /** A handler for some payload type; the queue only passes payloads through. */
@@ -115,6 +130,11 @@ export interface QueueDeps {
   clearTimer?: (timer: unknown) => void;
   /** Development log of what the queue does. */
   log?: (message: string) => void;
+  /**
+   * Runs a flush so that no other queue on the same store flushes at the
+   * same time (development reloads can leave a second instance behind).
+   */
+  exclusive?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 /** Errors that never reached a server, or say nothing about the change itself. */
@@ -147,6 +167,7 @@ export function createSyncQueue(deps: QueueDeps) {
   const clearTimer = deps.clearTimer ?? ((t) => clearTimeout(t as ReturnType<typeof setTimeout>));
   const listeners = new Set<(e: SyncEvent) => void>();
   const log = deps.log ?? (() => {});
+  const exclusive = deps.exclusive ?? (<T,>(fn: () => Promise<T>) => fn());
 
   let running: Promise<void> | null = null;
   let again = false;
@@ -234,7 +255,7 @@ export function createSyncQueue(deps: QueueDeps) {
         await runWithTimeout(handler, op);
       } catch (err) {
         inFlight = null;
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeError(err);
         let kind = classify(err);
         log(`${op.kind} ${op.key}: ${kind} (${message})`);
 
@@ -318,7 +339,7 @@ export function createSyncQueue(deps: QueueDeps) {
       try {
         do {
           again = false;
-          await drain();
+          await exclusive(drain);
         } while (again);
       } finally {
         // Cleared in the same step as the last `again` check, so a call

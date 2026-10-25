@@ -24,7 +24,31 @@ export type { SyncEvent, SyncOp } from './queue';
 
 export const syncEnabled = true;
 
-const handlers: Record<string, AnyHandler> = {};
+/**
+ * Kept on globalThis, so that when development reloads (Fast Refresh) run
+ * this file again, the new queue shares the handlers registered by services
+ * that weren't reloaded, and its flushes never overlap an old instance's;
+ * the old instance's listeners are removed. Lea's test 3 sent the same
+ * lecture three times in parallel because of three such instances.
+ */
+interface Shared {
+  handlers: Record<string, AnyHandler>;
+  chain: Promise<unknown>;
+  dispose?: () => void;
+}
+const shared: Shared = ((globalThis as { __studiplySync?: Shared }).__studiplySync ??= {
+  handlers: {},
+  chain: Promise.resolve(),
+});
+shared.dispose?.();
+
+const handlers = shared.handlers;
+
+function exclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = shared.chain.then(fn);
+  shared.chain = run.catch(() => {});
+  return run;
+}
 
 export function registerSyncHandler<P>(kind: string, handler: SyncHandler<P>): void {
   handlers[kind] = handler;
@@ -39,6 +63,7 @@ const queue = createSyncQueue({
   newId,
   // In the Metro terminal while testing.
   log: __DEV__ ? (message) => console.log(`[sync] ${message}`) : undefined,
+  exclusive,
 });
 
 export const enqueue = queue.enqueue;
@@ -64,11 +89,16 @@ const flushSoon = () => {
   });
 };
 
-onSessionLive(flushSoon);
-onBackOnline(flushSoon);
-AppState.addEventListener('change', (state) => {
+const offSessionLive = onSessionLive(flushSoon);
+const offBackOnline = onBackOnline(flushSoon);
+const appState = AppState.addEventListener('change', (state) => {
   if (state === 'active') flushSoon();
 });
+shared.dispose = () => {
+  offSessionLive();
+  offBackOnline();
+  appState.remove();
+};
 
 /** Waiting and failed changes, kept up to date. */
 export function useSyncCounts(): { pending: number; failed: number } {

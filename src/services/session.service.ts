@@ -32,6 +32,7 @@ import {
   PermanentSyncError,
   registerSyncHandler,
   syncEnabled,
+  SyncHttpError,
 } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
 import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
@@ -259,29 +260,69 @@ async function refreshSynced(id: string): Promise<void> {
   remember('files', [file]);
 }
 
+/**
+ * Creates the lecture's rows on the server; a row that already exists is
+ * left as it is (ignoreDuplicates), so this is safe to run twice, or in
+ * parallel. Never deletes anything: a lecture made on the iPhone must not
+ * be lost because one write was refused.
+ */
+async function createLectureRows(
+  file: Pick<FileRow, 'id' | 'kind' | 'title' | 'course_id' | 'folder_id'>,
+  lecture: Pick<LectureRow, 'id' | 'language' | 'status' | 'recorded_at'> & Partial<Pick<LectureRow, 'duration_ms'>>,
+): Promise<void> {
+  const { error } = await supabase
+    .from('files')
+    .upsert(
+      { id: file.id, kind: file.kind, title: file.title, course_id: file.course_id, folder_id: file.folder_id },
+      { onConflict: 'id', ignoreDuplicates: true },
+    );
+  if (error) throw syncError(error, 'Could not create the lecture.');
+
+  const { error: lectureError } = await supabase.from('lectures').upsert(
+    {
+      id: lecture.id,
+      language: lecture.language,
+      status: lecture.status,
+      recorded_at: lecture.recorded_at,
+      ...(lecture.duration_ms != null && { duration_ms: lecture.duration_ms }),
+    },
+    { onConflict: 'id', ignoreDuplicates: true },
+  );
+  if (!lectureError) return;
+  // Another run created it at the same moment: that's fine.
+  if (await lectureExists(lecture.id)) return;
+  throw syncError(lectureError, 'Could not create the lecture.');
+}
+
+async function lectureExists(id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('lectures').select('id').eq('id', id).maybeSingle();
+  if (error) throw syncError(error, 'Could not check the lecture.');
+  return data !== null;
+}
+
+/**
+ * Before anything is sent for a lecture (a change, a recording chunk, a
+ * photo): makes sure the server has it, creating it from this iPhone's copy
+ * when it doesn't (started offline and not created yet, or lost). This keeps
+ * the order "lecture first" even if its own create step went missing.
+ */
+export async function ensureLectureOnServer(id: string): Promise<void> {
+  if (await lectureExists(id)) return;
+  const [file, lecture] = await Promise.all([readRow<FileRow>('files', id), readRow<LectureRow>('lectures', id)]);
+  if (!file || !lecture) {
+    throw new PermanentSyncError('This lecture is no longer on this iPhone or on Studiply.', `lecture ${id} missing`);
+  }
+  await createLectureRows(file, lecture);
+}
+
 registerSyncHandler<CreateLecturePayload>('create_lecture', {
   run: async ({ file, lecture }) => {
-    // ignoreDuplicates: a resent operation leaves the existing rows alone.
-    const { error } = await supabase
-      .from('files')
-      .upsert(
-        { id: file.id, kind: file.kind, title: file.title, course_id: file.course_id, folder_id: file.folder_id },
-        { onConflict: 'id', ignoreDuplicates: true },
-      );
-    if (error) throw syncError(error, 'Could not create the lecture.');
-
-    const { error: lectureError } = await supabase
-      .from('lectures')
-      .upsert(
-        { id: lecture.id, language: lecture.language, status: lecture.status, recorded_at: lecture.recorded_at },
-        { onConflict: 'id', ignoreDuplicates: true },
-      );
-    if (lectureError) {
-      const failure = syncError(lectureError, 'Could not create the lecture.');
-      // Today's rule: no half-made lecture in the library.
-      if (failure instanceof PermanentSyncError) await supabase.from('files').delete().eq('id', file.id);
-      throw failure;
-    }
+    // The iPhone's latest copy if there is one (title or status may have changed since).
+    const [localFile, localLecture] = await Promise.all([
+      readRow<FileRow>('files', file.id),
+      readRow<LectureRow>('lectures', lecture.id),
+    ]);
+    await createLectureRows(localFile ?? file, localLecture ?? lecture);
     await refreshSynced(file.id);
     notifyLibraryUpdated();
   },
@@ -289,13 +330,16 @@ registerSyncHandler<CreateLecturePayload>('create_lecture', {
 
 registerSyncHandler<UpdateLecturePayload>('update_lecture', {
   run: async ({ id, file, lecture }) => {
+    await ensureLectureOnServer(id);
     if (Object.keys(file).length > 0) {
-      const { error } = await supabase.from('files').update(file).eq('id', id);
+      const { data, error } = await supabase.from('files').update(file).eq('id', id).select('id');
       if (error) throw syncError(error, 'Could not save the lecture.');
+      if (data.length === 0) throw new SyncHttpError('Could not save the lecture.', 503, `file ${id}: no row updated`);
     }
     if (Object.keys(lecture).length > 0) {
-      const { error } = await supabase.from('lectures').update(lecture).eq('id', id);
+      const { data, error } = await supabase.from('lectures').update(lecture).eq('id', id).select('id');
       if (error) throw syncError(error, 'Could not save the lecture.');
+      if (data.length === 0) throw new SyncHttpError('Could not save the lecture.', 503, `lecture ${id}: no row updated`);
     }
     await refreshSynced(id);
     notifyLibraryUpdated();

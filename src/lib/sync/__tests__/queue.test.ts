@@ -3,6 +3,7 @@ import { createMemoryStore } from '../memoryStore';
 import {
   classify,
   createSyncQueue,
+  describeError,
   PermanentSyncError,
   SyncHttpError,
   type SyncEvent,
@@ -366,7 +367,7 @@ describe('sync queue', () => {
 
       // The time limit passes: counted as a lost connection, the flush ends.
       await advance(2 * 60_000);
-      expect(store.ops[0].lastError).toBe('No answer in time.');
+      expect(store.ops[0].lastError).toBe('No answer in time. (HTTP 408)');
       expect(store.ops[0].status).toBe('pending');
 
       await q.enqueue({ kind: 'plain', key: 'b', payload: { value: '2' } });
@@ -397,6 +398,57 @@ describe('sync queue', () => {
       expect(op).toMatchObject({ kind: 'plain', key: 'a', attempts: 1, status: 'pending' });
       expect(op.lastError).toMatch(/offline/i);
     });
+  });
+
+  it("two queues on the same store (a development reload) never send an operation twice", async () => {
+    const store = createMemoryStore();
+    const sent: string[] = [];
+    let chain: Promise<unknown> = Promise.resolve();
+    const exclusive = <T,>(fn: () => Promise<T>) => {
+      const run = chain.then(fn);
+      chain = run.catch(() => {});
+      return run;
+    };
+    const slow: SyncHandler<{ value: string }> = {
+      run: async (p) => {
+        await new Promise((r) => setTimeout(r, 5));
+        sent.push(p.value);
+      },
+    };
+    const make = () =>
+      createSyncQueue({
+        store,
+        handlers: { slow },
+        userId: () => 'u1',
+        canSync: () => true,
+        refresh: async () => true,
+        newId: (() => {
+          let n = 0;
+          return () => `op-${Math.random()}-${n++}`;
+        })(),
+        exclusive,
+      });
+    const a = make();
+    const b = make();
+    const c = make();
+    await store.add({ id: 'create', userId: 'u1', kind: 'slow', key: 'l1', payload: { value: 'create' }, createdAt: '', attempts: 0, nextAttemptAt: null, status: 'pending', lastError: null });
+    await store.add({ id: 'chunk', userId: 'u1', kind: 'slow', key: 'l1', payload: { value: 'chunk' }, createdAt: '', attempts: 0, nextAttemptAt: null, status: 'pending', lastError: null });
+
+    // "Back online" reaches all three at once.
+    await Promise.all([a.flush({ now: true }), b.flush({ now: true }), c.flush({ now: true })]);
+    expect(sent).toEqual(['create', 'chunk']);
+  });
+
+  it('keeps the HTTP status and the server error in lastError', async () => {
+    const { state, make, store } = rig();
+    const q = make();
+    state.failNext = [new PermanentSyncError('Could not save the recording.', '23503 insert or update on table "audio_chunks" violates foreign key constraint')];
+    await q.enqueue({ kind: 'plain', key: 'a', payload: { value: '1' } });
+    await settle();
+    expect(store.ops[0].lastError).toBe(
+      'Could not save the recording. (23503 insert or update on table "audio_chunks" violates foreign key constraint)',
+    );
+    expect(describeError(new SyncHttpError('Could not upload.', 413))).toBe('Could not upload. (HTTP 413)');
   });
 });
 

@@ -139,11 +139,18 @@ export function useLibraryUpdates(reload: () => void): void {
   useEffect(() => onLibraryUpdated(() => ref.current()), []);
 }
 
+// Removed again when a development reload runs this file a second time.
+const g = globalThis as { __studiplyPullDispose?: () => void };
+g.__studiplyPullDispose?.();
 if (cacheEnabled) {
-  onBackOnline(() => {
+  const offBackOnline = onBackOnline(() => {
     requestPull(true);
   });
-  AppState.addEventListener('change', (state) => {
+  const appState = AppState.addEventListener('change', (state) => {
     if (state === 'active') requestPull();
   });
+  g.__studiplyPullDispose = () => {
+    offBackOnline();
+    appState.remove();
+  };
 }

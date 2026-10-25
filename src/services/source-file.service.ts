@@ -28,7 +28,7 @@ import {
   syncEnabled,
 } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
-import { updateSession } from './session.service';
+import { ensureLectureOnServer, updateSession } from './session.service';
 import { toJpeg } from '../utils/toJpeg';
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
@@ -619,6 +619,9 @@ const UPLOAD_TIMEOUT_MS = 10 * 60_000;
 registerSyncHandler<UploadChunkPayload>('upload_chunk', {
   timeoutMs: UPLOAD_TIMEOUT_MS,
   run: async (p, ctx) => {
+    // The chunk's row needs its lecture (foreign key): create it first if needed.
+    await ensureLectureOnServer(p.lectureId);
+
     if (!(await pendingFileExists(p.uri))) {
       // Uploaded just before the app was closed (the file is deleted after).
       const { data, error } = await supabase
@@ -630,18 +633,31 @@ registerSyncHandler<UploadChunkPayload>('upload_chunk', {
         .maybeSingle();
       if (error) throw syncError(error, 'Could not save the recording.');
       if (data) return;
-      throw new PermanentSyncError('This part of the recording is no longer on this iPhone.');
+      throw new PermanentSyncError('This part of the recording is no longer on this iPhone.', p.uri);
     }
-    await createSourceFile({
-      userId: cacheUser() ?? '',
-      sessionId: p.lectureId,
-      fileType: 'audio',
-      filePath: p.uri,
-      seq: p.seq,
-      startMs: p.startMs,
-      durationMs: p.durationMs,
+
+    const { mimeType, ext } = await audioFormat(p.uri);
+    const { path } = await uploadFile({
+      bucket: Buckets.audioChunks,
+      path: `${p.lectureId}/${String(p.seq).padStart(4, '0')}.${ext}`,
+      uri: p.uri,
+      contentType: mimeType,
+      upsert: true,
       onProgress: ctx.progress,
     });
+    const { error } = await supabase.from('audio_chunks').upsert(
+      {
+        lecture_id: p.lectureId,
+        seq: p.seq,
+        start_ms: Math.max(0, Math.round(p.startMs)),
+        duration_ms: Math.max(1, Math.round(p.durationMs)),
+        storage_path: path,
+        status: 'uploaded',
+      },
+      { onConflict: 'lecture_id,seq' },
+    );
+    if (error) throw syncError(error, 'Could not save the recording.');
+    // Only now: until the row exists, the file is the only copy.
     await removePendingFile(p.uri);
   },
 });
@@ -649,6 +665,7 @@ registerSyncHandler<UploadChunkPayload>('upload_chunk', {
 registerSyncHandler<UploadMediaPayload>('upload_media', {
   timeoutMs: UPLOAD_TIMEOUT_MS,
   run: async (p, ctx) => {
+    await ensureLectureOnServer(p.lectureId);
     const bucket = mediaBucket(p.kind);
     const { data: existing, error: readError } = await supabase.from('media').select('*').eq('id', p.id).maybeSingle();
     if (readError) throw syncError(readError, 'Could not save the file.');

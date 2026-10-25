@@ -33,7 +33,10 @@ jest.mock('../../lib/pendingFiles', () => ({
     jest.requireMock('../../lib/sync').order.push('delete local file');
   }),
 }));
-jest.mock('../session.service', () => ({ updateSession: jest.fn(async () => ({})) }));
+jest.mock('../session.service', () => ({
+  updateSession: jest.fn(async () => ({})),
+  ensureLectureOnServer: jest.fn(async () => {}),
+}));
 // The real handlers, captured as the services register them; queued operations recorded.
 jest.mock('../../lib/sync', () => {
   const handlers: Record<string, unknown> = {};
