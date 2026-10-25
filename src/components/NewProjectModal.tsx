@@ -13,18 +13,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors } from '../constants/colors';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import { Colors, type ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { createProject, type ProjectWithCount } from '../services/project.service';
 
-const PROJECT_COLORS = [
-  '#F5E0D8', // salmon (default)
-  '#D8D5F0', // lavender
-  '#C8E8D8', // mint
-  '#C5DCF0', // sky blue
-  '#F5E8C0', // warm yellow
-  '#E0DFE8', // soft gray
-];
+const PROJECT_COLORS = Colors.courseColors;
 
 interface NewProjectModalProps {
   visible: boolean;
@@ -35,6 +29,8 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProjectModalProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
@@ -62,7 +58,7 @@ export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProj
     setError('');
     try {
       const created = await createProject(userId, trimmed, selectedColor);
-      const withCount: ProjectWithCount = { ...created, sessionCount: 0 };
+      const withCount: ProjectWithCount = { ...created, sessionCount: 0, itemCount: 0 };
       onCreated(withCount);
     } catch (err: any) {
       setError(err?.message ?? 'Could not create project. Please try again.');
@@ -92,7 +88,7 @@ export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProj
           <TextInput
             style={styles.input}
             placeholder="Project name"
-            placeholderTextColor={Colors.text.placeholder}
+            placeholderTextColor={c.text.placeholder}
             value={name}
             onChangeText={v => {
               setName(v);
@@ -129,7 +125,7 @@ export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProj
             activeOpacity={0.85}
           >
             {isCreating ? (
-              <ActivityIndicator color={Colors.white} size="small" />
+              <ActivityIndicator color={c.white} size="small" />
             ) : (
               <Text style={styles.createButtonText}>Create</Text>
             )}
@@ -150,17 +146,18 @@ export function NewProjectModal({ visible, userId, onClose, onCreated }: NewProj
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end',
   },
   keyboardView: {
     width: '100%',
   },
   sheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 28,
@@ -170,20 +167,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   errorText: {
     fontSize: Typography.size.sm,
-    color: Colors.error,
+    color: c.error,
     marginTop: -6,
   },
   swatchRow: {
@@ -198,10 +195,10 @@ const styles = StyleSheet.create({
   },
   swatchSelected: {
     borderWidth: 2.5,
-    borderColor: Colors.text.primary,
+    borderColor: c.text.primary,
   },
   createButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
@@ -210,7 +207,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   createButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
   },
@@ -220,7 +217,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
 });

@@ -9,11 +9,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
 import { bulkApplyRetention, getActiveSourceFiles } from '../../../src/services/source-file.service';
@@ -24,6 +25,7 @@ import type { NoteResult, TranscriptionResult } from '../../../src/services/ai.s
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, SourceFile } from '../../../src/types/database';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 import { confirmAction } from '../../../src/utils/confirm';
@@ -59,6 +61,8 @@ function recordingModeOf(value: string | undefined): Session['recording_mode'] |
 // -------------------------------------------------------------------
 
 export default function ReviewScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { sessionId, summaryLevel, mode } = useLocalSearchParams<{
@@ -67,6 +71,7 @@ export default function ReviewScreen() {
     /** How it was recorded (passed along from the recording screen; not stored). */
     mode?: string;
   }>();
+  useLectureShell(sessionId);
   // `session` below is the lecture session; this one is the signed-in profile.
   const { session: authSession } = useAuth();
 
@@ -258,7 +263,7 @@ export default function ReviewScreen() {
         // User doesn't want the note — just mark session completed.
         await bulkApplyRetention(sessionId, retention);
         await updateSession(sessionId, { status: 'completed' });
-        leaveRecordingFlow(router, '/');
+        leaveRecordingFlow(router);
         return;
       }
 
@@ -293,7 +298,7 @@ export default function ReviewScreen() {
       await bulkApplyRetention(sessionId, retention);
       await updateSession(sessionId, { status: 'completed' });
 
-      leaveRecordingFlow(router, '/');
+      leaveRecordingFlow(router);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save note.';
       setErrorMessage(msg);
@@ -330,10 +335,10 @@ export default function ReviewScreen() {
   if (screenState === 'processing') {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <GradientFill />
+        <ThemedStatusBar />
         <View style={[styles.centeredContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
           <FlowCloseButton onPress={confirmLeave} />
-          <Text style={styles.appTitle}>STUDIPLY</Text>
           <Text style={styles.screenSubtitle}>Processing</Text>
 
           <View style={styles.processingCard}>
@@ -379,10 +384,10 @@ export default function ReviewScreen() {
   if (screenState === 'error') {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <GradientFill />
+        <ThemedStatusBar />
         <View style={[styles.centeredContent, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
           <FlowCloseButton onPress={() => leaveRecordingFlow(router)} />
-          <Text style={styles.appTitle}>STUDIPLY</Text>
           <Text style={styles.screenSubtitle}>Error</Text>
 
           <View style={styles.errorCard}>
@@ -416,7 +421,8 @@ export default function ReviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       <ScrollView
         contentContainerStyle={[
@@ -427,7 +433,6 @@ export default function ReviewScreen() {
       >
         {/* Header */}
         <FlowCloseButton onPress={confirmLeave} />
-        <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>AI Notes</Text>
 
         {/* Suggested title banner */}
@@ -468,7 +473,7 @@ export default function ReviewScreen() {
             activeOpacity={0.85}
           >
             {isClarifying ? (
-              <ActivityIndicator size="small" color={Colors.text.primary} />
+              <ActivityIndicator size="small" color={c.text.primary} />
             ) : (
               <Text style={styles.clarifyBtnIcon}>💡</Text>
             )}
@@ -653,8 +658,9 @@ export default function ReviewScreen() {
 // Styles
 // -------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
 
   // Shared layout
   centeredContent: {
@@ -666,80 +672,73 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
-  appTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 4,
-  },
   screenSubtitle: {
-    fontSize: Typography.size['2xl'],
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.extrabold,
+    color: c.text.onGradientStrong,
     marginBottom: 20,
   },
 
   // Processing card
   processingCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 20,
     padding: 28,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     gap: 12,
   },
   stageLabel: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   stageDetail: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 3,
     overflow: 'hidden',
     marginTop: 4,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 3,
   },
   progressHint: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     textAlign: 'right',
   },
 
   // Error card
   errorCard: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: c.status.error.bg,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#FFCCCC',
+    borderColor: c.status.error.border,
     gap: 8,
   },
   errorTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold,
-    color: '#CC3333',
+    color: c.status.error.text,
   },
   errorMessage: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
   // Title banner
   titleBanner: {
-    backgroundColor: Colors.salmonLight ?? '#F5E0D8',
+    backgroundColor: c.titleCard,
     borderRadius: 16,
     padding: 20,
     gap: 6,
@@ -747,17 +746,17 @@ const styles = StyleSheet.create({
   titleBannerLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: Typography.tracking.wide,
   },
   titleBannerValue: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   levelBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 100,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -766,27 +765,27 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     letterSpacing: Typography.tracking.wide,
   },
 
   // Generic card
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     gap: 12,
   },
   cardTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   cardBody: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
@@ -795,16 +794,16 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
   },
   conceptTerm: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   conceptExplanation: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
@@ -815,7 +814,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagPill: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -823,7 +822,7 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Formulas
@@ -831,15 +830,15 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
   },
   formulaName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   formulaExpressionBox: {
-    backgroundColor: '#F5F5F0',
+    backgroundColor: c.cardMuted,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -847,32 +846,32 @@ const styles = StyleSheet.create({
   formulaExpression: {
     fontSize: Typography.size.sm,
     fontFamily: 'Courier',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   formulaDescription: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Unclear parts
   unclearCard: {
-    borderColor: '#FFE4B5',
-    backgroundColor: '#FFFBF0',
+    borderColor: c.status.warning.border,
+    backgroundColor: c.status.warning.bg,
   },
   unclearRow: {
     gap: 2,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#FFE4B5',
+    borderTopColor: c.status.warning.border,
   },
   unclearExcerpt: {
     fontSize: Typography.size.sm,
     fontStyle: 'italic',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   unclearReason: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Transcript preview
@@ -882,29 +881,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   expandChevron: {
-    fontSize: 12,
-    color: Colors.text.secondary,
+    fontSize: Typography.size.xs,
+    color: c.text.secondary,
   },
   transcriptText: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.xs * Typography.leading.relaxed,
     fontFamily: 'Courier',
   },
 
   // Decision section
   decisionSection: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     gap: 8,
   },
   decisionTitle: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     marginBottom: 4,
   },
   actionRow: {
@@ -917,20 +916,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: Colors.surfaceMuted,
-    backgroundColor: Colors.white,
+    borderColor: c.surfaceMuted,
+    backgroundColor: c.white,
   },
   actionPillActive: {
-    borderColor: Colors.salmon,
-    backgroundColor: Colors.salmon,
+    borderColor: c.salmon,
+    backgroundColor: c.salmon,
   },
   actionPillText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   actionPillTextActive: {
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Retention radio
@@ -940,41 +939,41 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
   },
   radioOuter: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterActive: {
-    borderColor: Colors.salmon,
+    borderColor: c.salmon,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
   },
   retentionTextGroup: { flex: 1 },
   retentionLabel: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   retentionSub: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     marginTop: 1,
   },
 
   // Buttons
   primaryButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 18,
     alignItems: 'center',
@@ -984,7 +983,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,
@@ -996,7 +995,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   ghostButtonText: {
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
   },
@@ -1004,7 +1003,7 @@ const styles = StyleSheet.create({
   // Clarification
   highlightHint: {
     fontSize: Typography.size.xs,
-    color: Colors.text.placeholder,
+    color: c.text.placeholder,
     fontStyle: 'italic',
     marginBottom: 2,
   },
@@ -1013,49 +1012,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 100,
     paddingVertical: 13,
     paddingHorizontal: 20,
   },
-  clarifyBtnIcon: { fontSize: 15 },
+  clarifyBtnIcon: { fontSize: Typography.size.base },
   clarifyBtnText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   clarificationCard: {
-    backgroundColor: '#E8EAF6',
-    borderColor: '#C5CAE9',
+    backgroundColor: c.status.info.bg,
+    borderColor: c.status.info.border,
   },
   clarificationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  clarificationIcon: { fontSize: 16 },
+  clarificationIcon: { fontSize: Typography.size.base },
   clearClarificationBtn: {
     alignItems: 'center',
     paddingVertical: 4,
   },
   clearClarificationText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
 
   // Low-balance warning
   lowBalanceBanner: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: c.status.warning.bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: c.status.warning.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   lowBalanceBannerText: {
     fontSize: Typography.size.xs,
-    color: '#B87B14',
+    color: c.status.warning.text,
     fontWeight: Typography.weight.medium,
     lineHeight: 18,
   },

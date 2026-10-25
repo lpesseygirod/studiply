@@ -19,9 +19,9 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.9 — Move existing data (one-time idempotent migration) — built 26 Oct 2026; the real upload of Lea's own data is done by Lea (steps in the decision below)
 
 ## Phase 2 — App shell (`phase-2-shell`)
-- [ ] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive)
-- [ ] 2.2 — Real data in the shell (top bar, sidebar sections, Record button)
-- [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
+- [x] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive) — done on `phase-2-shell`, matching `docs/design/` (decision below)
+- [x] 2.2 — Real data in the shell (top bar, sidebar sections, Record button) — done on `phase-2-shell` (decision below)
+- [x] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts) — built on `phase-2-shell`; Lea's iPhone/Chrome test and the merge into main are pending (decision below)
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [ ] 3.1 — Spike: drag and drop (web + iPhone)
@@ -213,7 +213,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Retention is audio only.** "Delete now / after 3 days" acts on a lecture's `audio_chunks`. Photos, PDFs and library files are never removed by it; only the student deletes them. Covered by a test.
 - **Migration timestamps stay in order (26 Oct).** `20261026090000_standalone_images` was dated in the future and is already on the remote, so it keeps its name; every new migration must be dated after the newest one (rule in `CLAUDE.md` → How to work).
 - **Moving the earlier version's data (step 1.9).**
-  - **What happens:** Settings → Earlier version data (and a Home card, "Later" hides it until the next start) reads the old `studiply.db` and its files read-only, lists each old profile with counts and first names (nothing ticked), and uploads the ticked ones (`src/services/legacyImport/`).
+  - **What happens:** Settings → Earlier version data (and a card on Library, "Later" hides it until the next start) reads the old `studiply.db` and its files read-only, lists each old profile with counts and first names (nothing ticked), and uploads the ticked ones (`src/services/legacyImport/`).
   - **Ids and dates kept:** the old UUIDs become the new rows' ids, and dates are kept. Rows are upserted with `ignoreDuplicates`; transcripts, recordings and photos/PDFs already on the server are skipped. It's safe to repeat and resumes after a failure.
   - **Every section of an old note is `student`**, clarifications included: the old app didn't record who wrote what, and regeneration must never overwrite text the student typed (Lea, 26 Oct).
   - **Old trash:** it goes to Recently Deleted with its date; anything deleted more than 30 days ago is left out, and so are deleted notes.
@@ -222,6 +222,63 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **"Already uploaded"** is remembered per Supabase URL + account + data set (real or development sample), so a local test upload never blocks the real upload to the remote project.
   - **Development** uses only `studiply-sample.db` / `documents/legacy-sample/` (DEVELOPMENT → Create / Use sample earlier-version data), never the real data.
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
+
+- **App shell (step 2.1), following the mockups in `docs/design/`.**
+  - **Library absorbs Home** (the design has no Home): `/` redirects to `/library`, and the recording flow returns there. The iPhone Library is laid out like `iphone-01-library`; on the laptop it is "My library" without the search field and avatar (they are in the top bar).
+  - **Five iPhone tabs:** Library · Search · ● Record · Review · Settings (`src/navigation/mainTabs.ts`). Record is a 64 px raised red circle (`Colors.recording` #CC3333) with a white ring, in the exact middle. Review is a placeholder until the study phase.
+  - **Laptop shell (web ≥ 1024 px):** top bar, sidebar and assistant around the same Tabs navigator, which keeps its place in the tree, so resizing never loses the open screen. What shows depends on the screen kind (`screenKindFor`): library screens (search + Record lecture, sidebar), documents (title area, assistant, Share disabled until Phase 4), settings (Back to library, no panels). The sidebar and assistant collapse; the state is kept per device in `studiply.layout`.
+  - **New tokens:** `recording` #CC3333, `text.onGradient` #3A3A48, `accentDark` #4F43B0 (from the design README); sizes in `src/constants/layout.ts`. The gradient is behind Library, Search, Review, Settings, the course screen and the note; their contents are restyled in 2.2/2.3.
+  - **Done in 2.2:** the real top-bar breadcrumb and "Saved · time", the open course expanding in the sidebar, Starred / Exam packs / Review today and its badge.
+  - **Done in 2.3:** the rest of the palette, dark mode, Dynamic Type, keyboard shortcuts.
+  - **Checks:** `.claude/skills/web-check/scripts/layout.mjs` (shell per screen kind, collapse after a reload, 1280 → 1023 → 1280, the 390 px tab bar geometry); `flows.mjs` now runs on Library and uses the top-bar Record lecture button.
+  - **Duplicates removed:** the 87 `* 2.*` Finder/iCloud copies, 4 empty `* 2` test folders and `supabase/.gitignore 2` were byte-identical to their originals and were deleted; `.gitignore` ignores `* 2.*` and `* 2`. `.git/index 2` (an old copy of git's own index from 23 Oct) was left alone.
+
+- **Real data in the shell (step 2.2).**
+  - **Sections:** Recent (files of every kind, newest change first), Favorites (courses, folders and files with `starred_at`, newest first) and Exam packs (`files` of kind `exam_pack`) come from `src/services/shelf.service.ts` and open offline on the iPhone from the cache. On the laptop they are `/library?section=…` (sidebar links), on the iPhone the Library chips.
+  - **Review today** counts `review_schedule` rows due by the end of today. It is **online only** (the study tables aren't cached yet), so the badge is hidden offline. Phase 9 fills the schedule.
+  - **Course counts** are items of every kind (`itemCount`), as in the mockups; `sessionCount` (lectures) is kept for the screens that use it.
+  - **Top bar:** the focused screen publishes its place through `src/components/shell/ShellContext.tsx`. The note shows course › folder path › title and "Saved · time" (from the note's `updated_at`; "Saving…" / "Not saved" around a save). The recording flow shows its course and title. Record lecture preselects the course and folder the student is in. The course screen opens at `?folder=`.
+  - **Favorites pulled forward from 3.4** (Lea, 26 Oct): "Add to / Remove from Favorites" in the menus of courses, folders, lectures and library files, and in the laptop sidebar's right-click menus; online only; Undo restores the previous value (`src/utils/star.ts`). The rest of the 3.4 menus stays in 3.4.
+  - **Starred → Favorites** (Lea): every user-visible "Starred / Star / Unstar" became Favorites / Add to Favorites / Remove from Favorites; the URL is `?section=favorites`. The database column (`starred_at`) and the code names (`getStarredItems`, `setStarredAt`) stay.
+  - **Bug fixed (Chrome):** the laptop sidebar's courses and course tree had no right-click menu, so there was no way to add them to Favorites there (the iPhone has no sidebar). They now have Open + Add to / Remove from Favorites; checked in `shell-data.mjs`.
+  - **Favorites for everything, without reordering** (Lea):
+    - **Lecture photos/PDFs:** `media.starred_at`, in the menus of Project Files, post-session and the note's Source Files. They show in Favorites as "Photo 2 · Clase 1" and open their lecture.
+    - **Migration `20261026090100_favorites_everywhere`:**
+      - on courses, folders, files and media only, a favorite-only change keeps `updated_at`;
+      - every other table keeps the plain trigger (Lea: so big rows such as summaries aren't serialized);
+      - `changed_at` moves on every update of those four tables, and the iPhone downloads them by it, so a favorite set on the laptop still reaches the iPhone.
+      - pgTAP: `05_favorites`.
+      - **Pushed to the remote after Lea's OK.** `migration list` shows local = remote up to `20261026090100`. Remote types match local (19 tables, 220 columns). A schema dump shows `set_updated_at_favorites` on courses, files, folders and media, and the plain trigger everywhere else.
+    - **Project Files numbering:** photos there are now numbered within their lecture (oldest first), like the lecture's own screens and Favorites. Before, "Photo 2" there could be "Photo 1" in the lecture.
+  - **PDFs and images** open their course at their folder until files get a viewer; documents, unit summaries and exam packs the same until Phases 4 and 7.
+  - **Checks:** `.claude/skills/web-check/scripts/shell-data.mjs` (counts, badge, sections, top bar, crumbs, folder links, Record lecture, Star / Unstar with Undo in the database, iPhone chips and long-press). `flows.mjs` clicks scoped away from the sidebar's course tree.
+
+- **Look and feel (step 2.3).**
+  - **Background:** the full gradient everywhere (not `gradientSubtle`; BUILD-PLAN text fixed).
+  - **Dark mode** (Lea approved after two rounds of screenshots): the light gradient dimmed, dark text on it, dark-grey cards, dimmed-salmon search fields, the note's title card on the dark card. Settings → General → Appearance: System / Light / Dark per device; `app.json` follows the system. The recording screen stays dark; the PDF stays light.
+  - **Palettes:** `LightColors` / `DarkColors` of one shape in `colors.ts`. Screens use `useThemedStyles(makeStyles)`. A contrast test checks every pair in both (4.5:1 text, 3:1 icons), and a guard test fails on any color literal outside `colors.ts`.
+  - **Contrast fixes along the way (light too):**
+    - the active tab label and selected chips use `#4F43B0`;
+    - the error red is `#C23B3B`;
+    - text straight on the gradient uses the on-gradient colors;
+    - the recording screen's warning banner is darker.
+  - **Accessibility:**
+    - `IconButton` (44 pt, always labelled) replaced 16 unnamed icon buttons;
+    - the Library chips have a 44 pt touch area;
+    - Larger Text is capped only on tab labels, chips and the timer.
+  - **Shortcuts (web), Lea's choice:**
+    - ⌥N (new document, "coming soon" until the editor), ⌥⇧N (new folder in the open course), ⌥R (record lecture with the current course): matched by `event.code`;
+    - "/" (search) and "?" (the shortcuts sheet): matched by the character typed;
+    - never while typing, with a dialog open, or with ⌘/Ctrl.
+  - **Old look removed:**
+    - the cream backgrounds and the letter-spaced STUDIPLY headers (the onboarding and splash keep the brand);
+    - the note shows "‹ Course" as in iphone-06.
+  - **Differences from the mockups that remain** (later steps):
+    - Settings is still the simple list, not the two-column layout of desktop-05;
+    - the note keeps its card layout until the editor (Phase 4);
+    - the course screen is not yet the Finder grid of desktop-04 (Phase 3);
+    - post-session and the recording screen will be redesigned in Phase 5.
+  - **Checks:** `.claude/skills/web-check/scripts/look.mjs` (light/dark colors, Appearance surviving a reload, 44 pt named icon buttons at 390 px, every shortcut).
 
 ## Things Lea must do
 

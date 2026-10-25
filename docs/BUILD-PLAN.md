@@ -48,10 +48,10 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Courses as colored folders, nested folders | Library tab, list or grid | Left sidebar + main grid | 3 | v1 |
 | Move files between folders | Long-press and drag; or Move to… sheet | Drag and drop onto folder, breadcrumb, sidebar course or Trash | 3 | v1 |
 | Menu on empty space (New folder, New document, New recording, Upload, Paste, Sort) | Long-press empty space or “…” button | Click or right-click empty space | 3 | v1 |
-| Menu on a file (Open, Rename, Move out, Star, Summarize / Exam pack, Trash) | Long-press the file | Right-click the file | 3 | v1 |
+| Menu on a file (Open, Rename, Move out, Add to Favorites, Summarize / Exam pack, Trash) | Long-press the file | Right-click the file | 3 | v1 |
 | New folder with inline rename | Yes | Yes | 3 | v1 |
 | Undo after every move or delete | Undo toast | Undo toast + Cmd+Z | 3 | v1 |
-| Recent, Starred, Exam packs, Review today, Trash | Library tab sections | Sidebar | 3, 9 | v1 |
+| Recent, Favorites, Exam packs, Review today, Trash | Library tab sections | Sidebar | 3, 9 | v1 |
 | Search notes, lectures and terms | Search tab | Search field in top bar | 3 | v1 |
 | Import slides/PDFs from other apps | Share sheet from Mail, Files, Safari (share extension) | Drag files from Mac Finder into a folder | 3, 10 | Later (iPhone extension) |
 
@@ -249,7 +249,7 @@ Branch `phase-2-shell`.
 **Step 2.1 — Navigation and layout**
 
 ```markdown
-Step 2.1: build the app shell from docs/DESIGN.md (Layout section and iPhone section). iPhone: bottom tab bar Library · Record (big red center button) · Search · Settings, documents full screen. Web at 1024 px or wider: top bar, left library sidebar, center document area, right assistant panel (placeholder for now); sidebar and assistant can collapse; narrower windows fall back to the iPhone-style layout. Use expo-router layouts and platform files only where needed. Empty placeholder content is fine in this step.
+Step 2.1: build the app shell from docs/DESIGN.md (Layout section and iPhone section). iPhone: bottom tab bar Library · Search · Record (big raised red center button) · Review · Settings (docs/design iphone-01), documents full screen. Web at 1024 px or wider: top bar, left library sidebar, center document area, right assistant panel (placeholder for now); sidebar and assistant can collapse; narrower windows fall back to the iPhone-style layout. Use expo-router layouts and platform files only where needed. Empty placeholder content is fine in this step.
 ```
 
 **Check:** resize the browser window from wide to narrow and back; the layout switches cleanly. The iPhone shows the tab bar.
@@ -265,7 +265,7 @@ Step 2.2: wire the shell to the Phase 1 data: top bar with gradient logo tile, b
 **Step 2.3 — Look and feel**
 
 ```markdown
-Step 2.3: apply the visual rules everywhere in the shell: colors only from src/constants/colors.ts (background Colors.gradientSubtle), sizes from typography.ts, dark mode, Dynamic Type on iPhone, 44 px minimum touch targets, VoiceOver labels on icon buttons, and web keyboard shortcuts Cmd+N, Cmd+Shift+N, Cmd+R. Compare with the mockup description in DESIGN.md and list anything that differs.
+Step 2.3: apply the visual rules everywhere in the shell: colors only from src/constants/colors.ts (background: the full gradient, as in docs/design; dark mode: the same gradient dimmed, with dark-grey cards), sizes from typography.ts, Dynamic Type on iPhone, 44 px minimum touch targets, VoiceOver labels on icon buttons, and web keyboard shortcuts ⌥N, ⌥⇧N, ⌥R, / and ? (Cmd+N and Cmd+Shift+N belong to the browser). Compare with the mockup description in DESIGN.md and list anything that differs.
 ```
 
 **Check:** switch your iPhone to dark mode and to a larger text size; everything stays readable. Merge the branch.
@@ -301,7 +301,7 @@ Step 3.3: add moving with the approach from step 3.1: drop onto a folder tile (d
 **Step 3.4 — Menus**
 
 ```markdown
-Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web, long-press or the "…" button on iPhone): New folder, New document, New recording, Upload slides or PDF, Paste, Sort by name, Sort by date edited. On an item (right-click / long-press): Open, Rename, Move to…, Move out, Star, Summarize recording or Make exam pack (placeholder until Phase 7), Move to Trash. Menus close on Escape or outside click and work with the keyboard.
+Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web, long-press or the "…" button on iPhone): New folder, New document, New recording, Upload slides or PDF, Paste, Sort by name, Sort by date edited. On an item (right-click / long-press): Open, Rename, Move to…, Move out, Add to Favorites (already built in 2.2), Summarize recording or Make exam pack (placeholder until Phase 7), Move to Trash. Menus close on Escape or outside click and work with the keyboard.
 ```
 
 **Check:** every menu item works or clearly says "coming soon".
@@ -309,7 +309,7 @@ Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web
 **Step 3.5 — Trash, stars, recent, search**
 
 ```markdown
-Step 3.5: finish Trash (restore, delete forever, auto-empty after 30 days), Starred, Recent, and search across document titles, note text, transcripts and glossary terms, on both devices.
+Step 3.5: finish Trash (restore, delete forever, auto-empty after 30 days), Favorites, Recent, and search across document titles, note text, transcripts and glossary terms, on both devices.
 ```
 
 **Check:** search a word you said in a recorded lecture and find it. Merge the branch.

@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/colors';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { getProjects } from '../services/project.service';
 import { getFolders } from '../services/folder.service';
@@ -91,6 +92,8 @@ export default function MoveToModal({
   onPickLecture,
   onClose,
 }: MoveToModalProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RowItem[]>([]);
   const [crumbs, setCrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'Projects', type: 'root' }]);
@@ -255,7 +258,7 @@ export default function MoveToModal({
           {crumbs.map((crumb, index) => (
             <React.Fragment key={index}>
               {index > 0 && (
-                <Ionicons name="chevron-forward" size={13} color={Colors.text.secondary} style={styles.chevron} />
+                <Ionicons name="chevron-forward" size={13} color={c.text.secondary} style={styles.chevron} />
               )}
               <TouchableOpacity
                 onPress={() => navigateToCrumb(index)}
@@ -278,7 +281,7 @@ export default function MoveToModal({
         {/* List */}
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={Colors.salmon} />
+            <ActivityIndicator color={c.salmon} />
           </View>
         ) : items.length === 0 ? (
           <View style={styles.center}>
@@ -305,16 +308,16 @@ export default function MoveToModal({
                   <Ionicons
                     name={item.kind === 'project' ? 'folder' : item.kind === 'folder' ? 'folder-open-outline' : 'mic-outline'}
                     size={20}
-                    color={item.kind === 'project' ? Colors.salmon : Colors.accent}
+                    color={item.kind === 'project' ? c.salmon : c.accent}
                   />
                 </View>
                 <Text style={styles.rowLabel} numberOfLines={1}>
                   {item.kind === 'lecture' ? item.data.title : item.data.name}
                 </Text>
                 {item.kind !== 'lecture' ? (
-                  <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                  <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
                 ) : selected?.id === item.data.id ? (
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.salmon} />
+                  <Ionicons name="checkmark-circle" size={20} color={c.salmon} />
                 ) : null}
               </TouchableOpacity>
             )}
@@ -344,10 +347,11 @@ export default function MoveToModal({
 // -------------------------------------------------------------------
 // Styles
 // -------------------------------------------------------------------
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   sheet: {
     flex: 1,
-    backgroundColor: Colors.offWhite,
+    backgroundColor: c.offWhite,
   },
   header: {
     flexDirection: 'row',
@@ -356,8 +360,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
-    backgroundColor: Colors.white,
+    borderBottomColor: c.surfaceMuted,
+    backgroundColor: c.white,
   },
   headerSide: {
     minWidth: 64,
@@ -371,33 +375,33 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   cancelText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   moveText: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.salmon,
+    color: c.salmon,
   },
   moveTextDisabled: {
-    color: Colors.button.disabled,
+    color: c.button.disabled,
   },
   rowSelected: {
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
   },
   confirmButton: {
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     borderRadius: 14,
     minHeight: 50,
     paddingHorizontal: 16,
@@ -406,16 +410,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmButtonDisabled: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
   },
   confirmText: {
-    color: Colors.button.primaryText,
+    color: c.button.primaryText,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold as '600',
     textAlign: 'center',
   },
   confirmTextDisabled: {
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   breadcrumbRow: {
     flexDirection: 'row',
@@ -423,17 +427,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
     gap: 2,
   },
   crumbText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   crumbTextActive: {
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.medium as '500',
   },
   chevron: {
@@ -447,7 +451,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     textAlign: 'center',
   },
   list: {
@@ -459,13 +463,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
   },
   rowIcon: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -473,11 +477,11 @@ const styles = StyleSheet.create({
   rowLabel: {
     flex: 1,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 68,
   },
 });

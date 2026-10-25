@@ -13,14 +13,16 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { useShellScreen } from '../../../src/components/shell/ShellContext';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
 import { NewProjectModal } from '../../../src/components/NewProjectModal';
@@ -51,6 +53,8 @@ const MODES: { value: 'lecture' | 'standard' | 'discussion'; label: string }[] =
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function RecordSetupScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
@@ -64,6 +68,19 @@ export default function RecordSetupScreen() {
 
   // Data
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
+
+  // The laptop's top bar: "New recording" under the chosen course.
+  const folderForCourse = selectedProject && selectedProject.id === preselectedProjectId ? preselectedFolderId ?? null : null;
+  useShellScreen(
+    { courseId: selectedProject?.id ?? null, folderId: folderForCourse },
+    {
+      crumbs: selectedProject
+        ? [{ label: selectedProject.name, href: `/project/${selectedProject.id}` }]
+        : [{ label: 'My library', href: '/library' }],
+      title: 'New recording',
+      saved: null,
+    },
+  );
 
   // UI state
   const [showProjectPicker, setShowProjectPicker] = useState(false);
@@ -184,7 +201,7 @@ export default function RecordSetupScreen() {
   if (loadingSettings) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator color={Colors.salmon} />
+        <ActivityIndicator color={c.salmon} />
       </View>
     );
   }
@@ -196,7 +213,8 @@ export default function RecordSetupScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       <ScrollView
         contentContainerStyle={[
@@ -207,7 +225,6 @@ export default function RecordSetupScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Header ──────────────────────────────────────────── */}
-        <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>New Recording</Text>
 
         {/* ── Credit warnings ────────────────────────────────── */}
@@ -229,7 +246,7 @@ export default function RecordSetupScreen() {
         <TextInput
           style={styles.textInput}
           placeholder="e.g., Thermodynamics Lecture 3"
-          placeholderTextColor={Colors.text.placeholder}
+          placeholderTextColor={c.text.placeholder}
           value={title}
           onChangeText={setTitle}
           editable={true}
@@ -250,11 +267,11 @@ export default function RecordSetupScreen() {
                 <Text style={styles.pickerText}>{selectedProject.name}</Text>
               </>
             ) : (
-              <Text style={[styles.pickerText, { color: Colors.text.placeholder }]}>
+              <Text style={[styles.pickerText, { color: c.text.placeholder }]}>
                 Select project...
               </Text>
             )}
-            <Ionicons name="chevron-down" size={16} color={Colors.text.secondary} />
+            <Ionicons name="chevron-down" size={16} color={c.text.secondary} />
           </TouchableOpacity>
 
           {/* ── Language selector ──────────────────────────────── */}
@@ -265,7 +282,7 @@ export default function RecordSetupScreen() {
             activeOpacity={0.8}
           >
             <Text style={styles.pickerText}>{selectedLanguage.label}</Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.text.secondary} />
+            <Ionicons name="chevron-down" size={16} color={c.text.secondary} />
           </TouchableOpacity>
 
           {/* ── Recording mode ─────────────────────────────────── */}
@@ -298,7 +315,7 @@ export default function RecordSetupScreen() {
             activeOpacity={0.85}
           >
             {isStarting ? (
-              <ActivityIndicator color={Colors.white} size="small" />
+              <ActivityIndicator color={c.white} size="small" />
             ) : (
               <Text style={styles.startButtonText}>Start Recording</Text>
             )}
@@ -333,10 +350,10 @@ export default function RecordSetupScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.colorDot, { backgroundColor: item ? item.color : Colors.surfaceMuted }]} />
+                  <View style={[styles.colorDot, { backgroundColor: item ? item.color : c.surfaceMuted }]} />
                   <Text style={styles.pickerRowText}>{item?.name ?? 'No Project'}</Text>
                   {(selectedProject?.id === item?.id || (!selectedProject && !item)) && (
-                    <Ionicons name="checkmark" size={18} color={Colors.salmon} />
+                    <Ionicons name="checkmark" size={18} color={c.salmon} />
                   )}
                 </TouchableOpacity>
               )}
@@ -355,7 +372,7 @@ export default function RecordSetupScreen() {
                     }}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="add-circle-outline" size={18} color={Colors.salmon} />
+                    <Ionicons name="add-circle-outline" size={18} color={c.salmon} />
                     <Text style={[styles.pickerRowText, styles.createProjectText]}>
                       + Create New Project
                     </Text>
@@ -410,7 +427,7 @@ export default function RecordSetupScreen() {
                 >
                   <Text style={styles.pickerRowText}>{item.label}</Text>
                   {selectedLanguage.code === item.code && (
-                    <Ionicons name="checkmark" size={18} color={Colors.salmon} />
+                    <Ionicons name="checkmark" size={18} color={c.salmon} />
                   )}
                 </TouchableOpacity>
               )}
@@ -423,10 +440,10 @@ export default function RecordSetupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF9',
   },
   center: {
     alignItems: 'center',
@@ -438,37 +455,30 @@ const styles = StyleSheet.create({
   },
 
   // Header
-  appTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 4,
-  },
   screenSubtitle: {
-    fontSize: Typography.size['2xl'],
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    marginBottom: 28,
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.extrabold,
+    color: c.text.onGradientStrong,
+    marginBottom: 20,
   },
 
   // Field label
   fieldLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 10,
   },
 
   // Title input
   textInput: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 15,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Picker pill (project + language)
@@ -476,7 +486,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 15,
@@ -490,7 +500,7 @@ const styles = StyleSheet.create({
   pickerText: {
     flex: 1,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Mode selector
@@ -502,25 +512,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 100,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
   },
   modePillActive: {
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
   },
   modePillText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: Typography.tracking.wide,
   },
   modePillTextActive: {
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Start button
   startButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 18,
     alignItems: 'center',
@@ -528,10 +538,10 @@ const styles = StyleSheet.create({
     minHeight: 58,
   },
   startButtonDisabled: {
-    backgroundColor: Colors.button.disabled,
+    backgroundColor: c.button.disabled,
   },
   startButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,
@@ -540,11 +550,11 @@ const styles = StyleSheet.create({
   // Modal / picker sheet
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end',
   },
   pickerSheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 24,
@@ -553,7 +563,7 @@ const styles = StyleSheet.create({
   pickerSheetTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     paddingHorizontal: 24,
     marginBottom: 12,
   },
@@ -567,24 +577,24 @@ const styles = StyleSheet.create({
   pickerRowText: {
     flex: 1,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.medium,
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 24,
   },
 
   // Create new project row
   createProjectText: {
-    color: Colors.salmon,
+    color: c.salmon,
     fontWeight: Typography.weight.semibold,
   },
 
   recordingHint: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
     marginTop: 10,
   },
@@ -592,7 +602,7 @@ const styles = StyleSheet.create({
   creditBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF3E0',
+    backgroundColor: c.status.warning.bg,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -602,13 +612,13 @@ const styles = StyleSheet.create({
   creditBannerText: {
     flex: 1,
     fontSize: Typography.size.xs,
-    color: '#7A4A00',
+    color: c.status.warning.text,
     fontWeight: Typography.weight.medium,
     lineHeight: Typography.size.xs * 1.5,
   },
   creditBannerDismiss: {
-    fontSize: 18,
-    color: '#7A4A00',
+    fontSize: Typography.size.md,
+    color: c.status.warning.text,
     lineHeight: 20,
   },
 

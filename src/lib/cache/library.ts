@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { onBackOnline } from '../connectivity';
 import type { SegmentRow } from '../cloudRows';
-import { fetchAllSegments, pullTable, PULL_TABLES, transcriptsToFetch } from './pull';
+import { cursorColumn, fetchAllSegments, pullTable, PULL_TABLES, transcriptsToFetch } from './pull';
 import {
   cacheEnabled,
   cacheUser,
@@ -43,11 +43,13 @@ let live = false;
 
 async function pullOne(userId: string, tbl: CachedTable): Promise<number> {
   const sinceKey = `${userId}:pull:${tbl}`;
+  const cursor = cursorColumn(tbl);
   return pullTable<CacheableRow>({
+    cursor,
     fetchChanged: async (since, from, to) => {
       let query = supabase.from(tbl).select('*');
-      if (since) query = query.gte('updated_at', since);
-      const { data, error } = await query.order('updated_at').order('id').range(from, to);
+      if (since) query = query.gte(cursor, since);
+      const { data, error } = await query.order(cursor).order('id').range(from, to);
       if (error) throw error;
       return data as CacheableRow[];
     },

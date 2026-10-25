@@ -20,7 +20,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import { Colors } from '../../constants/colors';
+import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import {
   dismissDialog,
@@ -46,6 +47,8 @@ function cancelOf(buttons: DialogButton[]): DialogButton | undefined {
 }
 
 function Dialog({ request }: { request: DialogRequest }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const { width, height } = useWindowDimensions();
   const [text, setText] = useState(request.kind === 'prompt' ? request.defaultValue : '');
 
@@ -154,7 +157,7 @@ function Dialog({ request }: { request: DialogRequest }) {
           autoFocus
           selectTextOnFocus
           placeholder={request.placeholder}
-          placeholderTextColor={Colors.text.placeholder}
+          placeholderTextColor={c.text.placeholder}
           onSubmitEditing={() => submitPrompt(text)}
           style={styles.input}
         />
@@ -188,18 +191,19 @@ function Dialog({ request }: { request: DialogRequest }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(10,10,10,0.35)',
+    backgroundColor: c.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
-    shadowColor: Colors.black,
+    shadowColor: c.black,
     shadowOpacity: 0.18,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
@@ -217,22 +221,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   message: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: 21,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
-    backgroundColor: Colors.offWhite,
+    borderColor: c.surfaceMuted,
+    backgroundColor: c.offWhite,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -248,15 +252,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonPrimary: { backgroundColor: Colors.button.primary },
-  buttonDestructive: { backgroundColor: Colors.error },
-  buttonCancel: { backgroundColor: Colors.surfaceMuted },
+  buttonPrimary: { backgroundColor: c.button.primary },
+  buttonDestructive: { backgroundColor: c.error },
+  buttonCancel: { backgroundColor: c.surfaceMuted },
   buttonText: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.button.primaryText,
+    color: c.button.primaryText,
   },
-  buttonTextCancel: { color: Colors.text.primary },
+  buttonTextCancel: { color: c.text.primary },
   pressed: { opacity: 0.8 },
   menu: {
     paddingVertical: 6,
@@ -264,7 +268,7 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 6,
@@ -274,11 +278,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
-  menuItemActive: { backgroundColor: Colors.surfaceMuted },
+  menuItemActive: { backgroundColor: c.surfaceMuted },
   menuItemText: {
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
-  menuItemDestructive: { color: Colors.error },
-  menuItemCancel: { color: Colors.text.secondary },
+  menuItemDestructive: { color: c.error },
+  menuItemCancel: { color: c.text.secondary },
 });

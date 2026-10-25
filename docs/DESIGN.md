@@ -3,20 +3,34 @@
 Designed Oct 2026. This file describes the screens and interactions; `SUMMARY-SPEC.md` describes what goes into a summary and exactly how it is calculated (the 10 sliders, derived variables, mark bands, quality checks, JSON schemas). Both use the app palette in `src/constants/colors.ts`. If they ever disagree, ask Lea.
 
 ## Layout (desktop, ≥ 1024 px wide)
-Three columns under a top bar:
-1. **Top bar:** logo (gradient tile), breadcrumb `Course › Document`, document title, "Saved · time", red **Record lecture** button, Share, avatar.
-2. **Left sidebar (library):** New button, search (salmon field), Recent, Starred, Exam packs, Review today (count badge), **Courses** list with a color dot per course; the open course expands to show its files. Trash at the bottom. Every course and Trash is a drop target.
-3. **Center (document):** tabs `My notes · Summary · Transcript`, Export PDF, a Google-Docs-style formatting toolbar, and the page (white card, max width 820 px).
-4. **Right panel (study assistant):** Claude-style chat.
+The mockups in `docs/design/` show how each screen **looks** (desktop-01 recording, desktop-04 library, desktop-05 settings, iphone-01…); this file says how it **works**.
+
+A top bar over up to three columns, on the full gradient (`Colors.gradient`, top to bottom), with content on white cards:
+1. **Top bar** (white, 56 px): logo (gradient tile) + "Studiply", then depends on the screen (below), avatar at the right.
+2. **Left sidebar (library, 264 px):** New button, Recent, Favorites, Exam packs, Review today (count badge), **Courses · drop files here** with a color square and count per course; the open course expands to show its files. Trash at the bottom. Every course and Trash is a drop target. On documents the search field sits here (under New).
+3. **Center:** library screens use the full width; documents and settings sit in a centered column. A document has tabs `My notes · Summary · Transcript`, Export PDF, a Google-Docs-style formatting toolbar, and the page (white card, max width 820 px).
+4. **Right panel (study assistant, 330 px):** Claude-style chat, **beside documents only**.
+
+**Sidebar data (step 2.2):** Recent, Favorites and Exam packs open Library at that section (`/library?section=recent|favorites|exam-packs`); Review today opens Review and its badge counts reviews due by the end of today (hidden when 0, and offline). A course's count is its items of every kind (lectures, PDFs, images, …), not in Trash. The open course (the one the current screen or document is in) expands to its folders and files: a chevron opens a folder; the folder the student is in opens on the way down; the open item is highlighted. Right-click a course or an item in the sidebar for its menu (Open, Add to / Remove from Favorites). Clicking an item opens it where it lives: a lecture its notes (or post-session before it has notes), a folder its course at that folder (`/project/<id>?folder=<folder>`), and a PDF or image its course at its folder until files get a viewer.
+
+What the shell shows depends on the kind of screen:
+
+| Screen | Top bar | Sidebar | Assistant |
+|---|---|---|---|
+| Library (My library, a course, Search, Review) | wide salmon search field, red **● Record lecture** button | yes | no |
+| Document (a note, recording) | breadcrumb `Course › folder › …` (each crumb opens the course at that level), document title, "Saved · 10:31" / "Saving…" / "Not saved", assistant toggle, Share | yes | yes |
+| Settings | "‹ Back to library" and the page title | no | no |
+
+The sidebar (☰ in the top bar) and the assistant (✦ in the top bar, × in the panel) collapse; each device remembers what is open. Below 1024 px the web shows the iPhone layout (tab bar, documents full screen); resizing switches live and keeps the open screen. A recording strip (Phase 5) sits between the top bar and the columns while recording.
 
 On iPhone the same pieces stack: library is its own screen, the document is full screen, the assistant opens as a sheet. Full details in the **iPhone** section below. Every feature exists on both; the feature table in `BUILD-PLAN.md` ("Every feature, on iPhone and laptop") says how each one works on each device and which are v1 vs later.
 
 ## iPhone
 The iPhone app is the main recording device (App Store). Same data, same features, adapted to one hand and a small screen.
 
-**Navigation:** bottom tab bar with Library · Record (big red center button) · Search · Settings. Documents open full screen with a back button.
+**Navigation:** a white bottom tab bar **Library · Search · ● Record · Review · Settings** (docs/design iphone-01). Record is a big raised red circle (`Colors.recording`) with a white ring, exactly in the middle; the active tab is accent purple. Review holds quizzes, flashcards and Review today (a placeholder until the study phase). There is no Home screen: the app opens on Library. Documents and the recording flow (after its setup screen) open full screen without the tab bar, with a back button.
 
-**Library:** list or grid toggle; course folders with color dots; sections Recent, Starred, Exam packs, Review today (badge), Trash. Long-press a file → menu (Open, Rename, Move to…, Move out, Star, Summarize / Exam pack, Trash) and lift-to-drag onto a folder. Long-press empty space or the "…" button → New folder, New document, New recording, Upload slides/PDF, Paste, Sort. Undo toast after every move.
+**Library:** on the gradient: big "Library" title, a dark round **+** (New) and the avatar; a salmon search field; chips Recent · Favorites · Exam packs (each shows that section's list in place of the overview; tap again to go back) · Review today (opens Review, shows the due count); **Courses** as a white card list (color square, name, count, chevron); **Recent** as small white cards of every kind (title, "Today · Summary ready", "Monday · PDF"); hint "Long-press any item to rename, move or add it to Favorites". Later: list or grid toggle; course folders with color dots; sections Recent, Favorites, Exam packs, Review today (badge), Trash. Long-press a file → menu (Open, Rename, Move to…, Move out, Add to Favorites, Summarize / Exam pack, Trash) and lift-to-drag onto a folder. Long-press empty space or the "…" button → New folder, New document, New recording, Upload slides/PDF, Paste, Sort. Undo toast after every move.
 
 **Recording screen (portrait):**
 - Top: course › lecture title, red dot + timer, live waveform.
@@ -84,11 +98,19 @@ Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, 
 ## Library (Finder / Drive)
 - Breadcrumb `My library › Course`; Sort (Kind, Name, Date edited); grid of tiles (folder, document, recording, PDF icons) with name + meta.
 - **Drag & drop:** drag any item onto a folder tile (dashed purple highlight) to move it in; onto "My library" in the breadcrumb to move it up; onto a course in the sidebar; onto Trash. Folders cannot be dropped into themselves or their children.
-- **Click or right-click empty space** → menu: New folder (⇧⌘N), New document (⌘N), New recording (⌘R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.
-- **Right-click an item** → Open, Rename, Move out to My library, Star, Summarize recording / Make exam pack, Move to Trash.
+- **Click or right-click empty space** → menu: New folder (⌥⇧N), New document (⌥N), New recording (⌥R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.
+- **Right-click an item** → Open, Rename, Move out to My library, Add to Favorites, Summarize recording / Make exam pack, Move to Trash.
+- **Favorites** (built in step 2.2; the database column is `starred_at`): "Add to Favorites" / "Remove from Favorites" in the menus of everything: courses, folders, lectures, documents, library files (PDF, image) and the photos/PDFs inside a lecture (the course's Project Files, post-session, the note's Source Files), on the iPhone (long-press), the laptop (right-click) and in the laptop sidebar. In the Favorites list a lecture's photo or PDF shows with its lecture ("Photo 2 · Clase 1") and opens that lecture. **Adding or removing a favorite never reorders anything**: it doesn't change an item's "last edited" time, so Recent and the course list stay as they were. Photos are numbered within their lecture, oldest first, on every screen. Online only (offline: the "you're offline" message, nothing changes). The toast says "Added to Favorites" / "Removed from Favorites" with **Undo**, which puts the previous value back. The Favorites section lists everything in it, newest first; empty: "No favorites yet".
 - New folder appears as "Untitled folder" in inline rename mode (Enter saves, Esc cancels).
 - Double-click opens a folder. After every move: toast "Moved 'X' to Y" with **Undo** (reuse `UndoToast.tsx`).
 - iPhone: long-press an item to drag; long-press empty space or tap "…" for the same menus; reuse `MoveToModal.tsx` as the accessible alternative to dragging.
 
 ## Accessibility basics
 Real buttons/inputs with labels, 44 px touch targets, text contrast ≥ 4.5:1, never color alone (marks have labels), Dynamic Type on iOS, keyboard shortcuts on web.
+
+As built in step 2.3:
+- **Colors** come only from `src/constants/colors.ts` (a test fails on any other color literal). Every text/background pair is checked for 4.5:1 in both appearances, icons and the Record button for 3:1 (`src/constants/__tests__/contrast.test.ts`).
+- **Dark mode** (Settings → General → Appearance: System / Light / Dark, remembered per device): the same gradient dimmed by about a fifth (`#8F8BC4 → #9F86B0 → #AA7F7F → #BB8D7E → #C3A06F → #BC8740`) with dark text on it (`#14141F`), dark-grey cards `#262533` with light text `#F2F1F6`, rows `#302F3E`, borders `#454457`, search fields a dimmed salmon `#C99A8C` with dark text. The recording screen stays dark in both; the printed PDF stays light.
+- **Icon-only buttons** (`IconButton`) are at least 44×44 pt and always have a label for VoiceOver; inside small chips they keep their size and reach 44 with an invisible touch margin.
+- **Larger Text** scales all text; only tab labels (1.3×), the Library chips (1.6×) and the recording timer (1.2×) are capped, where a fixed shape must hold.
+- **Keyboard (web):** ⌥N new document (coming with the editor), ⌥⇧N new folder in the open course, ⌥R record lecture (with the current course), "/" search, "?" the shortcuts sheet (also Settings → General), Esc closes. Option combinations are matched by key position, "/" and "?" by the character typed; nothing fires while typing in a field, with a dialog open, or with ⌘/Ctrl (browser shortcuts stay the browser's).

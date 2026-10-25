@@ -96,10 +96,13 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   };
 
   // Center of the smallest visible element whose own text matches.
-  const locate = (text, { exact = true, nth = 0 } = {}) =>
+  // `exclude`: a CSS selector whose contents are skipped (e.g. the laptop sidebar).
+  const locate = (text, { exact = true, nth = 0, exclude = null } = {}) =>
     evaluate(`(() => {
       const want = ${JSON.stringify(text)};
+      const exclude = ${JSON.stringify(exclude)};
       const all = [...document.querySelectorAll('body *')].filter((el) => {
+        if (exclude && el.closest(exclude)) return false;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return false;
         const s = getComputedStyle(el);
@@ -118,15 +121,15 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   const api = {
     send, evaluate, logs, dialogs, sleep,
     async nav(url) { await send('Page.navigate', { url }); await sleep(500); },
-    async waitText(text, { timeout = 15000, exact = false } = {}) {
+    async waitText(text, { timeout = 15000, exact = false, exclude = null } = {}) {
       const end = Date.now() + timeout;
-      while (Date.now() < end) { if (await locate(text, { exact })) return true; await sleep(200); }
+      while (Date.now() < end) { if (await locate(text, { exact, exclude })) return true; await sleep(200); }
       throw new Error(`timed out waiting for text: ${text}`);
     },
     async hasText(text, exact = false) { return !!(await locate(text, { exact })); },
-    async click(text, { button = 'left', exact = true, nth = 0, holdMs = 0 } = {}) {
-      let p = await locate(text, { exact, nth });
-      if (!p && exact) p = await locate(text, { exact: false, nth });
+    async click(text, { button = 'left', exact = true, nth = 0, holdMs = 0, exclude = null } = {}) {
+      let p = await locate(text, { exact, nth, exclude });
+      if (!p && exact) p = await locate(text, { exact: false, nth, exclude });
       if (!p) throw new Error(`no element with text: ${text}`);
       await api.clickAt(p.x, p.y, { button, holdMs });
     },
@@ -158,6 +161,16 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: codes[key] });
       await sleep(300);
     },
+    /**
+     * A key with modifiers, as the keyboard sends it: e.g. ⌥R is
+     * { code: 'KeyR', key: '®', alt: true } on a Mac. `text` types a character.
+     */
+    async chord({ code, key, alt = false, shift = false, meta = false, ctrl = false, text }) {
+      const modifiers = (alt ? 1 : 0) | (ctrl ? 2 : 0) | (meta ? 4 : 0) | (shift ? 8 : 0);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, text });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers });
+      await sleep(400);
+    },
     async shot(name) {
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
       const file = join(SHOTS, `${name}.png`);
@@ -165,7 +178,12 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       return file;
     },
     errors() { return logs.filter((l) => l.type === 'error' || l.type === 'exception'); },
-    /** Signs in through the onboarding screen and waits for Home. */
+    /** Changes the window size (the app follows live, as when dragging the window edge). */
+    async resize(w, h) {
+      await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+      await sleep(600);
+    },
+    /** Signs in through the onboarding screen and waits for Library. */
     async signIn(base, email, password) {
       await api.nav(base);
       await api.waitText('Sign in', { timeout: 60000 });
@@ -173,7 +191,7 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await api.fill('input[placeholder="Email"]', email);
       await api.fill('input[type="password"]', password);
       await api.click('Sign in');
-      await api.waitText('WORKPLACE', { timeout: 20000 });
+      await api.waitText('COURSES', { timeout: 20000 });
       await sleep(800);
     },
     async close() {

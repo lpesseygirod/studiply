@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { IconButton } from '../../../src/components/IconButton';
 import {
   View,
   Text,
@@ -16,7 +17,6 @@ import {
   Pressable,
   KeyboardAvoidingView,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,14 +24,15 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { LightColors, type ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProject } from '../../../src/services/project.service';
 import {
   getSessionsByProject,
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
-import { getFolders, createFolder, type Breadcrumb } from '../../../src/services/folder.service';
+import { getFolders, createFolder, getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { getSessionsWithNotes } from '../../../src/services/note.service';
 import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
 import {
@@ -40,6 +41,7 @@ import {
   markDeleted as markSourceFileDeleted,
   sourceFileName,
   fileLabel,
+  sameLectureFiles,
   getLibraryFiles,
   type LibraryFile,
 } from '../../../src/services/source-file.service';
@@ -60,20 +62,23 @@ import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
+import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { starButton } from '../../../src/utils/star';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
 
-function sessionStatusIcon(status: Session['status']): {
+function sessionStatusIcon(status: Session['status'], c: ThemeColors): {
   name: React.ComponentProps<typeof Ionicons>['name'];
   color: string;
 } {
-  if (status === 'completed') return { name: 'checkmark-circle', color: Colors.success };
+  if (status === 'completed') return { name: 'checkmark-circle', color: c.status.success.text };
   if (status === 'processing' || status === 'transcribing')
-    return { name: 'time-outline', color: Colors.gradient.bottom };
-  return { name: 'alert-circle-outline', color: Colors.text.secondary };
+    return { name: 'time-outline', color: c.status.warning.text };
+  return { name: 'alert-circle-outline', color: c.text.secondary };
 }
 
 function formatShortDate(isoString: string): string {
@@ -101,9 +106,12 @@ const FOLDER_CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP) / 2;
 // -------------------------------------------------------------------
 
 export default function ProjectDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `folder`: open at that folder (links from the laptop sidebar and top bar).
+  const { id, folder: folderParam } = useLocalSearchParams<{ id: string; folder?: string }>();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
 
@@ -174,16 +182,46 @@ export default function ProjectDetailScreen() {
   }, [id]);
 
   // This screen stays mounted when the student leaves it, so opening
-  // another project must start from that project's root, not from the
-  // previous project's breadcrumbs and lists.
+  // another project must start from that project's root (or the linked
+  // folder), not from the previous project's breadcrumbs and lists.
+  const shownRef = useRef<{ id: string; folderId: string | null } | null>(null);
   useEffect(() => {
+    const target = folderParam ?? null;
+    const shown = shownRef.current;
+    if (shown && shown.id === id && shown.folderId === target) return; // already there
+    shownRef.current = { id, folderId: target };
     setBreadcrumbs([]);
     setProject(null);
     setFolders([]);
     setSessions([]);
     setLoading(true);
-    fetchData(null);
-  }, [id]);
+    if (!target) {
+      fetchData(null);
+      return;
+    }
+    getProject(id)
+      .then(p => getFolderBreadcrumbs(target, p.name))
+      .then(chain => setBreadcrumbs(chain))
+      .catch(() => {})
+      .finally(() => fetchData(target));
+  }, [id, folderParam]);
+
+  // The link follows the folder the student is in, so the sidebar and
+  // top bar can bring them back to it.
+  function showFolder(folderId: string | null) {
+    shownRef.current = { id, folderId };
+    router.setParams({ folder: folderId ?? undefined });
+  }
+
+  // ⌥⇧N on the web: a new folder here.
+  useShellCommand('newFolder', () => {
+    setNewFolderName('');
+    setShowNewFolder(true);
+  });
+
+  // The laptop shell: Record lecture preselects this course and folder;
+  // the sidebar expands this course.
+  useShellScreen({ courseId: id ?? null, folderId: currentFolderId });
 
   // Coming back to the screen (e.g. after a rename in Library) reloads the
   // level the student is on. The first focus is the initial load above.
@@ -232,6 +270,7 @@ export default function ProjectDetailScreen() {
   function navigateIntoFolder(folder: Folder) {
     const newCrumb: Breadcrumb = { id: folder.id, name: folder.name, type: 'folder' };
     setBreadcrumbs(prev => [...prev, newCrumb]);
+    showFolder(folder.id);
     setFolders([]);
     setSessions([]);
     setLoading(true);
@@ -242,6 +281,7 @@ export default function ProjectDetailScreen() {
     const crumb = breadcrumbs[index];
     const folderId = crumb.type === 'folder' ? crumb.id : null;
     setBreadcrumbs(prev => prev.slice(0, index + 1));
+    showFolder(folderId);
     setFolders([]);
     setSessions([]);
     setLoading(true);
@@ -279,6 +319,7 @@ export default function ProjectDetailScreen() {
     showActionSheet(folder.name, [
       { text: 'Rename', onPress: () => promptRenameFolder(folder) },
       { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
+      starButton({ type: 'folder', id: folder.id }, folder.name, folder.starred_at, showUndo),
       { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
     ], { anchor });
   }
@@ -289,6 +330,7 @@ export default function ProjectDetailScreen() {
       { text: 'Rename…', onPress: () => renameLecture(session) },
       { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
       { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
     ], { anchor });
   }
@@ -309,18 +351,21 @@ export default function ProjectDetailScreen() {
   }
 
   function showFileActions(file: SourceFile, anchor?: Anchor) {
-    const name = fileLabel(file, projectFiles);
+    const name = fileLabel(file, sameLectureFiles(file, projectFiles));
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
       { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
       { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
+        setProjectFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
+      ),
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Export / Share', onPress: () => shareFile(file) },
       { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
     ], { anchor });
   }
 
   async function renameFile(file: SourceFile) {
-    const renamed = await promptRenameFile(file, projectFiles);
+    const renamed = await promptRenameFile(file, sameLectureFiles(file, projectFiles));
     if (renamed) setProjectFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
   }
 
@@ -526,6 +571,7 @@ export default function ProjectDetailScreen() {
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Open / Share', onPress: () => openLibraryFile(file) },
       { text: 'Rename…', onPress: () => renameLibraryFile(file) },
       { text: 'Move to…', onPress: () => move.openMove(libraryFileItem(file)) },
+      starButton({ type: 'file', id: file.id }, file.title, file.starredAt, showUndo),
       { text: 'Delete', style: 'destructive', onPress: () => trashLibraryFile(file) },
     ], { anchor });
   }
@@ -674,17 +720,12 @@ export default function ProjectDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       {/* ── Header ────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={navigateUp}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={navigateUp} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
 
         <View style={styles.headerCenter}>
           {project && isRoot && (
@@ -707,7 +748,7 @@ export default function ProjectDetailScreen() {
                 <Ionicons
                   name="chevron-forward"
                   size={12}
-                  color={Colors.text.secondary}
+                  color={c.text.onGradient}
                   style={styles.breadcrumbChevron}
                 />
               )}
@@ -732,7 +773,7 @@ export default function ProjectDetailScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.salmon} />
+          <ActivityIndicator color={c.salmon} />
         </View>
       ) : error ? (
         <View style={styles.center}>
@@ -749,7 +790,7 @@ export default function ProjectDetailScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={Colors.salmon}
+              tintColor={c.salmon}
             />
           }
         >
@@ -782,7 +823,7 @@ export default function ProjectDetailScreen() {
               <View style={styles.filesList}>
                 {projectFiles.map((file, index) => {
                   const isPhoto = file.file_type === 'photo';
-                  const label = fileLabel(file, projectFiles);
+                  const label = fileLabel(file, sameLectureFiles(file, projectFiles));
 
                   return (
                     <TouchableOpacity
@@ -803,7 +844,7 @@ export default function ProjectDetailScreen() {
                         />
                       ) : (
                         <View style={styles.fileIconWrap}>
-                          <Ionicons name="document-text" size={18} color={Colors.text.secondary} />
+                          <Ionicons name="document-text" size={18} color={c.text.secondary} />
                         </View>
                       )}
                       <View style={styles.fileInfo}>
@@ -814,7 +855,7 @@ export default function ProjectDetailScreen() {
                         </Text>
                       </View>
                       {isPhoto && (
-                        <Ionicons name="chevron-forward" size={16} color={Colors.text.placeholder} />
+                        <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
                       )}
                     </TouchableOpacity>
                   );
@@ -837,7 +878,7 @@ export default function ProjectDetailScreen() {
                     activeOpacity={0.8}
                   >
                     <View style={styles.folderIconWrap}>
-                      <Ionicons name="folder" size={28} color={Colors.salmon} />
+                      <Ionicons name="folder" size={28} color={c.salmon} />
                     </View>
                     <Text style={styles.folderName} numberOfLines={2}>
                       {folder.name}
@@ -868,7 +909,7 @@ export default function ProjectDetailScreen() {
                         <Ionicons
                           name={file.kind === 'image' ? 'image-outline' : 'document-text'}
                           size={18}
-                          color={Colors.text.secondary}
+                          color={c.text.secondary}
                         />
                       </View>
                     )}
@@ -893,7 +934,7 @@ export default function ProjectDetailScreen() {
               </Text>
               <View style={styles.sessionsList}>
                 {sessions.filter(s => s.title !== 'Project Files').map((session, index, arr) => {
-                  const icon = sessionStatusIcon(session.status);
+                  const icon = sessionStatusIcon(session.status, c);
                   const dur = formatDuration(session.duration_seconds);
                   const hasNote = sessionNoteIds.has(session.id);
                   return (
@@ -924,7 +965,7 @@ export default function ProjectDetailScreen() {
                         </View>
                       </View>
                       {!!dur && <Text style={styles.sessionDuration}>{dur}</Text>}
-                      <Ionicons name="chevron-forward" size={16} color={Colors.text.placeholder} />
+                      <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
                     </TouchableOpacity>
                   );
                 })}
@@ -935,7 +976,7 @@ export default function ProjectDetailScreen() {
           {/* ── Empty state ───────────────────────────────────── */}
           {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && libraryFiles.length === 0 && (
             <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={44} color={Colors.text.placeholder} />
+              <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
               <Text style={styles.emptyTitle}>
                 {isRoot ? 'No sessions yet' : 'Empty folder'}
               </Text>
@@ -960,7 +1001,7 @@ export default function ProjectDetailScreen() {
             }}
             activeOpacity={0.85}
           >
-            <Ionicons name="folder-outline" size={18} color={Colors.text.primary} />
+            <Ionicons name="folder-outline" size={18} color={c.text.primary} />
             <Text style={styles.fabSecondaryText}>New Folder</Text>
           </TouchableOpacity>
 
@@ -977,7 +1018,7 @@ export default function ProjectDetailScreen() {
             }}
             activeOpacity={0.85}
           >
-            <Ionicons name="mic-outline" size={18} color={Colors.white} />
+            <Ionicons name="mic-outline" size={18} color={c.white} />
             <Text style={styles.fabText}>New Recording</Text>
           </TouchableOpacity>
         </View>
@@ -1001,7 +1042,7 @@ export default function ProjectDetailScreen() {
                 <TextInput
                   style={styles.modalInput}
                   placeholder="Folder name"
-                  placeholderTextColor={Colors.text.placeholder}
+                  placeholderTextColor={c.text.placeholder}
                   value={newFolderName}
                   onChangeText={setNewFolderName}
                   autoFocus
@@ -1015,7 +1056,7 @@ export default function ProjectDetailScreen() {
                   activeOpacity={0.85}
                 >
                   {isCreatingFolder ? (
-                    <ActivityIndicator color={Colors.white} size="small" />
+                    <ActivityIndicator color={c.white} size="small" />
                   ) : (
                     <Text style={styles.createButtonText}>Create</Text>
                   )}
@@ -1050,13 +1091,7 @@ export default function ProjectDetailScreen() {
         onRequestClose={() => setPreviewUri(null)}
       >
         <View style={styles.previewOverlay}>
-          <TouchableOpacity
-            style={styles.previewClose}
-            onPress={() => setPreviewUri(null)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close" size={28} color="#fff" />
-          </TouchableOpacity>
+          <IconButton icon="close" label="Close preview" onPress={() => setPreviewUri(null)} size={28} color={LightColors.white} style={styles.previewClose} />
           {previewUri && (
             <Image
               source={{ uri: previewUri }}
@@ -1085,6 +1120,8 @@ function UploadButton({
   loading: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   return (
     <TouchableOpacity
       style={styles.uploadButton}
@@ -1094,9 +1131,9 @@ function UploadButton({
     >
       <View style={styles.uploadButtonIcon}>
         {loading ? (
-          <ActivityIndicator color={Colors.text.secondary} size="small" />
+          <ActivityIndicator color={c.text.secondary} size="small" />
         ) : (
-          <Ionicons name={icon} size={22} color={Colors.text.secondary} />
+          <Ionicons name={icon} size={22} color={c.text.secondary} />
         )}
       </View>
       <Text style={styles.uploadButtonLabel}>{label}</Text>
@@ -1108,8 +1145,9 @@ function UploadButton({
 // Styles
 // -------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // Header
@@ -1120,7 +1158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: {
     width: 40,
@@ -1143,7 +1181,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
     flexShrink: 1,
   },
 
@@ -1155,15 +1193,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: H_PADDING,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
     gap: 2,
   },
   crumbText: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
   },
   crumbTextActive: {
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
     fontWeight: Typography.weight.medium as '500',
   },
   breadcrumbChevron: {
@@ -1179,7 +1217,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 12,
   },
@@ -1192,10 +1230,10 @@ const styles = StyleSheet.create({
   },
   folderCard: {
     width: FOLDER_CARD_WIDTH,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     padding: 14,
     gap: 10,
   },
@@ -1203,22 +1241,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   folderName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Sessions list
   sessionsList: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
   },
   sessionRow: {
@@ -1230,13 +1268,13 @@ const styles = StyleSheet.create({
   },
   sessionRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   sessionInfo: { flex: 1, gap: 2 },
   sessionTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   sessionMetaRow: {
     flexDirection: 'row' as const,
@@ -1246,10 +1284,10 @@ const styles = StyleSheet.create({
   },
   sessionMeta: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   noteBadge: {
-    backgroundColor: Colors.success + '22',
+    backgroundColor: c.success + '22',
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
@@ -1257,13 +1295,13 @@ const styles = StyleSheet.create({
   noteBadgeText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.success,
+    color: c.success,
     letterSpacing: 0.2,
   },
   sessionDuration: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium as '500',
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     minWidth: 40,
     textAlign: 'right',
   },
@@ -1277,11 +1315,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
   emptyBody: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
     lineHeight: Typography.size.base * Typography.leading.relaxed,
     maxWidth: 280,
@@ -1303,26 +1341,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: 20,
   },
   fabSecondary: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderWidth: 1.5,
-    borderColor: Colors.surfaceMuted,
-    flex: 0,
+    borderColor: c.surfaceMuted,
+    // Its own width (React Native Web reads `flex: 0` as a zero width).
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
     paddingHorizontal: 18,
   },
   fabText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold as '600',
     letterSpacing: Typography.tracking.wide,
   },
   fabSecondaryText: {
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium as '500',
   },
@@ -1330,14 +1371,14 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end',
   },
   modalKAV: {
     width: '100%',
   },
   modalSheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 28,
@@ -1347,19 +1388,19 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.primary,
+    color: c.text.primary,
     marginBottom: 4,
   },
   modalInput: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   createButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1368,7 +1409,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   createButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold as '600',
   },
@@ -1378,14 +1419,14 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium as '500',
   },
 
   // Error
   errorText: {
     fontSize: Typography.size.base,
-    color: Colors.error,
+    color: c.error,
   },
 
   // Upload action buttons
@@ -1403,23 +1444,23 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 16,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   uploadButtonLabel: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     fontWeight: Typography.weight.medium as '500',
     textAlign: 'center',
   },
 
   // Project files list
   filesList: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
     paddingHorizontal: 14,
   },
@@ -1431,19 +1472,19 @@ const styles = StyleSheet.create({
   },
   fileRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   fileThumb: {
     width: 40,
     height: 40,
     borderRadius: 8,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
   },
   fileIconWrap: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1454,17 +1495,17 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   fileMeta: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Photo preview modal
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: c.photoBackdrop,
     justifyContent: 'center',
     alignItems: 'center',
   },

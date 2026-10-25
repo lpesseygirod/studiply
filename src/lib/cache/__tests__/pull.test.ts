@@ -1,4 +1,4 @@
-import { OVERLAP_MS, PAGE, pullTable, transcriptsToFetch, type PullTableDeps } from '../pull';
+import { cursorColumn, OVERLAP_MS, PAGE, pullTable, transcriptsToFetch, type PullTableDeps } from '../pull';
 
 type Row = { id: string; user_id: string; updated_at: string };
 const row = (id: string, updated_at: string): Row => ({ id, user_id: 'u', updated_at });
@@ -93,5 +93,43 @@ describe('transcriptsToFetch', () => {
   it('recent finished lectures without a cached transcript, or changed since', () => {
     expect(transcriptsToFetch(lectures, fetchedAt, 3)).toEqual(['new', 'changed']);
     expect(transcriptsToFetch(lectures, fetchedAt, 10)).toEqual(['new', 'changed', 'oldest']);
+  });
+});
+
+describe('pullTable by changed_at (courses, folders, files, media)', () => {
+  type Fav = { id: string; user_id: string; updated_at: string; changed_at: string; starred_at: string | null };
+  it('downloads a favorite-only change (updated_at unchanged) and advances by changed_at', async () => {
+    const old = '2026-10-01T10:00:00.000Z';
+    const fav = '2026-10-05T10:00:00.000Z';
+    const server: Fav[] = [{ id: 'a', user_id: 'u', updated_at: old, changed_at: fav, starred_at: fav }];
+    const saved: Fav[] = [];
+    let since: string | null = '2026-10-02T10:00:00.000Z';
+    const asked: (string | null)[] = [];
+    const deps: PullTableDeps<Fav> = {
+      cursor: 'changed_at',
+      fetchChanged: async (s) => {
+        asked.push(s);
+        return server.filter((r) => !s || r.changed_at >= s);
+      },
+      fetchIds: async () => server.map((r) => ({ id: r.id })),
+      cachedIds: async () => ['a'],
+      dirtyIds: async () => new Set(),
+      save: async (rows) => {
+        saved.push(...rows);
+      },
+      drop: async () => {},
+      getSince: async () => since,
+      setSince: async (s) => {
+        since = s;
+      },
+    };
+    expect(await pullTable(deps)).toBe(1);
+    expect(saved[0].starred_at).toBe(fav);
+    expect(since).toBe(fav);
+  });
+
+  it('those four tables use changed_at, the others updated_at', () => {
+    expect(['courses', 'folders', 'files', 'media'].map((t) => cursorColumn(t as never))).toEqual(Array(4).fill('changed_at'));
+    expect(['lectures', 'summaries', 'audio_chunks'].map((t) => cursorColumn(t as never))).toEqual(Array(3).fill('updated_at'));
   });
 });

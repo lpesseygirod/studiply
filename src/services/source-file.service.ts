@@ -89,6 +89,17 @@ export function fileLabel(file: SourceFile, allFiles: SourceFile[]): string {
   return 'Document';
 }
 
+/**
+ * The files of the same lecture, oldest first: lists that mix lectures
+ * (the course's Project Files, newest first) number "Photo 2" the way the
+ * lecture's own screens and Favorites do.
+ */
+export function sameLectureFiles(file: SourceFile, allFiles: SourceFile[]): SourceFile[] {
+  return allFiles
+    .filter((f) => f.session_id === file.session_id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
+
 /** The extension a photo or PDF keeps when renamed ("png", "pdf"…). */
 export function fileExtension(file: SourceFile): string {
   return extensionFor({
@@ -188,6 +199,7 @@ function mediaToSourceFile(media: LocalMediaRow, url: string): SourceFile {
     is_uploaded: !media.local_uri,
     created_at: media.created_at,
     display_name: media.caption,
+    starred_at: media.starred_at ?? null,
   };
 }
 
@@ -661,8 +673,10 @@ async function queueMedia(
     extracted_text: null,
     caption: media.caption,
     alt_text: null,
+    starred_at: null,
     created_at: at,
     updated_at: at,
+    changed_at: at,
     local_uri: media.uri,
   };
   await saveLocalRow('media', row);
@@ -820,6 +834,8 @@ export interface LibraryFile {
   courseId: string | null;
   folderId: string | null;
   createdAt: string;
+  /** null = not starred. */
+  starredAt: string | null;
   /** Its photo or PDF (signed link online; '' offline). */
   media: SourceFile | null;
 }
@@ -833,6 +849,7 @@ async function toLibraryFile(row: FileRow & { media: MediaRow[] }): Promise<Libr
     courseId: row.course_id,
     folderId: row.folder_id,
     createdAt: row.created_at,
+    starredAt: row.starred_at,
     media: m ? mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path)) : null,
   };
 }

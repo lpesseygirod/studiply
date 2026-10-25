@@ -8,13 +8,15 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import { IconButton } from '../../../src/components/IconButton';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import {
   getTrashItems,
@@ -52,6 +54,8 @@ function typeIcon(type: TrashItem['type']): React.ComponentProps<typeof Ionicons
 // -------------------------------------------------------------------
 
 export default function TrashScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
@@ -140,17 +144,12 @@ export default function TrashScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
         <Text style={styles.headerTitle}>Recently Deleted</Text>
         <TouchableOpacity
           style={styles.iconButton}
@@ -170,7 +169,7 @@ export default function TrashScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.salmon} />
+          <ActivityIndicator color={c.salmon} />
         </View>
       ) : (
         <FlatList
@@ -184,12 +183,12 @@ export default function TrashScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={Colors.salmon}
+              tintColor={c.salmon}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="trash-outline" size={48} color={Colors.text.placeholder} />
+              <Ionicons name="trash-outline" size={48} color={c.text.onGradient} />
               <Text style={styles.emptyTitle}>{offline ? 'Needs a connection' : 'No deleted items'}</Text>
               <Text style={styles.emptyBody}>
                 {offline
@@ -201,7 +200,7 @@ export default function TrashScreen() {
           renderItem={({ item }) => (
             <View style={styles.row}>
               <View style={styles.rowIcon}>
-                <Ionicons name={typeIcon(item.type)} size={20} color={Colors.text.secondary} />
+                <Ionicons name={typeIcon(item.type)} size={20} color={c.text.secondary} />
               </View>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
@@ -216,13 +215,7 @@ export default function TrashScreen() {
               >
                 <Text style={styles.restoreText}>Restore</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleDelete(item)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.deleteButton}
-              >
-                <Ionicons name="trash-outline" size={18} color={Colors.error} />
-              </TouchableOpacity>
+              <IconButton icon="trash-outline" label="Delete permanently" onPress={() => handleDelete(item)} size={18} color={c.error} style={styles.deleteButton} />
             </View>
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -232,8 +225,9 @@ export default function TrashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
@@ -243,7 +237,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: {
     width: 60,
@@ -253,21 +247,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
   emptyAllText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium as '500',
-    color: Colors.error,
+    color: c.error,
     textAlign: 'right',
   },
   emptyAllTextDisabled: {
-    color: Colors.text.placeholder,
+    color: c.text.onGradient,
   },
 
   subheader: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
@@ -280,7 +274,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -290,7 +284,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -298,23 +292,23 @@ const styles = StyleSheet.create({
   rowName: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium as '500',
-    color: Colors.text.primary,
+    color: c.text.primary,
     marginBottom: 2,
   },
   rowMeta: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   restoreButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: c.accentLight,
   },
   restoreText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold as '600',
-    color: Colors.accent,
+    color: c.accent,
   },
   deleteButton: {
     padding: 4,
@@ -333,11 +327,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
   emptyBody: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
     lineHeight: Typography.size.base * 1.5,
   },

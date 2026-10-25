@@ -2,7 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import type { ThemeColors } from '../constants/colors';
+import { Typography } from '../constants/typography';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import { gradientStops } from './GradientBackground';
+
 export default function SplashScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const textOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -15,7 +22,7 @@ export default function SplashScreen() {
 
   return (
     <LinearGradient
-      colors={['#B8B5E4', '#C9A8D4', '#D4A0A0', '#E8B4A0', '#F0C890', '#E8A850']}
+      colors={gradientStops(colors)}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={styles.container}
@@ -28,7 +35,8 @@ export default function SplashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -39,16 +47,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#1A1A1A',
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.black,
+    color: c.text.onGradientStrong,
     letterSpacing: 8,
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    letterSpacing: 4,
-    opacity: 0.65,
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.medium,
+    color: c.text.onGradient,
+    letterSpacing: Typography.tracking.widest,
   },
 });

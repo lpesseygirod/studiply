@@ -10,19 +10,25 @@ import {
   Keyboard,
   Pressable,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { useShellCommand } from '../../../src/components/shell/ShellContext';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { searchAll } from '../../../src/services/search.service';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import type { SearchResult } from '../../../src/types/database';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 export default function SearchScreen() {
+  const wide = useLayoutMode() === 'wide';
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
@@ -33,6 +39,9 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // "/" on the web while Search is open: back to the field.
+  useShellCommand('focusSearch', () => inputRef.current?.focus());
 
   // Auto-focus input whenever this tab becomes active.
   useFocusEffect(
@@ -100,7 +109,7 @@ export default function SearchScreen() {
         <Ionicons
           name={resultIcon(item.type)}
           size={20}
-          color={Colors.text.secondary}
+          color={c.text.secondary}
         />
       </View>
       <View style={styles.resultText}>
@@ -112,7 +121,7 @@ export default function SearchScreen() {
           {item.subtitle ? ` · ${item.subtitle}` : ''}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={16} color={Colors.text.placeholder} />
+      <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
     </TouchableOpacity>
   );
 
@@ -121,20 +130,21 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-        <StatusBar style="dark" />
+      <GradientFill />
+        <ThemedStatusBar />
 
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-          <Text style={styles.appTitle}>STUDIPLY</Text>
+          {!wide && <Text style={styles.appTitle}>Search</Text>}
 
           {/* Search input + Cancel */}
           <View style={styles.searchRow}>
             <View style={styles.searchBarWrapper}>
-              <Ionicons name="search-outline" size={16} color={Colors.text.primary} style={styles.searchIcon} />
+              <Ionicons name="search-outline" size={16} color={c.search.text} style={styles.searchIcon} />
               <TextInput
                 ref={inputRef}
                 style={styles.searchInput}
                 placeholder="Search"
-                placeholderTextColor={Colors.text.primary}
+                placeholderTextColor={c.search.placeholder}
                 value={query}
                 onChangeText={setQuery}
                 returnKeyType="search"
@@ -143,7 +153,7 @@ export default function SearchScreen() {
                 autoCorrect={false}
               />
               {isSearching && (
-                <ActivityIndicator size="small" color={Colors.text.secondary} style={styles.searchSpinner} />
+                <ActivityIndicator size="small" color={c.text.secondary} style={styles.searchSpinner} />
               )}
             </View>
             <TouchableOpacity
@@ -188,21 +198,20 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF9',
   },
   header: {
     paddingHorizontal: 24,
     paddingBottom: 12,
-    backgroundColor: '#FFFDF9',
   },
+  // The big screen title, as on Library (docs/design iphone-09)
   appTitle: {
-    fontSize: Typography.size.lg,
+    fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
+    color: c.text.onGradientStrong,
     marginBottom: 14,
   },
 
@@ -216,7 +225,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.search.bg,
+    borderWidth: 1,
+    borderColor: c.search.border,
     borderRadius: 100,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -225,7 +236,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
   searchIcon: {
     flexShrink: 0,
@@ -234,7 +245,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.search.text,
     padding: 0,
   },
   searchSpinner: {
@@ -242,9 +253,13 @@ const styles = StyleSheet.create({
   },
 
   // Results list
+  // Results sit on a card (readable on the gradient in both appearances)
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    marginHorizontal: 18,
+    marginTop: 8,
+    paddingHorizontal: 16,
+    backgroundColor: c.card,
+    borderRadius: 18,
   },
   resultRow: {
     flexDirection: 'row',
@@ -256,7 +271,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -267,18 +282,18 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   resultType: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: Typography.tracking.wide,
   },
   separator: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 48,
   },
 
@@ -291,6 +306,6 @@ const styles = StyleSheet.create({
   },
   promptText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
   },
 });

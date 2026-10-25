@@ -8,6 +8,7 @@ import '../src/services/sync-handlers';
 import { useAuth } from '../src/hooks/useAuth';
 import SplashScreen from '../src/components/SplashScreen';
 import DialogHost from '../src/components/dialogs/DialogHost';
+import { ThemeProvider } from '../src/theme/ThemeProvider';
 
 // Inner component that handles navigation once auth state is known.
 function RootNavigator() {
@@ -22,7 +23,7 @@ function RootNavigator() {
     const inMainGroup = segments[0] === '(main)';
 
     if (isOnboarded && inAuthGroup) {
-      router.replace('/(main)');
+      router.replace('/library');
     } else if (!isOnboarded && inMainGroup) {
       router.replace('/(auth)/onboarding');
     } else if (!isOnboarded && !inAuthGroup) {
@@ -51,19 +52,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-        <DialogHost />
+        <ThemeProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+          <DialogHost />
 
-        {showSplash && (
-          <Animated.View
-            style={[StyleSheet.absoluteFill, { opacity: splashOpacity }]}
-            pointerEvents="none"
-          >
-            <SplashScreen />
-          </Animated.View>
-        )}
+          {showSplash && (
+            <Animated.View style={[StyleSheet.absoluteFill, { opacity: splashOpacity }]} pointerEvents="none">
+              <SplashScreen />
+            </Animated.View>
+          )}
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

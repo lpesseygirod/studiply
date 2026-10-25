@@ -14,8 +14,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Audio } from 'expo-av';
 
+import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { updateSession } from '../../../src/services/session.service';
 import {
@@ -103,6 +105,8 @@ async function finishChunk(recording: Audio.Recording): Promise<RecordedChunk | 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ActiveRecordingScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
@@ -111,6 +115,7 @@ export default function ActiveRecordingScreen() {
     title: string;
     mode: string;
   }>();
+  useLectureShell(sessionId, title);
 
   // ── Recording refs ───────────────────────────────────────────
   const sessionIdRef = useRef(sessionId);
@@ -493,9 +498,6 @@ export default function ActiveRecordingScreen() {
 
         {!isStopping && <FlowCloseButton onPress={showExitAlert} tone="light" />}
 
-        {/* ── App title ──────────────────────────────────────── */}
-        <Text style={styles.appTitle}>STUDIPLY</Text>
-
         {/* ── Status ─────────────────────────────────────────── */}
         <Text style={styles.statusText}>{statusText}</Text>
         <Text style={styles.sessionTitle} numberOfLines={2}>{title ?? ''}</Text>
@@ -503,7 +505,9 @@ export default function ActiveRecordingScreen() {
         <View style={{ flex: 1 }} />
 
         {/* ── Timer ──────────────────────────────────────────── */}
-        <Text style={styles.timer}>{formatTime(elapsed)}</Text>
+        <Text style={styles.timer} maxFontSizeMultiplier={1.2}>
+          {formatTime(elapsed)}
+        </Text>
 
         {/* ── Mode badge ─────────────────────────────────────── */}
         <View style={styles.modeBadge}>
@@ -549,14 +553,14 @@ export default function ActiveRecordingScreen() {
           <Animated.View style={{ opacity: isStopping ? 0.5 : pulseAnim }}>
             <TouchableOpacity onPress={handleStop} disabled={isStopping} activeOpacity={0.8}>
               <LinearGradient
-                colors={[Colors.gradient.top, Colors.salmon, Colors.gradient.bottomEnd]}
+                colors={[c.gradient.top, c.salmon, c.gradient.bottomEnd]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.stopButtonRing}
               >
                 <View style={styles.stopButtonInner}>
                   {isStopping ? (
-                    <Ionicons name="hourglass-outline" size={28} color={Colors.white} />
+                    <Ionicons name="hourglass-outline" size={28} color={c.white} />
                   ) : (
                     <Text style={styles.stopLabel}>STOP</Text>
                   )}
@@ -573,7 +577,7 @@ export default function ActiveRecordingScreen() {
           disabled={isStopping || !isRecording}
           activeOpacity={0.75}
         >
-          <Ionicons name={isPaused ? 'play' : 'pause'} size={20} color={Colors.white} />
+          <Ionicons name={isPaused ? 'play' : 'pause'} size={20} color={c.white} />
           <Text style={styles.pauseButtonText}>{isPaused ? 'Resume' : 'Pause'}</Text>
         </TouchableOpacity>
       </View>
@@ -587,10 +591,11 @@ const STOP_RING_SIZE   = 130;
 const STOP_RING_BORDER = 5;
 const STOP_INNER_SIZE  = STOP_RING_SIZE - STOP_RING_BORDER * 2;
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: c.recordingScreen.bg,
   },
   center: {
     alignItems: 'center',
@@ -609,32 +614,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    backgroundColor: '#C8860A',
+    backgroundColor: c.recordingScreen.warningBg,
     paddingHorizontal: 16,
     paddingVertical: 8,
     alignItems: 'center',
   },
   limitBannerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFBE6',
+    fontSize: Typography.size.xs,
+    fontWeight: Typography.weight.semibold,
+    color: c.recordingScreen.warningText,
     textAlign: 'center',
   },
 
   // Header
-  appTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.white,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 20,
-  },
 
   // Status
   statusText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: 'rgba(255,255,255,0.55)',
+    color: c.recordingScreen.textMuted,
     letterSpacing: Typography.tracking.wider,
     textAlign: 'center',
     marginBottom: 8,
@@ -642,16 +640,16 @@ const styles = StyleSheet.create({
   sessionTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: 'rgba(255,255,255,0.75)',
+    color: c.recordingScreen.textStrong,
     textAlign: 'center',
     lineHeight: Typography.size.base * Typography.leading.relaxed,
   },
 
   // Timer
   timer: {
-    fontSize: 56,
+    fontSize: Typography.size.timer,
     fontWeight: Typography.weight.bold,
-    color: Colors.white,
+    color: c.white,
     letterSpacing: 2,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
@@ -661,7 +659,7 @@ const styles = StyleSheet.create({
   // Mode badge
   modeBadge: {
     borderWidth: 1,
-    borderColor: 'rgba(232,180,160,0.4)',
+    borderColor: c.recordingScreen.accentBorder,
     borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -669,14 +667,14 @@ const styles = StyleSheet.create({
   modeBadgeText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: 'rgba(232,180,160,0.8)',
+    color: c.recordingScreen.accentText,
     letterSpacing: Typography.tracking.wide,
   },
 
   // Max time indicator
   maxTimeText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: Typography.size.xs,
+    color: c.recordingScreen.textFaint,
     marginTop: 8,
     letterSpacing: 0.5,
   },
@@ -684,7 +682,7 @@ const styles = StyleSheet.create({
   // Saving after Stop
   saveText: {
     fontSize: Typography.size.sm,
-    color: Colors.white,
+    color: c.white,
     marginTop: 16,
   },
   saveErrorBox: {
@@ -709,14 +707,14 @@ const styles = StyleSheet.create({
     width: STOP_INNER_SIZE,
     height: STOP_INNER_SIZE,
     borderRadius: STOP_INNER_SIZE / 2,
-    backgroundColor: '#111111',
+    backgroundColor: c.recordingScreen.panel,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stopLabel: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold,
-    color: Colors.white,
+    color: c.white,
     letterSpacing: 2,
   },
 
@@ -729,30 +727,30 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 100,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: c.recordingScreen.border,
   },
   pauseButtonText: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.white,
+    color: c.white,
   },
 
   // Error state
   errorText: {
-    color: Colors.error,
+    color: c.error,
     fontSize: Typography.size.base,
     textAlign: 'center',
     paddingHorizontal: 32,
   },
   errorBackButton: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: c.recordingScreen.borderStrong,
     borderRadius: 100,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
   errorBackText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.base,
   },
 });

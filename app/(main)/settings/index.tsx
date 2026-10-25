@@ -7,13 +7,14 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import { syncEnabled, syncNow, useSyncCounts } from '../../../src/lib/sync';
@@ -25,6 +26,7 @@ import {
   getTodayUsage,
   type TodayUsage,
 } from '../../../src/services/credit-check.service';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 const SETTINGS_ROWS = [
   {
@@ -65,10 +67,12 @@ const EARLIER_VERSION_ROW = {
 // AiUsageBanner — today's AI use against the daily limits
 // -------------------------------------------------------------------
 function AiUsageBanner({ usage, onPress }: { usage: TodayUsage; onPress: () => void }) {
+  const { colors: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (usage.simulated) {
     return (
       <View style={[styles.apiBanner, styles.apiBannerAmber]}>
-        <Ionicons name="flask-outline" size={16} color="#8B6914" />
+        <Ionicons name="flask-outline" size={16} color={c.status.warning.text} />
         <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>AI: Simulated (development)</Text>
       </View>
     );
@@ -79,10 +83,10 @@ function AiUsageBanner({ usage, onPress }: { usage: TodayUsage; onPress: () => v
   const nearly =
     usage.transcriptionSeconds >= 0.8 * usage.transcriptionLimitSeconds || usage.claudeUsd >= 0.8 * usage.claudeLimitUsd;
   const [tone, icon, iconColor] = reached
-    ? ([styles.apiBannerRed, 'alert-circle', '#CC3333'] as const)
+    ? ([styles.apiBannerRed, 'alert-circle', c.status.error.text] as const)
     : nearly
-      ? ([styles.apiBannerAmber, 'warning-outline', '#8B6914'] as const)
-      : ([styles.apiBannerGreen, 'checkmark-circle', '#2D8A5A'] as const);
+      ? ([styles.apiBannerAmber, 'warning-outline', c.status.warning.text] as const)
+      : ([styles.apiBannerGreen, 'checkmark-circle', c.status.success.text] as const);
   const textTone = reached ? styles.apiBannerTextRed : nearly ? styles.apiBannerTextAmber : styles.apiBannerTextGreen;
 
   return (
@@ -98,6 +102,8 @@ function AiUsageBanner({ usage, onPress }: { usage: TodayUsage; onPress: () => v
 // SyncBanner — iPhone: are this phone's changes on Studiply yet?
 // -------------------------------------------------------------------
 function SyncBanner() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const { pending, failed } = useSyncCounts();
   const offline = useConnectivity() === 'offline';
   const [busy, setBusy] = useState(false);
@@ -112,36 +118,39 @@ function SyncBanner() {
   if (failed > 0) {
     return (
       <TouchableOpacity style={[styles.apiBanner, styles.apiBannerRed]} onPress={retry} disabled={busy} activeOpacity={0.75}>
-        <Ionicons name="alert-circle" size={16} color={Colors.error} />
+        <Ionicons name="alert-circle" size={16} color={c.error} />
         <Text style={[styles.apiBannerText, styles.apiBannerTextRed]}>
           {failed === 1 ? "1 change couldn't sync" : `${failed} changes couldn't sync`}
         </Text>
-        {busy ? <ActivityIndicator size="small" color={Colors.error} /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextRed]}>Try again</Text>}
+        {busy ? <ActivityIndicator size="small" color={c.error} /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextRed]}>Try again</Text>}
       </TouchableOpacity>
     );
   }
   if (pending > 0) {
     return (
       <TouchableOpacity style={[styles.apiBanner, styles.apiBannerAmber]} onPress={retry} disabled={busy || offline} activeOpacity={0.75}>
-        <Ionicons name="cloud-upload-outline" size={16} color="#8B6914" />
+        <Ionicons name="cloud-upload-outline" size={16} color={c.status.warning.text} />
         <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>
           {pending === 1 ? '1 change waiting to sync' : `${pending} changes waiting to sync`}
           {offline ? " · syncs when you're back online" : ''}
         </Text>
-        {!offline && (busy ? <ActivityIndicator size="small" color="#8B6914" /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextAmber]}>Sync</Text>)}
+        {!offline && (busy ? <ActivityIndicator size="small" color={c.status.warning.text} /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextAmber]}>Sync</Text>)}
       </TouchableOpacity>
     );
   }
   return (
     <View style={[styles.apiBanner, styles.apiBannerGreen]}>
-      <Ionicons name="checkmark-circle" size={16} color="#2D8A5A" />
+      <Ionicons name="checkmark-circle" size={16} color={c.status.success.text} />
       <Text style={[styles.apiBannerText, styles.apiBannerTextGreen]}>All changes synced</Text>
     </View>
   );
 }
 
 export default function SettingsScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const wide = useLayoutMode() === 'wide';
   const { profile } = useAuth();
   const router = useRouter();
 
@@ -177,7 +186,8 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       <ScrollView
         contentContainerStyle={[
@@ -187,8 +197,8 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ────────────────────────────────────────────── */}
-        <Text style={styles.appTitle}>STUDIPLY</Text>
-        <Text style={styles.screenSubtitle}>Settings</Text>
+        {/* On the laptop the top bar shows the title. */}
+        {!wide && <Text style={styles.screenTitle}>Settings</Text>}
 
         {/* ── Profile card ──────────────────────────────────────── */}
         <TouchableOpacity
@@ -203,7 +213,7 @@ export default function SettingsScreen() {
               <Text style={styles.profileEditHint}>Edit profile →</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.text.secondary} />
+          <Ionicons name="chevron-forward" size={18} color={c.text.secondary} />
         </TouchableOpacity>
 
         {/* ── Settings rows ─────────────────────────────────────── */}
@@ -216,13 +226,13 @@ export default function SettingsScreen() {
                 activeOpacity={0.75}
               >
                 <View style={styles.settingsRowIcon}>
-                  <Ionicons name={row.icon} size={18} color={Colors.text.secondary} />
+                  <Ionicons name={row.icon} size={18} color={c.text.secondary} />
                 </View>
                 <View style={styles.settingsRowText}>
                   <Text style={styles.settingsRowLabel}>{row.label}</Text>
                   <Text style={styles.settingsRowSub}>{row.subtitle}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
               </TouchableOpacity>
               {index < rows.length - 1 && <View style={styles.divider} />}
             </React.Fragment>
@@ -232,7 +242,7 @@ export default function SettingsScreen() {
         {/* ── AI usage banner ───────────────────────────────────── */}
         {isChecking && !usage ? (
           <View style={[styles.apiBanner, styles.apiBannerAmber]}>
-            <ActivityIndicator size="small" color="#8B6914" />
+            <ActivityIndicator size="small" color={c.status.warning.text} />
             <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>Loading AI usage…</Text>
           </View>
         ) : usage ? (
@@ -249,35 +259,29 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF9',
   },
   content: {
     flexGrow: 1,
     paddingHorizontal: 24,
   },
 
-  appTitle: {
-    fontSize: Typography.size.lg,
+  // The big screen title, as on Library (docs/design iphone-07)
+  screenTitle: {
+    fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 4,
-  },
-  screenSubtitle: {
-    fontSize: Typography.size['2xl'],
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    marginBottom: 24,
+    color: c.text.onGradientStrong,
+    marginBottom: 20,
   },
 
   // Profile card
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   profileMeta: {
     flexDirection: 'row',
@@ -296,15 +300,15 @@ const styles = StyleSheet.create({
   },
   profileEditHint: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   // Settings rows
   settingsSection: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     marginBottom: 20,
   },
   settingsRow: {
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -326,15 +330,15 @@ const styles = StyleSheet.create({
   settingsRowLabel: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   settingsRowSub: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 60,
   },
 
@@ -349,17 +353,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   apiBannerGreen: {
-    backgroundColor: '#E8F5EE',
+    backgroundColor: c.status.success.bg,
   },
   apiBannerAmber: {
-    backgroundColor: '#FFFBF0',
+    backgroundColor: c.status.warning.bg,
     borderWidth: 1,
-    borderColor: '#FFE4B5',
+    borderColor: c.status.warning.border,
   },
   apiBannerRed: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: c.status.error.bg,
     borderWidth: 1,
-    borderColor: '#FFCCCC',
+    borderColor: c.status.error.border,
   },
   apiBannerText: {
     flex: 1,
@@ -367,13 +371,13 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weight.medium,
   },
   apiBannerTextGreen: {
-    color: '#2D8A5A',
+    color: c.status.success.text,
   },
   apiBannerTextAmber: {
-    color: '#8B6914',
+    color: c.status.warning.text,
   },
   apiBannerTextRed: {
-    color: '#CC3333',
+    color: c.status.error.text,
   },
   apiBannerHint: {
     fontSize: Typography.size.xs,
@@ -383,7 +387,7 @@ const styles = StyleSheet.create({
   // Version
   versionText: {
     fontSize: Typography.size.xs,
-    color: Colors.text.placeholder,
+    color: c.text.onGradient,
     textAlign: 'center',
     marginTop: 4,
   },

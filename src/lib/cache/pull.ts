@@ -4,7 +4,9 @@
  * opens offline, not only what was viewed before.
  *
  * Each table is downloaded incrementally: rows changed since the last pull
- * (by the server's updated_at), plus the list of ids, so rows deleted on
+ * (by the server's changed_at on courses, folders, files and media, which
+ * also moves when only a favorite changes; by updated_at elsewhere), plus
+ * the list of ids, so rows deleted on
  * another device leave the cache too. Rows changed on this iPhone that
  * haven't synced yet are never replaced or dropped. Transcripts are
  * downloaded for the most recent lectures.
@@ -15,6 +17,14 @@
 
 import type { SegmentRow } from '../cloudRows';
 import type { CacheableRow, CachedTable } from './store';
+
+/** Tables whose `changed_at` moves on every update (step 2.2 favorites). */
+export const CHANGED_AT_TABLES: readonly CachedTable[] = ['courses', 'folders', 'files', 'media'];
+
+/** The column a table is downloaded by. */
+export function cursorColumn(tbl: CachedTable): 'changed_at' | 'updated_at' {
+  return CHANGED_AT_TABLES.includes(tbl) ? 'changed_at' : 'updated_at';
+}
 
 export const PULL_TABLES: CachedTable[] = [
   'courses',
@@ -35,7 +45,9 @@ export const PAGE = 1000;
 export const OVERLAP_MS = 60_000;
 
 export interface PullTableDeps<T extends CacheableRow> {
-  /** Rows with updated_at >= since (null = all), ordered, one page. */
+  /** The column rows are downloaded by (default updated_at). */
+  cursor?: 'changed_at' | 'updated_at';
+  /** Rows with <cursor> >= since (null = all), ordered, one page. */
   fetchChanged: (since: string | null, from: number, to: number) => Promise<T[]>;
   /** Every id the server has for this table, one page. */
   fetchIds: (from: number, to: number) => Promise<{ id: string }[]>;
@@ -72,10 +84,11 @@ export async function pullTable<T extends CacheableRow>(deps: PullTableDeps<T>):
   await deps.save(toSave);
   await deps.drop(toDrop);
 
-  const newest = changed.reduce<string | null>(
-    (max, r) => (r.updated_at && (!max || r.updated_at > max) ? r.updated_at : max),
-    watermark,
-  );
+  const column = deps.cursor ?? 'updated_at';
+  const newest = changed.reduce<string | null>((max, r) => {
+    const at = (r as CacheableRow & { changed_at?: string })[column];
+    return at && (!max || at > max) ? at : max;
+  }, watermark);
   if (newest && newest !== watermark) await deps.setSince(newest);
   return toSave.length + toDrop.length;
 }

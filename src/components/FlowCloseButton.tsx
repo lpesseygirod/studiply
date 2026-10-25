@@ -3,7 +3,8 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { useRouter } from 'expo-router';
 
-import { Colors } from '../constants/colors';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 
 type Router = ReturnType<typeof useRouter>;
@@ -11,12 +12,12 @@ type Router = ReturnType<typeof useRouter>;
 /**
  * Leaves the recording flow (recording, post-session, review): closes the
  * record stack so the Record tab starts fresh next time, then opens
- * `destination` (the Library by default). The lecture is already saved;
- * it stays in the library and opens at post-session until it has notes.
+ * the Library. The lecture is already saved; it stays in the library and
+ * opens at post-session until it has notes.
  */
-export function leaveRecordingFlow(router: Router, destination: '/library' | '/' = '/library'): void {
+export function leaveRecordingFlow(router: Router): void {
   if (router.canDismiss()) router.dismissAll();
-  router.navigate(destination);
+  router.navigate('/library');
 }
 
 /**
@@ -33,7 +34,9 @@ export default function FlowCloseButton({
   /** 'light' on the dark recording screen. */
   tone?: 'dark' | 'light';
 }) {
-  const color = tone === 'light' ? Colors.white : Colors.text.primary;
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
+  const color = tone === 'light' ? c.recordingScreen.text : c.text.onGradientStrong;
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -49,7 +52,8 @@ export default function FlowCloseButton({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',

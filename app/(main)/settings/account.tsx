@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -21,7 +20,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { confirmAction } from '../../../src/utils/confirm';
 import { confirmSignOut } from '../../../src/utils/signOut';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import { IconButton } from '../../../src/components/IconButton';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import UserAvatar from '../../../src/components/UserAvatar';
 import {
@@ -65,10 +67,10 @@ function fmt(n: number, decimals = 2): string {
   return n.toFixed(decimals);
 }
 
-function progressColor(pct: number): string {
-  if (pct > 0.5) return '#2D8A5A'; // green
-  if (pct > 0.2) return '#B87B14'; // amber
-  return '#CC3333'; // red
+function progressColor(pct: number, c: ThemeColors): string {
+  if (pct > 0.5) return c.meter.good;
+  if (pct > 0.2) return c.meter.low;
+  return c.meter.empty;
 }
 
 // -------------------------------------------------------------------
@@ -76,6 +78,8 @@ function progressColor(pct: number): string {
 // -------------------------------------------------------------------
 
 export default function AccountScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, refreshProfile, signOut } = useAuth();
@@ -275,16 +279,11 @@ export default function AccountScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
         <Text style={styles.headerTitle}>Manage Account</Text>
         <View style={styles.iconButton} />
       </View>
@@ -305,9 +304,7 @@ export default function AccountScreen() {
                 <Text style={styles.editProfileLink}>Edit profile</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.editIconButton} onPress={openEditModal} activeOpacity={0.75}>
-              <Ionicons name="pencil-outline" size={18} color={Colors.text.secondary} />
-            </TouchableOpacity>
+            <IconButton icon="pencil-outline" label="Edit profile" onPress={openEditModal} size={18} color={c.text.secondary} style={styles.editIconButton} />
           </View>
         </View>
 
@@ -316,7 +313,7 @@ export default function AccountScreen() {
 
         {piggyLoading ? (
           <View style={styles.piggyLoading}>
-            <ActivityIndicator color={Colors.salmon} size="small" />
+            <ActivityIndicator color={c.salmon} size="small" />
             <Text style={styles.piggyLoadingText}>Loading usage…</Text>
           </View>
         ) : (
@@ -328,8 +325,8 @@ export default function AccountScreen() {
             <UsageCard
               title="Transcription"
               icon="mic-outline"
-              borderColor="#F59E0B"
-              bgColor="#FFFBEB"
+              borderColor={c.status.warning.border}
+              bgColor={c.status.warning.bg}
               usedLabel={today ? formatTranscription(today) : '—'}
               fraction={today ? today.transcriptionSeconds / today.transcriptionLimitSeconds : 0}
               reached={today?.transcriptionReached ?? false}
@@ -343,8 +340,8 @@ export default function AccountScreen() {
             <UsageCard
               title="Notes & assistant (Claude)"
               icon="sparkles-outline"
-              borderColor="#7B6FD4"
-              bgColor="#F5F3FF"
+              borderColor={c.accent}
+              bgColor={c.accentLight}
               usedLabel={today ? formatClaude(today) : '—'}
               fraction={today ? today.claudeUsd / today.claudeLimitUsd : 0}
               reached={today?.claudeReached ?? false}
@@ -396,7 +393,7 @@ export default function AccountScreen() {
         <View style={styles.card}>
           <View style={styles.dataRow}>
             <View style={styles.dataRowIcon}>
-              <Ionicons name="folder-outline" size={18} color={Colors.text.secondary} />
+              <Ionicons name="folder-outline" size={18} color={c.text.secondary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.dataRowLabel}>Source files</Text>
@@ -412,17 +409,17 @@ export default function AccountScreen() {
         </View>
 
         {/* ── DANGER ZONE ───────────────────────────────────────── */}
-        <Text style={[styles.sectionHeader, { color: Colors.error }]}>DANGER ZONE</Text>
+        <Text style={[styles.sectionHeader, { color: c.error }]}>DANGER ZONE</Text>
         <View style={[styles.card, styles.dangerCard]}>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAllData} activeOpacity={0.75}>
-            <Ionicons name="trash-outline" size={18} color={Colors.error} />
+            <Ionicons name="trash-outline" size={18} color={c.error} />
             <Text style={styles.dangerLabel}>Delete data on this device</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity style={styles.dangerRow} onPress={handleSignOut} activeOpacity={0.75}>
-            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+            <Ionicons name="log-out-outline" size={18} color={c.error} />
             <Text style={styles.dangerLabel}>Sign out</Text>
           </TouchableOpacity>
         </View>
@@ -488,7 +485,7 @@ export default function AccountScreen() {
                   returnKeyType="done"
                   onSubmitEditing={handleSave}
                   placeholder="Your name"
-                  placeholderTextColor={Colors.text.placeholder}
+                  placeholderTextColor={c.text.placeholder}
                   editable={!isBusy}
                 />
 
@@ -502,7 +499,7 @@ export default function AccountScreen() {
                   activeOpacity={0.85}
                 >
                   {isSaving ? (
-                    <ActivityIndicator color={Colors.white} size="small" />
+                    <ActivityIndicator color={c.white} size="small" />
                   ) : (
                     <Text style={styles.saveButtonText}>Save</Text>
                   )}
@@ -543,8 +540,10 @@ interface UsageCardProps {
 }
 
 function UsageCard({ title, icon, borderColor, bgColor, usedLabel, fraction, reached, subStats }: UsageCardProps) {
+  const piggyStyles = useThemedStyles(makePiggyStyles);
+  const { colors: c } = useTheme();
   const pctLeft = Math.max(0, 1 - Math.min(fraction, 1));
-  const barColor = progressColor(pctLeft);
+  const barColor = progressColor(pctLeft, c);
 
   return (
     <View style={[piggyStyles.card, { borderColor, backgroundColor: bgColor }]}>
@@ -569,7 +568,7 @@ function UsageCard({ title, icon, borderColor, bgColor, usedLabel, fraction, rea
 
       {reached && (
         <View style={piggyStyles.warningRed}>
-          <Ionicons name="alert-circle" size={14} color="#CC3333" />
+          <Ionicons name="alert-circle" size={14} color={c.status.error.text} />
           <Text style={piggyStyles.warningTextRed}>Daily limit reached. It frees up over the next 24 hours.</Text>
         </View>
       )}
@@ -577,7 +576,8 @@ function UsageCard({ title, icon, borderColor, bgColor, usedLabel, fraction, rea
   );
 }
 
-const piggyStyles = StyleSheet.create({
+const makePiggyStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
     borderRadius: 16,
     borderWidth: 1.5,
@@ -598,12 +598,12 @@ const piggyStyles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: c.glass,
   },
   title: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     flex: 1,
   },
   balanceRow: {
@@ -613,16 +613,16 @@ const piggyStyles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   balanceValue: {
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.medium,
   },
   barTrack: {
     height: 8,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: c.track,
     borderRadius: 4,
     overflow: 'hidden',
     marginTop: 4,
@@ -632,20 +632,20 @@ const piggyStyles = StyleSheet.create({
     borderRadius: 4,
   },
   barLabel: {
-    fontSize: 11,
+    fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium,
     marginTop: -2,
   },
   subStats: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     marginTop: 2,
   },
   warningRed: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: c.status.error.bg,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -653,7 +653,7 @@ const piggyStyles = StyleSheet.create({
   },
   warningTextRed: {
     fontSize: Typography.size.xs,
-    color: '#CC3333',
+    color: c.status.error.text,
     fontWeight: Typography.weight.medium,
   },
 });
@@ -662,8 +662,9 @@ const piggyStyles = StyleSheet.create({
 // Styles
 // -------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
 
   header: {
     flexDirection: 'row',
@@ -672,7 +673,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: {
     width: 40,
@@ -683,7 +684,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
 
   content: {
@@ -695,16 +696,16 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: -4,
   },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
   },
 
@@ -719,11 +720,11 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   editProfileLink: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
   editIconButton: {
@@ -735,7 +736,7 @@ const styles = StyleSheet.create({
 
   divider: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 16,
   },
 
@@ -751,7 +752,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -759,11 +760,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   dataRowSub: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     marginTop: 1,
   },
 
@@ -777,7 +778,7 @@ const styles = StyleSheet.create({
   },
   piggyLoadingText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Cost breakdown
@@ -790,7 +791,7 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.medium,
     flex: 1,
   },
@@ -800,12 +801,12 @@ const styles = StyleSheet.create({
   },
   breakdownCost: {
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.semibold,
   },
   breakdownCount: {
-    fontSize: 11,
-    color: Colors.text.secondary,
+    fontSize: Typography.size.xs,
+    color: c.text.secondary,
   },
   breakdownTotal: {
     paddingTop: 14,
@@ -814,18 +815,18 @@ const styles = StyleSheet.create({
   breakdownTotalLabel: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     flex: 1,
   },
   breakdownTotalCost: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Cost reference
   costRefCard: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 12,
     padding: 14,
     gap: 5,
@@ -833,18 +834,18 @@ const styles = StyleSheet.create({
   costRefTitle: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     marginBottom: 2,
     letterSpacing: Typography.tracking.wide,
   },
   costRefLine: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: 18,
   },
   costRefNote: {
-    fontSize: 11,
-    color: Colors.text.placeholder,
+    fontSize: Typography.size.xs,
+    color: c.text.placeholder,
     marginTop: 6,
     lineHeight: 16,
     fontStyle: 'italic',
@@ -852,8 +853,8 @@ const styles = StyleSheet.create({
 
   // Danger zone
   dangerCard: {
-    borderColor: '#FFCCCC',
-    backgroundColor: '#FFFAFA',
+    borderColor: c.status.error.border,
+    backgroundColor: c.status.error.bg,
   },
   dangerRow: {
     flexDirection: 'row',
@@ -865,20 +866,20 @@ const styles = StyleSheet.create({
   dangerLabel: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.error,
+    color: c.error,
   },
 
   // Edit modal (shared by profile & budget)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end',
   },
   modalKAV: {
     width: '100%',
   },
   modalSheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 28,
@@ -888,24 +889,24 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     marginBottom: 4,
   },
   modalInput: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: Typography.size.base,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   errorText: {
     fontSize: Typography.size.sm,
-    color: Colors.error,
+    color: c.error,
     marginTop: -6,
   },
   saveButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
@@ -914,7 +915,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
   },
@@ -924,7 +925,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
 
@@ -941,17 +942,17 @@ const styles = StyleSheet.create({
   },
   photoActionText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
     fontWeight: Typography.weight.semibold,
   },
   photoRemoveText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
   photoStatusText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     minHeight: 22,
   },
 });

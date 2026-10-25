@@ -35,6 +35,8 @@ export interface Project {
   is_archived: boolean;
   is_deleted: boolean;
   deleted_at: string | null;
+  /** null = not starred. */
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +50,7 @@ export interface Folder {
   sort_order: number;
   is_deleted: boolean;
   deleted_at: string | null;
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,6 +67,7 @@ export interface Session {
   duration_seconds: number | null;
   is_deleted: boolean;
   deleted_at: string | null;
+  starred_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +88,8 @@ export interface SourceFile {
   created_at: string;
   /** Name to show (a PDF's original file name), when known. */
   display_name?: string | null;
+  /** A lecture's photo or PDF in Favorites (media.starred_at); null = not. */
+  starred_at?: string | null;
 }
 
 export interface Transcript {

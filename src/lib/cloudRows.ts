@@ -40,6 +40,7 @@ export function courseToProject(row: CourseRow): Project {
     is_archived: row.is_archived,
     is_deleted: row.deleted_at !== null,
     deleted_at: row.deleted_at,
+    starred_at: row.starred_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -57,6 +58,7 @@ export function folderFromRow(row: FolderRow): Folder {
     sort_order: row.sort_order,
     is_deleted: row.deleted_at !== null,
     deleted_at: row.deleted_at,
+    starred_at: row.starred_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -152,6 +154,7 @@ export function lectureToSession(
     duration_seconds: lecture?.duration_ms == null ? null : Math.round(lecture.duration_ms / 1000),
     is_deleted: row.deleted_at !== null,
     deleted_at: row.deleted_at,
+    starred_at: row.starred_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

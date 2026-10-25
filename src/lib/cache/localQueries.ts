@@ -185,6 +185,69 @@ export function libraryFilesIn(
     .map((f) => ({ ...f, media: media.filter((m) => m.file_id === f.id) }));
 }
 
+// ── Library sections and the course tree (step 2.2) ─────────────────────
+
+/** Files of any kind, not in Trash, newest change first. */
+export function recentFiles(files: FileRow[], limit: number): FileRow[] {
+  return files.filter((f) => f.deleted_at === null).sort(newestFirst).slice(0, limit);
+}
+
+/** Starred courses, folders and files, none of them in Trash or archived. */
+export function starredRows(
+  courses: CourseRow[],
+  folders: FolderRow[],
+  files: FileRow[],
+): { courses: CourseRow[]; folders: FolderRow[]; files: FileRow[] } {
+  return {
+    courses: courses.filter((c) => c.starred_at !== null && isActiveCourse(c)),
+    folders: folders.filter((f) => f.starred_at !== null && f.deleted_at === null),
+    files: files.filter((f) => f.starred_at !== null && f.deleted_at === null),
+  };
+}
+
+/**
+ * Favorite photos and PDFs inside lectures whose lecture isn't in Trash,
+ * with their lecture and its other media (to number "Photo 2").
+ */
+export function starredLectureMedia(
+  media: MediaRow[],
+  files: FileRow[],
+  lectures: LectureRow[],
+): { media: MediaRow; lectureMedia: MediaRow[]; file: FileRow; lecture: LectureRow | null }[] {
+  const liveFiles = new Map(files.filter((f) => f.deleted_at === null).map((f) => [f.id, f]));
+  const lectureById = new Map(lectures.map((l) => [l.id, l]));
+  return media
+    .filter((m) => m.starred_at !== null && m.lecture_id !== null && liveFiles.has(m.lecture_id))
+    .map((m) => ({
+      media: m,
+      lectureMedia: media.filter((o) => o.lecture_id === m.lecture_id),
+      file: liveFiles.get(m.lecture_id as string) as FileRow,
+      lecture: lectureById.get(m.lecture_id as string) ?? null,
+    }));
+}
+
+/** Exam packs not in Trash, newest first. */
+export function examPackFiles(files: FileRow[]): FileRow[] {
+  return files.filter((f) => f.kind === 'exam_pack' && f.deleted_at === null).sort(newestFirst);
+}
+
+/** Files of every kind directly in a course (folderId null) or a folder, by title. */
+export function filesAtLevel(files: FileRow[], courseId: string, folderId: string | null): FileRow[] {
+  return files
+    .filter((f) => f.deleted_at === null && f.course_id === courseId && f.folder_id === folderId)
+    .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+}
+
+/** Files of every kind per course, not counting those in Trash. */
+export function itemCounts(files: FileRow[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const f of files) {
+    if (f.deleted_at !== null || !f.course_id) continue;
+    counts.set(f.course_id, (counts.get(f.course_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 // ── Keeping the cache in step with a full answer ────────────────────────
 
 /**

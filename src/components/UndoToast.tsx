@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Colors } from '../constants/colors';
+import { useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 
 interface UndoToastProps {
@@ -19,6 +20,7 @@ export default function UndoToast({
   onDismiss,
   duration = 5000,
 }: UndoToastProps) {
+  const styles = useThemedStyles(makeStyles);
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,20 +103,21 @@ export default function UndoToast({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 100 : 80,
     left: 16,
     right: 16,
-    backgroundColor: Colors.text.primary,
+    backgroundColor: c.text.primary,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    shadowColor: '#000',
+    shadowColor: c.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,
@@ -124,13 +127,13 @@ const styles = StyleSheet.create({
   message: {
     flex: 1,
     fontSize: Typography.size.sm,
-    color: Colors.white,
+    color: c.white,
     marginRight: 12,
   },
   undoText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.bold as '700',
-    color: Colors.salmon,
+    color: c.salmon,
     letterSpacing: 0.8,
   },
 });

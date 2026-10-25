@@ -12,12 +12,13 @@ import {
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { IconButton } from '../../../src/components/IconButton';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { followNoteTitle, getSession, RenameIncompleteError } from '../../../src/services/session.service';
 import {
@@ -48,6 +49,11 @@ import HighlightableText, { splitIntoSentences } from '../../../src/components/H
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
 import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
+import { formatSaved } from '../../../src/utils/shelf';
+import { starButton } from '../../../src/utils/star';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -110,6 +116,8 @@ function listBlocks(blocks: NoteBlock[]): string {
 }
 
 export default function NoteDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -128,6 +136,9 @@ export default function NoteDetailScreen() {
   // --- Edit mode ---
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Course › folder › subfolder, for the laptop's top bar.
+  const [folderChain, setFolderChain] = useState<Breadcrumb[]>([]);
   // Draft fields
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSummary, setDraftSummary] = useState('');
@@ -187,7 +198,14 @@ export default function NoteDetailScreen() {
       }
       if (s.project_id) {
         getProject(s.project_id)
-          .then(p => setProject(p))
+          .then(async p => {
+            setProject(p);
+            setFolderChain(
+              s.folder_id
+                ? await getFolderBreadcrumbs(s.folder_id, p.name)
+                : [{ id: null, name: p.name, type: 'project' }],
+            );
+          })
           .catch(() => {});
       }
     } catch (err: unknown) {
@@ -203,6 +221,18 @@ export default function NoteDetailScreen() {
 
   // A synced edit, or a newer version downloaded from another device.
   useLibraryUpdates(load);
+
+  // The laptop's top bar: where this lecture is, its title, when it was saved.
+  useShellScreen(
+    session ? { courseId: session.project_id, folderId: session.folder_id, itemId: session.id } : null,
+    session
+      ? {
+          crumbs: courseCrumbs(session.project_id, folderChain),
+          title: note?.title || session.title,
+          saved: isSaving ? 'Saving…' : saveFailed ? 'Not saved' : note ? formatSaved(note.updated_at) : null,
+        }
+      : null,
+  );
 
   // "Move to…" for this lecture and its photos/PDFs, with Undo.
   const { showUndo, toast: undoToast } = useUndoToast();
@@ -252,6 +282,7 @@ export default function NoteDetailScreen() {
   const handleSave = async () => {
     if (!note) return;
     setIsSaving(true);
+    setSaveFailed(false);
     try {
       const updated = await updateNote(
         note.id,
@@ -282,6 +313,7 @@ export default function NoteDetailScreen() {
         }
       }
     } catch (err) {
+      setSaveFailed(true);
       showAlert('Error', errorMessage(err, 'Could not save note. Please try again.'));
     } finally {
       setIsSaving(false);
@@ -375,6 +407,7 @@ export default function NoteDetailScreen() {
       { text: 'Rename…', onPress: renameThisLecture },
       { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
       { text: 'Export as PDF', onPress: handleExportPDF },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
       { text: 'Edit Note', onPress: enterEditMode },
       { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
     ], { anchor });
@@ -393,6 +426,9 @@ export default function NoteDetailScreen() {
       { text: 'Rename…', onPress: () => renameFile(file) },
       { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
       { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
+        setSourceFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
+      ),
     ], { anchor });
   }
 
@@ -443,26 +479,27 @@ export default function NoteDetailScreen() {
   // -------------------------------------------------------------------
   const renderHeader = () => (
     <View style={[styles.fixedHeader, { paddingTop: insets.top + 12 }]}>
+      {/* "‹ Course" as in docs/design iphone-06 (was a letter-spaced STUDIPLY) */}
       <TouchableOpacity
-        style={styles.iconBtn}
+        style={styles.backBtn}
         onPress={isEditing ? cancelEdit : () => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel={isEditing ? 'Cancel editing' : `Back to ${project?.name ?? 'Library'}`}
       >
         <Ionicons
           name={isEditing ? 'close' : 'chevron-back'}
           size={24}
-          color={Colors.text.primary}
+          color={c.text.onGradientStrong}
         />
+        {!isEditing && (
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {project?.name ?? 'Library'}
+          </Text>
+        )}
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>STUDIPLY</Text>
       <View style={styles.iconBtn}>
         {isEditing && (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-            <Ionicons
-              name="checkmark"
-              size={24}
-              color={isSaving ? Colors.text.placeholder : Colors.success}
-            />
-          </TouchableOpacity>
+          <IconButton icon="checkmark" label="Save note" onPress={handleSave} size={24} color={c.text.onGradientStrong} disabled={isSaving} />
         )}
       </View>
     </View>
@@ -474,7 +511,8 @@ export default function NoteDetailScreen() {
   if (loading || error || !session) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <GradientFill />
+        <ThemedStatusBar />
         {renderHeader()}
         <View style={styles.center}>
           {error ? (
@@ -491,10 +529,11 @@ export default function NoteDetailScreen() {
   if (!note) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <GradientFill />
+        <ThemedStatusBar />
         {renderHeader()}
         <View style={styles.center}>
-          <Ionicons name="document-text-outline" size={44} color={Colors.text.placeholder} />
+          <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
           <Text style={styles.unprocessedTitle}>{session.title}</Text>
           <Text style={styles.unprocessedDate}>{formatDate(session.created_at)}</Text>
           <Text style={styles.unprocessedMsg}>This session hasn&apos;t been processed yet</Text>
@@ -531,7 +570,8 @@ export default function NoteDetailScreen() {
   // -------------------------------------------------------------------
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
       {renderHeader()}
 
       <KeyboardAvoidingView
@@ -555,7 +595,7 @@ export default function NoteDetailScreen() {
                 value={draftTitle}
                 onChangeText={setDraftTitle}
                 placeholder="Note title"
-                placeholderTextColor={Colors.text.placeholder}
+                placeholderTextColor={c.text.placeholder}
                 autoCapitalize="words"
                 returnKeyType="done"
               />
@@ -586,7 +626,7 @@ export default function NoteDetailScreen() {
           {/* ── Edited on another device ─────────────────────── */}
           {conflictBlocks.length > 0 && (
             <View style={styles.conflictNotice} accessibilityRole="alert">
-              <Ionicons name="git-compare-outline" size={18} color={Colors.text.secondary} />
+              <Ionicons name="git-compare-outline" size={18} color={c.text.secondary} />
               <Text style={styles.conflictText}>
                 {listBlocks(conflictBlocks)} {conflictBlocks.length === 1 ? 'was' : 'were'} also changed on
                 another device. The newer version is shown; yours is kept in version history.
@@ -596,7 +636,7 @@ export default function NoteDetailScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityLabel="Dismiss"
               >
-                <Ionicons name="close" size={18} color={Colors.text.secondary} />
+                <Ionicons name="close" size={18} color={c.text.secondary} />
               </TouchableOpacity>
             </View>
           )}
@@ -622,7 +662,7 @@ export default function NoteDetailScreen() {
           {(!!note.summary || isEditing) && (
             <View style={styles.card}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
-                {isEditing && <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />}
+                {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Summary
               </Text>
               {isEditing ? (
@@ -632,7 +672,7 @@ export default function NoteDetailScreen() {
                   onChangeText={setDraftSummary}
                   multiline
                   placeholder="Write a summary..."
-                  placeholderTextColor={Colors.text.placeholder}
+                  placeholderTextColor={c.text.placeholder}
                   textAlignVertical="top"
                 />
               ) : (
@@ -662,9 +702,9 @@ export default function NoteDetailScreen() {
               activeOpacity={0.85}
             >
               {isClarifying ? (
-                <ActivityIndicator size="small" color={Colors.text.primary} />
+                <ActivityIndicator size="small" color={c.text.primary} />
               ) : (
-                <Ionicons name="bulb-outline" size={16} color={Colors.text.primary} />
+                <Ionicons name="bulb-outline" size={16} color={c.text.primary} />
               )}
               <Text style={styles.clarifyBtnText}>
                 {isClarifying ? 'Clarifying…' : 'Clarify Highlighted Parts'}
@@ -704,7 +744,7 @@ export default function NoteDetailScreen() {
           {(viewConcepts.length > 0 || isEditing) && (
             <View style={styles.card}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
-                {isEditing && <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />}
+                {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Key Concepts
               </Text>
 
@@ -714,14 +754,9 @@ export default function NoteDetailScreen() {
                   <View key={i} style={styles.conceptChip}>
                     <Text style={styles.conceptChipText}>{kc.term}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close" label="Remove concept" compact onPress={() =>
                           setDraftConcepts(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="close" size={13} color={Colors.text.primary} />
-                      </TouchableOpacity>
+                        } size={13} color={c.text.primary} />
                     )}
                   </View>
                 ))}
@@ -744,7 +779,7 @@ export default function NoteDetailScreen() {
                     value={newConceptTerm}
                     onChangeText={setNewConceptTerm}
                     placeholder="Add concept..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                     returnKeyType="done"
                     onSubmitEditing={() => {
                       const t = newConceptTerm.trim();
@@ -776,7 +811,7 @@ export default function NoteDetailScreen() {
             <View style={isEditing ? styles.card : styles.pillsRowWrap}>
               {isEditing && (
                 <Text style={[styles.sectionTitle, styles.editSectionTitle]}>
-                  <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />
+                  <Ionicons name="pencil-outline" size={13} color={c.salmon} />
                   {'  '}Tags
                 </Text>
               )}
@@ -785,14 +820,9 @@ export default function NoteDetailScreen() {
                   <View key={i} style={styles.tagPill}>
                     <Text style={styles.tagText}>{tag}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close" label="Remove tag" compact onPress={() =>
                           setDraftTags(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="close" size={12} color={Colors.text.secondary} />
-                      </TouchableOpacity>
+                        } size={12} color={c.text.secondary} />
                     )}
                   </View>
                 ))}
@@ -804,7 +834,7 @@ export default function NoteDetailScreen() {
                     value={newTag}
                     onChangeText={setNewTag}
                     placeholder="Add tag..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                     autoCapitalize="none"
                     returnKeyType="done"
                     onSubmitEditing={() => {
@@ -836,7 +866,7 @@ export default function NoteDetailScreen() {
           {(viewFormulas.length > 0 || isEditing) && (
             <View style={styles.card}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
-                {isEditing && <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />}
+                {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Formulas
               </Text>
               {(isEditing ? draftFormulas : viewFormulas).map((f, i) => (
@@ -844,14 +874,9 @@ export default function NoteDetailScreen() {
                   <View style={styles.formulaHeader}>
                     <Text style={styles.formulaName}>{f.name}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close-circle-outline" label="Remove formula" compact onPress={() =>
                           setDraftFormulas(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-                      >
-                        <Ionicons name="close-circle-outline" size={18} color={Colors.error} />
-                      </TouchableOpacity>
+                        } size={18} color={c.error} />
                     )}
                   </View>
                   <View style={styles.formulaBox}>
@@ -869,14 +894,14 @@ export default function NoteDetailScreen() {
                     value={newFormulaName}
                     onChangeText={setNewFormulaName}
                     placeholder="Formula name..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                   />
                   <TextInput
                     style={styles.addInput}
                     value={newFormulaExpr}
                     onChangeText={setNewFormulaExpr}
                     placeholder="Expression (e.g. E = mc²)"
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                     returnKeyType="done"
                     onSubmitEditing={() => {
                       const n = newFormulaName.trim();
@@ -911,7 +936,7 @@ export default function NoteDetailScreen() {
           {(viewDefinitions.length > 0 || isEditing) && (
             <View style={styles.card}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
-                {isEditing && <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />}
+                {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Definitions
               </Text>
               {(isEditing ? draftDefinitions : viewDefinitions).map((d, i) => (
@@ -930,16 +955,11 @@ export default function NoteDetailScreen() {
                             )
                           }
                           placeholder="Term"
-                          placeholderTextColor={Colors.text.placeholder}
+                          placeholderTextColor={c.text.placeholder}
                         />
-                        <TouchableOpacity
-                          onPress={() =>
+                        <IconButton icon="close-circle-outline" label="Remove definition" compact onPress={() =>
                             setDraftDefinitions(prev => prev.filter((_, idx) => idx !== i))
-                          }
-                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                        >
-                          <Ionicons name="close-circle-outline" size={18} color={Colors.error} />
-                        </TouchableOpacity>
+                          } size={18} color={c.error} />
                       </View>
                       <TextInput
                         style={[styles.addInput, styles.textAreaSmall]}
@@ -953,7 +973,7 @@ export default function NoteDetailScreen() {
                         }
                         multiline
                         placeholder="Definition"
-                        placeholderTextColor={Colors.text.placeholder}
+                        placeholderTextColor={c.text.placeholder}
                         textAlignVertical="top"
                       />
                     </>
@@ -972,14 +992,14 @@ export default function NoteDetailScreen() {
                     value={newDefTerm}
                     onChangeText={setNewDefTerm}
                     placeholder="Term..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                   />
                   <TextInput
                     style={[styles.addInput, styles.textAreaSmall]}
                     value={newDefBody}
                     onChangeText={setNewDefBody}
                     placeholder="Definition..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                     multiline
                     textAlignVertical="top"
                   />
@@ -1005,8 +1025,8 @@ export default function NoteDetailScreen() {
           {/* ── Unclear parts ─────────────────────────────────── */}
           {(viewUnclearParts.length > 0 || isEditing) && (
             <View style={[styles.card, styles.unclearCard]}>
-              <Text style={[styles.sectionTitle, { color: '#8B6914' }, isEditing && styles.editSectionTitle]}>
-                {isEditing && <Ionicons name="pencil-outline" size={13} color={Colors.salmon} />}
+              <Text style={[styles.sectionTitle, { color: c.status.warning.text }, isEditing && styles.editSectionTitle]}>
+                {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Unclear Parts
               </Text>
               {(isEditing ? draftUnclearParts : viewUnclearParts).map((u, i) => (
@@ -1014,14 +1034,9 @@ export default function NoteDetailScreen() {
                   <View style={styles.defEditHeader}>
                     <Text style={[styles.unclearExcerpt, { flex: 1 }]}>&quot;{u.excerpt}&quot;</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="checkmark-circle-outline" label="Mark as clear" compact onPress={() =>
                           setDraftUnclearParts(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success} />
-                      </TouchableOpacity>
+                        } size={18} color={c.success} />
                     )}
                   </View>
                   <Text style={styles.unclearReason}>{u.reason}</Text>
@@ -1034,7 +1049,7 @@ export default function NoteDetailScreen() {
                     value={newUnclear}
                     onChangeText={setNewUnclear}
                     placeholder="Add unclear section..."
-                    placeholderTextColor={Colors.text.placeholder}
+                    placeholderTextColor={c.text.placeholder}
                     returnKeyType="done"
                     onSubmitEditing={() => {
                       const t = newUnclear.trim();
@@ -1108,7 +1123,7 @@ export default function NoteDetailScreen() {
                       <Ionicons
                         name={fileTypeIcon(file.file_type)}
                         size={18}
-                        color={isDeleted ? Colors.text.placeholder : Colors.text.secondary}
+                        color={isDeleted ? c.text.placeholder : c.text.secondary}
                       />
                     </View>
                     <View style={styles.sourceFileInfo}>
@@ -1154,7 +1169,7 @@ export default function NoteDetailScreen() {
                 disabled={isSaving}
                 activeOpacity={0.85}
               >
-                <Ionicons name="checkmark" size={18} color={Colors.white} />
+                <Ionicons name="checkmark" size={18} color={c.white} />
                 <Text style={styles.saveEditBtnText}>
                   {isSaving ? 'Saving…' : 'Save Note'}
                 </Text>
@@ -1164,7 +1179,7 @@ export default function NoteDetailScreen() {
                 onPress={cancelEdit}
                 activeOpacity={0.75}
               >
-                <Ionicons name="close" size={18} color={Colors.text.secondary} />
+                <Ionicons name="close" size={18} color={c.text.secondary} />
                 <Text style={styles.cancelEditBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -1176,7 +1191,7 @@ export default function NoteDetailScreen() {
                 disabled={isExporting}
                 activeOpacity={0.75}
               >
-                <Ionicons name="share-outline" size={18} color={Colors.text.secondary} />
+                <Ionicons name="share-outline" size={18} color={c.text.secondary} />
                 <Text style={styles.actionButtonText}>
                   {isExporting ? 'Exporting…' : 'Export PDF'}
                 </Text>
@@ -1187,7 +1202,7 @@ export default function NoteDetailScreen() {
                 onPress={enterEditMode}
                 activeOpacity={0.75}
               >
-                <Ionicons name="pencil-outline" size={18} color={Colors.text.secondary} />
+                <Ionicons name="pencil-outline" size={18} color={c.text.secondary} />
                 <Text style={styles.actionButtonText}>Edit Note</Text>
               </TouchableOpacity>
             </View>
@@ -1205,8 +1220,9 @@ export default function NoteDetailScreen() {
 // Styles
 // -------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -1223,7 +1239,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconBtn: {
     width: 40,
@@ -1231,11 +1247,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 44,
+    flexShrink: 1,
+    marginLeft: -6,
+  },
   headerTitle: {
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
+    fontSize: Typography.size.md,
+    fontWeight: Typography.weight.semibold,
+    color: c.text.onGradientStrong,
+    flexShrink: 1,
   },
 
   scrollContent: {
@@ -1246,7 +1270,7 @@ const styles = StyleSheet.create({
 
   errorText: {
     fontSize: Typography.size.base,
-    color: Colors.error,
+    color: c.error,
     textAlign: 'center',
   },
 
@@ -1254,24 +1278,24 @@ const styles = StyleSheet.create({
   unprocessedTitle: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
     textAlign: 'center',
   },
-  unprocessedDate: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  unprocessedDate: { fontSize: Typography.size.sm, color: c.text.onGradient },
   unprocessedMsg: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
   },
   processBtn: {
     marginTop: 8,
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 14,
     paddingHorizontal: 32,
   },
   processBtnText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,
@@ -1279,7 +1303,7 @@ const styles = StyleSheet.create({
 
   // Title banner
   titleBanner: {
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.titleCard,
     borderRadius: 18,
     padding: 20,
     gap: 4,
@@ -1287,40 +1311,40 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   titleInput: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     borderBottomWidth: 1.5,
-    borderBottomColor: Colors.salmon,
+    borderBottomColor: c.salmon,
     paddingBottom: 4,
   },
   projectName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   bannerMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
-  bannerDate: { fontSize: Typography.size.sm, color: Colors.text.secondary },
-  bannerDuration: { fontSize: Typography.size.sm, color: Colors.text.secondary },
-  syncStatus: { fontSize: Typography.size.xs, color: Colors.text.secondary, marginTop: 4 },
-  syncStatusFailed: { color: Colors.error },
+  bannerDate: { fontSize: Typography.size.sm, color: c.text.secondary },
+  bannerDuration: { fontSize: Typography.size.sm, color: c.text.secondary },
+  syncStatus: { fontSize: Typography.size.xs, color: c.text.secondary, marginTop: 4 },
+  syncStatusFailed: { color: c.error },
 
   // Edited on another device
   conflictNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: c.accentLight,
     borderRadius: 14,
     padding: 14,
   },
   conflictText: {
     flex: 1,
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
     lineHeight: Typography.size.sm * Typography.leading.normal,
   },
 
@@ -1332,7 +1356,7 @@ const styles = StyleSheet.create({
   },
   pillsRowWrap: { gap: 8 },
   metaPill: {
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 100,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -1340,39 +1364,39 @@ const styles = StyleSheet.create({
   metaPillText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     letterSpacing: Typography.tracking.wide,
   },
 
   // Generic card
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     gap: 10,
   },
   sectionTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   editSectionTitle: {
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontSize: Typography.size.sm,
   },
   bodyText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
   // Text area
   textArea: {
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
-    backgroundColor: Colors.surfaceMuted,
+    color: c.text.primary,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 10,
     padding: 12,
     minHeight: 100,
@@ -1392,7 +1416,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 100,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -1400,22 +1424,22 @@ const styles = StyleSheet.create({
   conceptChipText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   conceptDetail: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 8,
     gap: 2,
   },
   conceptTerm: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   conceptExplanation: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
@@ -1424,7 +1448,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -1432,13 +1456,13 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Formulas
   formulaItem: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 8,
     gap: 4,
   },
@@ -1450,10 +1474,10 @@ const styles = StyleSheet.create({
   formulaName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   formulaBox: {
-    backgroundColor: '#F5F5F0',
+    backgroundColor: c.cardMuted,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1461,14 +1485,14 @@ const styles = StyleSheet.create({
   formulaExpression: {
     fontSize: Typography.size.sm,
     fontFamily: 'Courier',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
-  formulaDesc: { fontSize: Typography.size.xs, color: Colors.text.secondary },
+  formulaDesc: { fontSize: Typography.size.xs, color: c.text.secondary },
 
   // Definitions
   definitionItem: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 8,
     gap: 4,
   },
@@ -1480,31 +1504,31 @@ const styles = StyleSheet.create({
   definitionTerm: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   definitionBody: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
 
   // Unclear parts
   unclearCard: {
-    backgroundColor: '#FFFBF0',
-    borderColor: '#FFE4B5',
+    backgroundColor: c.status.warning.bg,
+    borderColor: c.status.warning.border,
   },
   unclearItem: {
     borderTopWidth: 1,
-    borderTopColor: '#FFE4B5',
+    borderTopColor: c.status.warning.border,
     paddingTop: 8,
     gap: 2,
   },
   unclearExcerpt: {
     fontSize: Typography.size.sm,
     fontStyle: 'italic',
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
-  unclearReason: { fontSize: Typography.size.xs, color: Colors.text.secondary },
+  unclearReason: { fontSize: Typography.size.xs, color: c.text.secondary },
 
   // Transcript
   transcriptToggle: {
@@ -1514,23 +1538,23 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
   transcriptText: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.xs * Typography.leading.relaxed,
     fontFamily: 'Courier',
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 10,
   },
 
   // Source files
   sourceFilesEmpty: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontStyle: 'italic',
   },
   sourceFileRow: {
@@ -1538,14 +1562,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 10,
   },
   sourceFileIconWrap: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1553,26 +1577,26 @@ const styles = StyleSheet.create({
   sourceFileName: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
-  sourceFileDeleted: { color: Colors.text.placeholder },
-  sourceFileMeta: { fontSize: Typography.size.xs, color: Colors.text.secondary },
+  sourceFileDeleted: { color: c.text.placeholder },
+  sourceFileMeta: { fontSize: Typography.size.xs, color: c.text.secondary },
   retentionBadge: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  retentionBadgeDeleted: { backgroundColor: '#F2F2F2' },
-  retentionBadgeKept: { backgroundColor: '#E8F5EE' },
+  retentionBadgeDeleted: { backgroundColor: c.cardMuted },
+  retentionBadgeKept: { backgroundColor: c.status.success.bg },
   retentionBadgeText: {
-    fontSize: 10,
+    fontSize: Typography.size.xxs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: 0.5,
   },
-  retentionBadgeTextDeleted: { color: Colors.text.placeholder },
-  retentionBadgeTextKept: { color: '#2D8A5A' },
+  retentionBadgeTextDeleted: { color: c.text.placeholder },
+  retentionBadgeTextKept: { color: c.status.success.text },
 
   // Edit mode add inputs
   addRow: {
@@ -1580,25 +1604,25 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 10,
   },
   addInput: {
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: Typography.size.sm,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   addFormulaGroup: {
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
     paddingTop: 10,
     gap: 8,
   },
   addBtn: {
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1606,7 +1630,7 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Action buttons (view mode)
@@ -1623,13 +1647,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: Colors.surfaceMuted,
-    backgroundColor: Colors.white,
+    borderColor: c.surfaceMuted,
+    backgroundColor: c.white,
   },
   actionButtonText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     textAlign: 'center',
   },
 
@@ -1643,12 +1667,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 16,
   },
   saveEditBtnText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,
@@ -1661,10 +1685,10 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     paddingVertical: 14,
     borderWidth: 1.5,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
   },
   cancelEditBtnText: {
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
   },
@@ -1673,7 +1697,7 @@ const styles = StyleSheet.create({
   // Highlighting / clarification
   highlightHint: {
     fontSize: Typography.size.xs,
-    color: Colors.text.placeholder,
+    color: c.text.placeholder,
     fontStyle: 'italic',
     marginBottom: 2,
   },
@@ -1682,7 +1706,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
     borderRadius: 100,
     paddingVertical: 13,
     paddingHorizontal: 20,
@@ -1690,11 +1714,11 @@ const styles = StyleSheet.create({
   clarifyBtnText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   clarificationCard: {
-    backgroundColor: '#E8EAF6',
-    borderColor: '#C5CAE9',
+    backgroundColor: c.status.info.bg,
+    borderColor: c.status.info.border,
   },
   clarificationHeader: {
     flexDirection: 'row',
@@ -1702,7 +1726,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   clarificationIcon: {
-    fontSize: 16,
+    fontSize: Typography.size.base,
   },
   clarificationActions: {
     flexDirection: 'row',
@@ -1711,12 +1735,12 @@ const styles = StyleSheet.create({
   },
   clearClarificationText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
   moreClarificationText: {
     fontSize: Typography.size.sm,
-    color: Colors.salmon,
+    color: c.salmon,
     fontWeight: Typography.weight.semibold,
   },
 

@@ -55,6 +55,11 @@ function push(request: DistributiveOmit<DialogRequest, 'id'>): void {
   listeners.forEach((l) => l(queue));
 }
 
+/** A dialog or menu is showing (keyboard shortcuts wait until it closes). */
+export function isDialogOpen(): boolean {
+  return queue.length > 0;
+}
+
 /** Removes a request; DialogHost calls it before running the chosen button. */
 export function dismissDialog(id: number): void {
   queue = queue.filter((r) => r.id !== id);

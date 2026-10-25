@@ -192,6 +192,7 @@ async function createSessionOnDevice(params: Parameters<typeof createSession>[0]
     deleted_at: null,
     created_at: at,
     updated_at: at,
+    changed_at: at,
   };
   const lecture: LectureRow = {
     id,

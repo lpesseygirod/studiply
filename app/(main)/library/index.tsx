@@ -6,25 +6,36 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../../src/constants/colors';
+import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
+import { getProjects, updateProject, type ProjectWithCount } from '../../../src/services/project.service';
+import { getSession } from '../../../src/services/session.service';
 import {
-  getProjects,
-  updateProject,
-  type ProjectWithCount,
-} from '../../../src/services/project.service';
-import { getFolderCount } from '../../../src/services/folder.service';
-import { trashProject } from '../../../src/services/trash.service';
+  getExamPacks,
+  getRecentItems,
+  getReviewDueCount,
+  getStarredItems,
+  type StarTarget,
+} from '../../../src/services/shelf.service';
+import { trashSession, trashProject } from '../../../src/services/trash.service';
+import { getNoteBySession } from '../../../src/services/note.service';
+import { exportNoteToPDF } from '../../../src/services/export.service';
+import { shouldOfferEarlierVersion } from '../../../src/services/legacyImport';
+import { GradientBackground } from '../../../src/components/GradientBackground';
 import { NewProjectModal } from '../../../src/components/NewProjectModal';
 import UndoToast from '../../../src/components/UndoToast';
+import UserAvatar from '../../../src/components/UserAvatar';
 import {
   menuTriggerProps,
   promptText,
@@ -33,58 +44,129 @@ import {
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
-import { useLibraryUpdates } from '../../../src/lib/cache';
+import { promptRenameLecture } from '../../../src/utils/rename';
+import { lectureItem } from '../../../src/utils/libraryItems';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
+import { itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
+import { starButton } from '../../../src/utils/star';
+import type { Session } from '../../../src/types/database';
 
-const CARD_GAP = 12;
-const H_PADDING = 24;
+const H_PADDING = 18;
+// The chips are ~33 pt tall (docs/design); their touch area reaches 44.
+const CHIP_SLOP = { top: 6, bottom: 6 };
+const CARD_GAP = 10;
+
+// The sections (docs/design iphone-01 chips; the laptop sidebar links here
+// with ?section=). Review today opens the Review tab.
+const SECTIONS = [
+  { key: 'recent', label: 'Recent', empty: 'Nothing here yet.' },
+  { key: 'favorites', label: 'Favorites', empty: 'No favorites yet. Long-press (or right-click) an item and choose Add to Favorites.' },
+  { key: 'exam-packs', label: 'Exam packs', empty: 'Exam packs you make from a course show up here.' },
+] as const;
+type SectionKey = (typeof SECTIONS)[number]['key'];
+
+function sectionFor(param: string | undefined) {
+  return SECTIONS.find(s => s.key === param) ?? null;
+}
+
+function loadSection(key: SectionKey): Promise<ShelfItem[]> {
+  if (key === 'favorites') return getStarredItems();
+  if (key === 'exam-packs') return getExamPacks();
+  return getRecentItems(50);
+}
+
+/** Which table an item's favorite lives in. */
+function starTargetType(item: ShelfItem): StarTarget['type'] {
+  if (item.type === 'folder') return 'folder';
+  if (item.type === 'lecture_photo' || item.type === 'lecture_pdf') return 'media';
+  return 'file';
+}
+
+function itemCount(n: number): string {
+  return `${n} item${n === 1 ? '' : 's'}`;
+}
+
+// -------------------------------------------------------------------
+// Component
+// -------------------------------------------------------------------
+
+/** "Later" on the earlier-version card: hidden until the app starts again. */
+let earlierDismissed = false;
 
 export default function LibraryScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
+  const wide = useLayoutMode() === 'wide';
+  const { width } = useWindowDimensions();
+  const section = sectionFor(useLocalSearchParams<{ section?: string }>().section);
 
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
-  const [folderCounts, setFolderCounts] = useState<Record<string, number>>({});
+  const [recent, setRecent] = useState<ShelfItem[]>([]);
+  // The open section's items (null while loading).
+  const [sectionItems, setSectionItems] = useState<ShelfItem[] | null>(null);
+  const [reviewDue, setReviewDue] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const [showModal, setShowModal] = useState(false);
+  const [showNewCourse, setShowNewCourse] = useState(false);
 
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoMessage, setUndoMessage] = useState('');
   const undoCallbackRef = useRef<(() => void) | null>(null);
 
-  const screenWidth = Dimensions.get('window').width;
-  const cardWidth = (screenWidth - H_PADDING * 2 - CARD_GAP) / 2;
+  // Two recent cards per row on the iPhone (the last one peeks when there are more).
+  const contentWidth = wide ? Layout.pageMaxWidth : width - H_PADDING * 2;
+  const recentWidth = wide ? 220 : (contentWidth - CARD_GAP) / 2;
 
-  const fetchProjects = useCallback(async () => {
+  const sectionKey = section?.key ?? null;
+  const fetchData = useCallback(async () => {
     if (!profile?.id) return;
+    getReviewDueCount().then(setReviewDue);
     try {
-      const data = await getProjects(profile.id);
-      setProjects(data);
-
-      // Load folder counts for each project in parallel
-      const counts = await Promise.all(
-        data.map(p => getFolderCount({ projectId: p.id, parentFolderId: null })
-          .then(count => ({ id: p.id, count }))
-          .catch(() => ({ id: p.id, count: 0 }))
-        )
-      );
-      setFolderCounts(Object.fromEntries(counts.map(c => [c.id, c.count])));
+      const [projectsData, items] = await Promise.all([
+        getProjects(profile.id),
+        sectionKey ? loadSection(sectionKey) : getRecentItems(6),
+      ]);
+      setProjects(projectsData);
+      if (sectionKey) setSectionItems(items);
+      else setRecent(items);
     } catch {
-      // non-fatal
+      // non-fatal — just show empty state
+      if (sectionKey) setSectionItems([]);
     }
-  }, [profile?.id]);
+  }, [profile?.id, sectionKey]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
-  useLibraryUpdates(fetchProjects);
+    setSectionItems(null);
+  }, [sectionKey]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  useLibraryUpdates(fetchData);
+  const move = useMoveFlow({ showUndo, onChanged: fetchData });
+
+  // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
+  const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id || earlierDismissed) return;
+      shouldOfferEarlierVersion(profile.id).then(setEarlier).catch(() => setEarlier(null));
+    }, [profile?.id]),
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchProjects();
+    await fetchData();
     setRefreshing(false);
   };
+
+  /** A chip: open its section, or close it again (back to the overview). */
+  function toggleSection(key: SectionKey) {
+    router.setParams({ section: sectionKey === key ? undefined : key });
+  }
 
   function showUndo(message: string, onUndo: () => void) {
     undoCallbackRef.current = onUndo;
@@ -98,9 +180,58 @@ export default function LibraryScreen() {
     undoCallbackRef.current = null;
   }
 
+  /** Menus for the items in Recent and the sections: each kind gets its own. */
+  async function showItemActions(item: ShelfItem, anchor?: Anchor) {
+    if (item.type === 'course') {
+      const project = projects.find(p => p.id === item.id);
+      if (project) showProjectActions(project, anchor);
+      return;
+    }
+    if (item.type === 'lecture') {
+      try {
+        showSessionActions(await getSession(item.id), anchor);
+      } catch (err) {
+        showAlert('Error', errorMessage(err, 'Could not open this lecture.'));
+      }
+      return;
+    }
+    showActionSheet(item.title, [
+      { text: 'Open', onPress: () => router.push(openTarget(item)) },
+      starButton({ type: starTargetType(item), id: item.id }, item.title, item.starredAt, showUndo),
+    ], { anchor });
+  }
+
+  function showSessionActions(session: Session, anchor?: Anchor) {
+    showActionSheet(session.title, [
+      { text: 'Rename…', onPress: () => renameLecture(session) },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
+      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
+      { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
+      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
+    ], { anchor });
+  }
+
+  async function renameLecture(session: Session) {
+    if (await promptRenameLecture(session)) fetchData();
+  }
+
+  async function exportSessionPDF(session: Session) {
+    try {
+      const note = await getNoteBySession(session.id);
+      if (!note) {
+        showAlert('No notes yet', 'Process this session first to generate notes for export.');
+        return;
+      }
+      await exportNoteToPDF({ note, session, transcript: null });
+    } catch (err) {
+      showAlert('Export Failed', err instanceof Error ? err.message : 'Could not export PDF.');
+    }
+  }
+
   function showProjectActions(project: ProjectWithCount, anchor?: Anchor) {
     showActionSheet(project.name, [
       { text: 'Rename', onPress: () => promptRenameProject(project) },
+      starButton({ type: 'course', id: project.id }, project.name, project.starred_at, showUndo),
       { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
     ], { anchor });
   }
@@ -110,9 +241,8 @@ export default function LibraryScreen() {
     if (!name) return;
     try {
       await updateProject(project.id, { name });
-      setProjects(prev =>
-        prev.map(p => p.id === project.id ? { ...p, name } : p)
-      );
+      setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, name } : p)));
+      notifyLibraryUpdated(); // the laptop sidebar lists the courses too
     } catch (err) {
       showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
@@ -131,10 +261,11 @@ export default function LibraryScreen() {
             try {
               await trashProject(project.id);
               setProjects(prev => prev.filter(p => p.id !== project.id));
+              notifyLibraryUpdated();
               showUndo(`"${project.name}" moved to trash`, async () => {
                 const { restoreItem } = await import('../../../src/services/trash.service');
                 await restoreItem({ id: project.id, type: 'project' });
-                fetchProjects();
+                notifyLibraryUpdated();
               });
             } catch (err) {
               showAlert('Error', errorMessage(err, 'Could not delete project.'));
@@ -145,234 +276,474 @@ export default function LibraryScreen() {
     );
   }
 
+  function confirmTrashSession(session: Session) {
+    showAlert(
+      'Delete Session',
+      `"${session.title}" will be moved to Recently Deleted.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await trashSession(session.id);
+              setRecent(prev => prev.filter(s => s.id !== session.id));
+              setSectionItems(prev => prev && prev.filter(s => s.id !== session.id));
+              showUndo(`"${session.title}" moved to trash`, async () => {
+                const { restoreItem } = await import('../../../src/services/trash.service');
+                await restoreItem({ id: session.id, type: 'session' });
+                fetchData();
+              });
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
+            }
+          },
+        },
+      ]
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <GradientBackground>
+      <ThemedStatusBar />
 
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24 },
+          wide && styles.contentWide,
+          { paddingTop: wide ? 28 : insets.top + 16, paddingBottom: insets.bottom + 32 },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={Colors.salmon}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradient} />
         }
       >
-        {/* ── Header ────────────────────────────────────────────── */}
-        <Text style={styles.appTitle}>STUDIPLY</Text>
-        <Text style={styles.screenSubtitle}>Library</Text>
-        <Text style={styles.sectionLabel}>PROJECTS</Text>
-
-        {/* ── Project grid ──────────────────────────────────────── */}
-        {projects.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No projects yet. Tap + to create one.</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.grid}>
-          {projects.map(project => (
+        {/* ── Header: on the laptop, search and the avatar are in the top bar ── */}
+        <View style={styles.headerRow}>
+          {wide && section ? (
+            <View style={styles.crumbRow}>
+              <TouchableOpacity onPress={() => router.setParams({ section: undefined })} accessibilityRole="link">
+                <Text style={[styles.title, styles.titleWide, styles.crumbMuted]}>My library</Text>
+              </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={18} color={c.text.onGradient} />
+              <Text style={[styles.title, styles.titleWide]}>{section.label}</Text>
+            </View>
+          ) : (
+            <Text style={[styles.title, wide && styles.titleWide]}>{wide ? 'My library' : 'Library'}</Text>
+          )}
+          <View style={styles.headerButtons}>
             <TouchableOpacity
-              key={project.id}
-              style={[styles.card, { width: cardWidth, backgroundColor: project.color }]}
-              onPress={() => router.push(`/project/${project.id}`)}
-              {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
-              activeOpacity={0.85}
+              style={styles.newButton}
+              onPress={() => setShowNewCourse(true)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="New course"
             >
-              <Text style={styles.cardName} numberOfLines={2}>
-                {project.name}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {(() => {
-                  const sc = project.sessionCount;
-                  const fc = folderCounts[project.id] ?? 0;
-                  if (sc === 0 && fc === 0) return 'Empty';
-                  const parts: string[] = [];
-                  if (fc > 0) parts.push(`${fc} folder${fc !== 1 ? 's' : ''}`);
-                  if (sc > 0) parts.push(`${sc} session${sc !== 1 ? 's' : ''}`);
-                  return parts.join(', ');
-                })()}
-              </Text>
+              <Ionicons name="add" size={22} color={c.button.onGradientText} />
             </TouchableOpacity>
-          ))}
-
-          {/* Add button card */}
-          <TouchableOpacity
-            style={[styles.card, styles.addCard, { width: cardWidth }]}
-            onPress={() => setShowModal(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={32} color={Colors.text.secondary} />
-          </TouchableOpacity>
+            {!wide && (
+              <TouchableOpacity
+                onPress={() => router.push('/settings/account')}
+                activeOpacity={0.75}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Account"
+              >
+                <UserAvatar size={40} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
+
+        {!wide && (
+          <>
+            <TouchableOpacity style={styles.searchField} onPress={() => router.push('/search')} activeOpacity={0.85}>
+              <Text style={styles.searchPlaceholder}>Search notes, lectures, terms…</Text>
+            </TouchableOpacity>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipsScroll}
+              contentContainerStyle={styles.chips}
+            >
+              {SECTIONS.map(chip => {
+                const active = chip.key === sectionKey;
+                return (
+                  <TouchableOpacity
+                    key={chip.key}
+                    style={[styles.chip, active && styles.chipActive]}
+                    hitSlop={CHIP_SLOP}
+                    onPress={() => toggleSection(chip.key)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]} maxFontSizeMultiplier={1.6}>
+                      {chip.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[styles.chip, styles.chipAccent]}
+                hitSlop={CHIP_SLOP}
+                onPress={() => router.push('/review')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chipText, styles.chipTextAccent]} maxFontSizeMultiplier={1.6}>
+                  {reviewDue ? `Review today · ${reviewDue}` : 'Review today'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </>
+        )}
+
+        {/* ── Earlier version (step 1.9) ─────────────────────────── */}
+        {earlier && (
+          <View style={styles.earlierCard}>
+            <Text style={styles.earlierTitle}>Found data from the earlier version on this iPhone</Text>
+            <Text style={styles.earlierText}>
+              {earlier.courses} {earlier.courses === 1 ? 'course' : 'courses'} · {earlier.lectures}{' '}
+              {earlier.lectures === 1 ? 'lecture' : 'lectures'} · {earlier.notes} {earlier.notes === 1 ? 'note' : 'notes'}
+            </Text>
+            <View style={styles.earlierButtons}>
+              <TouchableOpacity
+                style={styles.earlierPrimary}
+                onPress={() => router.push('/settings/earlier-version')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.earlierPrimaryText}>Review & upload</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  earlierDismissed = true;
+                  setEarlier(null);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.earlierLater}>Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ── A section (Recent, Favorites, Exam packs) ─────────── */}
+        {section && (
+          <>
+            {!wide && <Text style={styles.sectionLabel}>{section.label.toUpperCase()}</Text>}
+            {sectionItems === null ? null : sectionItems.length === 0 ? (
+              <View style={[styles.emptyCard, wide && styles.sectionTop]}>
+                <Text style={styles.emptyText}>{section.empty}</Text>
+              </View>
+            ) : (
+              <View style={[styles.listCard, wide && styles.sectionTop]} testID="section-list">
+                {sectionItems.map((item, index) => (
+                  <TouchableOpacity
+                    key={`${item.type}-${item.id}`}
+                    style={[styles.itemRow, index < sectionItems.length - 1 && styles.rowDivider]}
+                    onPress={() => router.push(openTarget(item))}
+                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.itemIcon, { backgroundColor: item.color ?? c.surfaceMuted }]}>
+                      <Ionicons name={TYPE_ICON[item.type]} size={16} color={c.text.primary} />
+                    </View>
+                    <View style={styles.itemText}>
+                      <Text style={styles.itemTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.recentMeta} numberOfLines={1}>
+                        {item.type !== 'course' && item.courseName ? `${item.courseName} · ` : ''}
+                        {itemMeta(item)}
+                      </Text>
+                    </View>
+                    {item.starredAt && (
+                      <Ionicons name="star" size={14} color={c.favorite} accessibilityLabel="In Favorites" />
+                    )}
+                    <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+
+        {!section && (
+          <>
+            {/* ── Courses ────────────────────────────────────────────── */}
+            <Text style={styles.sectionLabel}>COURSES</Text>
+            {projects.length === 0 ? (
+              <TouchableOpacity style={styles.emptyCard} onPress={() => setShowNewCourse(true)} activeOpacity={0.85}>
+                <Text style={styles.emptyText}>No courses yet. Tap + to create your first one.</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.listCard}>
+                {projects.map((project, index) => (
+                  <TouchableOpacity
+                    key={project.id}
+                    style={[styles.courseRow, index < projects.length - 1 && styles.rowDivider]}
+                    onPress={() => router.push(`/project/${project.id}`)}
+                    {...menuTriggerProps(anchor => showProjectActions(project, anchor))}
+                    activeOpacity={0.75}
+                    accessibilityLabel={`${project.name}, ${itemCount(project.itemCount)}`}
+                  >
+                    <View style={[styles.courseSquare, { backgroundColor: project.color }]} />
+                    <Text style={styles.courseName} numberOfLines={1}>
+                      {project.name}
+                    </Text>
+                    {project.starred_at && <Ionicons name="star" size={14} color={c.favorite} accessibilityLabel="In Favorites" />}
+                    <Text style={styles.courseCount}>{project.itemCount}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* ── Recent ─────────────────────────────────────────────── */}
+            <Text style={styles.sectionLabel}>RECENT</Text>
+            {recent.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No lectures yet. Record your first one with the red button.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.recentScroll}
+                contentContainerStyle={styles.recentRow}
+              >
+                {recent.map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.recentCard, { width: recentWidth }]}
+                    onPress={() => router.push(openTarget(item))}
+                    {...menuTriggerProps(anchor => showItemActions(item, anchor))}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient
+                      colors={[c.accent, c.gradient.bottomMid, c.gradient.bottomEnd]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.recentLine}
+                    />
+                    <Text style={styles.recentTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.recentMeta} numberOfLines={1}>
+                      {itemMeta(item)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </>
+        )}
+
+        <Text style={styles.hint}>
+          {wide ? 'Right-click any item to rename, move or add it to Favorites' : 'Long-press any item to rename, move or add it to Favorites'}
+        </Text>
       </ScrollView>
 
       {profile?.id && (
         <NewProjectModal
-          visible={showModal}
+          visible={showNewCourse}
           userId={profile.id}
-          onClose={() => setShowModal(false)}
+          onClose={() => setShowNewCourse(false)}
           onCreated={() => {
-            setShowModal(false);
-            fetchProjects();
+            setShowNewCourse(false);
+            notifyLibraryUpdated();
           }}
         />
       )}
-
+      {move.modal}
       <UndoToast
         visible={undoVisible}
         message={undoMessage}
         onUndo={handleUndo}
         onDismiss={() => setUndoVisible(false)}
       />
-    </View>
+    </GradientBackground>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFDF9',
-  },
+const radius = Layout.cardRadius.iphone;
+
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: H_PADDING,
   },
+  contentWide: {
+    width: '100%',
+    maxWidth: Layout.pageMaxWidth + 48,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+  },
 
   // Header
-  appTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 4,
-  },
-  screenSubtitle: {
-    fontSize: Typography.size['2xl'],
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
+  title: {
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.extrabold,
+    color: c.text.onGradientStrong,
+  },
+  titleWide: {
+    fontSize: Typography.size['2xl'],
+    fontWeight: Typography.weight.bold,
+  },
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  crumbRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  crumbMuted: { color: c.text.onGradient, fontWeight: Typography.weight.medium },
+  newButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: c.button.onGradient,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Search and chips
+  searchField: {
+    backgroundColor: c.search.bg,
+    borderWidth: 1,
+    borderColor: c.search.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  searchPlaceholder: {
+    fontSize: Typography.size.base,
+    color: c.search.placeholder,
+  },
+  // Horizontal rows keep their content's height (React Native Web's ScrollView grows by default).
+  chipsScroll: { flexGrow: 0, marginHorizontal: -H_PADDING, marginTop: 14 },
+  chips: { gap: 8, paddingHorizontal: H_PADDING, alignItems: 'flex-start' },
+  chip: {
+    backgroundColor: c.white,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chipActive: { backgroundColor: c.accentDark },
+  chipTextActive: { color: c.accentOn, fontWeight: Typography.weight.semibold },
+  chipAccent: { backgroundColor: c.accentLight },
+  chipText: {
+    fontSize: Typography.size.sm,
+    fontWeight: Typography.weight.medium,
+    color: c.text.primary,
+  },
+  chipTextAccent: { color: c.accentDark, fontWeight: Typography.weight.semibold },
+
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
-    marginBottom: 14,
+    marginTop: 24,
+    marginBottom: 10,
   },
 
-  // Grid
-  grid: {
+  // Earlier version card (step 1.9)
+  earlierCard: {
+    marginTop: 20,
+    backgroundColor: c.white,
+    borderRadius: radius,
+    padding: 16,
+    gap: 6,
+  },
+  earlierTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
+  earlierText: { fontSize: Typography.size.sm, color: c.text.secondary },
+  earlierButtons: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
+  earlierPrimary: { backgroundColor: c.button.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  earlierPrimaryText: { color: c.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  earlierLater: { color: c.text.secondary, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium },
+
+  // Courses
+  listCard: {
+    backgroundColor: c.white,
+    borderRadius: radius,
+    overflow: 'hidden',
+  },
+  courseRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_GAP,
-  },
-  card: {
-    aspectRatio: 1,
-    borderRadius: 14,
-    padding: 14,
-    justifyContent: 'flex-end',
-  },
-  addCard: {
-    backgroundColor: Colors.salmonLight,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    minHeight: 56,
   },
-  cardName: {
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    marginBottom: 4,
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: c.surfaceMuted,
   },
-  cardSubtitle: {
-    fontSize: Typography.size.xs,
+  courseSquare: { width: 32, height: 28, borderRadius: 6 },
+  courseName: {
+    flex: 1,
+    fontSize: Typography.size.md,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
-    opacity: 0.65,
+    color: c.text.primary,
+  },
+  courseCount: {
+    fontSize: Typography.size.base,
+    color: c.text.secondary,
   },
 
-  // Empty state
-  emptyState: {
-    paddingBottom: 16,
+  // Section lists
+  sectionTop: { marginTop: 8 },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    minHeight: 60,
+  },
+  itemIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  itemText: { flex: 1, gap: 2 },
+  itemTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
+
+  // Recent
+  recentScroll: { flexGrow: 0, marginHorizontal: -H_PADDING },
+  recentRow: { gap: CARD_GAP, paddingHorizontal: H_PADDING, alignItems: 'flex-start' },
+  recentCard: {
+    backgroundColor: c.white,
+    borderRadius: radius - 4,
+    padding: 12,
+    gap: 6,
+  },
+  recentLine: { width: 32, height: 3, borderRadius: 2 },
+  recentTitle: {
+    fontSize: Typography.size.base,
+    fontWeight: Typography.weight.semibold,
+    color: c.text.primary,
+  },
+  recentMeta: {
+    fontSize: Typography.size.xs,
+    color: c.text.secondary,
+  },
+
+  // Empty states
+  emptyCard: {
+    backgroundColor: c.white,
+    borderRadius: radius,
+    padding: 16,
   },
   emptyText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 28,
-    paddingHorizontal: 24,
-    gap: 14,
-  },
-  modalTitle: {
-    fontSize: Typography.size.xl,
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
-    marginBottom: 4,
-  },
-  modalInput: {
-    backgroundColor: Colors.surfaceMuted,
-    borderRadius: 100,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    fontSize: Typography.size.base,
-    color: Colors.text.primary,
-  },
-  errorText: {
-    fontSize: Typography.size.sm,
-    color: Colors.error,
-    marginTop: -6,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  swatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  swatchSelected: {
-    borderWidth: 2.5,
-    borderColor: Colors.text.primary,
-  },
-  createButton: {
-    backgroundColor: Colors.black,
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
-    minHeight: 54,
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  createButtonText: {
-    color: Colors.white,
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.semibold,
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    fontSize: Typography.size.base,
-    color: Colors.text.secondary,
-    fontWeight: Typography.weight.medium,
+  hint: {
+    fontSize: Typography.size.xs,
+    color: c.text.onGradient,
+    textAlign: 'center',
+    marginTop: 20,
   },
 });

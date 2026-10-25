@@ -1,114 +1,212 @@
 import { Tabs, usePathname } from 'expo-router';
-import { Platform, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../src/constants/colors';
+
+import { useTheme, useThemedStyles } from '../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../src/constants/colors';
+import { Layout } from '../../src/constants/layout';
+import { Typography } from '../../src/constants/typography';
+import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
+import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
+import { ShellProvider } from '../../src/components/shell/ShellContext';
+import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
+import { Sidebar } from '../../src/components/shell/Sidebar';
+import { TopBar } from '../../src/components/shell/TopBar';
+import { screenKindFor, useLayoutMode } from '../../src/hooks/useLayoutMode';
+import { useLayoutPrefs } from '../../src/lib/layoutPrefs';
+import { useUndoToast } from '../../src/hooks/useUndoToast';
+import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../../src/navigation/mainTabs';
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+// The bar's own height, above the home indicator (React Navigation's default).
+const TAB_BAR_HEIGHT = 49;
 
-function tabIcon(active: IoniconsName, inactive: IoniconsName) {
+function tabIcon(tab: MainTab) {
   function TabIcon({ color, size, focused }: { color: string; size: number; focused: boolean }) {
-    return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+    return <Ionicons name={focused ? tab.icon.active : tab.icon.inactive} size={size} color={color} />;
   }
   return TabIcon;
 }
 
-// The Record tab gets a circular pill background to draw attention.
-function RecordTabIcon({ focused }: { focused: boolean }) {
+/**
+ * Tab labels grow with Larger Text up to 1.3× (the bar keeps its height,
+ * so bigger labels would be cut off). Beside the icon on wider windows.
+ */
+function TabLabel({ color, children, position }: { color: string; children: string; position: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
-    <View
-      style={{
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: focused ? Colors.salmon : Colors.surfaceMuted,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+    <Text
+      style={[styles.tabLabel, position === 'beside-icon' && styles.tabLabelBeside, { color }]}
+      maxFontSizeMultiplier={1.3}
+      numberOfLines={1}
     >
-      <Ionicons
-        name={focused ? 'mic' : 'mic-outline'}
-        size={22}
-        color={focused ? Colors.white : Colors.text.secondary}
-      />
+      {children}
+    </Text>
+  );
+}
+
+// Record: a big red circle with a white ring, raised above the bar in its exact middle.
+function RecordTabButton({
+  onPress,
+  onLongPress,
+  accessibilityState,
+  testID,
+}: Pick<PressableProps, 'onPress' | 'onLongPress' | 'accessibilityState' | 'testID'>) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.recordSlot} pointerEvents="box-none">
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel="Record lecture"
+        accessibilityState={accessibilityState}
+        style={({ pressed }) => [styles.recordRing, pressed && styles.recordPressed]}
+      >
+        <View style={styles.recordCircle}>
+          <View style={styles.recordDot} />
+        </View>
+      </Pressable>
     </View>
   );
 }
 
+/**
+ * The iPhone (and a narrow browser window): the tab bar, documents full screen.
+ * The laptop (web, 1024 px and wider): the top bar, the library sidebar and,
+ * beside documents, the study assistant, around the same navigator. The
+ * navigator keeps its place in the tree, so resizing the window switches
+ * the layout without losing the open screen.
+ */
 export default function MainLayout() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const wide = useLayoutMode() === 'wide';
+  const kind = screenKindFor(pathname);
+  const [prefs, setPrefs] = useLayoutPrefs();
+  // The sidebar's menus (Favorites) show their Undo over the whole window.
+  const { showUndo, toast } = useUndoToast();
+  const isFullScreen = isFullScreenRoute(pathname);
 
-  // Hide the tab bar on the active recording and post-session screens.
-  // These are full-screen experiences and the user must use in-screen controls.
-  const isFullScreen =
-    pathname.includes('/record/active') ||
-    pathname.includes('/record/post-session') ||
-    pathname.includes('/record/review') ||
-    pathname.includes('/note/');
-
-  const tabBarHeight = Platform.OS === 'ios' ? 76 : 60;
-  const tabBarStyle = isFullScreen
-    ? { display: 'none' as const }
-    : {
-        backgroundColor: Colors.white,
-        borderTopColor: Colors.surfaceMuted,
-        borderTopWidth: 1,
-        height: tabBarHeight,
-      };
+  const showSidebar = wide && kind !== 'settings' && prefs.sidebarOpen;
+  const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
 
   return (
-    <View style={{ flex: 1 }}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarShowLabel: false,
-          tabBarActiveTintColor: Colors.salmon,
-          tabBarInactiveTintColor: Colors.text.secondary,
-          tabBarStyle,
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            tabBarIcon: tabIcon('home', 'home-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="search/index"
-          options={{
-            href: '/search',
-            tabBarIcon: tabIcon('search', 'search-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="record"
-          options={{
-            href: '/record',
-            tabBarIcon: ({ focused }) => <RecordTabIcon focused={focused} />,
-          }}
-        />
-        <Tabs.Screen
-          name="library/index"
-          options={{
-            href: '/library',
-            tabBarIcon: tabIcon('library', 'library-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            href: '/settings',
-            tabBarIcon: tabIcon('settings', 'settings-outline'),
-          }}
-        />
+    <ShellProvider>
+      <View style={styles.root}>
+        {wide && (
+          <TopBar
+            kind={kind}
+            sidebarOpen={prefs.sidebarOpen}
+            assistantOpen={prefs.assistantOpen}
+            onToggleSidebar={() => setPrefs({ sidebarOpen: !prefs.sidebarOpen })}
+            onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
+          />
+        )}
+        {/* The recording strip goes here (Phase 5). */}
+        <View style={styles.row}>
+          {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
+          <View style={styles.center}>
+            {wide && <GradientFill />}
+            <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
+              <Tabs
+                screenOptions={{
+                  headerShown: false,
+                  // No white flash between screens in dark mode
+                  sceneStyle: { backgroundColor: c.gradient.top },
+                  tabBarActiveTintColor: c.accentDark,
+                  tabBarInactiveTintColor: c.text.secondary,
+                  tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
+                }}
+              >
+                {MAIN_TABS.map(tab => (
+                  <Tabs.Screen
+                    key={tab.name}
+                    name={tab.name}
+                    options={{
+                      title: tab.label,
+                      tabBarAccessibilityLabel: tab.label,
+                    tabBarLabel: TabLabel,
+                      tabBarIcon: tabIcon(tab),
+                      // expo-router refuses href together with a custom button; /record is the default anyway.
+                      ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
+                    }}
+                  />
+                ))}
 
-        {/* Hidden screens — navigable but not shown in the tab bar */}
-        <Tabs.Screen name="project/[id]" options={{ href: null }} />
-        <Tabs.Screen name="note/[id]" options={{ href: null }} />
-      </Tabs>
-      <OfflineBanner bottom={(isFullScreen ? insets.bottom : tabBarHeight) + 8} />
-    </View>
+                {/* Navigable but without a tab */}
+                {HIDDEN_ROUTES.map(name => (
+                  <Tabs.Screen key={name} name={name} options={{ href: null }} />
+                ))}
+              </Tabs>
+            </View>
+            {wide && <OfflineBanner bottom={16} />}
+          </View>
+          {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
+        </View>
+        {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
+        {wide && toast}
+        {Platform.OS === 'web' && <KeyboardShortcuts />}
+      </View>
+    </ShellProvider>
   );
 }
+
+const RING = 4;
+
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    tabLabel: {
+      fontSize: Typography.size.xxs,
+      fontWeight: Typography.weight.medium,
+      textAlign: 'center',
+    },
+    tabLabelBeside: { fontSize: Typography.size.sm, marginLeft: 20 },
+  root: { flex: 1 },
+  row: { flex: 1, flexDirection: 'row' },
+  center: { flex: 1, minWidth: 0 },
+  centerColumn: { flex: 1, width: '100%', alignSelf: 'center' },
+  // Documents and settings: a centered column on the gradient (the page is 820 px).
+  centerColumnNarrow: { maxWidth: Layout.documentMaxWidth + 48 },
+  tabBar: {
+    backgroundColor: c.white,
+    borderTopColor: c.surfaceMuted,
+    borderTopWidth: 1,
+    overflow: 'visible',
+  },
+  recordSlot: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  recordRing: {
+    width: Layout.recordButtonSize,
+    height: Layout.recordButtonSize,
+    borderRadius: Layout.recordButtonSize / 2,
+    marginTop: -Layout.recordButtonSize / 2 + 4,
+    padding: RING,
+    backgroundColor: c.recordRing,
+    shadowColor: c.shadow,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  recordPressed: { opacity: 0.85 },
+  recordCircle: {
+    flex: 1,
+    borderRadius: (Layout.recordButtonSize - RING * 2) / 2,
+    backgroundColor: c.recording,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: c.onRecording,
+  },
+});
