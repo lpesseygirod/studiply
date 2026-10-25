@@ -2,10 +2,10 @@
  * dragDebug.ts — development only (Settings → General → DEVELOPMENT →
  * Drag debug overlay): what the drag's gestures are doing, for a
  * screenshot from the iPhone. Nothing is recorded unless it is switched on,
- * and nothing leaves the device.
+ * and nothing leaves the device. Both switches start off every time the app
+ * starts (Lea): they are never saved.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
 export interface DragDebugState {
@@ -18,8 +18,6 @@ export interface DragDebugState {
   targets: string | null;
 }
 
-const KEY = 'studiply.dragDebug';
-const PLAIN_KEY = 'studiply.dragPlainScroll';
 const MAX_EVENTS = 12;
 
 let enabled = false;
@@ -29,14 +27,6 @@ let since = 0;
 const listeners = new Set<() => void>();
 
 const emit = () => listeners.forEach((l) => l());
-
-AsyncStorage.multiGet([KEY, PLAIN_KEY])
-  .then(([[, on], [, plain]]) => {
-    enabled = __DEV__ && on === '1';
-    plainScroll = __DEV__ && plain === '1';
-    emit();
-  })
-  .catch(() => {});
 
 /**
  * Development only: the course list as React Native's own ScrollView and
@@ -49,7 +39,6 @@ export function isPlainScroll(): boolean {
 
 export function setPlainScroll(on: boolean): void {
   plainScroll = __DEV__ && on;
-  AsyncStorage.setItem(PLAIN_KEY, plainScroll ? '1' : '0').catch(() => {});
   emit();
 }
 
@@ -59,7 +48,6 @@ export function isDragDebugOn(): boolean {
 
 export function setDragDebug(on: boolean): void {
   enabled = __DEV__ && on;
-  AsyncStorage.setItem(KEY, enabled ? '1' : '0').catch(() => {});
   emit();
 }
 

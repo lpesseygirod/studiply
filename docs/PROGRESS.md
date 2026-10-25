@@ -26,7 +26,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [x] 3.1 — Spike: drag and drop (web + iPhone) — Lea chose Option B (the browser's drag) on the laptop and Option A (gesture) on the iPhone; the iPhone drag is smooth, the haptic works
 - [x] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
-- [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); waiting for Lea's test
+- [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); tested by Lea on the iPhone (drag onto folders and the breadcrumb, Undo, haptic) and in Chrome, plus the title's menu
 - [ ] 3.4 — Menus (empty-space + item context menus)
 - [ ] 3.5 — Trash, stars, recent, search
 
@@ -334,7 +334,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     - the empty-space long-press was a React Native Pressable around the tiles; its 400 ms timer could race the tile's 350 ms lift and open a native action sheet, which cancels the drag. On the iPhone it is now a gesture-handler long-press (500 ms) that a tile's hold beats natively;
     - auto-scroll ran before the drag area was measured (height 0 read as "near the bottom") and scrolled the list away under the finger: `edgeSpeed` waits for the measurement;
     - a release before the targets were measured dropped nowhere: the drop now waits for them.
-    - **Development only:** Settings → General → DEVELOPMENT → **Drag debug overlay** (`src/lib/dnd/dragDebug.ts`, `DragDebugOverlay.tsx`: the gesture's events with times since the finger went down, finger, hovered target, measured targets, what the drop did) and **Drag: plain ScrollView** (React Native's ScrollView and pull-to-refresh instead of gesture-handler's, to compare).
+    - **Development only:** Settings → General → DEVELOPMENT → **Drag debug overlay** (`src/lib/dnd/dragDebug.ts`, `DragDebugOverlay.tsx`: the gesture's events with times since the finger went down, finger, hovered target, measured targets, what the drop did) and **Drag: plain ScrollView** (React Native's ScrollView and pull-to-refresh instead of gesture-handler's, to compare). Both start off every time the app starts (not saved; Lea, after the fix worked).
     - Jest drives the real gestures (`GestureDrag.test.tsx`, gesture-handler's jest-utils with `react-test-renderer` from jest-expo; a local type declaration, no new dependency).
   - **The title's menu (Lea):** the course or folder you're in, from its title (⌄): `useItemMenu.open(item, anchor, { skip: ['open'], dialogRename: true })`. After Delete the course screen goes up one level. The course screen now uses the app's Undo toast (`useAppUndo`, rendered by the main layout on both devices), so Undo stays visible after leaving the screen. The breadcrumb re-reads the folder names on every reload, and follows a folder moved to another course. Checks: `title-menu.mjs` (9 steps).
   - Checks: `.claude/skills/web-check/scripts/library-dnd.mjs` (10 steps, every result checked in the database); Jest for the rules (three levels, cycles, same place, across courses, media and Trash), `moveMediaToLibrary` and its Undo and clean-up, `undo.ts`, ⌘Z.
