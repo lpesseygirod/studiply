@@ -163,7 +163,7 @@ export function courseMedia(media: MediaRow[], files: FileRow[], courseId: strin
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
-// ── Files saved to the library (Save to library…) ───────────────────────
+// ── Files saved to the library (Save a copy to library…, and photos moved out of a lecture) ───────────────────────
 
 /** Kinds of files a student keeps in the library besides lectures. */
 export const LIBRARY_FILE_KINDS = ['pdf', 'image'] as const;

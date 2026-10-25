@@ -3,8 +3,9 @@
 // through the breadcrumb, Undo after the moves (toast and ⌘Z), a folder
 // refused on itself and on its own subfolder, drops on a sidebar course, a
 // sidebar folder and Trash, a lecture photo dropped on a folder (it becomes
-// a library file), a PDF "from Finder" ("Coming soon"), and click /
-// right-click still working. Every result is checked in the database.
+// a library file), a PDF "from Finder" ("Coming soon"), a lecture photo's
+// combined Move to… (a folder or a lecture), and click / right-click still
+// working. Every result is checked in the database.
 // Exit 1 on any FAIL.
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -78,6 +79,13 @@ const cmdZ = async () => {
   await b.chord({ code: 'KeyZ', key: 'z', meta: true });
   await b.sleep(1200);
 };
+/** Clicks a text inside the open dialog (the picker), not the page under it. */
+const clickInDialog = async (text) => {
+  const p = await at(`[...document.querySelectorAll('[aria-modal="true"] *')].find((e) => e.childElementCount === 0 && e.textContent.trim() === ${JSON.stringify(text)})`, text);
+  await b.clickAt(p.x, p.y);
+  await b.sleep(800);
+};
+const mediaRow = async () => (await admin.from('media').select('lecture_id, file_id').eq('id', photo.id).single()).data;
 const openFolder = async (id, name) => {
   await b.nav(`${BASE}/project/${data.course.id}${id ? `?folder=${id}` : ''}`);
   await b.waitText(name, { timeout: 20000 });
@@ -94,6 +102,8 @@ const B = await mkFolder('Tema B', A.id);
 const C = await mkFolder('Tema C', B.id);
 const pdf = (await admin.from('files').insert({ user_id: user.id, kind: 'pdf', title: 'Notas.pdf', course_id: data.course.id }).select().single()).data;
 const photo = (await admin.from('media').insert({ user_id: user.id, lecture_id: data.lecture.id, kind: 'photo', storage_path: `${user.id}/${data.lecture.id}/p1.jpg` }).select().single()).data;
+const lecture2 = (await admin.from('files').insert({ user_id: user.id, kind: 'lecture', title: 'Lecture 2', course_id: data.course.id }).select().single()).data;
+await admin.from('lectures').insert({ id: lecture2.id, user_id: user.id, status: 'transcribing', duration_ms: 1000 });
 const finderPdf = join(tmpdir(), 'studiply-finder.pdf');
 writeFileSync(finderPdf, '%PDF-1.4\n%%EOF\n');
 
@@ -223,6 +233,38 @@ try {
     await b.shot('dnd-finder');
     await b.click('OK', { exact: true });
     expect((await admin.from('files').select('id').eq('user_id', user.id)).data.length === before, 'a file was created');
+  });
+
+  await step('A lecture photo: one Move to… (to a folder: out of its lecture; to a lecture: moved there)', async () => {
+    await openFolder(null, 'Tema A');
+    const label = await b.evaluate(`document.body.innerText.includes('PHOTOS & PDFS FROM LECTURES')`);
+    expect(label, 'no lecture photos section');
+    if (!(await b.hasText('Photo 1', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false });
+    await b.sleep(600);
+    await b.click('Photo 1', { button: 'right', exclude: '[data-testid=sidebar]' });
+    await b.waitText('Save a copy to library…', { exact: true, timeout: 3000 });
+    expect(!(await b.hasText('Move to another lecture…', true)), 'the old item is still there');
+    await b.click('Move to…', { exact: true });
+    await b.waitText('Move ‘Photo 1’ to…', { timeout: 3000 });
+    await clickInDialog('Math');
+    await clickInDialog('Tema A');
+    await b.shot('dnd-move-to-folder');
+    await b.click('Move to Math / Tema A', { exact: true });
+    await until(async () => { const m = await mediaRow(); return m.lecture_id === null && !!m.file_id; }, 'not moved out to Tema A');
+    const { file_id } = await mediaRow();
+    expect((await admin.from('files').select('folder_id').eq('id', file_id).single()).data.folder_id === A.id, 'not in Tema A');
+    await undoToast();
+    await until(async () => (await mediaRow()).lecture_id === data.lecture.id, 'Undo did not give it back');
+
+    await openFolder(null, 'Tema A');
+    if (!(await b.hasText('Photo 1', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false });
+    await b.sleep(600);
+    await b.click('Photo 1', { button: 'right', exclude: '[data-testid=sidebar]' });
+    await b.click('Move to…', { exact: true });
+    await clickInDialog('Math');
+    await clickInDialog('Lecture 2');
+    await b.click('Move to Math / Lecture 2', { exact: true });
+    await until(async () => { const m = await mediaRow(); return m.lecture_id === lecture2.id && m.file_id === null; }, 'not moved to Lecture 2');
   });
 
   await step('A click still selects, a right-click still shows the menu', async () => {

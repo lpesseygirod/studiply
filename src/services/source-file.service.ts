@@ -822,7 +822,7 @@ export function awaitLectureUploads(
 }
 
 // -------------------------------------------------------------------
-// Files saved to the library (Save to library…)
+// Files saved to the library (Save a copy to library…, and photos moved out of a lecture)
 // A `files` row of kind pdf or image in a course or folder, with its own
 // media row (file_id set, lecture_id null) and its own Storage object.
 // Readable offline through the iPhone's cache, like lectures.

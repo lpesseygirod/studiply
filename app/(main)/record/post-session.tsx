@@ -127,7 +127,7 @@ export default function PostSessionScreen() {
     loadData();
   }, [loadData]);
 
-  // "Move to another lecture…" / "Save to library…" for photos and PDFs, with Undo.
+  // "Move to…" / "Save a copy to library…" for photos and PDFs, with Undo.
   const { showUndo, toast: undoToast } = useUndoToast();
   const move = useMoveFlow({ showUndo, onChanged: loadData });
 
@@ -245,8 +245,8 @@ export default function PostSessionScreen() {
     const name = fileLabel(file, sourceFiles);
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
-      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
-      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Move to…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save a copy to library…', onPress: () => move.openSaveToLibrary(file, name) },
       starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
         setSourceFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
       ),

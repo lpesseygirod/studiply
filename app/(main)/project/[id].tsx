@@ -310,8 +310,8 @@ export default function ProjectDetailScreen() {
     const name = fileLabel(file, sameLectureFiles(file, projectFiles));
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
-      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
-      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Move to…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save a copy to library…', onPress: () => move.openSaveToLibrary(file, name) },
       starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
         setProjectFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
       ),

@@ -7,6 +7,7 @@ import {
   MoveError,
   moveItem,
   moveMediaToLecture,
+  moveMediaToLibrary,
   saveMediaToLibrary,
   type LibraryItem,
   type MoveResult,
@@ -16,9 +17,11 @@ import type { SourceFile } from '../types/database';
 import { errorMessage } from '../utils/errors';
 
 /**
- * "Move to…", "Move to another lecture…" and "Save to library…" for any
- * screen: opens the picker, runs the move (src/services/move.service.ts),
- * shows what went wrong, and offers Undo in the screen's toast.
+ * "Move to…" and "Save a copy to library…" for any screen: opens the
+ * picker, runs the move (src/services/move.service.ts), shows what went
+ * wrong, and offers Undo in the screen's toast. A lecture's photo or PDF
+ * moves to another lecture, or out of its lecture into a course or folder
+ * as a library file (Lea, 26 Oct: one combined Move to…).
  *
  *   const move = useMoveFlow({ showUndo, onChanged: reload });
  *   … { text: 'Move to…', onPress: () => move.openMove(item) } …
@@ -66,6 +69,9 @@ export function useMoveFlow({
     if (request.mode === 'move') {
       const { item } = request;
       run(() => moveItem(item, to), (r) => `Moved ‘${item.title}’ to ${r.to.label}`, 'Could not move it.');
+    } else if (request.mode === 'media') {
+      const { file, name } = request;
+      run(() => moveMediaToLibrary(file, name, to), (r) => `Moved ‘${r.title}’ to ${r.to.label}`, 'Could not move the file.');
     } else if (request.mode === 'save') {
       const { file, name } = request;
       run(
@@ -97,7 +103,7 @@ export function useMoveFlow({
       visible={request !== null}
       title={title}
       userId={profile?.id ?? ''}
-      pick={request?.mode === 'media' ? 'lecture' : 'place'}
+      pick={request?.mode === 'media' ? 'either' : 'place'}
       confirmLabel={request?.mode === 'save' ? 'Save' : 'Move'}
       excludeFolderIds={item?.type === 'folder' ? [item.id] : []}
       excludeLectureIds={request?.mode === 'media' ? [request.file.session_id] : []}
@@ -115,7 +121,7 @@ export function useMoveFlow({
   return {
     /** A lecture, folder or library file. */
     openMove: (target: LibraryItem) => setRequest({ mode: 'move', item: target }),
-    /** A lecture's photo or PDF, to another lecture. */
+    /** A lecture's photo or PDF, to another lecture or out of it into a course or folder. */
     openMoveMedia: (file: SourceFile, name: string) => setRequest({ mode: 'media', file, name }),
     /** A copy of a lecture's photo or PDF, as its own library file. */
     openSaveToLibrary: (file: SourceFile, name: string) => setRequest({ mode: 'save', file, name }),
