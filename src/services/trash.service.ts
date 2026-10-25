@@ -317,7 +317,13 @@ async function filesInside(item: Pick<TrashItem, 'id' | 'type'>): Promise<string
 
 type StoragePaths = Map<Bucket, string[]>;
 
-/** Storage objects of these lectures: audio chunks, photos and slides. */
+/**
+ * Storage objects of these files: audio chunks, photos and slides, found
+ * through their rows (lecture_id / file_id), never by path prefix. A photo
+ * moved to another lecture keeps its old path ({uid}/{oldLecture}/…), so a
+ * prefix would delete it with the old lecture; its row now points to the
+ * new lecture and keeps it out of this list.
+ */
 async function storagePathsOf(fileIds: string[]): Promise<StoragePaths> {
   const paths: StoragePaths = new Map();
   const add = (bucket: Bucket, path: string | null) => {

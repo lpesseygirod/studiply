@@ -31,6 +31,8 @@ import {
 } from '../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../src/utils/errors';
 import { promptRenameLecture } from '../../src/utils/rename';
+import { lectureItem } from '../../src/utils/libraryItems';
+import { useMoveFlow } from '../../src/hooks/useMoveFlow';
 import { useLibraryUpdates } from '../../src/lib/cache';
 import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
@@ -104,6 +106,7 @@ export default function HomeScreen() {
     fetchData();
   }, [fetchData]);
   useLibraryUpdates(fetchData);
+  const move = useMoveFlow({ showUndo, onChanged: fetchData });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -137,6 +140,7 @@ export default function HomeScreen() {
   function showSessionActions(session: Session, anchor?: Anchor) {
     showActionSheet(session.title, [
       { text: 'Rename…', onPress: () => renameLecture(session) },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
       { text: 'Export PDF', onPress: () => exportSessionPDF(session) },
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
     ], { anchor });
@@ -375,6 +379,7 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+      {move.modal}
       <UndoToast
         visible={undoVisible}
         message={undoMessage}

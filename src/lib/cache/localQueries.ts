@@ -163,6 +163,28 @@ export function courseMedia(media: MediaRow[], files: FileRow[], courseId: strin
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+// ── Files saved to the library (Save to library…) ───────────────────────
+
+/** Kinds of files a student keeps in the library besides lectures. */
+export const LIBRARY_FILE_KINDS = ['pdf', 'image'] as const;
+
+export function isLibraryFile(f: FileRow): boolean {
+  return (LIBRARY_FILE_KINDS as readonly string[]).includes(f.kind);
+}
+
+/** Library files directly in a course (folderId null) or a folder, by name, with their media. */
+export function libraryFilesIn(
+  files: FileRow[],
+  media: MediaRow[],
+  courseId: string,
+  folderId: string | null,
+): (FileRow & { media: MediaRow[] })[] {
+  return files
+    .filter((f) => isLibraryFile(f) && f.deleted_at === null && f.course_id === courseId && f.folder_id === folderId)
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map((f) => ({ ...f, media: media.filter((m) => m.file_id === f.id) }));
+}
+
 // ── Keeping the cache in step with a full answer ────────────────────────
 
 /**

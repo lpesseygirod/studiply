@@ -29,23 +29,23 @@ import { Typography } from '../../../src/constants/typography';
 import { getProject } from '../../../src/services/project.service';
 import {
   getSessionsByProject,
-  moveSession,
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
 import { getFolders, createFolder, type Breadcrumb } from '../../../src/services/folder.service';
 import { getSessionsWithNotes } from '../../../src/services/note.service';
-import { trashSession, trashFolder } from '../../../src/services/trash.service';
+import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
 import {
   getProjectSourceFiles,
   createSourceFile,
   markDeleted as markSourceFileDeleted,
   sourceFileName,
   fileLabel,
+  getLibraryFiles,
+  type LibraryFile,
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import UndoToast from '../../../src/components/UndoToast';
-import MoveToModal from '../../../src/components/MoveToModal';
 import {
   menuTriggerProps,
   promptText,
@@ -54,7 +54,10 @@ import {
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
-import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
+import { promptRenameFile, promptRenameLecture, promptRenameLibraryFile } from '../../../src/utils/rename';
+import { folderItem, lectureItem, libraryFileItem } from '../../../src/utils/libraryItems';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
@@ -127,13 +130,8 @@ export default function ProjectDetailScreen() {
   const [undoMessage, setUndoMessage] = useState('');
   const undoCallbackRef = useRef<(() => void) | null>(null);
 
-  // Move session modal
-  const [showMoveModal, setShowMoveModal] = useState(false);
-  const [movingSessionId, setMovingSessionId] = useState<string | null>(null);
-
-  // Move folder modal
-  const [showMoveFolderModal, setShowMoveFolderModal] = useState(false);
-  const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
+  // Photos and PDFs saved to the library, at the current level
+  const [libraryFiles, setLibraryFiles] = useState<LibraryFile[]>([]);
 
   // Project-level files (photos + PDFs across all sessions)
   const [projectFiles, setProjectFiles] = useState<SourceFile[]>([]);
@@ -149,14 +147,16 @@ export default function ProjectDetailScreen() {
   const fetchData = useCallback(async (folderId: string | null = currentFolderId) => {
     if (!id) return;
     try {
-      const [p, folderList, sessionList] = await Promise.all([
+      const [p, folderList, sessionList, fileList] = await Promise.all([
         getProject(id),
         getFolders({ projectId: id, parentFolderId: folderId }),
         getSessionsByProject(id, folderId),
+        getLibraryFiles(id, folderId),
       ]);
       setProject(p);
       setFolders(folderList);
       setSessions(sessionList);
+      setLibraryFiles(fileList);
 
       // Batch-check which sessions have a confirmed note.
       const ids = sessionList.map(s => s.id);
@@ -278,7 +278,7 @@ export default function ProjectDetailScreen() {
   function showFolderActions(folder: Folder, anchor?: Anchor) {
     showActionSheet(folder.name, [
       { text: 'Rename', onPress: () => promptRenameFolder(folder) },
-      { text: 'Move to…', onPress: () => openMoveFolder(folder) },
+      { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
       { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
     ], { anchor });
   }
@@ -288,7 +288,7 @@ export default function ProjectDetailScreen() {
       { text: 'View Notes', onPress: () => handleSessionPress(session) },
       { text: 'Rename…', onPress: () => renameLecture(session) },
       { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
-      { text: 'Move to…', onPress: () => openMoveSession(session) },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
       { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
     ], { anchor });
   }
@@ -308,28 +308,12 @@ export default function ProjectDetailScreen() {
     }
   }
 
-  function openMoveFolder(folder: Folder) {
-    setMovingFolderId(folder.id);
-    setShowMoveFolderModal(true);
-  }
-
-  async function handleMoveFolder(target: { projectId: string; folderId: string | null; label: string }) {
-    if (!movingFolderId) return;
-    setShowMoveFolderModal(false);
-    try {
-      const { moveFolder } = await import('../../../src/services/folder.service');
-      await moveFolder(movingFolderId, target.folderId, target.projectId);
-      await fetchData(currentFolderId);
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not move folder.'));
-    } finally {
-      setMovingFolderId(null);
-    }
-  }
-
   function showFileActions(file: SourceFile, anchor?: Anchor) {
-    showActionSheet(fileLabel(file, projectFiles), [
+    const name = fileLabel(file, projectFiles);
+    showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Export / Share', onPress: () => shareFile(file) },
       { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
     ], { anchor });
@@ -466,28 +450,6 @@ export default function ProjectDetailScreen() {
   }
 
   // -------------------------------------------------------------------
-  // Move session
-  // -------------------------------------------------------------------
-
-  function openMoveSession(session: Session) {
-    setMovingSessionId(session.id);
-    setShowMoveModal(true);
-  }
-
-  async function handleMove(target: { projectId: string; folderId: string | null; label: string }) {
-    if (!movingSessionId) return;
-    setShowMoveModal(false);
-    try {
-      await moveSession(movingSessionId, target.projectId, target.folderId);
-      await fetchData(currentFolderId);
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not move session.'));
-    } finally {
-      setMovingSessionId(null);
-    }
-  }
-
-  // -------------------------------------------------------------------
   // Undo toast
   // -------------------------------------------------------------------
 
@@ -545,6 +507,56 @@ export default function ProjectDetailScreen() {
   useEffect(() => {
     fetchProjectFiles();
   }, [fetchProjectFiles]);
+
+  // "Move to…", "Move to another lecture…", "Save to library…" (with Undo).
+  const move = useMoveFlow({
+    showUndo,
+    onChanged: () => {
+      fetchData(currentFolderIdRef.current);
+      fetchProjectFiles();
+    },
+  });
+
+  // -------------------------------------------------------------------
+  // Files saved to the library
+  // -------------------------------------------------------------------
+
+  function showLibraryFileActions(file: LibraryFile, anchor?: Anchor) {
+    showActionSheet(file.title, [
+      { text: Platform.OS === 'web' ? 'Open / Download' : 'Open / Share', onPress: () => openLibraryFile(file) },
+      { text: 'Rename…', onPress: () => renameLibraryFile(file) },
+      { text: 'Move to…', onPress: () => move.openMove(libraryFileItem(file)) },
+      { text: 'Delete', style: 'destructive', onPress: () => trashLibraryFile(file) },
+    ], { anchor });
+  }
+
+  function openLibraryFile(file: LibraryFile) {
+    if (!file.media?.file_path) {
+      showAlert('Not available', "This file can't be opened right now. Check your connection.");
+      return;
+    }
+    if (file.kind === 'image') setPreviewUri(file.media.file_path);
+    else shareFile({ ...file.media, display_name: file.title });
+  }
+
+  async function renameLibraryFile(file: LibraryFile) {
+    const renamed = await promptRenameLibraryFile(file);
+    if (renamed) setLibraryFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
+  }
+
+  async function trashLibraryFile(file: LibraryFile) {
+    if (!(await confirmAction('Delete File', `"${file.title}" will be moved to Recently Deleted.`, 'Delete'))) return;
+    try {
+      await trashSession(file.id);
+      setLibraryFiles(prev => prev.filter(f => f.id !== file.id));
+      showUndo(`"${file.title}" moved to trash`, async () => {
+        await restoreItem({ id: file.id, type: 'session' });
+        fetchData(currentFolderIdRef.current);
+      });
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not delete the file.'));
+    }
+  }
 
   // ── Take Photo ────────────────────────────────────────────────
   const handleTakePhoto = async () => {
@@ -836,10 +848,47 @@ export default function ProjectDetailScreen() {
             </>
           )}
 
+          {/* ── Files saved to the library ────────────────────── */}
+          {libraryFiles.length > 0 && (
+            <>
+              <Text style={[styles.sectionLabel, folders.length > 0 && { marginTop: 24 }]}>FILES</Text>
+              <View style={styles.filesList}>
+                {libraryFiles.map((file, index) => (
+                  <TouchableOpacity
+                    key={file.id}
+                    style={[styles.fileRow, index < libraryFiles.length - 1 && styles.fileRowDivider]}
+                    onPress={() => openLibraryFile(file)}
+                    {...menuTriggerProps(anchor => showLibraryFileActions(file, anchor))}
+                    activeOpacity={0.75}
+                  >
+                    {file.kind === 'image' && file.media?.file_path ? (
+                      <Image source={{ uri: file.media.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.fileIconWrap}>
+                        <Ionicons
+                          name={file.kind === 'image' ? 'image-outline' : 'document-text'}
+                          size={18}
+                          color={Colors.text.secondary}
+                        />
+                      </View>
+                    )}
+                    <View style={styles.fileInfo}>
+                      <Text style={styles.fileName} numberOfLines={1}>{file.title}</Text>
+                      <Text style={styles.fileMeta}>
+                        {formatShortDate(file.createdAt)}
+                        {file.media?.file_size_bytes != null ? ` · ${formatFileSize(file.media.file_size_bytes)}` : ''}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
           {/* ── Sessions list ─────────────────────────────────── */}
           {sessions.filter(s => s.title !== 'Project Files').length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, folders.length > 0 && { marginTop: 24 }]}>
+              <Text style={[styles.sectionLabel, (folders.length > 0 || libraryFiles.length > 0) && { marginTop: 24 }]}>
                 SESSIONS
               </Text>
               <View style={styles.sessionsList}>
@@ -884,7 +933,7 @@ export default function ProjectDetailScreen() {
           )}
 
           {/* ── Empty state ───────────────────────────────────── */}
-          {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && (
+          {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && libraryFiles.length === 0 && (
             <View style={styles.emptyState}>
               <Ionicons name="document-text-outline" size={44} color={Colors.text.placeholder} />
               <Text style={styles.emptyTitle}>
@@ -983,31 +1032,7 @@ export default function ProjectDetailScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Move Session modal ────────────────────────────────── */}
-      <MoveToModal
-        visible={showMoveModal}
-        title="Move Session to…"
-        userId={userId}
-        excludeProjectIds={[]}
-        onMove={handleMove}
-        onClose={() => {
-          setShowMoveModal(false);
-          setMovingSessionId(null);
-        }}
-      />
-
-      {/* ── Move Folder modal ─────────────────────────────────── */}
-      <MoveToModal
-        visible={showMoveFolderModal}
-        title="Move Folder to…"
-        userId={userId}
-        excludeProjectIds={[]}
-        onMove={handleMoveFolder}
-        onClose={() => {
-          setShowMoveFolderModal(false);
-          setMovingFolderId(null);
-        }}
-      />
+      {move.modal}
 
       {/* ── Undo toast ────────────────────────────────────────── */}
       <UndoToast

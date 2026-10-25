@@ -14,7 +14,8 @@ import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { getProjects } from '../services/project.service';
 import { getFolders } from '../services/folder.service';
-import type { Folder, Project } from '../types/database';
+import { getSessionsByProject } from '../services/session.service';
+import type { Folder, Project, Session } from '../types/database';
 
 // -------------------------------------------------------------------
 // Types
@@ -27,29 +28,51 @@ interface Breadcrumb {
   type: 'root' | 'project' | 'folder';
 }
 
-interface MoveTarget {
+export interface MoveTarget {
   projectId: string;
   folderId: string | null;
   label: string;               // human-readable path for confirmation
+}
+
+export interface PickedLecture {
+  id: string;
+  title: string;
+  /** "Math / Funcions / Lecture 3", for messages. */
+  label: string;
 }
 
 interface MoveToModalProps {
   visible: boolean;
   title?: string;              // defaults to "Move to…"
   userId: string;
-  /** IDs to exclude from the list (e.g., the item being moved) */
+  /**
+   * 'place' (default): pick a course or folder with the header button.
+   * 'lecture': lectures are listed too, and tapping one picks it.
+   */
+  pick?: 'place' | 'lecture';
+  /** The header button in 'place' mode (default "Move Here"). */
+  confirmLabel?: string;
+  /** IDs to exclude from the list (e.g., the item being moved: a folder hides its subfolders too) */
   excludeProjectIds?: string[];
   excludeFolderIds?: string[];
-  onMove: (target: MoveTarget) => void;
+  excludeLectureIds?: string[];
+  /** Where the item is now: the header button is off there. */
+  current?: { projectId: string | null; folderId: string | null };
+  onMove?: (target: MoveTarget) => void;
+  onPickLecture?: (lecture: PickedLecture) => void;
   onClose: () => void;
 }
+
+/** The hidden lecture that holds a course's own uploads (see session.service). */
+const PROJECT_FILES_TITLE = 'Project Files';
 
 // -------------------------------------------------------------------
 // Row item union
 // -------------------------------------------------------------------
 type RowItem =
   | { kind: 'project'; data: Project }
-  | { kind: 'folder';  data: Folder };
+  | { kind: 'folder';  data: Folder }
+  | { kind: 'lecture'; data: Session };
 
 // -------------------------------------------------------------------
 // Component
@@ -58,9 +81,14 @@ export default function MoveToModal({
   visible,
   title = 'Move to…',
   userId,
+  pick = 'place',
+  confirmLabel = 'Move Here',
   excludeProjectIds = [],
   excludeFolderIds = [],
+  excludeLectureIds = [],
+  current,
   onMove,
+  onPickLecture,
   onClose,
 }: MoveToModalProps) {
   const [loading, setLoading] = useState(false);
@@ -89,12 +117,16 @@ export default function MoveToModal({
         const parentFolderId =
           currentCrumb.type === 'folder' ? currentCrumb.id : null;
 
-        const folders = await getFolders({
-          projectId: currentCrumb.projectId!,
-          parentFolderId,
-        });
+        const [folders, lectures] = await Promise.all([
+          getFolders({ projectId: currentCrumb.projectId!, parentFolderId }),
+          pick === 'lecture' ? getSessionsByProject(currentCrumb.projectId!, parentFolderId) : Promise.resolve([]),
+        ]);
         const filtered = folders.filter(f => !excludeFolderIds.includes(f.id));
-        setItems(filtered.map(f => ({ kind: 'folder', data: f })));
+        const pickable = lectures.filter(l => l.title !== PROJECT_FILES_TITLE && !excludeLectureIds.includes(l.id));
+        setItems([
+          ...filtered.map(f => ({ kind: 'folder' as const, data: f })),
+          ...pickable.map(l => ({ kind: 'lecture' as const, data: l })),
+        ]);
       }
     } catch {
       setItems([]);
@@ -104,6 +136,12 @@ export default function MoveToModal({
   }
 
   function navigateInto(item: RowItem) {
+    if (item.kind === 'lecture') {
+      const label = [...crumbs.slice(1).map(c => c.name), item.data.title].join(' / ');
+      onPickLecture?.({ id: item.data.id, title: item.data.title, label });
+      reset();
+      return;
+    }
     if (item.kind === 'project') {
       setCrumbs(prev => [
         ...prev,
@@ -141,7 +179,7 @@ export default function MoveToModal({
       .map(c => c.name)
       .join(' / ');
 
-    onMove({ projectId, folderId, label });
+    onMove?.({ projectId, folderId, label });
     reset();
   }
 
@@ -155,7 +193,12 @@ export default function MoveToModal({
     setItems([]);
   }
 
-  const canMoveHere = currentCrumb.type !== 'root';
+  const here = {
+    projectId: currentCrumb.projectId ?? null,
+    folderId: currentCrumb.type === 'folder' ? currentCrumb.id : null,
+  };
+  const isCurrent = !!current && current.projectId === here.projectId && current.folderId === here.folderId;
+  const canMoveHere = currentCrumb.type !== 'root' && !isCurrent;
 
   return (
     <Modal
@@ -171,15 +214,21 @@ export default function MoveToModal({
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
-          <TouchableOpacity
-            onPress={handleMoveHere}
-            disabled={!canMoveHere}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={[styles.moveText, !canMoveHere && styles.moveTextDisabled]}>
-              Move Here
-            </Text>
-          </TouchableOpacity>
+          {pick === 'place' ? (
+            <TouchableOpacity
+              onPress={handleMoveHere}
+              disabled={!canMoveHere}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityState={{ disabled: !canMoveHere }}
+            >
+              <Text style={[styles.moveText, !canMoveHere && styles.moveTextDisabled]}>
+                {confirmLabel}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            // Keeps the title centred; a lecture is picked by tapping it.
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         {/* Breadcrumbs */}
@@ -215,27 +264,33 @@ export default function MoveToModal({
         ) : items.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.emptyText}>
-              {currentCrumb.type === 'root' ? 'No projects yet.' : 'No sub-folders here.'}
+              {currentCrumb.type === 'root'
+                ? 'No projects yet.'
+                : pick === 'lecture'
+                  ? 'No folders or lectures here.'
+                  : 'No sub-folders here.'}
             </Text>
           </View>
         ) : (
           <FlatList
             data={items}
-            keyExtractor={item => item.data.id}
+            keyExtractor={item => `${item.kind}-${item.data.id}`}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <TouchableOpacity style={styles.row} onPress={() => navigateInto(item)}>
                 <View style={styles.rowIcon}>
                   <Ionicons
-                    name={item.kind === 'project' ? 'folder' : 'folder-open-outline'}
+                    name={item.kind === 'project' ? 'folder' : item.kind === 'folder' ? 'folder-open-outline' : 'mic-outline'}
                     size={20}
                     color={item.kind === 'project' ? Colors.salmon : Colors.accent}
                   />
                 </View>
                 <Text style={styles.rowLabel} numberOfLines={1}>
-                  {item.data.name}
+                  {item.kind === 'lecture' ? item.data.title : item.data.name}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                {item.kind !== 'lecture' && (
+                  <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                )}
               </TouchableOpacity>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -280,6 +335,9 @@ const styles = StyleSheet.create({
   },
   moveTextDisabled: {
     color: Colors.button.disabled,
+  },
+  headerSpacer: {
+    width: 72,
   },
   breadcrumbRow: {
     flexDirection: 'row',

@@ -36,6 +36,9 @@ import { onSyncEvent, syncEnabled } from '../../../src/lib/sync';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
 import { fileLabel, getActiveSourceFiles } from '../../../src/services/source-file.service';
 import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
+import { lectureItem } from '../../../src/utils/libraryItems';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { getProject } from '../../../src/services/project.service';
 import { formatFileSize } from '../../../src/utils/file-size';
 import { exportNoteToPDF } from '../../../src/services/export.service';
@@ -200,6 +203,10 @@ export default function NoteDetailScreen() {
 
   // A synced edit, or a newer version downloaded from another device.
   useLibraryUpdates(load);
+
+  // "Move to…" for this lecture and its photos/PDFs, with Undo.
+  const { showUndo, toast: undoToast } = useUndoToast();
+  const move = useMoveFlow({ showUndo, onChanged: load });
 
   // iPhone: "Saved" once the queued edit has reached Studiply.
   const noteId = note?.id;
@@ -366,6 +373,7 @@ export default function NoteDetailScreen() {
     if (!note || !session) return;
     showActionSheet(note.title, [
       { text: 'Rename…', onPress: renameThisLecture },
+      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
       { text: 'Export as PDF', onPress: handleExportPDF },
       { text: 'Edit Note', onPress: enterEditMode },
       { text: 'Delete Session', style: 'destructive', onPress: confirmDeleteSession },
@@ -380,7 +388,12 @@ export default function NoteDetailScreen() {
 
   function showFileActions(file: SourceFile, anchor?: Anchor) {
     if (file.file_type === 'audio') return;
-    showActionSheet(fileLabel(file, sourceFiles), [{ text: 'Rename…', onPress: () => renameFile(file) }], { anchor });
+    const name = fileLabel(file, sourceFiles);
+    showActionSheet(name, [
+      { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+    ], { anchor });
   }
 
   async function renameFile(file: SourceFile) {
@@ -1182,6 +1195,8 @@ export default function NoteDetailScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {move.modal}
+      {undoToast}
     </View>
   );
 }

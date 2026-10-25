@@ -25,6 +25,8 @@ import {
   markDeleted,
 } from '../../../src/services/source-file.service';
 import { promptRenameFile } from '../../../src/utils/rename';
+import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
@@ -117,6 +119,10 @@ export default function PostSessionScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // "Move to another lecture…" / "Save to library…" for photos and PDFs, with Undo.
+  const { showUndo, toast: undoToast } = useUndoToast();
+  const move = useMoveFlow({ showUndo, onChanged: loadData });
 
   // ── Material upload — Take Photo ─────────────────────────────
   const handleTakePhoto = async () => {
@@ -229,8 +235,11 @@ export default function PostSessionScreen() {
   // ── Delete file ──────────────────────────────────────────────
   // Long-press (iPhone) or right-click (web) on a photo or PDF.
   const showFileActions = (file: SourceFile, anchor?: Anchor) => {
-    showActionSheet(fileLabel(file, sourceFiles), [
+    const name = fileLabel(file, sourceFiles);
+    showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
+      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
       { text: 'Remove', style: 'destructive', onPress: () => handleDeleteFile(file) },
     ], { anchor });
   };
@@ -474,6 +483,8 @@ export default function PostSessionScreen() {
           )}
         </TouchableOpacity>
       </View>
+      {move.modal}
+      {undoToast}
     </View>
   );
 }

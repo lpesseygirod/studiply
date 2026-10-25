@@ -198,6 +198,18 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Sync now**.
 
   `[sync]` lines are printed in the Metro terminal.
+- **Move to…, Move to another lecture…, Save to library… (after step 1.8, 26 Oct).** The logic is UI-free in `src/services/move.service.ts`, so Phase 2 drag and drop calls the same code:
+  - `moveItem` (lecture, folder, library file → a course or folder), `moveMediaToLecture` and `saveMediaToLibrary` each return an `undo()` that restores the exact old place.
+  - `canMoveTo` (pure) refuses a folder into itself or a subfolder, and reports "same place"; drop targets can use it.
+  - The screens use `src/hooks/useMoveFlow.tsx` (picker, errors, "Moved ‘X’ to Y" toast with Undo). `MoveToModal` can now pick a lecture, hides the moving folder, and turns "Move Here" off where the item already is.
+  - All of this is online only.
+- **Library files (Save to library…).** A lecture's photo or PDF can be saved as its own file in a course or folder:
+  - a `files` row of kind `pdf` or **`image`** (new kind, migration `20261026090000_standalone_images`), with its own media row (`file_id` set, `lecture_id` null) and **its own copy** of the Storage object;
+  - the lecture keeps its photo; removing it there, or deleting the lecture, never touches the library copy;
+  - the course screen lists them in a FILES section per folder, with Open / Rename / Move to / Delete;
+  - they're readable offline from the iPhone cache like lectures (`libraryFilesIn`).
+- **Deleting goes by rows, never by path prefix.** A photo moved to another lecture keeps its old Storage path (`{uid}/{oldLecture}/…`). `trash.service` collects the objects to remove from the media and audio rows of the files being deleted, so deleting the old lecture can't take the moved photo. Covered by Jest, pgTAP and the Chrome check.
+- **Retention is audio only.** "Delete now / after 3 days" acts on a lecture's `audio_chunks`. Photos, PDFs and library files are never removed by it; only the student deletes them. Covered by a test.
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
 
 ## Things Lea must do
@@ -252,6 +264,8 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Offline, photos and audio that aren't on the phone show a placeholder** (step 1.8), and post-session lists no "Recording" entry for a recording that hasn't uploaded yet. Caching files for offline viewing isn't planned for v1.
 - **A lecture permanently deleted on another device can come back** (step 1.8, rare). If the iPhone still has unsynced changes or uploads for it, the queue recreates it from the iPhone's copy rather than lose the recording.
 - **Search, Recently Deleted, Generate and course/folder changes need a connection** (step 1.8, by design).
+- **Library files aren't on Home or in Search yet** (26 Oct). They show in their course/folder (FILES). Recently Deleted lists them like lectures. Phase 2/3 rebuild these screens.
+- **The FILES section is per folder, but PROJECT FILES still lists every photo/PDF of the course's lectures at every level** (old screen, Phase 2 replaces it).
 - **`src/types/supabase.ts` is unformatted** (found in step 1.2). `supabase gen types` prints a hint to format it with `oxfmt`; no formatter is installed and adding one is a new dependency, so it's left as generated. It type-checks and lints clean.
 
 ## Left to later

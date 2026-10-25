@@ -10,6 +10,7 @@ import {
   lecturesIn,
   lecturesWithNotes,
   lectureTitled,
+  libraryFilesIn,
   missingFrom,
   type AudioChunkRow,
   type MediaRow,
@@ -167,5 +168,28 @@ describe('missingFrom', () => {
   it('cached rows of the scope that a complete answer no longer has', () => {
     const cached = [folder('kept'), folder('moved'), folder('elsewhere', { course_id: 'bio' })];
     expect(missingFrom(cached, (f) => f.course_id === 'math', [{ id: 'kept' }])).toEqual(['moved']);
+  });
+});
+
+describe('library files (offline reading)', () => {
+  const files = [
+    file('pdf-root', { kind: 'pdf', title: 'b.pdf' }),
+    file('img-root', { kind: 'image', title: 'a.png' }),
+    file('in-folder', { kind: 'pdf', folder_id: 'f1' }),
+    file('lecture', { kind: 'lecture' }),
+    file('trashed', { kind: 'pdf', deleted_at: T(3) }),
+    file('other-course', { kind: 'pdf', course_id: 'bio' }),
+  ];
+  const media = [
+    { id: 'm1', file_id: 'pdf-root', lecture_id: null },
+    { id: 'm2', file_id: 'img-root', lecture_id: null },
+    { id: 'm3', file_id: null, lecture_id: 'lecture' },
+  ] as MediaRow[];
+
+  it('pdf and image files of the place, by name, with their own media only', () => {
+    const rows = libraryFilesIn(files, media, 'math', null);
+    expect(rows.map((r) => r.id)).toEqual(['img-root', 'pdf-root']);
+    expect(rows[0].media.map((m) => m.id)).toEqual(['m2']);
+    expect(libraryFilesIn(files, media, 'math', 'f1').map((r) => r.id)).toEqual(['in-folder']);
   });
 });

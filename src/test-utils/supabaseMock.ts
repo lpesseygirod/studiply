@@ -27,9 +27,19 @@ export function answer(table: string, ...answers: Answer[]): void {
   queued.set(table, [...(queued.get(table) ?? []), ...answers]);
 }
 
+/** Storage calls ([bucket, method, ...args]) and their queued answers. */
+export const storageCalls: [string, string, ...unknown[]][] = [];
+const storageAnswers: Answer[] = [];
+
+export function answerStorage(...answers: Answer[]): void {
+  storageAnswers.push(...answers);
+}
+
 export function resetSupabaseMock(): void {
   chains.length = 0;
   queued.clear();
+  storageCalls.length = 0;
+  storageAnswers.length = 0;
 }
 
 /** The calls of the chains on `table`, e.g. to find what was inserted. */
@@ -61,9 +71,25 @@ function builder(table: string) {
   return proxy;
 }
 
+function storageBucket(bucket: string) {
+  return new Proxy(
+    {},
+    {
+      get(_target, method) {
+        return async (...args: unknown[]) => {
+          storageCalls.push([bucket, String(method), ...args]);
+          const next = storageAnswers.shift() ?? {};
+          return { data: next.data ?? null, error: next.error ?? null };
+        };
+      },
+    },
+  );
+}
+
 export const module = {
   supabase: {
     from: (table: string) => builder(table),
+    storage: { from: (bucket: string) => storageBucket(bucket) },
     auth: {
       getSession: async () => ({ data: { session: { user: { id: 'user-1' }, access_token: 'token' } } }),
       refreshSession: async () => ({ data: { session: { user: { id: 'user-1' }, access_token: 'token-2' } }, error: null }),

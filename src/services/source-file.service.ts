@@ -16,7 +16,13 @@ import {
   saveLocalRow,
   withLocalRows,
 } from '../lib/cache';
-import { audioOf, courseMedia, mediaOf } from '../lib/cache/localQueries';
+import {
+  audioOf,
+  courseMedia,
+  LIBRARY_FILE_KINDS,
+  libraryFilesIn,
+  mediaOf,
+} from '../lib/cache/localQueries';
 import { getConnection, isOffline } from '../lib/connectivity';
 import { keepPendingFile, pendingFileExists, removePendingFile } from '../lib/pendingFiles';
 import {
@@ -523,7 +529,8 @@ export async function markDeleted(fileId: string): Promise<void> {
 // delete_now  → the audio files are removed now (transcript stays).
 // delete_3_days → removal date set to now + 3 days.
 // delete_manually / keep_permanently → just the policy.
-// Photos and PDFs are not affected.
+// Audio only: photos and PDFs are never removed by retention, and neither is
+// a file saved to the library (lecture_id null); only the student deletes them.
 // -------------------------------------------------------------------
 export async function bulkApplyRetention(
   sessionId: string,
@@ -798,4 +805,83 @@ export function awaitLectureUploads(
     });
     check().catch(() => finish('later'));
   });
+}
+
+// -------------------------------------------------------------------
+// Files saved to the library (Save to library…)
+// A `files` row of kind pdf or image in a course or folder, with its own
+// media row (file_id set, lecture_id null) and its own Storage object.
+// Readable offline through the iPhone's cache, like lectures.
+// -------------------------------------------------------------------
+export interface LibraryFile {
+  id: string;
+  title: string;
+  kind: 'pdf' | 'image';
+  courseId: string | null;
+  folderId: string | null;
+  createdAt: string;
+  /** Its photo or PDF (signed link online; '' offline). */
+  media: SourceFile | null;
+}
+
+async function toLibraryFile(row: FileRow & { media: MediaRow[] }): Promise<LibraryFile> {
+  const m = row.media[0];
+  return {
+    id: row.id,
+    title: row.title,
+    kind: row.kind === 'image' ? 'image' : 'pdf',
+    courseId: row.course_id,
+    folderId: row.folder_id,
+    createdAt: row.created_at,
+    media: m ? mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path)) : null,
+  };
+}
+
+export async function getLibraryFiles(courseId: string, folderId: string | null): Promise<LibraryFile[]> {
+  const rows = await readThrough(
+    async () => {
+      let query = supabase
+        .from('files')
+        .select('*, media(*)')
+        .in('kind', [...LIBRARY_FILE_KINDS])
+        .eq('course_id', courseId)
+        .is('deleted_at', null);
+      query = folderId === null ? query.is('folder_id', null) : query.eq('folder_id', folderId);
+      const { data, error } = await query.order('title');
+      if (error) throw serviceError(error, 'Could not load the files.');
+      const answer = data as (FileRow & { media: MediaRow[] })[];
+      remember('files', answer.map(({ media: _media, ...file }) => file));
+      remember('media', answer.flatMap((f) => f.media));
+      return answer;
+    },
+    async () => {
+      const [files, media] = await Promise.all([readRows<FileRow>('files'), readRows<MediaRow>('media')]);
+      return libraryFilesIn(files, media, courseId, folderId);
+    },
+  );
+  return Promise.all(rows.map(toLibraryFile));
+}
+
+/** A library file's name, with its real extension kept (files.title and media.caption). */
+export async function renameLibraryFile(file: LibraryFile, name: string): Promise<LibraryFile> {
+  const base = name.trim().replace(/\s+/g, ' ');
+  if (!base || !nameWithoutExtension(base).trim()) throw new Error('Enter a name.');
+  if (base.length > 200) throw new Error('Use at most 200 characters.');
+  if (isOffline()) throw new NetworkError();
+
+  const ext = file.media ? fileExtension(file.media) : file.kind === 'pdf' ? 'pdf' : 'jpg';
+  const title = withExtension(base, ext);
+  const { data, error } = await supabase.from('files').update({ title }).eq('id', file.id).select('*');
+  if (error) throw serviceError(error, 'Could not rename the file.');
+  remember('files', data);
+  if (file.media) {
+    const { data: media, error: mediaError } = await supabase
+      .from('media')
+      .update({ caption: title })
+      .eq('id', file.media.id)
+      .select('*');
+    if (mediaError) throw serviceError(mediaError, 'Could not rename the file.');
+    remember('media', media);
+  }
+  return { ...file, title, media: file.media ? { ...file.media, display_name: title } : null };
 }

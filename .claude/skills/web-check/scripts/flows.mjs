@@ -97,7 +97,7 @@ try {
     await b.waitText('Funcions 2', { exact: true, timeout: 5000 });
     await b.click('Funcions 2', { button: 'right' });
     await b.click('Move to…');
-    await b.waitText('Move Folder to…');
+    await b.waitText('Move ‘Funcions 2’ to…');
     await b.click('Science', { exact: true });
     await b.sleep(800);
     await b.shot('15-move-modal');

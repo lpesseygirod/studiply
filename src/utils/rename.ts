@@ -1,6 +1,13 @@
 import { promptText, showAlert } from '../components/dialogs/dialogs';
 import { RenameIncompleteError, renameSession } from '../services/session.service';
-import { editableName, fileExtension, renameSourceFile } from '../services/source-file.service';
+import {
+  editableName,
+  fileExtension,
+  renameLibraryFile,
+  renameSourceFile,
+  type LibraryFile,
+} from '../services/source-file.service';
+import { nameWithoutExtension } from './fileNames';
 import type { Session, SourceFile } from '../types/database';
 import { errorMessage } from './errors';
 
@@ -43,6 +50,23 @@ export async function promptRenameFile(file: SourceFile, allFiles: SourceFile[])
   if (!name || name === current) return null;
   try {
     return await renameSourceFile(file, name);
+  } catch (err) {
+    showRenameError(err, 'Could not rename the file.');
+    return null;
+  }
+}
+
+export async function promptRenameLibraryFile(file: LibraryFile): Promise<LibraryFile | null> {
+  const ext = file.media ? fileExtension(file.media) : file.kind === 'pdf' ? 'pdf' : 'jpg';
+  const current = nameWithoutExtension(file.title);
+  const name = await promptText(file.kind === 'image' ? 'Rename Photo' : 'Rename PDF', {
+    defaultValue: current,
+    placeholder: 'File name',
+    message: `The ".${ext}" ending stays.`,
+  });
+  if (!name || name === current) return null;
+  try {
+    return await renameLibraryFile(file, name);
   } catch (err) {
     showRenameError(err, 'Could not rename the file.');
     return null;

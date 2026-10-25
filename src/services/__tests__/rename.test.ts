@@ -6,7 +6,7 @@ import { reportFailure, reportReachable, resetConnectivityForTests } from '../..
 import { answer, callsOn, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import type { Note, Session, SourceFile } from '../../types/database';
 import { followNoteTitle, RenameIncompleteError, renameLecture, renameSession, type RenameDeps } from '../session.service';
-import { fileExtension, fileLabel, renameSourceFile } from '../source-file.service';
+import { fileExtension, fileLabel, renameLibraryFile, renameSourceFile, type LibraryFile } from '../source-file.service';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/supabaseMock').module);
 jest.mock('../../lib/deviceId', () => ({ getDeviceId: async () => 'laptop' }));
@@ -179,5 +179,26 @@ describe('renaming photos and PDFs', () => {
     expect(files.map((f) => fileLabel(f, files))).toEqual(['Recording', 'Photo 1', 'Photo 2', 'Tema 1.pdf']);
     expect(fileLabel({ ...png, display_name: 'Board.png' }, files)).toBe('Board.png');
     expect(fileLabel({ ...pdf, display_name: null }, files)).toBe('Document');
+  });
+});
+
+describe('renaming a file saved to the library', () => {
+  beforeEach(() => {
+    resetSupabaseMock();
+    resetConnectivityForTests();
+    reportReachable();
+  });
+
+  it('sets the file title and its media caption, keeping the real extension', async () => {
+    const file: LibraryFile = {
+      id: 'f1', title: 'Board.png', kind: 'image', courseId: 'c', folderId: null, createdAt: T,
+      media: { id: 'm1', file_type: 'photo', storage_path: 'u/f1/m1.png', mime_type: 'image/png', display_name: 'Board.png' } as SourceFile,
+    };
+    answer('files', { data: [{ id: 'f1' }] });
+    answer('media', { data: [{ id: 'm1' }] });
+    const renamed = await renameLibraryFile(file, 'Whiteboard');
+    expect(renamed.title).toBe('Whiteboard.png');
+    expect(callsOn('files', 'update')[0][0]).toEqual({ title: 'Whiteboard.png' });
+    expect(callsOn('media', 'update')[0][0]).toEqual({ caption: 'Whiteboard.png' });
   });
 });

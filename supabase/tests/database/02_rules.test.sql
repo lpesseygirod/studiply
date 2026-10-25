@@ -3,7 +3,7 @@
 -- what happens on sign-up and account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(35);
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'lea@test.dev', '{"display_name": "Lea"}');
@@ -145,6 +145,57 @@ select is(
   (select count(*)::int from public.document_versions where file_id = 'd0000000-0000-0000-0000-000000000002'),
   0,
   'deleting the lecture deletes its conflict versions');
+
+-- Library files (Save to library…): a photo is kind 'image', its media hangs off file_id only.
+insert into public.files (id, folder_id, kind, title) values
+  ('d0000000-0000-0000-0000-000000000003', 'f0000000-0000-0000-0000-000000000002', 'image', 'Board.png');
+
+-- (Earlier tests moved this folder tree around: compare with its course now.)
+update public.folders set course_id = 'c0000000-0000-0000-0000-000000000002', parent_id = null
+  where id = 'f0000000-0000-0000-0000-000000000002';
+update public.files set folder_id = 'f0000000-0000-0000-0000-000000000002'
+  where id = 'd0000000-0000-0000-0000-000000000003';
+
+select is(
+  (select course_id from public.files where id = 'd0000000-0000-0000-0000-000000000003'),
+  'c0000000-0000-0000-0000-000000000002'::uuid,
+  'an image file in a folder takes the folder''s course');
+
+select lives_ok(
+  $$ insert into public.media (id, file_id, kind, storage_path, mime_type)
+     values ('e1000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000003', 'photo', 'x/y/z.png', 'image/png') $$,
+  'a library file''s media hangs off file_id only');
+
+select throws_ok(
+  $$ insert into public.files (kind, title) values ('video', 'x.mp4') $$,
+  '23514', null, 'an unknown file kind is refused');
+
+delete from public.files where id = 'd0000000-0000-0000-0000-000000000003';
+
+select is(
+  (select count(*)::int from public.media where id = 'e1000000-0000-0000-0000-000000000001'),
+  0,
+  'deleting a library file deletes its media');
+
+-- A photo moved to another lecture survives deleting its old lecture.
+insert into public.files (id, kind, title) values
+  ('d0000000-0000-0000-0000-000000000004', 'lecture', 'Lecture A'),
+  ('d0000000-0000-0000-0000-000000000005', 'lecture', 'Lecture B');
+insert into public.lectures (id) values ('d0000000-0000-0000-0000-000000000004'), ('d0000000-0000-0000-0000-000000000005');
+insert into public.media (id, lecture_id, kind, storage_path) values
+  ('e1000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000004', 'photo', 'u/lecture-a/p.jpg');
+update public.media set lecture_id = 'd0000000-0000-0000-0000-000000000005' where id = 'e1000000-0000-0000-0000-000000000002';
+delete from public.files where id = 'd0000000-0000-0000-0000-000000000004';
+
+select results_eq(
+  $$ select lecture_id, storage_path from public.media where id = 'e1000000-0000-0000-0000-000000000002' $$,
+  $$ values ('d0000000-0000-0000-0000-000000000005'::uuid, 'u/lecture-a/p.jpg'::text) $$,
+  'a photo moved to lecture B survives deleting lecture A (and keeps its old path)');
+
+select is(
+  (select count(*)::int from public.lectures where id = 'd0000000-0000-0000-0000-000000000004'),
+  0,
+  'lecture A itself is gone');
 
 -- ---------------------------------------------------------------------
 -- AI usage: read-only for users

@@ -22,9 +22,13 @@ export default function UndoToast({
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each showing gets a number; a slide-out that finishes after a newer
+  // toast appeared must not dismiss that one.
+  const showingRef = useRef(0);
 
   useEffect(() => {
     if (visible) {
+      showingRef.current += 1;
       // Slide up + fade in
       Animated.parallel([
         Animated.spring(translateY, {
@@ -51,10 +55,12 @@ export default function UndoToast({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [visible]);
+    // A new message while showing (a second move) restarts the timer.
+  }, [visible, message]);
 
   function hide() {
     if (timerRef.current) clearTimeout(timerRef.current);
+    const showing = showingRef.current;
 
     Animated.parallel([
       Animated.timing(translateY, {
@@ -68,7 +74,7 @@ export default function UndoToast({
         useNativeDriver: true,
       }),
     ]).start(() => {
-      onDismiss();
+      if (showing === showingRef.current) onDismiss();
     });
   }
 
