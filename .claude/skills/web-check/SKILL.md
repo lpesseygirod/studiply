@@ -55,11 +55,11 @@ node .claude/skills/web-check/scripts/shell-data.mjs
 node .claude/skills/web-check/scripts/look.mjs
 ```
 
-## Check the drag-and-drop spike (step 3.1)
+## Check drag and drop in the library (step 3.3)
 
-`scripts/dnd-spike.mjs`: opens Settings → General → DEVELOPMENT → Drag-and-drop spike; Option A with a real mouse drag (`mouseDrag`), Option B with Chrome's drag interception (`htmlDrag`), including a PDF dropped "from Finder" (`htmlDrag(null, to, { files: [path] })`); the folder-into-its-subfolder refusal, Undo, click and right-click.
+`scripts/library-dnd.mjs`: the browser's own drag through Chrome's drag interception (`htmlDrag(from, to, { midway })`; a PDF "from Finder" with `htmlDrag(null, to, { files: [path] })`). A PDF down three levels of folders and back up through the breadcrumb, with Undo (toast) and ⌘Z (`chord({ code: 'KeyZ', key: 'z', meta: true })`); a folder refused on itself and on its own subfolder (no dashed highlight, nothing moves); drops on a sidebar course, a sidebar folder and Trash; a lecture photo dropped on a folder (it becomes a library file) and its combined Move to…; "Coming soon" for files from the computer. The dashed highlight is read mid-drag from the target's computed `border-style`. Every result is checked in the database. The iPhone's gesture drag can't be checked here (Lea tests it).
 ```bash
-node .claude/skills/web-check/scripts/dnd-spike.mjs
+node .claude/skills/web-check/scripts/library-dnd.mjs
 ```
 
 ## Check the library grid (step 3.2)

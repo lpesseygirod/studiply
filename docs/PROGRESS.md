@@ -26,8 +26,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 3 — Library like Finder (`phase-3-library`)
 - [x] 3.1 — Spike: drag and drop (web + iPhone) — Lea chose Option B (the browser's drag) on the laptop and Option A (gesture) on the iPhone; the iPhone drag is smooth, the haptic works
 - [x] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
-- [ ] 3.3 — Moving files (drop targets, cycle protection, undo, tests)
-- **Library redesign note (Lea, 26 Oct):** Photos/PDFs in a lecture: one combined Move to… (folder → moves out of the lecture as a library file, not a copy; lecture → moves to that lecture), used by both the menu and drag and drop. Rename ‘Save to library…’ to ‘Save a copy to library…’.
+- [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); waiting for Lea's test
 - [ ] 3.4 — Menus (empty-space + item context menus)
 - [ ] 3.5 — Trash, stars, recent, search
 
@@ -322,6 +321,17 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Empty-space menu** in the course grid (right-click / long-press), moved forward from 3.4 at Lea's request; the toolbar stays. A right-click a tile already handled no longer reaches the space around it (`menuTriggerProps` skips handled events). Sort's menu is shared with the header (`showSortMenu`).
   - Checks: `.claude/skills/web-check/scripts/item-menus.mjs` (12 steps at 1280 and 390 px, results checked in the database).
 
+- **Moving files by drag and drop (step 3.3).** The 3.1 choice in the real library: the browser's own drag on the laptop (`src/lib/dnd/html5.web.ts`, hooks in `useHtml5Drag.ts`), the gesture on the iPhone (`src/lib/dnd/GestureDrag.tsx`), one rule and one drop for both.
+  - **One rule:** `canDrop` (`src/lib/dnd/rules.ts`) asks `canMoveTo`, now pure in `src/utils/moveRules.ts` (re-exported by `move.service.ts`), so a drop and Move to… never disagree; `moveItem` asks again against the server, and the database refuses folder cycles. Hover checks use every folder's parent (`getFolderLinks`, works offline).
+  - **One drop:** `src/hooks/useLibraryDrop.ts` (move, a lecture photo out of its lecture, Trash with `restoreItem` as Undo), called with each screen's Undo toast: the sidebar uses the shell's toast, the course screen its own.
+  - **Targets:** folder tiles and rows, breadcrumb parts above the current level, sidebar courses and folders, Trash (laptop only). Not "My library" (items outside every course aren't shown anywhere yet). Dashed `accent` border with `accentLight` when allowed; refused targets show nothing (laptop: "not allowed", no drop; iPhone: the reason on the drag preview).
+  - **Lea's choices:** files from the Finder wait for 3.4 ("Coming soon", nothing uploaded); Trash drops don't ask (Undo), the Delete menu item still does.
+  - **⌘Z / Ctrl+Z** (`src/lib/undo.ts`): every Undo toast (`useUndoToast`, now also on the course and Library screens) offers its action; ⌘Z runs the last one once and hides its toast. Not in fields (their own text undo) or dialogs.
+  - **A lecture's photos and PDFs (Lea, 26 Oct):** `moveMediaToLibrary` gives the media row to a new library file (a move, not a copy; the Storage object stays; favourite and name kept; Undo gives it back and deletes the file). If the media update fails after the file row was created, the file row is deleted again (Lea; tested). The picker's new `pick: 'either'` mode lists folders and lectures. Menus: "Move to…" and "Save a copy to library…" (course screen, post-session, the note's Source Files). Dragging one to Trash is refused (deleting it is permanent).
+  - **iPhone:** gesture-handler's ScrollView and RefreshControl on the course screen; auto-scroll within 80 pt of the top or bottom (targets move with the list); the empty-space long-press ignores a press that started on an item; VoiceOver keeps open and the menu (`DraggableView`'s accessibility actions). Not checkable in Chrome: Lea tests on the iPhone.
+  - **Removed:** the 3.1 spike screen, its DEVELOPMENT link, its route and `dnd-spike.mjs`.
+  - Checks: `.claude/skills/web-check/scripts/library-dnd.mjs` (10 steps, every result checked in the database); Jest for the rules (three levels, cycles, same place, across courses, media and Trash), `moveMediaToLibrary` and its Undo and clean-up, `undo.ts`, ⌘Z.
+
 ## Things Lea must do
 
 - **Docker Desktop must be running** before `supabase start` (and before anything that uses the local database, including `npm run test:db` and `npm run gen:types`).
@@ -401,3 +411,4 @@ Schema pieces step 1.2 deliberately left out; each comes as its own migration in
 - **AI suggestions** (pending accept/reject changes from Ask Claude) — step 6.3.
 - **`share_links` table: read-only share links for summaries** (v1 feature, "Share a summary with classmates") — Phase 8.
 - **Plans and entitlements** (subscription state, server-enforced AI limits) — step 10.2.
+- **Multi-select (Lea, 3.3)** — ⌘/Shift-click on the laptop, a select mode on the iPhone, with moving (drag or Move to…) and deleting several items at once. Not built yet.
