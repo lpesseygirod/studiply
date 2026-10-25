@@ -98,7 +98,7 @@ export function useMoveFlow({
       title={title}
       userId={profile?.id ?? ''}
       pick={request?.mode === 'media' ? 'lecture' : 'place'}
-      confirmLabel={request?.mode === 'save' ? 'Save Here' : 'Move Here'}
+      confirmLabel={request?.mode === 'save' ? 'Save' : 'Move'}
       excludeFolderIds={item?.type === 'folder' ? [item.id] : []}
       excludeLectureIds={request?.mode === 'media' ? [request.file.session_id] : []}
       current={

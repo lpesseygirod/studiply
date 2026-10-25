@@ -101,7 +101,7 @@ try {
     await b.click('Science', { exact: true });
     await b.sleep(800);
     await b.shot('15-move-modal');
-    await b.click('Move Here', { exact: false });
+    await b.click('Move to Science', { exact: true });
     await b.sleep(1200);
     const { data: f } = await admin.from('folders').select('name, course_id').eq('id', data.folder.id).single();
     expect(f.name === 'Funcions 2' && f.course_id === data.science.id, JSON.stringify(f));
