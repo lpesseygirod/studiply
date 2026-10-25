@@ -214,6 +214,7 @@ function CourseTree({ courseId, folderId, itemId }: { courseId: string; folderId
             }}
             accessibilityRole="link"
             accessibilityState={{ selected: active }}
+            testID={active ? 'sidebar-current' : undefined}
           >
             {isFolder ? (
               <Pressable

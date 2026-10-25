@@ -20,7 +20,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 
 ## Phase 2 — App shell (`phase-2-shell`)
 - [x] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive) — done on `phase-2-shell`, matching `docs/design/` (decision below)
-- [ ] 2.2 — Real data in the shell (top bar, sidebar sections, Record button)
+- [x] 2.2 — Real data in the shell (top bar, sidebar sections, Record button) — done on `phase-2-shell` (decision below)
 - [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
 
 ## Phase 3 — Library like Finder (`phase-3-library`)
@@ -228,10 +228,19 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Five iPhone tabs:** Library · Search · ● Record · Review · Settings (`src/navigation/mainTabs.ts`). Record is a 64 px raised red circle (`Colors.recording` #CC3333) with a white ring, in the exact middle. Review is a placeholder until the study phase.
   - **Laptop shell (web ≥ 1024 px):** top bar, sidebar and assistant around the same Tabs navigator, which keeps its place in the tree, so resizing never loses the open screen. What shows depends on the screen kind (`screenKindFor`): library screens (search + Record lecture, sidebar), documents (title area, assistant, Share disabled until Phase 4), settings (Back to library, no panels). The sidebar and assistant collapse; the state is kept per device in `studiply.layout`.
   - **New tokens:** `recording` #CC3333, `text.onGradient` #3A3A48, `accentDark` #4F43B0 (from the design README); sizes in `src/constants/layout.ts`. The gradient is behind Library, Search, Review, Settings, the course screen and the note; their contents are restyled in 2.2/2.3.
-  - **Waits for 2.2:** the real top-bar breadcrumb and "Saved · time" (it shows "My library / Lecture notes" or "New recording" for now), the open course expanding to its files in the sidebar, Starred / Exam packs / Review today (they say "Coming soon"), the Review today badge.
+  - **Done in 2.2:** the real top-bar breadcrumb and "Saved · time", the open course expanding in the sidebar, Starred / Exam packs / Review today and its badge.
   - **Waits for 2.3:** the rest of the palette, dark mode, Dynamic Type, keyboard shortcuts.
   - **Checks:** `.claude/skills/web-check/scripts/layout.mjs` (shell per screen kind, collapse after a reload, 1280 → 1023 → 1280, the 390 px tab bar geometry); `flows.mjs` now runs on Library and uses the top-bar Record lecture button.
   - **Duplicates removed:** the 87 `* 2.*` Finder/iCloud copies, 4 empty `* 2` test folders and `supabase/.gitignore 2` were byte-identical to their originals and were deleted; `.gitignore` ignores `* 2.*` and `* 2`. `.git/index 2` (an old copy of git's own index from 23 Oct) was left alone.
+
+- **Real data in the shell (step 2.2).**
+  - **Sections:** Recent (files of every kind, newest change first), Starred (courses, folders and files with `starred_at`, newest star first) and Exam packs (`files` of kind `exam_pack`) come from `src/services/shelf.service.ts` and open offline on the iPhone from the cache. On the laptop they are `/library?section=…` (sidebar links), on the iPhone the Library chips.
+  - **Review today** counts `review_schedule` rows due by the end of today. It is **online only** (the study tables aren't cached yet), so the badge is hidden offline. Phase 9 fills the schedule.
+  - **Course counts** are items of every kind (`itemCount`), as in the mockups; `sessionCount` (lectures) is kept for the screens that use it.
+  - **Top bar:** the focused screen publishes its place through `src/components/shell/ShellContext.tsx`. The note shows course › folder path › title and "Saved · time" (from the note's `updated_at`; "Saving…" / "Not saved" around a save). The recording flow shows its course and title. Record lecture preselects the course and folder the student is in. The course screen opens at `?folder=`.
+  - **Star / Unstar pulled forward from 3.4** (Lea, 26 Oct): in the menus of courses, folders, lectures and library files; online only; Undo restores the previous star time (`src/utils/star.ts`). The rest of the 3.4 menus stays in 3.4.
+  - **PDFs and images** open their course at their folder until files get a viewer; documents, unit summaries and exam packs the same until Phases 4 and 7.
+  - **Checks:** `.claude/skills/web-check/scripts/shell-data.mjs` (counts, badge, sections, top bar, crumbs, folder links, Record lecture, Star / Unstar with Undo in the database, iPhone chips and long-press). `flows.mjs` clicks scoped away from the sidebar's course tree.
 
 ## Things Lea must do
 

@@ -41,6 +41,13 @@ The test user and its library, rows and Storage files are deleted at the end, al
 node .claude/skills/web-check/scripts/layout.mjs
 ```
 
+## Check the shell's real data
+
+`scripts/shell-data.mjs` (about two minutes): stars, an exam pack, a note and a due review are inserted with the service role, then it checks the sidebar counts and Review today badge, Recent / Starred / Exam packs, a note's top bar (Course › title, "Saved · time") and its course expanding in the sidebar, the crumb and folder links, Record lecture preselecting the course, Star / Unstar with Undo (checked in the database), and the iPhone chips and long-press menu at 390 px.
+```bash
+node .claude/skills/web-check/scripts/shell-data.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
@@ -83,7 +90,7 @@ Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(u
 Check results in the database with `admin` (service role, local only), not just on screen.
 
 ## Gotchas (all hit while building this)
-- **The default window (1280×900) is the laptop layout**: the sidebar repeats course names, so clicks on them pass `exclude: '[data-testid=sidebar]'`. The shell parts have test ids `top-bar`, `sidebar`, `assistant-panel`. Below 1024 px the tab bar shows instead.
+- **The default window (1280×900) is the laptop layout**: the sidebar repeats course names, so clicks on them pass `exclude: '[data-testid=sidebar]'`. The shell parts have test ids `top-bar`, `sidebar`, `assistant-panel`, `document-header`, `section-list`, `sidebar-current` (the highlighted tree item). The open course's tree repeats folder and lecture names in the sidebar too. Below 1024 px the tab bar shows instead.
 - **Fresh profile every launch**: a kept profile restores the previous run's session (for a user that no longer exists) and skips sign-in.
 - **Text is matched as rendered**: labels styled with `textTransform: 'uppercase'` read as `UNDO`, not `Undo`.
 - **Off-screen elements**: the driver scrolls the target into view before clicking (wide windows make the square course cards very tall).

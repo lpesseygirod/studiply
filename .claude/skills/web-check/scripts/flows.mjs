@@ -93,14 +93,14 @@ try {
 
   await step('Course screen: folder menu → Rename and Move to… (other course)', async () => {
     await b.nav(`${BASE}/project/${data.course.id}`);
-    await b.waitText('Funcions', { exact: true });
-    await b.click('Funcions', { button: 'right' });
+    await b.waitText('Funcions', { exact: true, ...MAIN });
+    await b.click('Funcions', { button: 'right', ...MAIN });
     await b.shot('14-course-folder-menu');
     await b.click('Rename');
     await b.fill('input[placeholder="Folder name"]', 'Funcions 2');
     await b.press('Enter');
-    await b.waitText('Funcions 2', { exact: true, timeout: 5000 });
-    await b.click('Funcions 2', { button: 'right' });
+    await b.waitText('Funcions 2', { exact: true, timeout: 5000, ...MAIN });
+    await b.click('Funcions 2', { button: 'right', ...MAIN });
     await b.click('Move to…');
     await b.waitText('Move ‘Funcions 2’ to…');
     await b.click('Science', { exact: true, ...MAIN });
@@ -113,15 +113,15 @@ try {
   });
 
   await step('Course screen: lecture menu shows its actions', async () => {
-    await b.waitText('Lecture 1', { exact: true });
-    await b.click('Lecture 1', { button: 'right' });
+    await b.waitText('Lecture 1', { exact: true, ...MAIN });
+    await b.click('Lecture 1', { button: 'right', ...MAIN });
     await b.waitText('Move to…', { exact: true });
     expect(await b.hasText('Export as PDF', true), 'no Export as PDF');
     await b.press('Escape');
   });
 
   await step('Post-session: Library button leaves to the library', async () => {
-    await b.click('Lecture 1');
+    await b.click('Lecture 1', { ...MAIN });
     await b.waitText('Post-Session');
     await b.shot('16-post-session');
     await b.click('Library', { exact: true });

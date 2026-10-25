@@ -11,12 +11,14 @@ A top bar over up to three columns, on the full gradient (`Colors.gradient`, top
 3. **Center:** library screens use the full width; documents and settings sit in a centered column. A document has tabs `My notes · Summary · Transcript`, Export PDF, a Google-Docs-style formatting toolbar, and the page (white card, max width 820 px).
 4. **Right panel (study assistant, 330 px):** Claude-style chat, **beside documents only**.
 
+**Sidebar data (step 2.2):** Recent, Starred and Exam packs open Library at that section (`/library?section=recent|starred|exam-packs`); Review today opens Review and its badge counts reviews due by the end of today (hidden when 0, and offline). A course's count is its items of every kind (lectures, PDFs, images, …), not in Trash. The open course (the one the current screen or document is in) expands to its folders and files: a chevron opens a folder; the folder the student is in opens on the way down; the open item is highlighted. Clicking an item opens it where it lives: a lecture its notes (or post-session before it has notes), a folder its course at that folder (`/project/<id>?folder=<folder>`), and a PDF or image its course at its folder until files get a viewer.
+
 What the shell shows depends on the kind of screen:
 
 | Screen | Top bar | Sidebar | Assistant |
 |---|---|---|---|
 | Library (My library, a course, Search, Review) | wide salmon search field, red **● Record lecture** button | yes | no |
-| Document (a note, recording) | breadcrumb `Course › Document`, document title, "Saved · time", assistant toggle, Share | yes | yes |
+| Document (a note, recording) | breadcrumb `Course › folder › …` (each crumb opens the course at that level), document title, "Saved · 10:31" / "Saving…" / "Not saved", assistant toggle, Share | yes | yes |
 | Settings | "‹ Back to library" and the page title | no | no |
 
 The sidebar (☰ in the top bar) and the assistant (✦ in the top bar, × in the panel) collapse; each device remembers what is open. Below 1024 px the web shows the iPhone layout (tab bar, documents full screen); resizing switches live and keeps the open screen. A recording strip (Phase 5) sits between the top bar and the columns while recording.
@@ -28,7 +30,7 @@ The iPhone app is the main recording device (App Store). Same data, same feature
 
 **Navigation:** a white bottom tab bar **Library · Search · ● Record · Review · Settings** (docs/design iphone-01). Record is a big raised red circle (`Colors.recording`) with a white ring, exactly in the middle; the active tab is accent purple. Review holds quizzes, flashcards and Review today (a placeholder until the study phase). There is no Home screen: the app opens on Library. Documents and the recording flow (after its setup screen) open full screen without the tab bar, with a back button.
 
-**Library:** on the gradient: big "Library" title, a dark round **+** (New) and the avatar; a salmon search field; chips Recent · Starred · Exam packs · Review today; **Courses** as a white card list (color square, name, count, chevron); **Recent** as small white cards (title, "Today · Summary ready"); hint "Long-press any item to rename, move or star it". Later: list or grid toggle; course folders with color dots; sections Recent, Starred, Exam packs, Review today (badge), Trash. Long-press a file → menu (Open, Rename, Move to…, Move out, Star, Summarize / Exam pack, Trash) and lift-to-drag onto a folder. Long-press empty space or the "…" button → New folder, New document, New recording, Upload slides/PDF, Paste, Sort. Undo toast after every move.
+**Library:** on the gradient: big "Library" title, a dark round **+** (New) and the avatar; a salmon search field; chips Recent · Starred · Exam packs (each shows that section's list in place of the overview; tap again to go back) · Review today (opens Review, shows the due count); **Courses** as a white card list (color square, name, count, chevron); **Recent** as small white cards of every kind (title, "Today · Summary ready", "Monday · PDF"); hint "Long-press any item to rename, move or star it". Later: list or grid toggle; course folders with color dots; sections Recent, Starred, Exam packs, Review today (badge), Trash. Long-press a file → menu (Open, Rename, Move to…, Move out, Star, Summarize / Exam pack, Trash) and lift-to-drag onto a folder. Long-press empty space or the "…" button → New folder, New document, New recording, Upload slides/PDF, Paste, Sort. Undo toast after every move.
 
 **Recording screen (portrait):**
 - Top: course › lecture title, red dot + timer, live waveform.
@@ -98,6 +100,7 @@ Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, 
 - **Drag & drop:** drag any item onto a folder tile (dashed purple highlight) to move it in; onto "My library" in the breadcrumb to move it up; onto a course in the sidebar; onto Trash. Folders cannot be dropped into themselves or their children.
 - **Click or right-click empty space** → menu: New folder (⇧⌘N), New document (⌘N), New recording (⌘R), Upload slides or PDF, Paste, Sort by name, Sort by date edited.
 - **Right-click an item** → Open, Rename, Move out to My library, Star, Summarize recording / Make exam pack, Move to Trash.
+- **Star / Unstar** (built in step 2.2): in the menus of courses, folders, lectures and library files (PDF, image), on the iPhone and the laptop. Online only (offline: the "you're offline" message, nothing changes). An Undo toast puts the previous value back. Starred lists everything starred, newest star first.
 - New folder appears as "Untitled folder" in inline rename mode (Enter saves, Esc cancels).
 - Double-click opens a folder. After every move: toast "Moved 'X' to Y" with **Undo** (reuse `UndoToast.tsx`).
 - iPhone: long-press an item to drag; long-press empty space or tap "…" for the same menus; reuse `MoveToModal.tsx` as the accessible alternative to dragging.
