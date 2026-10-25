@@ -42,13 +42,18 @@ export function useItemMenu({
   const router = useRouter();
   const move = useMoveFlow({ showUndo, onChanged: notifyLibraryUpdated });
 
-  function open(item: ShelfItem, anchor?: Anchor) {
+  /**
+   * `skip`: actions to leave out (the title's menu has no Open: you're in
+   * it). `dialogRename`: Rename… in a dialog even where folders are renamed
+   * in place (the folder you're in has no tile to edit).
+   */
+  function open(item: ShelfItem, anchor?: Anchor, { skip = [], dialogRename = false }: { skip?: ItemAction[]; dialogRename?: boolean } = {}) {
     const button = (action: ItemAction): DialogButton => {
       switch (action) {
         case 'open':
           return { text: 'Open', onPress: () => (onOpen ? onOpen(item) : router.navigate(openTarget(item))) };
         case 'rename':
-          return item.type === 'folder' && renameFolderInPlace
+          return item.type === 'folder' && renameFolderInPlace && !dialogRename
             ? { text: 'Rename', onPress: () => renameFolderInPlace(item.id) }
             : { text: 'Rename…', onPress: () => rename(item) };
         case 'move':
@@ -67,7 +72,13 @@ export function useItemMenu({
           return { text: 'Delete', style: 'destructive', onPress: () => trash(item) };
       }
     };
-    showActionSheet(item.title, itemActions(item.type).map(button), { anchor });
+    showActionSheet(
+      item.title,
+      itemActions(item.type)
+        .filter((action) => !skip.includes(action))
+        .map(button),
+      { anchor },
+    );
   }
 
   async function rename(item: ShelfItem) {

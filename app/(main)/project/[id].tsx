@@ -29,7 +29,7 @@ import {
   getSessionsByProject,
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
-import { getFolders, createFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
+import { getFolders, createFolder, getFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
 import {
   getProjectSourceFiles,
   createSourceFile,
@@ -42,7 +42,7 @@ import {
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
-import { useUndoToast } from '../../../src/hooks/useUndoToast';
+import { useAppUndo } from '../../../src/hooks/useAppUndo';
 import {
   menuTriggerProps,
   showActionSheet,
@@ -74,7 +74,7 @@ import { getCourseContents } from '../../../src/services/shelf.service';
 import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { sortEntries } from '../../../src/utils/libraryGrid';
-import type { ShelfItem } from '../../../src/utils/shelf';
+import { courseShelfItem, folderItemFromFolder, type ShelfItem } from '../../../src/utils/shelf';
 import { starButton } from '../../../src/utils/star';
 import type { Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
@@ -126,8 +126,9 @@ export default function ProjectDetailScreen() {
   const [libraryPrefs, setLibraryPrefs] = useLibraryPrefs();
   const compact = useLayoutMode() === 'compact';
 
-  // The Undo toast (also ⌘Z's, src/lib/undo.ts)
-  const { showUndo, toast: undoToast } = useUndoToast();
+  // The app's Undo toast (also ⌘Z's, src/lib/undo.ts): it stays visible
+  // when deleting the course or folder you're in takes you up a level.
+  const showUndo = useAppUndo();
 
   // Photos and PDFs saved to the library, at the current level
   const [libraryFiles, setLibraryFiles] = useState<LibraryFile[]>([]);
@@ -158,9 +159,19 @@ export default function ProjectDetailScreen() {
       setLibraryFiles(fileList);
       setEntries(contents);
 
-      // The root crumb always shows the project's current name (it may
-      // have been renamed elsewhere); the folder crumbs below it stay.
+      // The crumbs show the current names (the course or a folder may have
+      // been renamed elsewhere, or from the title's menu).
       setBreadcrumbs(prev => withProjectRoot(prev, p.name));
+      if (folderId) {
+        const folder = await getFolder(folderId).catch(() => null);
+        // Moved to another course (Move to… on the title): follow it there.
+        if (folder && folder.project_id && folder.project_id !== id && !folder.is_deleted) {
+          router.replace({ pathname: '/project/[id]', params: { id: folder.project_id, folder: folderId } });
+          return;
+        }
+        const chain = await getFolderBreadcrumbs(folderId, p.name).catch(() => null);
+        if (chain) setBreadcrumbs(chain);
+      }
     } catch {
       setError('Could not load this course.');
     } finally {
@@ -433,7 +444,25 @@ export default function ProjectDetailScreen() {
     showUndo,
     onOpen: item => openEntry(item),
     renameFolderInPlace: folderId => setEditing({ mode: 'rename', id: folderId }),
+    // The folder or course you're in went to the trash (its title's menu): go up one level.
+    onTrashed: item => {
+      if (item.type === 'course' && item.id === id) router.navigate('/library');
+      else if (item.type === 'folder' && item.id === currentFolderIdRef.current) navigateUp();
+    },
   });
+
+  /** The title's menu: the course or folder you're in (no Open; Rename… in a dialog). */
+  async function titleMenu(anchor?: Anchor) {
+    if (!id) return;
+    try {
+      const item = currentFolderId
+        ? folderItemFromFolder(await getFolder(currentFolderId))
+        : courseShelfItem(await getProject(id));
+      itemMenu.open(item, anchor, { skip: ['open'], dialogRename: true });
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not open the menu.'));
+    }
+  }
   const move = itemMenu.move;
   // Development: the list without gesture-handler, to compare the iPhone drag (dragDebug.ts).
   const { plainScroll } = useDragDebug();
@@ -703,6 +732,7 @@ export default function ProjectDetailScreen() {
                   : { id: b.id ?? id, kind: 'place', place: { courseId: id, folderId: b.type === 'folder' ? b.id : null, label: b.name } },
               )}
               dnd={dnd}
+              onTitleMenu={titleMenu}
             />
 
             <LibraryToolbar
@@ -799,7 +829,6 @@ export default function ProjectDetailScreen() {
 
       {move.modal}
 
-      {undoToast}
 
       {/* ── Photo preview modal ───────────────────────────────── */}
       <Modal

@@ -13,7 +13,8 @@
  *   menuTriggerProps(open)                     long-press on iPhone, right-click on web
  */
 
-import { ActionSheetIOS, Alert, Platform, type GestureResponderEvent } from 'react-native';
+import type { RefObject } from 'react';
+import { ActionSheetIOS, Alert, Platform, type GestureResponderEvent, type View } from 'react-native';
 
 export interface DialogButton {
   text: string;
@@ -31,6 +32,14 @@ export interface DialogButton {
 export interface Anchor {
   x: number;
   y: number;
+}
+
+/** Where a menu should open: just below the button. */
+export function anchorBelow(ref: RefObject<View | null>): Promise<Anchor | undefined> {
+  return new Promise((resolve) => {
+    if (!ref.current) return resolve(undefined);
+    ref.current.measureInWindow((x, y, _w, h) => resolve({ x, y: y + h + 6 }));
+  });
 }
 
 export type DialogRequest =

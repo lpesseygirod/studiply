@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -6,10 +6,10 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { GestureDropTarget } from '../../lib/dnd/GestureDrag';
 import type { DropTarget } from '../../lib/dnd/rules';
-import { useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
+import { mergeRefs, useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
 import { SORT_LABELS, type LibrarySort } from '../../utils/libraryGrid';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { showActionSheet, type Anchor } from '../dialogs/dialogs';
+import { anchorBelow, menuTriggerProps, showActionSheet, type Anchor } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
 
 /** Sort by Kind / Name / Date edited, the current one ticked (the header and the empty-space menu). */
@@ -41,6 +41,7 @@ export function LibraryHeader({
   onBack,
   crumbTargets,
   dnd,
+  onTitleMenu,
 }: {
   crumbs: string[];
   onLibrary: () => void;
@@ -55,6 +56,8 @@ export function LibraryHeader({
   /** Where a drop on each crumb moves things (step 3.3); null = not a target. */
   crumbTargets: (DropTarget | null)[];
   dnd: DropHandlers;
+  /** The menu of the course or folder you're in (tap or click its title; right-click on the laptop). */
+  onTitleMenu?: (anchor?: Anchor) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -74,9 +77,13 @@ export function LibraryHeader({
             <Fragment key={`${i}-${name}`}>
               <Ionicons name="chevron-forward" size={16} color={c.text.onGradient} />
               {i === last ? (
-                <Text style={styles.crumbCurrent} numberOfLines={1} testID="crumb-current">
-                  {name}
-                </Text>
+                onTitleMenu ? (
+                  <Title name={name} kind={crumbs.length > 1 ? 'folder' : 'course'} onMenu={onTitleMenu} />
+                ) : (
+                  <Text style={styles.crumbCurrent} numberOfLines={1} testID="crumb-current">
+                    {name}
+                  </Text>
+                )
               ) : (
                 <Crumb name={name} onPress={() => onCrumb(i)} target={crumbTargets[i] ?? null} dnd={dnd} />
               )}
@@ -103,6 +110,33 @@ export function LibraryHeader({
         )}
       </View>
     </View>
+  );
+}
+
+/** The title (the course or folder you're in) with ⌄: its menu. */
+function Title({ name, kind, onMenu }: { name: string; kind: 'course' | 'folder'; onMenu: (anchor?: Anchor) => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
+  const ref = useRef<View | null>(null);
+  const menu = menuTriggerProps(onMenu);
+  return (
+    <Pressable
+      ref={mergeRefs(menu.ref, (node) => (ref.current = node as View | null)) as never}
+      onPress={() => anchorBelow(ref).then(onMenu)}
+      onLongPress={menu.onLongPress}
+      delayLongPress={menu.delayLongPress}
+      style={styles.title}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${kind} menu`}
+      accessibilityHint="Rename, move, add to Favorites or delete"
+      hitSlop={6}
+      testID="crumb-title"
+    >
+      <Text style={styles.crumbCurrent} numberOfLines={1} testID="crumb-current">
+        {name}
+      </Text>
+      <Ionicons name="chevron-down" size={16} color={c.text.onGradientStrong} />
+    </Pressable>
   );
 }
 
@@ -138,6 +172,7 @@ const makeStyles = (c: ThemeColors) =>
     crumb: { paddingHorizontal: 4, marginHorizontal: -6, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
     crumbDropOk: { borderStyle: 'dashed', borderColor: c.accent, backgroundColor: c.accentLight },
     crumbMuted: { fontSize: Typography.size.lg, fontWeight: Typography.weight.medium, color: c.text.onGradient },
+    title: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 2 },
     crumbCurrent: {
       flexShrink: 1,
       fontSize: Typography.size.lg,

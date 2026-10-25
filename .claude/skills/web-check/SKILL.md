@@ -83,6 +83,13 @@ node .claude/skills/web-check/scripts/new-menu.mjs
 node .claude/skills/web-check/scripts/item-menus.mjs
 ```
 
+## Check the title's menu (step 3.3 feedback)
+
+`scripts/title-menu.mjs`: the course or folder title (with ⌄) opens the menu of the course or folder you're in (click, right-click; tap at 390 px): Rename… (the title follows), Add to Favorites, Delete (up one level, Undo), Move to… another course (the screen follows), and deleting the course (back to the Library, Undo). Checked in the database.
+```bash
+node .claude/skills/web-check/scripts/title-menu.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).

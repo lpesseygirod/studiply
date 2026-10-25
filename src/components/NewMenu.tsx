@@ -1,5 +1,4 @@
-import { useCallback, useState, type RefObject } from 'react';
-import type { View } from 'react-native';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../hooks/useAuth';
@@ -18,13 +17,7 @@ import { newMenuItems, type NewAction } from './newMenuItems';
 export { newMenuItems } from './newMenuItems';
 export type { NewAction, NewMenuItem } from './newMenuItems';
 
-/** Where a menu should open: just below the button. */
-export function anchorBelow(ref: RefObject<View | null>): Promise<Anchor | undefined> {
-  return new Promise((resolve) => {
-    if (!ref.current) return resolve(undefined);
-    ref.current.measureInWindow((x, y, _w, h) => resolve({ x, y: y + h + 6 }));
-  });
-}
+export { anchorBelow } from './dialogs/dialogs';
 
 /** The New menu and the New course dialog it opens. Render `dialog` once. */
 export function useNewMenu() {
