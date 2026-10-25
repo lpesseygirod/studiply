@@ -156,7 +156,6 @@ function IconButton({
       style={styles.iconButton}
       accessibilityRole="button"
       accessibilityLabel={label}
-      hitSlop={6}
     >
       <Ionicons name={icon} size={18} color={c.text.secondary} />
     </Pressable>
@@ -225,5 +224,5 @@ const makeStyles = (c: ThemeColors) =>
   },
   outlineText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.primary },
   disabled: { opacity: 0.45 },
-  iconButton: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  iconButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });

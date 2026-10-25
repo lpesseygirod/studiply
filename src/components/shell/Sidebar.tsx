@@ -252,11 +252,11 @@ function CourseTree({
             {isFolder ? (
               <Pressable
                 onPress={() => toggle(item.id)}
-                hitSlop={6}
+                style={styles.chevron}
                 accessibilityRole="button"
                 accessibilityLabel={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
               >
-                <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={12} color={c.text.secondary} />
+                <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={14} color={c.text.secondary} />
               </Pressable>
             ) : (
               <View style={styles.chevronSpace} />
@@ -399,7 +399,9 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: 8,
   },
   treeItemActive: { backgroundColor: c.salmonLight },
-  chevronSpace: { width: 12 },
+  chevronSpace: { width: 24 },
+  // A 24 px target in the 30 px row (WCAG 2.2 minimum for pointer targets on the laptop)
+  chevron: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', marginLeft: -6 },
   treeText: { flex: 1, fontSize: Typography.size.sm, color: c.text.primary },
   treeTextActive: { color: c.accentDark, fontWeight: Typography.weight.semibold },
   trash: {

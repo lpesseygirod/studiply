@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { GradientFill } from '../../../src/components/GradientBackground';
+import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import {
@@ -148,13 +149,7 @@ export default function TrashScreen() {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
         <Text style={styles.headerTitle}>Recently Deleted</Text>
         <TouchableOpacity
           style={styles.iconButton}
@@ -220,13 +215,7 @@ export default function TrashScreen() {
               >
                 <Text style={styles.restoreText}>Restore</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleDelete(item)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.deleteButton}
-              >
-                <Ionicons name="trash-outline" size={18} color={c.error} />
-              </TouchableOpacity>
+              <IconButton icon="trash-outline" label="Delete permanently" onPress={() => handleDelete(item)} size={18} color={c.error} style={styles.deleteButton} />
             </View>
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}

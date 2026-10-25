@@ -1,11 +1,12 @@
 import { Tabs, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme, useThemedStyles } from '../../src/theme/ThemeProvider';
 import type { ThemeColors } from '../../src/constants/colors';
 import { Layout } from '../../src/constants/layout';
+import { Typography } from '../../src/constants/typography';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
@@ -25,6 +26,23 @@ function tabIcon(tab: MainTab) {
     return <Ionicons name={focused ? tab.icon.active : tab.icon.inactive} size={size} color={color} />;
   }
   return TabIcon;
+}
+
+/**
+ * Tab labels grow with Larger Text up to 1.3× (the bar keeps its height,
+ * so bigger labels would be cut off). Beside the icon on wider windows.
+ */
+function TabLabel({ color, children, position }: { color: string; children: string; position: string }) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <Text
+      style={[styles.tabLabel, position === 'beside-icon' && styles.tabLabelBeside, { color }]}
+      maxFontSizeMultiplier={1.3}
+      numberOfLines={1}
+    >
+      {children}
+    </Text>
+  );
 }
 
 // Record: a big red circle with a white ring, raised above the bar in its exact middle.
@@ -111,6 +129,7 @@ export default function MainLayout() {
                     options={{
                       title: tab.label,
                       tabBarAccessibilityLabel: tab.label,
+                    tabBarLabel: TabLabel,
                       tabBarIcon: tabIcon(tab),
                       // expo-router refuses href together with a custom button; /record is the default anyway.
                       ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
@@ -139,6 +158,12 @@ const RING = 4;
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
+    tabLabel: {
+      fontSize: Typography.size.xxs,
+      fontWeight: Typography.weight.medium,
+      textAlign: 'center',
+    },
+    tabLabelBeside: { fontSize: Typography.size.sm, marginLeft: 20 },
   root: { flex: 1 },
   row: { flex: 1, flexDirection: 'row' },
   center: { flex: 1, minWidth: 0 },

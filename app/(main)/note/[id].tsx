@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { followNoteTitle, getSession, RenameIncompleteError } from '../../../src/services/session.service';
@@ -498,13 +499,7 @@ export default function NoteDetailScreen() {
       </TouchableOpacity>
       <View style={styles.iconBtn}>
         {isEditing && (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving} style={isSaving && { opacity: 0.4 }}>
-            <Ionicons
-              name="checkmark"
-              size={24}
-              color={c.text.onGradientStrong}
-            />
-          </TouchableOpacity>
+          <IconButton icon="checkmark" label="Save note" onPress={handleSave} size={24} color={c.text.onGradientStrong} disabled={isSaving} />
         )}
       </View>
     </View>
@@ -759,14 +754,9 @@ export default function NoteDetailScreen() {
                   <View key={i} style={styles.conceptChip}>
                     <Text style={styles.conceptChipText}>{kc.term}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close" label="Remove concept" compact onPress={() =>
                           setDraftConcepts(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="close" size={13} color={c.text.primary} />
-                      </TouchableOpacity>
+                        } size={13} color={c.text.primary} />
                     )}
                   </View>
                 ))}
@@ -830,14 +820,9 @@ export default function NoteDetailScreen() {
                   <View key={i} style={styles.tagPill}>
                     <Text style={styles.tagText}>{tag}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close" label="Remove tag" compact onPress={() =>
                           setDraftTags(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="close" size={12} color={c.text.secondary} />
-                      </TouchableOpacity>
+                        } size={12} color={c.text.secondary} />
                     )}
                   </View>
                 ))}
@@ -889,14 +874,9 @@ export default function NoteDetailScreen() {
                   <View style={styles.formulaHeader}>
                     <Text style={styles.formulaName}>{f.name}</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="close-circle-outline" label="Remove formula" compact onPress={() =>
                           setDraftFormulas(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-                      >
-                        <Ionicons name="close-circle-outline" size={18} color={c.error} />
-                      </TouchableOpacity>
+                        } size={18} color={c.error} />
                     )}
                   </View>
                   <View style={styles.formulaBox}>
@@ -977,14 +957,9 @@ export default function NoteDetailScreen() {
                           placeholder="Term"
                           placeholderTextColor={c.text.placeholder}
                         />
-                        <TouchableOpacity
-                          onPress={() =>
+                        <IconButton icon="close-circle-outline" label="Remove definition" compact onPress={() =>
                             setDraftDefinitions(prev => prev.filter((_, idx) => idx !== i))
-                          }
-                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                        >
-                          <Ionicons name="close-circle-outline" size={18} color={c.error} />
-                        </TouchableOpacity>
+                          } size={18} color={c.error} />
                       </View>
                       <TextInput
                         style={[styles.addInput, styles.textAreaSmall]}
@@ -1059,14 +1034,9 @@ export default function NoteDetailScreen() {
                   <View style={styles.defEditHeader}>
                     <Text style={[styles.unclearExcerpt, { flex: 1 }]}>&quot;{u.excerpt}&quot;</Text>
                     {isEditing && (
-                      <TouchableOpacity
-                        onPress={() =>
+                      <IconButton icon="checkmark-circle-outline" label="Mark as clear" compact onPress={() =>
                           setDraftUnclearParts(prev => prev.filter((_, idx) => idx !== i))
-                        }
-                        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                      >
-                        <Ionicons name="checkmark-circle-outline" size={18} color={c.success} />
-                      </TouchableOpacity>
+                        } size={18} color={c.success} />
                     )}
                   </View>
                   <Text style={styles.unclearReason}>{u.reason}</Text>

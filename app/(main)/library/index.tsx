@@ -53,6 +53,8 @@ import { starButton } from '../../../src/utils/star';
 import type { Session } from '../../../src/types/database';
 
 const H_PADDING = 18;
+// The chips are ~33 pt tall (docs/design); their touch area reaches 44.
+const CHIP_SLOP = { top: 6, bottom: 6 };
 const CARD_GAP = 10;
 
 // The sections (docs/design iphone-01 chips; the laptop sidebar links here
@@ -371,22 +373,26 @@ export default function LibraryScreen() {
                   <TouchableOpacity
                     key={chip.key}
                     style={[styles.chip, active && styles.chipActive]}
+                    hitSlop={CHIP_SLOP}
                     onPress={() => toggleSection(chip.key)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]} maxFontSizeMultiplier={1.6}>
+                      {chip.label}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
               <TouchableOpacity
                 style={[styles.chip, styles.chipAccent]}
+                hitSlop={CHIP_SLOP}
                 onPress={() => router.push('/review')}
                 activeOpacity={0.8}
                 accessibilityRole="button"
               >
-                <Text style={[styles.chipText, styles.chipTextAccent]}>
+                <Text style={[styles.chipText, styles.chipTextAccent]} maxFontSizeMultiplier={1.6}>
                   {reviewDue ? `Review today · ${reviewDue}` : 'Review today'}
                 </Text>
               </TouchableOpacity>
@@ -597,9 +603,9 @@ const makeStyles = (c: ThemeColors) =>
   crumbRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   crumbMuted: { color: c.text.onGradient, fontWeight: Typography.weight.medium },
   newButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: c.button.onGradient,
     alignItems: 'center',
     justifyContent: 'center',

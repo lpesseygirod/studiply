@@ -505,7 +505,9 @@ export default function ActiveRecordingScreen() {
         <View style={{ flex: 1 }} />
 
         {/* ── Timer ──────────────────────────────────────────── */}
-        <Text style={styles.timer}>{formatTime(elapsed)}</Text>
+        <Text style={styles.timer} maxFontSizeMultiplier={1.2}>
+          {formatTime(elapsed)}
+        </Text>
 
         {/* ── Mode badge ─────────────────────────────────────── */}
         <View style={styles.modeBadge}>

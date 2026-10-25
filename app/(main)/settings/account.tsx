@@ -22,6 +22,7 @@ import { confirmAction } from '../../../src/utils/confirm';
 import { confirmSignOut } from '../../../src/utils/signOut';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { GradientFill } from '../../../src/components/GradientBackground';
+import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import UserAvatar from '../../../src/components/UserAvatar';
@@ -282,13 +283,7 @@ export default function AccountScreen() {
       <ThemedStatusBar />
 
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
         <Text style={styles.headerTitle}>Manage Account</Text>
         <View style={styles.iconButton} />
       </View>
@@ -309,9 +304,7 @@ export default function AccountScreen() {
                 <Text style={styles.editProfileLink}>Edit profile</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.editIconButton} onPress={openEditModal} activeOpacity={0.75}>
-              <Ionicons name="pencil-outline" size={18} color={c.text.secondary} />
-            </TouchableOpacity>
+            <IconButton icon="pencil-outline" label="Edit profile" onPress={openEditModal} size={18} color={c.text.secondary} style={styles.editIconButton} />
           </View>
         </View>
 

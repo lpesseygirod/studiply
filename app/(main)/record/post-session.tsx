@@ -17,6 +17,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { GradientFill } from '../../../src/components/GradientBackground';
+import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
@@ -425,14 +426,7 @@ export default function PostSessionScreen() {
                         </Text>
                       )}
                     </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteFile(file)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="close" size={14} color={c.text.secondary} />
-                    </TouchableOpacity>
+                    <IconButton icon="close" label="Remove file" onPress={() => handleDeleteFile(file)} size={14} color={c.text.secondary} style={styles.deleteButton} />
                   </TouchableOpacity>
                   <View style={styles.fileSeparator} />
                 </View>

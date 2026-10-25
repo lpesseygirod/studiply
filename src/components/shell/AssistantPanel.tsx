@@ -57,7 +57,7 @@ const makeStyles = (c: ThemeColors) =>
     justifyContent: 'center',
   },
   title: { flex: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
-  close: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -8 },
   body: { padding: 16, gap: 8 },
   soon: {
     fontSize: Typography.size.xs,

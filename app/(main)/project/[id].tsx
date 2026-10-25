@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { IconButton } from '../../../src/components/IconButton';
 import {
   View,
   Text,
@@ -718,13 +719,7 @@ export default function ProjectDetailScreen() {
 
       {/* ── Header ────────────────────────────────────────────── */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={navigateUp}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
-        </TouchableOpacity>
+        <IconButton icon="chevron-back" label="Back" onPress={navigateUp} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
 
         <View style={styles.headerCenter}>
           {project && isRoot && (
@@ -1090,13 +1085,7 @@ export default function ProjectDetailScreen() {
         onRequestClose={() => setPreviewUri(null)}
       >
         <View style={styles.previewOverlay}>
-          <TouchableOpacity
-            style={styles.previewClose}
-            onPress={() => setPreviewUri(null)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close" size={28} color={LightColors.white} />
-          </TouchableOpacity>
+          <IconButton icon="close" label="Close preview" onPress={() => setPreviewUri(null)} size={28} color={LightColors.white} style={styles.previewClose} />
           {previewUri && (
             <Image
               source={{ uri: previewUri }}
