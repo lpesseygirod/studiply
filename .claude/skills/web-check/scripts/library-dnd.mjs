@@ -106,6 +106,12 @@ const lecture2 = (await admin.from('files').insert({ user_id: user.id, kind: 'le
 await admin.from('lectures').insert({ id: lecture2.id, user_id: user.id, status: 'transcribing', duration_ms: 1000 });
 const finderPdf = join(tmpdir(), 'studiply-finder.pdf');
 writeFileSync(finderPdf, '%PDF-1.4\n%%EOF\n');
+const finderZip = join(tmpdir(), 'studiply-finder.zip');
+writeFileSync(finderZip, 'PK');
+// A 1×1 PNG (a "screenshot").
+const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+const finderPng = join(tmpdir(), 'pizarra.png');
+writeFileSync(finderPng, Buffer.from(PNG_BASE64, 'base64'));
 
 const b = await launch({ width: 1280, height: 900 });
 
@@ -225,14 +231,43 @@ try {
     }, 'Undo did not give the photo back to its lecture');
   });
 
-  await step('A PDF dragged from the computer: "Coming soon", nothing uploaded', async () => {
-    const before = (await admin.from('files').select('id').eq('user_id', user.id)).data.length;
+  await step('Files from the computer: a PDF dropped on Tema A, a ZIP refused, a PNG on the empty grid (uploaded as files)', async () => {
     const to = await at(TILE(A.id), 'Tema A');
-    await b.htmlDrag(null, to, { files: [finderPdf] });
-    await b.waitText('Coming soon', { timeout: 3000 });
+    await b.htmlDrag(null, to, { files: [finderPdf, finderZip] });
+    await until(async () => {
+      const rows = (await admin.from('files').select('id, kind, title, folder_id').eq('user_id', user.id).eq('title', 'studiply-finder.pdf')).data;
+      return rows.length === 1 && rows[0].kind === 'pdf' && rows[0].folder_id === A.id;
+    }, 'the PDF is not a file in Tema A');
+    const pdfFile = (await admin.from('files').select('id').eq('user_id', user.id).eq('title', 'studiply-finder.pdf').single()).data;
+    const media = (await admin.from('media').select('file_id, lecture_id, storage_path').eq('file_id', pdfFile.id).single()).data;
+    expect(media.lecture_id === null && media.storage_path.startsWith(`${user.id}/${pdfFile.id}/`), JSON.stringify(media));
+    const listed = (await admin.storage.from('slides').list(`${user.id}/${pdfFile.id}`)).data;
+    expect(listed?.length === 1, 'the PDF is not in Storage');
+    await b.waitText('Only PDFs and photos for now.', { exact: false, timeout: 5000 });
     await b.shot('dnd-finder');
     await b.click('OK', { exact: true });
-    expect((await admin.from('files').select('id').eq('user_id', user.id)).data.length === before, 'a file was created');
+    expect((await admin.from('files').select('id').eq('user_id', user.id).ilike('title', '%.zip')).data.length === 0, 'the ZIP was added');
+
+    // The empty grid takes files for the course you're in.
+    expect((await b.evaluate(`getComputedStyle(document.querySelector('[data-testid=library-space]')).borderTopStyle`)) !== 'dashed', 'the empty grid is still highlighted after the drop on Tema A');
+    // Just below the tiles (the toast at the bottom isn't part of the grid).
+    const space = await b.evaluate(`(() => { const g = document.querySelector('[data-testid=library-grid]').getBoundingClientRect(); return { x: g.x + g.width / 2, y: g.bottom + 30 }; })()`);
+    await b.htmlDrag(null, space, { files: [finderPng] });
+    await until(async () => {
+      const rows = (await admin.from('files').select('kind, title, course_id, folder_id').eq('user_id', user.id).eq('title', 'pizarra.jpg')).data;
+      return rows.length === 1 && rows[0].kind === 'image' && rows[0].course_id === data.course.id && rows[0].folder_id === null;
+    }, 'the PNG is not a photo file at the top of Math');
+  });
+
+  await step('⌘V with a screenshot in the clipboard adds it as a photo here', async () => {
+    await b.clickAt(1100, 860);
+    await b.evaluate(`(async () => {
+      const png = await (await fetch('data:image/png;base64,${PNG_BASE64}')).blob();
+      const dt = new DataTransfer();
+      dt.items.add(new File([png], 'Screenshot 2026-10-26.png', { type: 'image/png' }));
+      document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+    })()`);
+    await until(async () => (await admin.from('files').select('id').eq('user_id', user.id).eq('title', 'Screenshot 2026-10-26.jpg')).data.length === 1, 'the screenshot was not added');
   });
 
   await step('A lecture photo: one Move to… (to a folder: out of its lecture; to a lecture: moved there)', async () => {

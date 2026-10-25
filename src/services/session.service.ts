@@ -35,7 +35,7 @@ import {
   SyncHttpError,
 } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
-import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
+import { inLectureScope, latestNote, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
 import { cleanName, MAX_NAME_LENGTH } from '../utils/names';
 import type { Note, Session } from '../types/database';
@@ -536,47 +536,6 @@ export async function moveSession(
     .update({ course_id: projectId, folder_id: folderId })
     .eq('id', sessionId);
   if (error) throw serviceError(error, 'Could not move the lecture.');
-}
-
-// -------------------------------------------------------------------
-// getOrCreateProjectUploadSession
-// Returns (or creates) a dedicated 'completed' lecture used to hold
-// files uploaded directly to a project, not tied to any recording.
-// -------------------------------------------------------------------
-export async function getOrCreateProjectUploadSession(
-  _userId: string,
-  projectId: string,
-): Promise<Session> {
-  const existing = await readThrough(
-    async () => {
-      const { data, error } = await supabase
-        .from('files')
-        .select(LECTURE_SELECT)
-        .eq('kind', 'lecture')
-        .eq('course_id', projectId)
-        .eq('title', PROJECT_FILES_TITLE)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true })
-        .limit(1);
-      if (error) throw serviceError(error, 'Could not prepare the course files.');
-      rememberLectureFiles(data as LectureFileRow[]);
-      return (data[0] as LectureFileRow | undefined) ?? null;
-    },
-    async () => {
-      const { files, lectures } = await cachedLectures();
-      return lectureTitled(files, lectures, projectId, PROJECT_FILES_TITLE);
-    },
-  );
-  if (existing) return toSessions([existing])[0];
-
-  const session = await createSession({
-    userId: _userId,
-    title: PROJECT_FILES_TITLE,
-    projectId,
-    recordingMode: 'standard',
-    language: 'en',
-  });
-  return updateSession(session.id, { status: 'completed' });
 }
 
 // -------------------------------------------------------------------

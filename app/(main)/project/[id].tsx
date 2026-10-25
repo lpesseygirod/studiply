@@ -25,14 +25,10 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import { LightColors, type ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProject } from '../../../src/services/project.service';
-import {
-  getSessionsByProject,
-  getOrCreateProjectUploadSession,
-} from '../../../src/services/session.service';
+import { getSessionsByProject } from '../../../src/services/session.service';
 import { getFolders, createFolder, getFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
 import {
   getProjectSourceFiles,
-  createSourceFile,
   markDeleted as markSourceFileDeleted,
   sourceFileName,
   fileLabel,
@@ -44,6 +40,7 @@ import { requestCameraPermission, requestMediaLibraryPermission } from '../../..
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import { useAppUndo } from '../../../src/hooks/useAppUndo';
 import {
+  isDialogOpen,
   menuTriggerProps,
   showActionSheet,
   showAlert,
@@ -53,7 +50,10 @@ import { errorMessage } from '../../../src/utils/errors';
 import { promptRenameFile } from '../../../src/utils/rename';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLibraryDrop } from '../../../src/hooks/useLibraryDrop';
-import { useDragSource } from '../../../src/lib/dnd/useHtml5Drag';
+import { useLibraryUpload } from '../../../src/hooks/useLibraryUpload';
+import type { Place } from '../../../src/utils/moveRules';
+import { mergeRefs, useDragSource, useDropZone, type DropHandlers } from '../../../src/lib/dnd/useHtml5Drag';
+import { isEditable } from '../../../src/lib/shortcuts';
 import { DraggableView, GestureDragProvider, lastItemGestureAt, type Scroller } from '../../../src/lib/dnd/GestureDrag';
 import {
   Gesture,
@@ -62,7 +62,7 @@ import {
   ScrollView as GestureScrollView,
 } from 'react-native-gesture-handler';
 import { dragLog, useDragDebug } from '../../../src/lib/dnd/dragDebug';
-import type { Dragged } from '../../../src/lib/dnd/rules';
+import type { Dragged, DropTarget } from '../../../src/lib/dnd/rules';
 import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
@@ -135,9 +135,6 @@ export default function ProjectDetailScreen() {
 
   // Project-level files (photos + PDFs across all sessions)
   const [projectFiles, setProjectFiles] = useState<SourceFile[]>([]);
-  const [uploadingCamera, setUploadingCamera] = useState(false);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
-  const [uploadingDocs, setUploadingDocs] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   // -------------------------------------------------------------------
@@ -469,8 +466,32 @@ export default function ProjectDetailScreen() {
   const Scroll = plainScroll ? ScrollView : ListScroll;
   const Refresh = plainScroll ? RefreshControl : ListRefresh;
 
-  // Drag and drop (step 3.3): onto folder tiles and the breadcrumb.
-  const dnd = useLibraryDrop({ showUndo });
+  // Upload (step 3.4): photos and PDFs become files in the open course or folder.
+  const uploader = useLibraryUpload({ showUndo });
+  const herePlace = (): Place => ({ courseId: id ?? null, folderId: currentFolderId, label: currentCrumb?.name ?? 'this course' });
+
+  // Drag and drop (step 3.3): onto folder tiles and the breadcrumb; files from the Finder are uploaded there.
+  const dnd = useLibraryDrop({ showUndo, upload: uploader.upload });
+
+  // Laptop: ⌘V with an image or PDF (a screenshot, a copied file) adds it here (not while typing in a field).
+  const uploadRef = useRef({ upload: uploader.upload, herePlace });
+  uploadRef.current = { upload: uploader.upload, herePlace };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onPaste = (e: ClipboardEvent) => {
+      if (isEditable(document.activeElement) || isDialogOpen()) return;
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length === 0) return;
+      e.preventDefault();
+      const { upload, herePlace: here } = uploadRef.current;
+      upload(
+        here(),
+        files.map(f => ({ uri: URL.createObjectURL(f), name: f.name || null, mimeType: f.type || null, sizeBytes: f.size })),
+      );
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
 
   // iPhone: the list scrolls while a dragged item is held near the top or bottom.
   const scrollRef = useRef<ScrollView>(null);
@@ -505,111 +526,71 @@ export default function ProjectDetailScreen() {
     else shareFile({ ...file.media, display_name: file.title });
   }
 
-  // ── Take Photo ────────────────────────────────────────────────
-  const handleTakePhoto = async () => {
-    if (!userId || !id) return;
-    const granted = await requestCameraPermission();
-    if (!granted) return;
+  // ── Upload (step 3.4): photos and PDFs become files in the open course or folder ──
 
-    setUploadingCamera(true);
+  const handleTakePhoto = async () => {
+    if (!id || !(await requestCameraPermission())) return;
     try {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: false,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const asset = result.assets[0]!;
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const fileSize = asset.fileSize ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-        const newFile = await createSourceFile({
-          userId,
-          sessionId: uploadSession.id,
-          fileType: 'photo',
-          filePath: asset.uri,
-          size: { width: asset.width, height: asset.height },
-          fileSizeBytes: fileSize,
-          mimeType: 'image/jpeg',
-        });
-        setProjectFiles(prev => [newFile, ...prev]);
-      }
+      const a = result.canceled ? undefined : result.assets[0];
+      if (!a) return;
+      await uploader.upload(herePlace(), [
+        { uri: a.uri, name: null, mimeType: a.mimeType ?? 'image/jpeg', sizeBytes: a.fileSize ?? null, size: { width: a.width, height: a.height } },
+      ]);
     } catch {
-      showAlert('Error', 'Could not capture photo. Please try again.');
-    } finally {
-      setUploadingCamera(false);
+      showAlert('Error', 'Could not take the photo. Please try again.');
     }
   };
 
-  // ── Upload from Gallery ───────────────────────────────────────
   const handlePickPhotos = async () => {
-    if (!userId || !id) return;
-    const granted = await requestMediaLibraryPermission();
-    if (!granted) return;
-
-    setUploadingGallery(true);
+    if (!id || !(await requestMediaLibraryPermission())) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         quality: 0.8,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const newFiles = await Promise.all(
-          result.assets.map(async asset => {
-            const fileSize = asset.fileSize ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-            return createSourceFile({
-              userId,
-              sessionId: uploadSession.id,
-              fileType: 'photo',
-              filePath: asset.uri,
-              size: { width: asset.width, height: asset.height },
-              fileSizeBytes: fileSize,
-              mimeType: 'image/jpeg',
-            });
-          })
-        );
-        setProjectFiles(prev => [...newFiles, ...prev]);
-      }
+      if (result.canceled) return;
+      await uploader.upload(
+        herePlace(),
+        result.assets.map(a => ({
+          uri: a.uri,
+          name: a.fileName ?? null,
+          mimeType: a.mimeType ?? 'image/jpeg',
+          sizeBytes: a.fileSize ?? null,
+          size: { width: a.width, height: a.height },
+        })),
+      );
     } catch {
       showAlert('Error', 'Could not pick photos. Please try again.');
-    } finally {
-      setUploadingGallery(false);
     }
   };
 
-  // ── Upload PDF ────────────────────────────────────────────────
+  /** PDFs (iPhone: from Files); on the laptop one picker for PDFs and images. */
   const handlePickDocuments = async () => {
-    if (!userId || !id) return;
-    setUploadingDocs(true);
+    if (!id) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
+        type: Platform.OS === 'web' ? ['application/pdf', 'image/*'] : 'application/pdf',
         multiple: true,
         copyToCacheDirectory: true,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const newFiles = await Promise.all(
-          result.assets.map(async asset => {
-            const fileSize = asset.size ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-            return createSourceFile({
-              userId,
-              sessionId: uploadSession.id,
-              fileType: 'pdf',
-              filePath: asset.uri,
-              fileName: asset.name,
-              fileSizeBytes: fileSize,
-              mimeType: asset.mimeType ?? 'application/pdf',
-            });
-          })
-        );
-        setProjectFiles(prev => [...newFiles, ...prev]);
-      }
+      if (result.canceled) return;
+      const picked = await Promise.all(
+        result.assets.map(async a => ({
+          uri: a.uri,
+          name: a.name,
+          mimeType: a.mimeType ?? null,
+          sizeBytes: a.size ?? (await getLocalFileSize(a.uri)) ?? null,
+        })),
+      );
+      await uploader.upload(herePlace(), picked);
     } catch {
-      showAlert('Error', 'Could not pick documents. Please try again.');
-    } finally {
-      setUploadingDocs(false);
+      showAlert('Error', 'Could not pick the files. Please try again.');
     }
   };
 
@@ -626,6 +607,10 @@ export default function ProjectDetailScreen() {
     if (item.type === 'lecture') {
       const session = sessions.find(s => s.id === item.id);
       if (session) handleSessionPress(session);
+      return;
+    }
+    if (item.pending) {
+      showAlert('Waiting to upload', 'This file opens once it has been uploaded.');
       return;
     }
     const file = libraryFiles.find(f => f.id === item.id);
@@ -668,10 +653,16 @@ export default function ProjectDetailScreen() {
     );
   }
 
+  /** Laptop: one file picker (PDFs and images). iPhone: Photos, PDF (Files) or Take photo. */
   function chooseUpload() {
-    showActionSheet('Upload to this course', [
-      { text: 'Photos', onPress: () => handlePickPhotos().then(() => setLibraryPrefs({ lecturePhotosOpen: true })) },
-      { text: 'PDF', onPress: () => handlePickDocuments().then(() => setLibraryPrefs({ lecturePhotosOpen: true })) },
+    if (Platform.OS === 'web') {
+      handlePickDocuments();
+      return;
+    }
+    showActionSheet(`Upload to ${herePlace().label}`, [
+      { text: 'Photos', onPress: handlePickPhotos },
+      { text: 'PDF (Files)', onPress: handlePickDocuments },
+      { text: 'Take photo', onPress: handleTakePhoto },
     ]);
   }
 
@@ -740,11 +731,17 @@ export default function ProjectDetailScreen() {
               onUpload={chooseUpload}
               onTakePhoto={handleTakePhoto}
               onRecord={recordHere}
-              uploading={uploadingCamera || uploadingGallery || uploadingDocs}
+              uploadProgress={uploader.progress}
             />
 
             {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
-            <SpaceArea onPress={() => setSelectedId(null)} onMenu={spaceMenu} style={styles.space}>
+            <SpaceArea
+              onPress={() => setSelectedId(null)}
+              onMenu={spaceMenu}
+              style={styles.space}
+              dropTarget={id ? { id: 'here', kind: 'place', place: herePlace() } : null}
+              dnd={dnd}
+            >
               {sortedEntries.length === 0 && !editing ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
@@ -871,13 +868,20 @@ function SpaceArea({
   onPress,
   onMenu,
   style,
+  dropTarget,
+  dnd,
   children,
 }: {
   onPress: () => void;
   onMenu: (anchor?: Anchor) => void;
   style: React.ComponentProps<typeof View>['style'];
+  /** Laptop: files from the Finder dropped on the empty grid go here (step 3.4). */
+  dropTarget: DropTarget | null;
+  dnd: DropHandlers;
   children: React.ReactNode;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const drop = useDropZone(dropTarget, dnd);
   const menuRef = useRef(onMenu);
   menuRef.current = onMenu;
   const longPress = useMemo(
@@ -889,9 +893,18 @@ function SpaceArea({
         .onStart(() => menuRef.current()),
     [],
   );
+  const menu = menuTriggerProps(onMenu);
   if (Platform.OS === 'web') {
     return (
-      <Pressable onPress={onPress} {...menuTriggerProps(onMenu)} accessible={false} style={style} testID="library-space">
+      <Pressable
+        ref={mergeRefs(menu.ref, drop.ref) as never}
+        onPress={onPress}
+        onLongPress={menu.onLongPress}
+        delayLongPress={menu.delayLongPress}
+        accessible={false}
+        style={[style, drop.hover === 'ok' && styles.spaceDropOk]}
+        testID="library-space"
+      >
         {children}
       </Pressable>
     );
@@ -962,7 +975,9 @@ const makeStyles = (c: ThemeColors) =>
   },
   gridArea: { minHeight: 140 },
   // Fills the rest of the screen, so there is empty space to right-click or long-press.
-  space: { flexGrow: 1, gap: 16, minHeight: 240 },
+  space: { flexGrow: 1, gap: 16, minHeight: 240, borderRadius: 16, borderWidth: 2, borderColor: 'transparent' },
+  // Files from the Finder over the empty grid: they go into the folder you're in.
+  spaceDropOk: { borderStyle: 'dashed', borderColor: c.accent },
   lecturePhotos: { gap: 10, marginTop: 8 },
   lecturePhotosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
 

@@ -13,13 +13,14 @@ export function LibraryToolbar({
   onUpload,
   onTakePhoto,
   onRecord,
-  uploading,
+  uploadProgress,
 }: {
   onNewFolder: () => void;
   onUpload: () => void;
   onTakePhoto: () => void;
   onRecord: () => void;
-  uploading: boolean;
+  /** While files upload: "2 of 5". */
+  uploadProgress: { done: number; total: number } | null;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -39,7 +40,13 @@ export function LibraryToolbar({
   return (
     <View style={styles.row}>
       {button('folder-open-outline', 'New folder', onNewFolder)}
-      {button('cloud-upload-outline', 'Upload', onUpload, undefined, uploading)}
+      {button(
+        'cloud-upload-outline',
+        uploadProgress ? `Uploading ${Math.min(uploadProgress.done + 1, uploadProgress.total)} of ${uploadProgress.total}` : 'Upload',
+        onUpload,
+        undefined,
+        !!uploadProgress,
+      )}
       {Platform.OS !== 'web' && button('camera-outline', 'Take photo', onTakePhoto)}
       <Pressable
         style={({ pressed }) => [styles.button, styles.record, pressed && styles.pressed]}

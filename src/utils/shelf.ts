@@ -40,6 +40,8 @@ export interface ShelfItem {
   childCount?: number;
   /** A lecture: its recording's length. */
   durationSeconds?: number | null;
+  /** A PDF or photo added on this iPhone and not uploaded yet. */
+  pending?: boolean;
 }
 
 export type CourseInfo = Pick<CourseRow, 'id' | 'name' | 'color'>;

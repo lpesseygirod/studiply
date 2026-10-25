@@ -78,6 +78,6 @@ export function tileMeta(item: ShelfItem, now: Date = new Date()): string {
     case 'unit_summary':
       return typeLabel(item.type);
     default:
-      return editedLabel(item.updatedAt, now);
+      return item.pending ? 'Waiting to upload' : editedLabel(item.updatedAt, now);
   }
 }

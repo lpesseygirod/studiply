@@ -23,6 +23,7 @@ import {
 } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
 import { PROJECT_FILES_TITLE } from './session.service';
+import { pendingLibraryFileIds } from './library-upload.service';
 import {
   byRecent,
   byStarred,
@@ -261,10 +262,13 @@ export async function getCourseContents(courseId: string, folderId: string | nul
   const items = (await getCourseLevel(courseId, folderId)).filter(
     (i) => !(i.type === 'lecture' && i.title === PROJECT_FILES_TITLE),
   );
-  const counts = await getFolderChildCounts(items.filter((i) => i.type === 'folder').map((i) => i.id)).catch(
-    () => new Map<string, number>(),
+  const [counts, pending] = await Promise.all([
+    getFolderChildCounts(items.filter((i) => i.type === 'folder').map((i) => i.id)).catch(() => new Map<string, number>()),
+    pendingLibraryFileIds(),
+  ]);
+  return items.map((i) =>
+    i.type === 'folder' ? { ...i, childCount: counts.get(i.id) ?? 0 } : pending.has(i.id) ? { ...i, pending: true } : i,
   );
-  return items.map((i) => (i.type === 'folder' ? { ...i, childCount: counts.get(i.id) ?? 0 } : i));
 }
 
 // -------------------------------------------------------------------

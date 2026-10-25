@@ -94,19 +94,6 @@ export function lecturesIn(
   return withLectures(limit === undefined ? list : list.slice(0, limit), lectures);
 }
 
-/** The oldest lecture titled `title` in a course (the "Project Files" holder). */
-export function lectureTitled(
-  files: FileRow[],
-  lectures: LectureRow[],
-  courseId: string,
-  title: string,
-): LectureFileRow | null {
-  const match = files
-    .filter((f) => inLectureScope(f, { courseId }) && f.title === title)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
-  return match ? withLectures([match], lectures)[0] : null;
-}
-
 // ── Notes ───────────────────────────────────────────────────────────────
 
 function isLegacyNote(s: SummaryRow): boolean {

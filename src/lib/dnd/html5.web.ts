@@ -62,7 +62,8 @@ export function attachDropTarget(node: unknown, h: Html5DropHandlers): () => voi
     h.onHover(dragging, fromComputer(e));
   };
   const over = (e: DragEvent) => {
-    if (!relevant(e)) return;
+    // A target inside this one (a folder tile in the grid) already took it: leave its answer alone.
+    if (!relevant(e) || e.defaultPrevented) return;
     // Only an accepted drag is allowed to drop (preventDefault); a refused one shows "not allowed".
     if (!h.accepts(dragging, fromComputer(e))) {
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
@@ -79,20 +80,36 @@ export function attachDropTarget(node: unknown, h: Html5DropHandlers): () => voi
     e.preventDefault();
     e.stopPropagation();
     depth = 0;
-    const files = Array.from(e.dataTransfer?.files ?? []).map((f) => ({ name: f.name }));
+    const files = Array.from(e.dataTransfer?.files ?? []).map((f) => ({
+      uri: URL.createObjectURL(f),
+      name: f.name,
+      mimeType: f.type || null,
+      sizeBytes: f.size,
+    }));
     const dropped = dragging;
     dragging = null;
     h.onLeave();
     if (h.accepts(dropped, !dropped && files.length > 0)) h.onDrop(dropped, files);
   };
+  // A drop on a target inside this one (a folder tile in the grid) never reaches this one,
+  // nor does a drag that ends elsewhere: any drop or drag end on the page clears the highlight.
+  const reset = () => {
+    if (depth === 0) return;
+    depth = 0;
+    h.onLeave();
+  };
   node.addEventListener('dragenter', enter);
   node.addEventListener('dragover', over);
   node.addEventListener('dragleave', leave);
   node.addEventListener('drop', drop);
+  window.addEventListener('drop', reset, true);
+  window.addEventListener('dragend', reset, true);
   return () => {
     node.removeEventListener('dragenter', enter);
     node.removeEventListener('dragover', over);
     node.removeEventListener('dragleave', leave);
     node.removeEventListener('drop', drop);
+    window.removeEventListener('drop', reset, true);
+    window.removeEventListener('dragend', reset, true);
   };
 }

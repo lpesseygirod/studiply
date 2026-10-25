@@ -10,6 +10,9 @@ import { MoveError, moveItem, moveMediaToLibrary } from '../services/move.servic
 import { restoreItem, trashFolder, trashSession } from '../services/trash.service';
 import { errorMessage } from '../utils/errors';
 import type { ShowUndo } from '../utils/star';
+import type { Place } from '../utils/moveRules';
+import type { PickedFile } from '../services/library-upload.service';
+import { useLibraryUpload } from './useLibraryUpload';
 
 type FolderLinks = { id: string; parent_id: string | null }[];
 
@@ -17,10 +20,19 @@ type FolderLinks = { id: string; parent_id: string | null }[];
  * Drag and drop's one drop (step 3.3), for the laptop's browser drag and
  * the iPhone's gesture: `check` while hovering (canDrop with every folder's
  * parent), `drop` to move into a course or folder or onto Trash, with the
- * screen's Undo toast (also ⌘Z's). Files dragged from the computer wait for
- * step 3.4 (`filesFromComputer`).
+ * screen's Undo toast (also ⌘Z's). Files dragged from the computer are
+ * uploaded where they are dropped (`filesFromComputer`, step 3.4).
  */
-export function useLibraryDrop({ showUndo }: { showUndo: ShowUndo }) {
+export function useLibraryDrop({
+  showUndo,
+  upload,
+}: {
+  showUndo: ShowUndo;
+  /** The screen's own uploader (its toolbar shows the progress); otherwise one of its own. */
+  upload?: (place: Place, files: PickedFile[]) => Promise<void>;
+}) {
+  const ownUploader = useLibraryUpload({ showUndo });
+  const uploadFiles = upload ?? ownUploader.upload;
   const links = useRef<FolderLinks>([]);
   const loadLinks = useCallback(() => {
     getFolderLinks()
@@ -71,10 +83,13 @@ export function useLibraryDrop({ showUndo }: { showUndo: ShowUndo }) {
     [check, showUndo],
   );
 
-  /** Files dragged in from the computer (Finder): step 3.4. */
-  const filesFromComputer = useCallback(() => {
-    showAlert('Coming soon', 'Dropping files from your computer comes in the next update. For now, use Upload.');
-  }, []);
+  /** Files dragged in from the computer (Finder): uploaded into the course or folder they were dropped on. */
+  const filesFromComputer = useCallback(
+    (target: DropTarget, files: PickedFile[]) => {
+      if (target.kind === 'place') uploadFiles(target.place, files);
+    },
+    [uploadFiles],
+  );
 
   return { check, drop, filesFromComputer } satisfies DropHandlers;
 }

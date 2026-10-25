@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
+import type { PickedFile } from '../../services/library-upload.service';
 import { attachDraggable, attachDropTarget } from './html5';
 import type { DropCheck, Dragged, DropTarget } from './rules';
 
@@ -12,7 +13,8 @@ import type { DropCheck, Dragged, DropTarget } from './rules';
 export interface DropHandlers {
   check: (dragged: Dragged, target: DropTarget) => DropCheck;
   drop: (dragged: Dragged, target: DropTarget) => void;
-  filesFromComputer: () => void;
+  /** Files dragged in from the computer (Finder), to upload into the target. */
+  filesFromComputer: (target: DropTarget, files: PickedFile[]) => void;
 }
 
 /** For views that take no drops. */
@@ -64,12 +66,14 @@ export function useDropZone(target: DropTarget | null, handlers: DropHandlers): 
       accepts: (dragged, fromComputer) => {
         const { target: t, handlers: h } = latest.current;
         if (!t) return false;
-        if (fromComputer) return true; // to say it comes in 3.4
+        if (fromComputer) return t.kind === 'place'; // uploaded there; never onto Trash
         return !!dragged && h.check(dragged, t).ok;
       },
       onHover: (dragged, fromComputer) => {
         const { target: t, handlers: h } = latest.current;
-        if (!t || fromComputer || !dragged) return setHover(null);
+        if (!t) return setHover(null);
+        if (fromComputer) return setHover(t.kind === 'place' ? 'ok' : 'refused');
+        if (!dragged) return setHover(null);
         setHover(h.check(dragged, t).ok ? 'ok' : 'refused');
       },
       onLeave: () => setHover(null),
@@ -77,7 +81,7 @@ export function useDropZone(target: DropTarget | null, handlers: DropHandlers): 
         const { target: t, handlers: h } = latest.current;
         if (!t) return;
         if (dragged) h.drop(dragged, t);
-        else if (files.length) h.filesFromComputer();
+        else if (files.length) h.filesFromComputer(t, files);
       },
     }),
   );

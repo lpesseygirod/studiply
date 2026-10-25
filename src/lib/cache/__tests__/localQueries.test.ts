@@ -9,7 +9,6 @@ import {
   lectureCounts,
   lecturesIn,
   lecturesWithNotes,
-  lectureTitled,
   libraryFilesIn,
   missingFrom,
   type AudioChunkRow,
@@ -107,11 +106,6 @@ describe('lectures', () => {
 
   it('recent lectures across courses, newest first', () => {
     expect(lecturesIn(files, lectures, {}, 2).map((r) => r.id)).toEqual(['bio', 'in-folder']);
-  });
-
-  it('finds the oldest lecture with a title (the Project Files holder)', () => {
-    expect(lectureTitled(files, lectures, 'math', 'Project Files')?.id).toBe('Project Files older');
-    expect(lectureTitled(files, lectures, 'bio', 'Project Files')).toBeNull();
   });
 });
 

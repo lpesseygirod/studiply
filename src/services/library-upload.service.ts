@@ -16,7 +16,7 @@
 import { supabase } from '../lib/supabase';
 import { newId } from '../lib/mappers';
 import { NetworkError, serviceError, type FileRow } from '../lib/cloudRows';
-import { cacheUser, markClean, notifyLibraryUpdated, readRow, remember, saveLocalRow } from '../lib/cache';
+import { cacheUser, markClean, notifyLibraryUpdated, readRow, readRows, remember, saveLocalRow } from '../lib/cache';
 import type { MediaRow } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
 import { keepPendingFile, pendingFileExists, removePendingFile } from '../lib/pendingFiles';
@@ -233,6 +233,12 @@ async function queueLibraryFile(p: UploadLibraryPayload, copyPicked: boolean): P
   await saveLocalRow('media', media);
   await enqueue<UploadLibraryPayload>({ kind: 'upload_library_file', key: p.fileId, payload: { ...p, uri } });
   notifyLibraryUpdated();
+}
+
+/** Library files added on this iPhone whose photo or PDF isn't uploaded yet (their tiles say so). */
+export async function pendingLibraryFileIds(): Promise<Set<string>> {
+  const media = await readRows<MediaRow & { local_uri?: string }>('media').catch(() => []);
+  return new Set(media.filter((m) => m.file_id && m.local_uri).map((m) => m.file_id as string));
 }
 
 /** A large PDF on a slow connection takes a while; longer means it hung. */
