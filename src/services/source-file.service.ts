@@ -661,8 +661,10 @@ async function queueMedia(
     extracted_text: null,
     caption: media.caption,
     alt_text: null,
+    starred_at: null,
     created_at: at,
     updated_at: at,
+    changed_at: at,
     local_uri: media.uri,
   };
   await saveLocalRow('media', row);

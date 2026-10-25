@@ -31,6 +31,7 @@ const course: CourseRow = {
   deleted_at: null,
   created_at: T,
   updated_at: T,
+  changed_at: T,
 };
 
 const lectureFile: LectureFileRow = {
@@ -46,6 +47,7 @@ const lectureFile: LectureFileRow = {
   deleted_at: null,
   created_at: T,
   updated_at: T,
+  changed_at: T,
   lectures: {
     id: 'l1',
     user_id: USER,
@@ -83,6 +85,7 @@ describe('folderFromRow', () => {
       deleted_at: null,
       created_at: T,
       updated_at: T,
+      changed_at: T,
     });
     expect(folder).toMatchObject({ project_id: 'c1', parent_folder_id: 'f0', is_deleted: false });
   });
@@ -95,7 +98,7 @@ describe('stars (step 2.2)', () => {
     expect(lectureToSession(lectureFile).starred_at).toBeNull();
     const folder = folderFromRow({
       id: 'f1', user_id: USER, course_id: 'c1', parent_id: null, name: 'Exams', sort_order: 0,
-      starred_at: T, deleted_at: null, created_at: T, updated_at: T,
+      starred_at: T, deleted_at: null, created_at: T, updated_at: T, changed_at: T,
     });
     expect(folder.starred_at).toBe(T);
   });

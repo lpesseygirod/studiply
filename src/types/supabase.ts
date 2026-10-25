@@ -107,14 +107,14 @@ isOneToOne: false
                   ]
                 },"courses": {
                   Row: {
-                    "color": string,"created_at": string,"deleted_at": string | null,"icon": string,"id": string,"is_archived": boolean,"name": string,"sort_order": number,"starred_at": string | null,"updated_at": string,"user_id": string
+                    "changed_at": string,"color": string,"created_at": string,"deleted_at": string | null,"icon": string,"id": string,"is_archived": boolean,"name": string,"sort_order": number,"starred_at": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "color"?: string,"created_at"?: string,"deleted_at"?: string | null,"icon"?: string,"id"?: string,"is_archived"?: boolean,"name": string,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"color"?: string,"created_at"?: string,"deleted_at"?: string | null,"icon"?: string,"id"?: string,"is_archived"?: boolean,"name": string,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "color"?: string,"created_at"?: string,"deleted_at"?: string | null,"icon"?: string,"id"?: string,"is_archived"?: boolean,"name"?: string,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"color"?: string,"created_at"?: string,"deleted_at"?: string | null,"icon"?: string,"id"?: string,"is_archived"?: boolean,"name"?: string,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -173,14 +173,14 @@ isOneToOne: false
                   ]
                 },"files": {
                   Row: {
-                    "course_id": string | null,"created_at": string,"deleted_at": string | null,"folder_id": string | null,"id": string,"kind": string,"last_opened_at": string | null,"sort_order": number,"starred_at": string | null,"title": string,"updated_at": string,"user_id": string
+                    "changed_at": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"folder_id": string | null,"id": string,"kind": string,"last_opened_at": string | null,"sort_order": number,"starred_at": string | null,"title": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind": string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind": string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind"?: string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind"?: string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -225,14 +225,14 @@ isOneToOne: false
                   ]
                 },"folders": {
                   Row: {
-                    "course_id": string | null,"created_at": string,"deleted_at": string | null,"id": string,"name": string,"parent_id": string | null,"sort_order": number,"starred_at": string | null,"updated_at": string,"user_id": string
+                    "changed_at": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"id": string,"name": string,"parent_id": string | null,"sort_order": number,"starred_at": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"id"?: string,"name": string,"parent_id"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"id"?: string,"name": string,"parent_id"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"id"?: string,"name"?: string,"parent_id"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"id"?: string,"name"?: string,"parent_id"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -291,14 +291,14 @@ isOneToOne: false
                   ]
                 },"media": {
                   Row: {
-                    "alt_text": string | null,"caption": string | null,"created_at": string,"extracted_text": string | null,"file_id": string | null,"id": string,"kind": string,"lecture_id": string | null,"mime_type": string | null,"page_count": number | null,"size_bytes": number | null,"storage_path": string | null,"t_ms": number | null,"updated_at": string,"url": string | null,"user_id": string
+                    "alt_text": string | null,"caption": string | null,"changed_at": string,"created_at": string,"extracted_text": string | null,"file_id": string | null,"id": string,"kind": string,"lecture_id": string | null,"mime_type": string | null,"page_count": number | null,"size_bytes": number | null,"starred_at": string | null,"storage_path": string | null,"t_ms": number | null,"updated_at": string,"url": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "alt_text"?: string | null,"caption"?: string | null,"created_at"?: string,"extracted_text"?: string | null,"file_id"?: string | null,"id"?: string,"kind": string,"lecture_id"?: string | null,"mime_type"?: string | null,"page_count"?: number | null,"size_bytes"?: number | null,"storage_path"?: string | null,"t_ms"?: number | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string
+                    "alt_text"?: string | null,"caption"?: string | null,"changed_at"?: string,"created_at"?: string,"extracted_text"?: string | null,"file_id"?: string | null,"id"?: string,"kind": string,"lecture_id"?: string | null,"mime_type"?: string | null,"page_count"?: number | null,"size_bytes"?: number | null,"starred_at"?: string | null,"storage_path"?: string | null,"t_ms"?: number | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "alt_text"?: string | null,"caption"?: string | null,"created_at"?: string,"extracted_text"?: string | null,"file_id"?: string | null,"id"?: string,"kind"?: string,"lecture_id"?: string | null,"mime_type"?: string | null,"page_count"?: number | null,"size_bytes"?: number | null,"storage_path"?: string | null,"t_ms"?: number | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string
+                    "alt_text"?: string | null,"caption"?: string | null,"changed_at"?: string,"created_at"?: string,"extracted_text"?: string | null,"file_id"?: string | null,"id"?: string,"kind"?: string,"lecture_id"?: string | null,"mime_type"?: string | null,"page_count"?: number | null,"size_bytes"?: number | null,"starred_at"?: string | null,"storage_path"?: string | null,"t_ms"?: number | null,"updated_at"?: string,"url"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
