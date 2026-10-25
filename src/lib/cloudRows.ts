@@ -272,7 +272,22 @@ export const PgCodes = {
 export function serviceError(error: { code?: string; message?: string } | null, message: string): Error {
   if (__DEV__ && error) console.warn(`[db] ${message}`, error.code ?? '', error.message ?? '');
   if (error?.message && /network request failed|failed to fetch|load failed/i.test(error.message)) {
-    return new Error('Could not reach Studiply. Check your connection and try again.');
+    return new NetworkError();
   }
   return new Error(message);
+}
+
+export const OFFLINE_MESSAGE = "You're offline. Try again when you're back online.";
+
+/** The backend couldn't be reached; the iPhone cache may answer instead. */
+export class NetworkError extends Error {
+  readonly offline = true;
+  constructor(message: string = OFFLINE_MESSAGE) {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
+
+export function isNetworkError(err: unknown): err is NetworkError {
+  return err instanceof NetworkError;
 }

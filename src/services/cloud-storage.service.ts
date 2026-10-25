@@ -13,6 +13,7 @@
  * lib/uploadTransport (iPhone: expo-file-system, web: XMLHttpRequest).
  */
 
+import { isSimulatedOffline, reportFailure, reportReachable } from '../lib/connectivity';
 import { anonKey, supabase, supabaseUrl } from '../lib/supabase';
 import { sendFile } from '../lib/uploadTransport';
 import { withRetries, type HttpResult } from '../lib/retry';
@@ -85,6 +86,8 @@ export async function uploadFile({
   const fullPath = `${userId}/${path.replace(/^\/+/, '')}`;
   const url = `${supabaseUrl}/storage/v1/object/${bucket}/${fullPath.split('/').map(encodeURIComponent).join('/')}`;
 
+  if (isSimulatedOffline()) throw new UploadError('Could not upload. Check your connection and try again.', 0);
+
   let result: HttpResult;
   try {
     result = await withRetries(
@@ -112,8 +115,10 @@ export async function uploadFile({
       },
     );
   } catch {
+    reportFailure();
     throw new UploadError('Could not upload. Check your connection and try again.', 0);
   }
+  reportReachable();
 
   if (result.status < 200 || result.status >= 300) {
     throw new UploadError(errorMessage(result.status, bucket), result.status);

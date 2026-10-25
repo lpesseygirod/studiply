@@ -9,6 +9,7 @@
  * 401 (as cloud-storage.service does for uploads).
  */
 
+import { isSimulatedOffline, reportFailure, reportReachable } from './connectivity';
 import { supabase, supabaseUrl } from './supabase';
 import { answerFromSse, errorFromResponse, networkError, type SseDone } from './functionResult';
 
@@ -21,13 +22,18 @@ async function post(name: FunctionName, body: unknown): Promise<Response> {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw errorFromResponse(401, '');
+    if (isSimulatedOffline()) throw networkError();
+    // Not connectedFetch: summarize can take minutes, longer than its timeout.
     try {
-      return await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+      const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
+      reportReachable();
+      return res;
     } catch {
+      reportFailure();
       throw networkError();
     }
   };

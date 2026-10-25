@@ -1,7 +1,9 @@
 import { Tabs, usePathname } from 'expo-router';
 import { Platform, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
+import { OfflineBanner } from '../../src/components/OfflineBanner';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -36,6 +38,7 @@ function RecordTabIcon({ focused }: { focused: boolean }) {
 
 export default function MainLayout() {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   // Hide the tab bar on the active recording and post-session screens.
   // These are full-screen experiences and the user must use in-screen controls.
@@ -45,63 +48,67 @@ export default function MainLayout() {
     pathname.includes('/record/review') ||
     pathname.includes('/note/');
 
+  const tabBarHeight = Platform.OS === 'ios' ? 76 : 60;
   const tabBarStyle = isFullScreen
     ? { display: 'none' as const }
     : {
         backgroundColor: Colors.white,
         borderTopColor: Colors.surfaceMuted,
         borderTopWidth: 1,
-        height: Platform.OS === 'ios' ? 76 : 60,
+        height: tabBarHeight,
       };
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: Colors.salmon,
-        tabBarInactiveTintColor: Colors.text.secondary,
-        tabBarStyle,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarIcon: tabIcon('home', 'home-outline'),
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: false,
+          tabBarActiveTintColor: Colors.salmon,
+          tabBarInactiveTintColor: Colors.text.secondary,
+          tabBarStyle,
         }}
-      />
-      <Tabs.Screen
-        name="search/index"
-        options={{
-          href: '/search',
-          tabBarIcon: tabIcon('search', 'search-outline'),
-        }}
-      />
-      <Tabs.Screen
-        name="record"
-        options={{
-          href: '/record',
-          tabBarIcon: ({ focused }) => <RecordTabIcon focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="library/index"
-        options={{
-          href: '/library',
-          tabBarIcon: tabIcon('library', 'library-outline'),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          href: '/settings',
-          tabBarIcon: tabIcon('settings', 'settings-outline'),
-        }}
-      />
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            tabBarIcon: tabIcon('home', 'home-outline'),
+          }}
+        />
+        <Tabs.Screen
+          name="search/index"
+          options={{
+            href: '/search',
+            tabBarIcon: tabIcon('search', 'search-outline'),
+          }}
+        />
+        <Tabs.Screen
+          name="record"
+          options={{
+            href: '/record',
+            tabBarIcon: ({ focused }) => <RecordTabIcon focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="library/index"
+          options={{
+            href: '/library',
+            tabBarIcon: tabIcon('library', 'library-outline'),
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            href: '/settings',
+            tabBarIcon: tabIcon('settings', 'settings-outline'),
+          }}
+        />
 
-      {/* Hidden screens — navigable but not shown in the tab bar */}
-      <Tabs.Screen name="project/[id]" options={{ href: null }} />
-      <Tabs.Screen name="note/[id]" options={{ href: null }} />
-    </Tabs>
+        {/* Hidden screens — navigable but not shown in the tab bar */}
+        <Tabs.Screen name="project/[id]" options={{ href: null }} />
+        <Tabs.Screen name="note/[id]" options={{ href: null }} />
+      </Tabs>
+      <OfflineBanner bottom={(isFullScreen ? insets.bottom : tabBarHeight) + 8} />
+    </View>
   );
 }

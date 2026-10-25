@@ -21,6 +21,7 @@ import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
 import type { UserSettings } from '../../../src/types/database';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { setSimulatedOffline, useSimulatedOffline } from '../../../src/lib/connectivity';
 
 // -------------------------------------------------------------------
 // Constants
@@ -64,6 +65,7 @@ export default function GeneralScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
+  const simulatedOffline = useSimulatedOffline();
 
   const [settings, setSettings] = useState<Partial<UserSettings>>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -343,6 +345,24 @@ export default function GeneralScreen() {
           ))}
         </View>
 
+        {/* ── DEVELOPMENT (never in a release build) ──────────────── */}
+        {__DEV__ && (
+          <>
+            <Text style={styles.sectionHeader}>DEVELOPMENT</Text>
+            <View style={styles.card}>
+              <View style={styles.toggleRow}>
+                <Text style={styles.rowLabel}>Simulate offline</Text>
+                <Switch
+                  value={simulatedOffline}
+                  onValueChange={setSimulatedOffline}
+                  trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
+                  thumbColor={Colors.white}
+                  ios_backgroundColor={Colors.surfaceMuted}
+                />
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Language picker modal */}

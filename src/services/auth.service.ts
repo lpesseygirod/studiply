@@ -11,9 +11,11 @@
  * localStorage on web) and AuthProvider listens to its changes.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAuthRetryableFetchError, type AuthError, type User } from '@supabase/supabase-js';
 
-import { supabase } from '../lib/supabase';
+import { removeStoredSession } from '../lib/offlineSession';
+import { supabase, supabaseUrl } from '../lib/supabase';
 import { deleteLocalUserData } from './localProfile';
 import { generateInitials } from '../utils/initials';
 import type { Profile } from '../types/database';
@@ -172,24 +174,24 @@ export async function resetPassword(email: string, code: string, newPassword: st
 export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
   if (error && __DEV__) console.warn('Sign-out could not reach Supabase:', error.message);
+  // Offline, supabase-js returns the network error and keeps the session;
+  // signing out must still work, so it is removed from this device here.
+  if (error) await removeStoredSession(supabaseUrl).catch(() => {});
 }
 
 // -------------------------------------------------------------------
 // getProfile
 // Reads the Supabase profile and maps it to the app's Profile shape
-// (`username` = display name). Offline, it falls back to the name stored
-// in the session so the app still opens.
+// (`username` = display name). The last profile read is kept on the device,
+// so the app opens offline with the right name and photo; without one, the
+// name stored in the session is used.
 // -------------------------------------------------------------------
-export async function getProfile(user: User): Promise<Profile> {
+type ProfileRow = { display_name: string | null; avatar_path: string | null; created_at: string; updated_at: string };
+
+export function profileFromUser(user: User, data: ProfileRow | null): Profile {
   const metaName = user.user_metadata?.display_name;
   const fallbackName =
     (typeof metaName === 'string' && metaName) || user.email?.split('@')[0] || '';
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('display_name, avatar_path, created_at, updated_at')
-    .eq('id', user.id)
-    .maybeSingle();
 
   const name = data?.display_name || fallbackName;
   return {
@@ -201,6 +203,32 @@ export async function getProfile(user: User): Promise<Profile> {
     created_at: data?.created_at ?? user.created_at,
     updated_at: data?.updated_at ?? user.updated_at ?? user.created_at,
   };
+}
+
+const profileKey = (userId: string) => `studiply.profile.${userId}`;
+
+export async function getProfile(user: User): Promise<Profile> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('display_name, avatar_path, created_at, updated_at')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!data) return getCachedProfile(user);
+  const profile = profileFromUser(user, data);
+  AsyncStorage.setItem(profileKey(user.id), JSON.stringify(profile)).catch(() => {});
+  return profile;
+}
+
+/** The profile as last read on this device, for opening the app offline. */
+export async function getCachedProfile(user: User): Promise<Profile> {
+  try {
+    const raw = await AsyncStorage.getItem(profileKey(user.id));
+    if (raw) return JSON.parse(raw) as Profile;
+  } catch {
+    // Unreadable: fall back to the session's name.
+  }
+  return profileFromUser(user, null);
 }
 
 // -------------------------------------------------------------------
