@@ -613,7 +613,11 @@ async function queueMedia(
   return mediaToSourceFile(row, media.uri);
 }
 
+/** A 20-minute chunk on a slow connection takes a while; longer means it hung. */
+const UPLOAD_TIMEOUT_MS = 10 * 60_000;
+
 registerSyncHandler<UploadChunkPayload>('upload_chunk', {
+  timeoutMs: UPLOAD_TIMEOUT_MS,
   run: async (p, ctx) => {
     if (!(await pendingFileExists(p.uri))) {
       // Uploaded just before the app was closed (the file is deleted after).
@@ -643,6 +647,7 @@ registerSyncHandler<UploadChunkPayload>('upload_chunk', {
 });
 
 registerSyncHandler<UploadMediaPayload>('upload_media', {
+  timeoutMs: UPLOAD_TIMEOUT_MS,
   run: async (p, ctx) => {
     const bucket = mediaBucket(p.kind);
     const { data: existing, error: readError } = await supabase.from('media').select('*').eq('id', p.id).maybeSingle();

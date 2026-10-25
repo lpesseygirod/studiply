@@ -78,6 +78,19 @@ const MIGRATIONS: string[] = [
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let currentUser: string | null = null;
+let writeChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs writes one after another. expo-sqlite's transactions aren't
+ * exclusive: a second one started meanwhile fails, and a statement run
+ * during another's transaction is rolled back with it. Never call another
+ * locked function from inside `fn` (it would wait for itself).
+ */
+export function withWriteLock<T>(fn: (db: SQLite.SQLiteDatabase) => Promise<T>): Promise<T> {
+  const run = writeChain.then(async () => fn(await getCacheDb()));
+  writeChain = run.catch(() => {});
+  return run;
+}
 
 export function getCacheDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
@@ -120,8 +133,7 @@ function parentOf(tbl: CachedTable, row: Record<string, unknown>): string | null
 
 async function writeRows(tbl: CachedTable, rows: CacheableRow[], dirty: boolean): Promise<void> {
   if (rows.length === 0) return;
-  const db = await getCacheDb();
-  await db.withTransactionAsync(async () => {
+  await withWriteLock((db) => db.withTransactionAsync(async () => {
     for (const row of rows) {
       const params = [
         tbl,
@@ -149,7 +161,7 @@ async function writeRows(tbl: CachedTable, rows: CacheableRow[], dirty: boolean)
         );
       }
     }
-  });
+  }));
 }
 
 /** Stores rows downloaded from Supabase. */
@@ -164,17 +176,18 @@ export function saveLocalRow(tbl: CachedTable, row: CacheableRow): Promise<void>
 
 /** The row has synced: later downloads may replace it again. */
 export async function markClean(tbl: CachedTable, id: string, row?: CacheableRow): Promise<void> {
-  const db = await getCacheDb();
-  if (row) {
-    await db.runAsync(`UPDATE rows SET data = ?, updated_at = ?, dirty = 0 WHERE tbl = ? AND id = ?`, [
-      JSON.stringify(row),
-      row.updated_at ?? null,
-      tbl,
-      id,
-    ]);
-  } else {
-    await db.runAsync(`UPDATE rows SET dirty = 0 WHERE tbl = ? AND id = ?`, [tbl, id]);
-  }
+  await withWriteLock(async (db) => {
+    if (row) {
+      await db.runAsync(`UPDATE rows SET data = ?, updated_at = ?, dirty = 0 WHERE tbl = ? AND id = ?`, [
+        JSON.stringify(row),
+        row.updated_at ?? null,
+        tbl,
+        id,
+      ]);
+    } else {
+      await db.runAsync(`UPDATE rows SET dirty = 0 WHERE tbl = ? AND id = ?`, [tbl, id]);
+    }
+  });
 }
 
 /** The signed-in student's rows of a table, or only those under `parent`. */
@@ -225,20 +238,20 @@ export async function dirtyIds(tbl: CachedTable): Promise<Set<string>> {
 /** Removes rows that no longer exist on the server (never unsynced ones). */
 export async function dropRows(tbl: CachedTable, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const db = await getCacheDb();
-  await db.withTransactionAsync(async () => {
-    for (const id of ids) {
-      await db.runAsync(`DELETE FROM rows WHERE tbl = ? AND id = ? AND dirty = 0`, [tbl, id]);
-    }
-  });
+  await withWriteLock((db) =>
+    db.withTransactionAsync(async () => {
+      for (const id of ids) {
+        await db.runAsync(`DELETE FROM rows WHERE tbl = ? AND id = ? AND dirty = 0`, [tbl, id]);
+      }
+    }),
+  );
 }
 
 export async function saveSegments(lectureId: string, userId: string, segments: SegmentRow[]): Promise<void> {
-  const db = await getCacheDb();
-  await db.runAsync(
+  await withWriteLock((db) => db.runAsync(
     `INSERT OR REPLACE INTO segments (lecture_id, user_id, data, fetched_at) VALUES (?, ?, ?, ?)`,
     [lectureId, userId, JSON.stringify(segments), new Date().toISOString()],
-  );
+  ));
 }
 
 /** The cached transcript segments, or null if this lecture's were never downloaded. */
@@ -269,22 +282,19 @@ export async function getMeta(key: string): Promise<string | null> {
 }
 
 export async function setMeta(key: string, value: string): Promise<void> {
-  const db = await getCacheDb();
-  await db.runAsync(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [key, value]);
+  await withWriteLock((db) => db.runAsync(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [key, value]));
 }
 
 export async function deleteMeta(key: string): Promise<void> {
-  const db = await getCacheDb();
-  await db.runAsync(`DELETE FROM meta WHERE key = ?`, [key]);
+  await withWriteLock((db) => db.runAsync(`DELETE FROM meta WHERE key = ?`, [key]));
 }
 
 /** Forgets everything cached for a student (sign-out, "Delete all data"). */
 export async function clearCache(userId: string): Promise<void> {
-  const db = await getCacheDb();
-  await db.withTransactionAsync(async () => {
+  await withWriteLock((db) => db.withTransactionAsync(async () => {
     await db.runAsync(`DELETE FROM rows WHERE user_id = ?`, [userId]);
     await db.runAsync(`DELETE FROM segments WHERE user_id = ?`, [userId]);
     await db.runAsync(`DELETE FROM meta WHERE key LIKE ?`, [`${userId}:%`]);
     await db.runAsync(`DELETE FROM outbox WHERE user_id = ?`, [userId]);
-  });
+  }));
 }

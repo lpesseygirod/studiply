@@ -37,6 +37,8 @@ const queue = createSyncQueue({
   canSync: () => getConnection() === 'online' && isSessionLive(),
   refresh: async () => !(await supabase.auth.refreshSession()).error,
   newId,
+  // In the Metro terminal while testing.
+  log: __DEV__ ? (message) => console.log(`[sync] ${message}`) : undefined,
 });
 
 export const enqueue = queue.enqueue;
@@ -46,9 +48,18 @@ export const pendingSyncFor = queue.pendingFor;
 export const retryFailedSync = queue.retryFailed;
 export const discardSync = queue.discard;
 export const onSyncEvent = queue.subscribe;
+export const syncOps = queue.list;
 
+/**
+ * Sends everything now: failed changes are tried again and waiting ones
+ * don't wait out their backoff (Settings → "Try again", dev "Sync now").
+ */
+export const syncNow = queue.retryFailed;
+
+// The connection or the session just came back, or the app was opened:
+// whatever waits is sent at once instead of after its backoff.
 const flushSoon = () => {
-  queue.flush().catch((err) => {
+  queue.flush({ now: true }).catch((err) => {
     if (__DEV__) console.warn('[sync] flush stopped', err?.message ?? err);
   });
 };

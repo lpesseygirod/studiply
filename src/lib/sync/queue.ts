@@ -21,6 +21,10 @@
  *    kind and key (two edits of the same note become one).
  *  - Handlers must be safe to run twice: an operation that reached the
  *    server just before the app was killed runs again on the next start.
+ *  - When the connection comes back (or the student asks), waiting
+ *    operations are tried at once, not after the rest of their backoff.
+ *  - A handler that doesn't answer within its time limit counts as a lost
+ *    connection, so one hung request can never stop the queue for good.
  *
  * The store, the clock and the timer are parameters, so the rules are unit
  * tested with an in-memory store (./memoryStore). ./index wires the real one.
@@ -61,6 +65,8 @@ export interface HandlerContext {
 
 export interface SyncHandler<P = unknown> {
   run: (payload: P, ctx: HandlerContext) => Promise<void>;
+  /** Longest a run may take before it counts as lost (default 2 minutes). */
+  timeoutMs?: number;
   /** Combines a waiting operation's payload with a newer one for the same key. */
   merge?: (earlier: P, later: P) => P;
 }
@@ -107,12 +113,17 @@ export interface QueueDeps {
   random?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (timer: unknown) => void;
+  /** Development log of what the queue does. */
+  log?: (message: string) => void;
 }
 
 /** Errors that never reached a server, or say nothing about the change itself. */
 export type FailureKind = 'retry' | 'refresh' | 'fail' | 'unknown';
 
 const MAX_BACKOFF_MS = 5 * 60_000;
+export const DEFAULT_TIMEOUT_MS = 2 * 60_000;
+/** A kind without a handler yet (its module not loaded) is looked at again after this. */
+const NO_HANDLER_RETRY_MS = 5_000;
 /** Unexplained errors (not network, not HTTP) give up after this many tries. */
 const MAX_UNKNOWN_ATTEMPTS = 5;
 
@@ -135,6 +146,7 @@ export function createSyncQueue(deps: QueueDeps) {
   const setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
   const clearTimer = deps.clearTimer ?? ((t) => clearTimeout(t as ReturnType<typeof setTimeout>));
   const listeners = new Set<(e: SyncEvent) => void>();
+  const log = deps.log ?? (() => {});
 
   let running: Promise<void> | null = null;
   let again = false;
@@ -193,25 +205,38 @@ export function createSyncQueue(deps: QueueDeps) {
   }
 
   /** Runs one operation. Returns false when the flush must stop. */
+  /** The handler's run, or a 408 if it doesn't finish in time. */
+  function runWithTimeout(handler: AnyHandler, op: SyncOp): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const limit = handler.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      const t = setTimer(() => reject(new SyncHttpError('No answer in time.', 408)), limit);
+      handler
+        .run(op.payload, { op, progress: (fraction) => emit({ type: 'progress', op, fraction }) })
+        .then(resolve, reject)
+        .finally(() => clearTimer(t));
+    });
+  }
+
   async function runOne(op: SyncOp): Promise<boolean> {
     const handler = deps.handlers[op.kind];
     if (!handler) {
-      // Registered by a module not loaded yet; try again later.
+      // Registered by a module not loaded yet: look again shortly.
+      log(`no handler for ${op.kind} yet`);
+      schedule(now() + NO_HANDLER_RETRY_MS);
       return false;
     }
 
     let refreshed = false;
     for (;;) {
       inFlight = op.id;
+      log(`${op.kind} ${op.key}: sending (try ${op.attempts + 1})`);
       try {
-        await handler.run(op.payload, {
-          op,
-          progress: (fraction) => emit({ type: 'progress', op, fraction }),
-        });
+        await runWithTimeout(handler, op);
       } catch (err) {
         inFlight = null;
         const message = err instanceof Error ? err.message : String(err);
         let kind = classify(err);
+        log(`${op.kind} ${op.key}: ${kind} (${message})`);
 
         if (kind === 'refresh' && !refreshed) {
           refreshed = true;
@@ -264,8 +289,27 @@ export function createSyncQueue(deps: QueueDeps) {
     }
   }
 
-  /** Sends what can be sent now. Calls during a flush join it. */
-  function flush(): Promise<void> {
+  /** Waiting operations become due now (the connection is back, or the student asked). */
+  async function clearBackoff(): Promise<void> {
+    const userId = deps.userId();
+    if (!userId) return;
+    for (const op of await deps.store.list(userId)) {
+      if (op.status === 'pending' && op.nextAttemptAt) await deps.store.update({ ...op, nextAttemptAt: null });
+    }
+  }
+
+  /**
+   * Sends what can be sent now. Calls during a flush join it. `now` first
+   * clears the backoff of waiting operations (back online, Sync now).
+   */
+  async function flush(options: { now?: boolean } = {}): Promise<void> {
+    if (options.now) {
+      await clearBackoff();
+      if (timer !== null) {
+        clearTimer(timer);
+        timer = null;
+      }
+    }
     if (running) {
       again = true;
       return running;
@@ -329,7 +373,13 @@ export function createSyncQueue(deps: QueueDeps) {
     };
   }
 
-  return { enqueue, flush, counts, pendingFor, retryFailed, discard, subscribe };
+  /** Every waiting or failed operation, oldest first (Settings, development). */
+  async function list(): Promise<SyncOp[]> {
+    const userId = deps.userId();
+    return userId ? deps.store.list(userId) : [];
+  }
+
+  return { enqueue, flush, counts, pendingFor, retryFailed, discard, subscribe, list };
 }
 
 export type SyncQueue = ReturnType<typeof createSyncQueue>;

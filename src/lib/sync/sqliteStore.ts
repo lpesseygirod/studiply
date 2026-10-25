@@ -5,7 +5,7 @@
  * build never loads it (see ./index.web.ts).
  */
 
-import { getCacheDb } from '../cache/store';
+import { getCacheDb, withWriteLock } from '../cache/store';
 import type { QueueStore, SyncOp } from './queue';
 
 interface OutboxRow {
@@ -44,8 +44,7 @@ export const sqliteStore: QueueStore = {
   },
 
   async add(op) {
-    const db = await getCacheDb();
-    await db.runAsync(
+    await withWriteLock((db) => db.runAsync(
       `INSERT INTO outbox (id, user_id, kind, key, payload, created_at, attempts, next_attempt_at, status, last_error)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -60,19 +59,19 @@ export const sqliteStore: QueueStore = {
         op.status,
         op.lastError,
       ],
-    );
+    ));
   },
 
   async update(op) {
-    const db = await getCacheDb();
-    await db.runAsync(
-      `UPDATE outbox SET payload = ?, attempts = ?, next_attempt_at = ?, status = ?, last_error = ? WHERE id = ?`,
-      [JSON.stringify(op.payload), op.attempts, op.nextAttemptAt, op.status, op.lastError, op.id],
+    await withWriteLock((db) =>
+      db.runAsync(
+        `UPDATE outbox SET payload = ?, attempts = ?, next_attempt_at = ?, status = ?, last_error = ? WHERE id = ?`,
+        [JSON.stringify(op.payload), op.attempts, op.nextAttemptAt, op.status, op.lastError, op.id],
+      ),
     );
   },
 
   async remove(id) {
-    const db = await getCacheDb();
-    await db.runAsync(`DELETE FROM outbox WHERE id = ?`, [id]);
+    await withWriteLock((db) => db.runAsync(`DELETE FROM outbox WHERE id = ?`, [id]));
   },
 };

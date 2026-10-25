@@ -23,6 +23,8 @@ function rig(opts: { online?: boolean } = {}) {
     /** Rows on the "server", written with upsert semantics. */
     server: new Map<string, string>(),
     failNext: [] as unknown[],
+    /** The next run never answers (a hung request). */
+    hangNext: false,
     refreshOk: true,
     refreshCalls: 0,
   };
@@ -30,6 +32,10 @@ function rig(opts: { online?: boolean } = {}) {
 
   const write: SyncHandler<Payload> = {
     run: async (p) => {
+      if (state.hangNext) {
+        state.hangNext = false;
+        return new Promise<void>(() => {});
+      }
       const err = state.failNext.shift();
       if (err) throw err;
       state.sent.push(p.value);
@@ -39,10 +45,12 @@ function rig(opts: { online?: boolean } = {}) {
   };
   const plain: SyncHandler<Payload> = { run: write.run };
 
+  const handlers: Record<string, SyncHandler<Payload>> = { write, plain };
+
   const make = () =>
     createSyncQueue({
       store,
-      handlers: { write, plain },
+      handlers,
       userId: () => state.user,
       canSync: () => state.online,
       refresh: async () => {
@@ -71,7 +79,7 @@ function rig(opts: { online?: boolean } = {}) {
     await settle();
   }
 
-  return { store, state, make, advance };
+  return { store, state, make, advance, handlers, plain };
 }
 
 /** Lets fire-and-forget flushes finish. */
@@ -325,4 +333,70 @@ describe('sync queue', () => {
     expect(events.filter((e) => e.type === 'progress').map((e) => (e as { fraction: number }).fraction)).toEqual([0.5, 1]);
     expect(events.some((e) => e.type === 'done')).toBe(true);
   });
+
+  describe('coming back online (step 1.8 test 3)', () => {
+    it('sends at once when the connection returns, even after failures pushed the next try minutes away', async () => {
+      const { state, make, store, advance } = rig();
+      const q = make();
+      // Offline but not known yet: every try fails and the wait grows.
+      state.failNext = Array.from({ length: 9 }, () => new NetworkError());
+      await q.enqueue({ kind: 'plain', key: 'lecture', payload: { value: 'create' } });
+      await q.enqueue({ kind: 'plain', key: 'lecture', payload: { value: 'upload' } });
+      for (let i = 0; i < 8; i++) await advance(Date.parse(store.ops[0].nextAttemptAt as string) - state.now);
+      const wait = Date.parse(store.ops[0].nextAttemptAt as string) - state.now;
+      expect(wait).toBeGreaterThanOrEqual(2 * 60_000);
+      state.failNext = [];
+
+      // A plain flush still waits out the backoff…
+      await q.flush();
+      expect(state.sent).toEqual([]);
+      // …the one run when the connection (or session, or app) comes back doesn't.
+      await q.flush({ now: true });
+      expect(state.sent).toEqual(['create', 'upload']);
+      expect(await q.counts()).toEqual({ pending: 0, failed: 0 });
+    });
+
+    it('a hung request times out instead of blocking every later flush', async () => {
+      const { state, make, store, advance } = rig();
+      const q = make();
+      state.hangNext = true;
+      await q.enqueue({ kind: 'write', key: 'a', payload: { value: '1' } });
+      await settle();
+      expect(state.sent).toEqual([]);
+
+      // The time limit passes: counted as a lost connection, the flush ends.
+      await advance(2 * 60_000);
+      expect(store.ops[0].lastError).toBe('No answer in time.');
+      expect(store.ops[0].status).toBe('pending');
+
+      await q.enqueue({ kind: 'plain', key: 'b', payload: { value: '2' } });
+      await q.flush({ now: true });
+      expect(state.sent).toEqual(['1', '2']);
+    });
+
+    it('an operation whose handler is not registered yet is looked at again shortly', async () => {
+      const { state, make, advance, handlers, plain } = rig();
+      delete handlers.plain;
+      const q = make();
+      await q.enqueue({ kind: 'plain', key: 'a', payload: { value: '1' } });
+      await settle();
+      expect(state.sent).toEqual([]);
+
+      handlers.plain = plain;
+      await advance(5_000);
+      expect(state.sent).toEqual(['1']);
+    });
+
+    it('lists what is waiting, with its tries and last error (dev Sync now panel)', async () => {
+      const { state, make } = rig();
+      const q = make();
+      state.failNext = [new NetworkError()];
+      await q.enqueue({ kind: 'plain', key: 'a', payload: { value: '1' } });
+      await settle();
+      const [op] = await q.list();
+      expect(op).toMatchObject({ kind: 'plain', key: 'a', attempts: 1, status: 'pending' });
+      expect(op.lastError).toMatch(/offline/i);
+    });
+  });
 });
+

@@ -22,6 +22,7 @@ import { getUserSettings, upsertUserSettings } from '../../../src/services/setti
 import type { UserSettings } from '../../../src/types/database';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { setSimulatedOffline, useSimulatedOffline } from '../../../src/lib/connectivity';
+import { SyncDebugPanel } from '../../../src/components/SyncDebugPanel';
 
 // -------------------------------------------------------------------
 // Constants
@@ -359,6 +360,10 @@ export default function GeneralScreen() {
                   thumbColor={Colors.white}
                   ios_backgroundColor={Colors.surfaceMuted}
                 />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <SyncDebugPanel />
               </View>
             </View>
           </>

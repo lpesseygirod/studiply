@@ -30,6 +30,12 @@ export async function pendingSyncFor(_key: string): Promise<SyncOp[]> {
 
 export async function retryFailedSync(): Promise<void> {}
 
+export async function syncNow(): Promise<void> {}
+
+export async function syncOps(): Promise<SyncOp[]> {
+  return [];
+}
+
 export async function discardSync(_id: string): Promise<void> {}
 
 export function onSyncEvent(_fn: (e: SyncEvent) => void): () => void {

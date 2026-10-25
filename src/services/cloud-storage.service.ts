@@ -118,7 +118,9 @@ export async function uploadFile({
     reportFailure();
     throw new UploadError('Could not upload. Check your connection and try again.', 0);
   }
-  reportReachable();
+  // Status 0: the transport gave up without an answer from the server.
+  if (result.status > 0) reportReachable();
+  else reportFailure();
 
   if (result.status < 200 || result.status >= 300) {
     throw new UploadError(errorMessage(result.status, bucket), result.status);
