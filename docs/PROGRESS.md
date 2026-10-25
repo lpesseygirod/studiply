@@ -15,7 +15,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.5 — Transcription on the server (`transcribe-chunk` Edge Function)
 - [x] 1.6 — Claude on the server (`assistant-chat` + `summarize` skeletons)
 - [ ] 1.7 — The app uses the backend (switch services, remove EXPO_PUBLIC keys, prove bundle clean) — **part A (local) done 25 Oct 2026**; part B (remote project) open
-- [ ] 1.8 — Offline cache and sync (SQLite cache + conflict rule)
+- [x] 1.8 — Offline cache and sync (SQLite cache + conflict rule) — done 25 Oct 2026 (iPhone; web stays online-only)
 - [ ] 1.9 — Move existing data (one-time idempotent migration)
 
 ## Phase 2 — App shell (`phase-2-shell`)
@@ -136,6 +136,68 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Browser checks (step 1.7).** The project skill `.claude/skills/web-check` drives headless Chrome over the DevTools protocol (no new dependency) with a throwaway local user that is removed afterwards: `flows.mjs` (menus, dialogs, library, recording flow, settings; free) and `ai-flow.mjs` (spoken lecture → transcript → notes → clarify; about $0.05, or free with `WEB_CHECK_MOCK=1`). Real speech is fed by replacing `getUserMedia`; Chrome's fake-audio file flag stays silent in headless mode.
 - **Bundle check (step 1.7).** `npm run check:bundle` exports the web and iOS bundles and searches them for the actual key values on the Mac (`.env`, `supabase/functions/.env`, local service-role key, secret key, JWT secret), key-shaped strings, the key variable names, `service_role`, the OpenAI / Anthropic API hosts, and SQLite in the web bundle; a control (the public anon key must be found) proves the search works. Run on the code from before 1.7 it finds the Anthropic key in both bundles; on part A's code every count is 0. Not part of `npm run check` (two full exports, a few minutes).
 - **Old app keys removed and revoked (25 Oct 2026, step 1.7).** `EXPO_PUBLIC_OPENAI_API_KEY` and `EXPO_PUBLIC_ANTHROPIC_API_KEY` were deleted from Lea's `.env` (the OpenAI one was already empty) after the bundle check had run with the Anthropic value still present, and Lea revoked both old keys in the OpenAI and Anthropic consoles. Only the Edge Functions hold AI keys now (`supabase/functions/.env` locally; `supabase secrets` remotely in part B); `verify-setup.js` warns if an AI key reappears in `.env`.
+- **Offline on iPhone, online on the web (step 1.8).** The iPhone keeps a copy of the library in its own SQLite file, `studiply-cache.db` (`src/lib/cache`), separate from the old `studiply.db` that step 1.9 uploads. Rows are stored exactly as Supabase returns them, so the same `cloudRows` mappers serve both. Reads go through `readThrough`:
+  - **Online with a usable session:** Supabase answers, and the answer is kept.
+  - **Offline, or before the session is refreshed:** the cache answers (`localQueries`, the same filters as the service queries).
+  - **The whole library is also downloaded in the background:** rows changed since last time (updated_at, re-read a minute back) plus id lists so rows deleted elsewhere disappear, and transcripts of the 20 latest lectures. This runs after sign-in, on back online, and on foreground at most every 2 minutes.
+  - **Rows changed on the iPhone and not synced yet are "dirty":** downloads never replace or drop them, and online answers show them (`withLocalRows`).
+  - **The web has no cache:** `store.web.ts` / `sync/index.web.ts` / `pendingFiles.web.ts` twins. `check:bundle` proves the web bundle has no `expo-sqlite`.
+- **What works offline (step 1.8, Lea 25 Oct).**
+  - **Works:** reading the library, notes and transcripts; editing notes; starting a lecture and recording; attaching photos and PDFs.
+  - **Needs a connection:** creating, renaming, moving or trashing courses and folders ("You're offline. Try again when you're back online."), Search, Recently Deleted and Generate.
+  - **Not shown offline:** photos and audio that aren't on the phone show a placeholder.
+- **Connectivity by probing Supabase, not NetInfo (step 1.8).**
+  - Every request reports to `src/lib/connectivity.ts`. While offline, `GET /auth/v1/health` runs every 10 s and on foreground.
+  - This also notices "Wi-Fi on, backend down", which is how offline is tested locally (`supabase stop`).
+  - Supabase requests get a 20 s timeout. Edge Functions don't, because summarize can take minutes.
+  - No new dependency.
+- **Staying signed in offline (step 1.8).**
+  - When the access token has expired and can't be refreshed, supabase-js reports "no session" but keeps the stored one. AuthProvider then signs in from the stored session (Keychain / localStorage, key `sb-<host>-auth-token`) with the profile cached on the device, and refreshes it once the backend answers.
+  - If Supabase hasn't answered within the 1.5 s splash, the stored session is shown so the library doesn't wait for its ~25 s retry loop.
+  - Reads stay on the cache until the session is refreshed, because an anonymous request would return no rows and empty the cache.
+  - Sign-out works offline: the stored session is removed by the app.
+- **The sync queue (step 1.8, `src/lib/sync/queue.ts`, 25 tests).** Changes made on the iPhone are saved locally first, then queued in the cache database (`outbox`). Rules:
+  - **Order:** first in, first out, one flush at a time. It runs when online with a usable session, on enqueue, back online, session refreshed and foreground.
+  - **Transient failures** (network, 408, 429, 5xx, timeout): the flush stops and the operation stays first, with a backoff of 1 s, 2 s, 4 s … up to 5 minutes. **Back online, foreground and Sync now clear the backoff.**
+  - **401:** the session is refreshed once, then the operation is retried.
+  - **Refused** (other 4xx, a Postgres 23xxx/42xxx error, a file gone): the operation is marked failed and kept, and only its own key (note or lecture) waits behind it.
+  - **Merging:** waiting edits of the same note or lecture are merged.
+  - **Time limits:** each run has one (2 min, uploads 10 min).
+  - **Safe to repeat:** handlers can run twice (upserts by ids made on the phone; local files deleted only after their row exists).
+  - **No overlap between instances:** handlers, a lock and the listeners live on `globalThis`, so a development reload can't leave two queues sending at once. That happened in Lea's test 3.
+  - **Lecture first:** every operation for a lecture first makes sure the lecture exists on the server, creating it from the iPhone's copy if not. Nothing in the queue ever deletes a lecture.
+  - **Error details:** `lastError` keeps the HTTP status and the server's code and message.
+  - **Writes one at a time:** writes to the cache database are serialized. expo-sqlite transactions aren't exclusive, so overlapping writes could fail or roll each other back.
+- **The conflict rule for a note edited on two devices (step 1.8, `src/lib/noteBlocks.ts`).**
+  - **Blocks:** until the Phase 4 editor, the "blocks" are the sections of the old note: title, summary, key concepts, formulas, definitions, tags, unclear parts, clarifications and confirmed.
+  - **What each block remembers:** `summaries.result.blocks[key] = { origin: ai|student, editedAt, device }`. editedAt is the device clock at the edit, never earlier than the version it replaces plus 1 ms. A generated note's blocks are `ai`, an edited block becomes `student`, and old notes count as `ai` at `created_at`.
+  - **What an edit carries:** each block's value when the student started editing (its base) and the new value.
+  - **The merge, against the server:**
+    - server still at the base → apply;
+    - server already has the new value → nothing to do;
+    - both changed it → **the newer edit wins** (a tie goes to the larger device id), and the other side's whole note is stored in `document_versions` (reason `conflict`, `file_id` + `summary_id`, `content.conflict = { blocks, side, device, editedAt, editId }`; the same edit never stores it twice).
+    - Different blocks on two devices both survive.
+  - **Write safety:** the write is a compare-and-swap on `updated_at`; if another write came first, the client reads and merges again, up to 3 times.
+  - **Who runs it:** the web merges at once. The iPhone saves locally, queues the edit, and shows "Saved on this iPhone · syncs when you're back online", then "Saved". When the other device's newer edit won, a one-time notice appears.
+  - **Known limit:** the rule trusts device clocks.
+- **Recordings queued on the iPhone (step 1.8).**
+  - **Chunks:** each finished chunk moves from the iOS cache folder (which iOS may empty) to `documents/pending-uploads/<lectureId>/`. After Stop, the chunks are queued in order.
+  - **Online:** "Saving recording… %" follows the queue.
+  - **Offline:** "Saved on this iPhone. It uploads automatically when you're back online." with Continue (no more dead-end Retry).
+  - **Photos and PDFs:** queued the same way, with an id made on the phone; the thumbnail comes from the local file until uploaded.
+  - **Lectures started offline:** created by the queue, with an id made on the phone. Online creation is unchanged.
+  - **Generate:** waits for the uploads, and says it needs a connection offline.
+  - **Web:** unchanged (uploads at once).
+- **Sign-out with unsynced changes (step 1.8).**
+  - Settings shows "All changes synced" / "N changes waiting to sync" / "N changes couldn't sync · Try again".
+  - Sign-out with unsynced changes asks first: **Sync now** (online only; signs out if everything went through, asks again otherwise), **Cancel**, **Sign out anyway** (the changes are lost).
+  - Sign-out clears the cache, the queue and the pending files of that student.
+- **Development helpers (step 1.8, `__DEV__` only).** Settings → General → DEVELOPMENT has:
+  - **Simulate offline**, for two-device tests where the browser must stay online;
+  - the **sync queue** list, with each operation's tries, next try and last error;
+  - **Sync now**.
+
+  `[sync]` lines are printed in the Metro terminal.
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
 
 ## Things Lea must do
@@ -156,6 +218,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Testing in the browser without spending (step 1.7).** Start Expo with `EXPO_PUBLIC_MOCK_AI=1 npx expo start` for simulated transcripts and notes: no consent dialogs, no OpenAI or Anthropic calls, no `ai_usage` rows.
 - **Before 26 Feb 2027 — replace `whisper-1`.** OpenAI shuts it down that day. Check whether `gpt-transcribe` (or its successor) returns timestamps by now (the last line of `npm run check:transcribe` says so), then change `TRANSCRIBE_MODEL` / `PRICE_PER_MINUTE_USD` in `supabase/functions/_shared/transcript.ts`. If no model gives timestamps, sentence times must be estimated.
 - **Step 10.1 — real consent version.** The consent screen gets a real `policy_version`; update `CONSENT_POLICY_VERSION` to match, so consent given during development no longer counts.
+- **Testing offline (step 1.8).** Expo Go needs Wi-Fi to reach Metro, so "offline" means stopping the backend while the phone stays on Wi-Fi:
+  - **Offline:** `supabase stop` (never `--no-backup`).
+  - **Back online:** `supabase start`, then restart `supabase functions serve`.
+  - The app notices within about 10 s or when it comes to the foreground.
+  - For a two-device test with the browser online, use Settings → General → DEVELOPMENT → Simulate offline on the iPhone. **Sync now** and the queue list are there too.
+  - After changing the app's code, reload it fully (shake → Reload) before an offline test.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
@@ -167,7 +235,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - Unused `sourceFiles` state in `app/(main)/record/review.tsx` (still set from `getActiveSourceFiles`; remove when that screen is rebuilt).
 - **npm audit: `decode-uri-component` DoS in the app bundle** (found at Phase 1 start, accepted). `npm audit --omit=dev` (after `expo install --fix`, 23 Oct 2026): of 18 findings, only `nanoid`, `query-string` and `decode-uri-component` ship in the iOS bundle; the rest are build tools that run only on the Mac. `nanoid` was updated to 3.3.20. `decode-uri-component@0.2.2` (exponential decoding of malformed percent-encoded input, so a crafted deep link could freeze the app) is pulled in by `query-string@7`, which `expo-router` depends on directly; the fix (0.5.x) needs an Expo SDK major upgrade. Low impact (local DoS, needs the user to open a crafted link). Fix before launch: see Things Lea must do.
 - **"Delete data on this device" only deletes this device's data** (step 1.3; renamed and reworded in step 1.7). It removes what earlier versions stored on the iPhone and signs out; the Supabase account, its rows and its Storage files stay, and the dialog now says so. Real account deletion needs a server function and comes in step 10.1. On web it says it's not available yet.
-- **Opening the app offline more than an hour after the last use shows the login screen** (step 1.3). The stored access token has expired and can't be refreshed without a connection, so Supabase reports no session. The stored session isn't deleted on a network error, so it should come back once online, but that path isn't tested yet; logging in again always works. To handle in step 1.8 (offline cache).
+- ~~**Opening the app offline more than an hour after the last use shows the login screen**~~ (step 1.3; fixed in step 1.8: the stored session is used offline and refreshed when the backend answers).
 - ~~**Security screen still says "Your data is stored on this device"**~~ (found in step 1.3; fixed in step 1.7: it now says the library is in the student's cloud account and that AI services get data only after consent).
 - ~~**Web: library empty and saving fails after login**~~ (step 1.3; fixed in step 1.7: the web reads and writes Supabase).
 - ~~**Edge Function code isn't type-checked**~~ (found in step 1.5; fixed in step 1.6: `deno check` is part of `npm run check`).
@@ -179,6 +247,11 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Course cards on wide web windows are very tall** (seen in step 1.7). The square cards grow with the window width; the Phase 2 layout replaces this screen.
 - **Choosing "Not now" shows the error screen titled "Something went wrong"** (step 1.7). The message below is right ("Nothing was sent. Your recording is saved…"); the title is generic. To polish when the review screen is rebuilt (Phase 7).
 - **`[UNCERTAIN]…[/UNCERTAIN]` marks show as raw text on the review screen** (old behaviour, kept in step 1.7). The note prompt still asks for them; Phase 4's editor should render them.
+- **The conflict rule trusts device clocks** (step 1.8). A phone whose clock is far off can win or lose a conflict it shouldn't. Nothing is lost either way: the other version is in `document_versions`.
+- **Conflict versions can't be seen in the app yet** (step 1.8). They're in `document_versions` (Studio); version history with restore comes in step 4.3.
+- **Offline, photos and audio that aren't on the phone show a placeholder** (step 1.8), and post-session lists no "Recording" entry for a recording that hasn't uploaded yet. Caching files for offline viewing isn't planned for v1.
+- **A lecture permanently deleted on another device can come back** (step 1.8, rare). If the iPhone still has unsynced changes or uploads for it, the queue recreates it from the iPhone's copy rather than lose the recording.
+- **Search, Recently Deleted, Generate and course/folder changes need a connection** (step 1.8, by design).
 - **`src/types/supabase.ts` is unformatted** (found in step 1.2). `supabase gen types` prints a hint to format it with `oxfmt`; no formatter is installed and adding one is a new dependency, so it's left as generated. It type-checks and lints clean.
 
 ## Left to later
@@ -190,7 +263,7 @@ Schema pieces step 1.2 deliberately left out; each comes as its own migration in
 - **Choose the Claude model per function** — Phase 6 / 7. Consider a faster, cheaper model (Sonnet) for `assistant-chat` during class (latency and cost) and keep Opus for `summarize`; compare quality and speed on real lectures before deciding. Keep one config place per function (`CLAUDE_MODELS` in `supabase/functions/_shared/claude.ts`), and add the chosen model's price to the table there.
 - **Course glossary and professor's name as a Whisper prompt** — step 5.2 / Phase 7. Pass them to `transcribe-chunk` as Whisper's `prompt` (max 224 tokens), so technical terms and names are spelled right (SUMMARY-SPEC "The lecture input"). `course_settings.professor` exists; the glossary comes with the summary engine.
 - **Resumable uploads (TUS)** — only if step 5.2 shows audio chunks failing on bad connections.
-- **Sync columns** (revision / conflict tracking for the offline cache) — step 1.8.
+- ~~**Sync columns**~~ — done differently in step 1.8: per-block times in the note itself plus `document_versions.file_id` and reason `conflict` (migration `20261025010000_document_version_conflicts`), no revision columns.
 - **Full-text search indexes** (titles, note text, transcripts, glossary terms) — step 3.5.
 - **Trash auto-empty after 30 days** (scheduled job) — step 3.5.
 - **Comments** (margin comments on documents) — step 4.5.

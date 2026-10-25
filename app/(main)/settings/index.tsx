@@ -15,6 +15,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { useConnectivity } from '../../../src/lib/connectivity';
+import { syncEnabled, syncNow, useSyncCounts } from '../../../src/lib/sync';
 import UserAvatar from '../../../src/components/UserAvatar';
 import {
   formatClaude,
@@ -80,6 +82,52 @@ function AiUsageBanner({ usage, onPress }: { usage: TodayUsage; onPress: () => v
       <Text style={[styles.apiBannerText, textTone]}>{reached ? `Daily AI limit reached · ${used}` : `AI today: ${used}`}</Text>
       <Text style={[styles.apiBannerHint, textTone]}>Refresh</Text>
     </TouchableOpacity>
+  );
+}
+
+// -------------------------------------------------------------------
+// SyncBanner — iPhone: are this phone's changes on Studiply yet?
+// -------------------------------------------------------------------
+function SyncBanner() {
+  const { pending, failed } = useSyncCounts();
+  const offline = useConnectivity() === 'offline';
+  const [busy, setBusy] = useState(false);
+  if (!syncEnabled) return null;
+
+  const retry = async () => {
+    setBusy(true);
+    await syncNow().catch(() => {});
+    setBusy(false);
+  };
+
+  if (failed > 0) {
+    return (
+      <TouchableOpacity style={[styles.apiBanner, styles.apiBannerRed]} onPress={retry} disabled={busy} activeOpacity={0.75}>
+        <Ionicons name="alert-circle" size={16} color={Colors.error} />
+        <Text style={[styles.apiBannerText, styles.apiBannerTextRed]}>
+          {failed === 1 ? "1 change couldn't sync" : `${failed} changes couldn't sync`}
+        </Text>
+        {busy ? <ActivityIndicator size="small" color={Colors.error} /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextRed]}>Try again</Text>}
+      </TouchableOpacity>
+    );
+  }
+  if (pending > 0) {
+    return (
+      <TouchableOpacity style={[styles.apiBanner, styles.apiBannerAmber]} onPress={retry} disabled={busy || offline} activeOpacity={0.75}>
+        <Ionicons name="cloud-upload-outline" size={16} color="#8B6914" />
+        <Text style={[styles.apiBannerText, styles.apiBannerTextAmber]}>
+          {pending === 1 ? '1 change waiting to sync' : `${pending} changes waiting to sync`}
+          {offline ? " · syncs when you're back online" : ''}
+        </Text>
+        {!offline && (busy ? <ActivityIndicator size="small" color="#8B6914" /> : <Text style={[styles.apiBannerHint, styles.apiBannerTextAmber]}>Sync</Text>)}
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View style={[styles.apiBanner, styles.apiBannerGreen]}>
+      <Ionicons name="checkmark-circle" size={16} color="#2D8A5A" />
+      <Text style={[styles.apiBannerText, styles.apiBannerTextGreen]}>All changes synced</Text>
+    </View>
   );
 }
 
@@ -172,6 +220,9 @@ export default function SettingsScreen() {
         ) : usage ? (
           <AiUsageBanner usage={usage} onPress={runCheck} />
         ) : null}
+
+        {/* ── Sync status (iPhone) ──────────────────────────────── */}
+        <SyncBanner />
 
         {/* ── App version ───────────────────────────────────────── */}
         <Text style={styles.versionText}>Studiply v0.1.0</Text>

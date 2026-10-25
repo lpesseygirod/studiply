@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { confirmAction } from '../../../src/utils/confirm';
+import { confirmSignOut } from '../../../src/utils/signOut';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 
@@ -24,9 +24,7 @@ export default function SecurityScreen() {
   const username = profile?.username ?? '—';
 
   const handleSignOut = async () => {
-    if (await confirmAction('Sign Out', 'Are you sure you want to sign out?', 'Sign Out')) {
-      await signOut();
-    }
+    await confirmSignOut(signOut, { title: 'Sign Out', message: 'Are you sure you want to sign out?' });
   };
 
   return (

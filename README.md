@@ -32,11 +32,26 @@ functions check consent and a daily limit before anything leaves the server.
 `expo-sqlite` stays on iPhone only, for data from earlier versions (uploaded
 in step 1.9) and the offline cache (step 1.8); the web build never loads it.
 
+### Offline on iPhone (since step 1.8)
+
+The iPhone keeps a copy of the library in `studiply-cache.db` (`src/lib/cache`)
+and keeps working without a connection:
+
+- **Reading:** reads go to Supabase when it answers and to the copy when it doesn't (`readThrough`).
+- **Background download:** a library download keeps the copy complete.
+- **Sync queue:** note edits, lectures started offline, recordings, photos and PDFs are saved on the phone first and sent in order by the sync queue (`src/lib/sync`).
+- **Conflicts:** a note block edited on two devices keeps the newer edit; the other one goes to `document_versions` (`src/lib/noteBlocks.ts`).
+- **Detecting offline:** connectivity is decided by probing Supabase (`src/lib/connectivity.ts`).
+- **Staying signed in:** the student stays signed in offline even after the token has expired.
+- **The web:** it stays online-only and shows a banner when the backend can't be reached.
+
 ## Architecture: how audio becomes notes
 
     record/active.tsx          expo-av records 20-minute chunks; after Stop
             │                  they are uploaded (source-file.service →
-            │                  cloud-storage.service, with progress and retries)
+            │                  cloud-storage.service, with progress and retries;
+            │                  on iPhone through the sync queue, so offline
+            │                  recordings upload later)
             ▼
     Storage audio-chunks       {userId}/{lectureId}/{seq}.m4a, plus an
                                audio_chunks row each
@@ -82,11 +97,12 @@ nothing is counted. Store builds never simulate.
 - PDF export and share
 - Per-call AI cost tracking on the server, today's use against a daily limit, spend by provider and operation
 - The same library, notes and recordings on iPhone and in the browser
+- Offline on iPhone: library, notes and transcripts readable, note edits and new recordings saved and synced later, with a per-block conflict rule
 
 **Planned:**
 
 - Quiz generation from notes (`app/(main)/quiz/` is scaffolded and empty)
-- The remote Supabase project (step 1.7 part B), offline cache (1.8), moving old on-device data (1.9)
+- The remote Supabase project (step 1.7 part B), moving old on-device data (1.9)
 - The app shell, library, editor and summary engine from `docs/BUILD-PLAN.md`
 
 ## Running it locally

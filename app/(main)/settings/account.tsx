@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { confirmAction } from '../../../src/utils/confirm';
+import { confirmSignOut } from '../../../src/utils/signOut';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import UserAvatar from '../../../src/components/UserAvatar';
@@ -260,15 +261,7 @@ export default function AccountScreen() {
   // Sign out
   // -------------------------------------------------------------------
   const handleSignOut = async () => {
-    if (
-      await confirmAction(
-        'Sign out',
-        'You can sign in again with your email and password.',
-        'Sign out',
-      )
-    ) {
-      await signOut();
-    }
+    await confirmSignOut(signOut, { title: 'Sign out', message: 'You can sign in again with your email and password.' });
   };
 
   const username = profile?.username ?? '—';
