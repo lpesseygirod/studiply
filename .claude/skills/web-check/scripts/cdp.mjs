@@ -165,7 +165,12 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       return file;
     },
     errors() { return logs.filter((l) => l.type === 'error' || l.type === 'exception'); },
-    /** Signs in through the onboarding screen and waits for Home. */
+    /** Changes the window size (the app follows live, as when dragging the window edge). */
+    async resize(w, h) {
+      await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+      await sleep(600);
+    },
+    /** Signs in through the onboarding screen and waits for Library. */
     async signIn(base, email, password) {
       await api.nav(base);
       await api.waitText('Sign in', { timeout: 60000 });
@@ -173,7 +178,7 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await api.fill('input[placeholder="Email"]', email);
       await api.fill('input[type="password"]', password);
       await api.click('Sign in');
-      await api.waitText('WORKPLACE', { timeout: 20000 });
+      await api.waitText('COURSES', { timeout: 20000 });
       await sleep(800);
     },
     async close() {

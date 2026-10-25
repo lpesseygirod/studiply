@@ -1,37 +1,45 @@
 import { Tabs, usePathname } from 'expo-router';
-import { Platform, View } from 'react-native';
+import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Colors } from '../../src/constants/colors';
+import { Layout } from '../../src/constants/layout';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
+import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../../src/navigation/mainTabs';
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+// The bar's own height, above the home indicator (React Navigation's default).
+const TAB_BAR_HEIGHT = 49;
 
-function tabIcon(active: IoniconsName, inactive: IoniconsName) {
+function tabIcon(tab: MainTab) {
   function TabIcon({ color, size, focused }: { color: string; size: number; focused: boolean }) {
-    return <Ionicons name={focused ? active : inactive} size={size} color={color} />;
+    return <Ionicons name={focused ? tab.icon.active : tab.icon.inactive} size={size} color={color} />;
   }
   return TabIcon;
 }
 
-// The Record tab gets a circular pill background to draw attention.
-function RecordTabIcon({ focused }: { focused: boolean }) {
+// Record: a big red circle with a white ring, raised above the bar in its exact middle.
+function RecordTabButton({
+  onPress,
+  onLongPress,
+  accessibilityState,
+  testID,
+}: Pick<PressableProps, 'onPress' | 'onLongPress' | 'accessibilityState' | 'testID'>) {
   return (
-    <View
-      style={{
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: focused ? Colors.salmon : Colors.surfaceMuted,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Ionicons
-        name={focused ? 'mic' : 'mic-outline'}
-        size={22}
-        color={focused ? Colors.white : Colors.text.secondary}
-      />
+    <View style={styles.recordSlot} pointerEvents="box-none">
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel="Record lecture"
+        accessibilityState={accessibilityState}
+        style={({ pressed }) => [styles.recordRing, pressed && styles.recordPressed]}
+      >
+        <View style={styles.recordCircle}>
+          <View style={styles.recordDot} />
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -39,76 +47,80 @@ function RecordTabIcon({ focused }: { focused: boolean }) {
 export default function MainLayout() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-
-  // Hide the tab bar on the active recording and post-session screens.
-  // These are full-screen experiences and the user must use in-screen controls.
-  const isFullScreen =
-    pathname.includes('/record/active') ||
-    pathname.includes('/record/post-session') ||
-    pathname.includes('/record/review') ||
-    pathname.includes('/note/');
-
-  const tabBarHeight = Platform.OS === 'ios' ? 76 : 60;
-  const tabBarStyle = isFullScreen
-    ? { display: 'none' as const }
-    : {
-        backgroundColor: Colors.white,
-        borderTopColor: Colors.surfaceMuted,
-        borderTopWidth: 1,
-        height: tabBarHeight,
-      };
+  const isFullScreen = isFullScreenRoute(pathname);
 
   return (
     <View style={{ flex: 1 }}>
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarShowLabel: false,
-          tabBarActiveTintColor: Colors.salmon,
+          tabBarActiveTintColor: Colors.accent,
           tabBarInactiveTintColor: Colors.text.secondary,
-          tabBarStyle,
+          tabBarStyle: isFullScreen ? { display: 'none' } : styles.tabBar,
         }}
       >
-        <Tabs.Screen
-          name="index"
-          options={{
-            tabBarIcon: tabIcon('home', 'home-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="search/index"
-          options={{
-            href: '/search',
-            tabBarIcon: tabIcon('search', 'search-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="record"
-          options={{
-            href: '/record',
-            tabBarIcon: ({ focused }) => <RecordTabIcon focused={focused} />,
-          }}
-        />
-        <Tabs.Screen
-          name="library/index"
-          options={{
-            href: '/library',
-            tabBarIcon: tabIcon('library', 'library-outline'),
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            href: '/settings',
-            tabBarIcon: tabIcon('settings', 'settings-outline'),
-          }}
-        />
+        {MAIN_TABS.map(tab => (
+          <Tabs.Screen
+            key={tab.name}
+            name={tab.name}
+            options={{
+              title: tab.label,
+              tabBarAccessibilityLabel: tab.label,
+              tabBarIcon: tabIcon(tab),
+              // expo-router refuses href together with a custom button; /record is the default anyway.
+              ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
+            }}
+          />
+        ))}
 
-        {/* Hidden screens — navigable but not shown in the tab bar */}
-        <Tabs.Screen name="project/[id]" options={{ href: null }} />
-        <Tabs.Screen name="note/[id]" options={{ href: null }} />
+        {/* Navigable but without a tab */}
+        {HIDDEN_ROUTES.map(name => (
+          <Tabs.Screen key={name} name={name} options={{ href: null }} />
+        ))}
       </Tabs>
-      <OfflineBanner bottom={(isFullScreen ? insets.bottom : tabBarHeight) + 8} />
+      <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />
     </View>
   );
 }
+
+const RING = 4;
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: Colors.white,
+    borderTopColor: Colors.surfaceMuted,
+    borderTopWidth: 1,
+    overflow: 'visible',
+  },
+  recordSlot: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  recordRing: {
+    width: Layout.recordButtonSize,
+    height: Layout.recordButtonSize,
+    borderRadius: Layout.recordButtonSize / 2,
+    marginTop: -Layout.recordButtonSize / 2 + 4,
+    padding: RING,
+    backgroundColor: Colors.white,
+    shadowColor: Colors.black,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  recordPressed: { opacity: 0.85 },
+  recordCircle: {
+    flex: 1,
+    borderRadius: (Layout.recordButtonSize - RING * 2) / 2,
+    backgroundColor: Colors.recording,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.white,
+  },
+});

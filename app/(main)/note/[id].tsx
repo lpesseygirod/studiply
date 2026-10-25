@@ -48,6 +48,7 @@ import HighlightableText, { splitIntoSentences } from '../../../src/components/H
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
 import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -474,6 +475,7 @@ export default function NoteDetailScreen() {
   if (loading || error || !session) {
     return (
       <View style={styles.container}>
+        <GradientFill />
         <StatusBar style="dark" />
         {renderHeader()}
         <View style={styles.center}>
@@ -491,6 +493,7 @@ export default function NoteDetailScreen() {
   if (!note) {
     return (
       <View style={styles.container}>
+        <GradientFill />
         <StatusBar style="dark" />
         {renderHeader()}
         <View style={styles.center}>
@@ -531,6 +534,7 @@ export default function NoteDetailScreen() {
   // -------------------------------------------------------------------
   return (
     <View style={styles.container}>
+      <GradientFill />
       <StatusBar style="dark" />
       {renderHeader()}
 
@@ -1206,7 +1210,7 @@ export default function NoteDetailScreen() {
 // -------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+  container: { flex: 1 },
   center: {
     flex: 1,
     alignItems: 'center',

@@ -21,6 +21,7 @@ import { Typography } from '../../../src/constants/typography';
 import { searchAll } from '../../../src/services/search.service';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import type { SearchResult } from '../../../src/types/database';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -121,6 +122,7 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientFill />
         <StatusBar style="dark" />
 
         <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
@@ -191,12 +193,10 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF9',
   },
   header: {
     paddingHorizontal: 24,
     paddingBottom: 12,
-    backgroundColor: '#FFFDF9',
   },
   appTitle: {
     fontSize: Typography.size.lg,

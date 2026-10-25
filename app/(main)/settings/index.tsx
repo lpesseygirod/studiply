@@ -25,6 +25,7 @@ import {
   getTodayUsage,
   type TodayUsage,
 } from '../../../src/services/credit-check.service';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 const SETTINGS_ROWS = [
   {
@@ -177,6 +178,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientFill />
       <StatusBar style="dark" />
 
       <ScrollView
@@ -252,7 +254,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFDF9',
   },
   content: {
     flexGrow: 1,

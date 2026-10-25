@@ -22,7 +22,7 @@ function RootNavigator() {
     const inMainGroup = segments[0] === '(main)';
 
     if (isOnboarded && inAuthGroup) {
-      router.replace('/(main)');
+      router.replace('/library');
     } else if (!isOnboarded && inMainGroup) {
       router.replace('/(auth)/onboarding');
     } else if (!isOnboarded && !inAuthGroup) {

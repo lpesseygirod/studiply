@@ -11,12 +11,12 @@ type Router = ReturnType<typeof useRouter>;
 /**
  * Leaves the recording flow (recording, post-session, review): closes the
  * record stack so the Record tab starts fresh next time, then opens
- * `destination` (the Library by default). The lecture is already saved;
- * it stays in the library and opens at post-session until it has notes.
+ * the Library. The lecture is already saved; it stays in the library and
+ * opens at post-session until it has notes.
  */
-export function leaveRecordingFlow(router: Router, destination: '/library' | '/' = '/library'): void {
+export function leaveRecordingFlow(router: Router): void {
   if (router.canDismiss()) router.dismissAll();
-  router.navigate(destination);
+  router.navigate('/library');
 }
 
 /**

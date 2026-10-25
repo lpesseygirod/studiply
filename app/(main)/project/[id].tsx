@@ -61,6 +61,7 @@ import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
+import { GradientFill } from '../../../src/components/GradientBackground';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -674,6 +675,7 @@ export default function ProjectDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <GradientFill />
       <StatusBar style="dark" />
 
       {/* ── Header ────────────────────────────────────────────── */}
@@ -1109,7 +1111,7 @@ function UploadButton({
 // -------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // Header
@@ -1313,6 +1315,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.surfaceMuted,
     flex: 0,
+    flexShrink: 0,
     paddingHorizontal: 18,
   },
   fabText: {

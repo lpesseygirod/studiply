@@ -258,7 +258,7 @@ export default function ReviewScreen() {
         // User doesn't want the note — just mark session completed.
         await bulkApplyRetention(sessionId, retention);
         await updateSession(sessionId, { status: 'completed' });
-        leaveRecordingFlow(router, '/');
+        leaveRecordingFlow(router);
         return;
       }
 
@@ -293,7 +293,7 @@ export default function ReviewScreen() {
       await bulkApplyRetention(sessionId, retention);
       await updateSession(sessionId, { status: 'completed' });
 
-      leaveRecordingFlow(router, '/');
+      leaveRecordingFlow(router);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save note.';
       setErrorMessage(msg);

@@ -15,10 +15,23 @@ const STOPS = [
   Colors.gradient.bottomEnd,
 ] as const;
 
+/** The gradient as a layer filling its parent; put it first so the content draws on top. */
+export function GradientFill() {
+  return (
+    <LinearGradient
+      colors={STOPS}
+      style={StyleSheet.absoluteFill}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      pointerEvents="none"
+    />
+  );
+}
+
 export function GradientBackground({ children, style }: { children?: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
     <View style={[styles.fill, style]}>
-      <LinearGradient colors={STOPS} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} />
+      <GradientFill />
       {children}
     </View>
   );
