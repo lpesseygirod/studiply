@@ -29,6 +29,8 @@ import { requestCameraPermission, requestMediaLibraryPermission } from '../../..
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { useConnectivity } from '../../../src/lib/connectivity';
+import { syncEnabled, usePendingSync } from '../../../src/lib/sync';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -92,6 +94,10 @@ export default function PostSessionScreen() {
   const [uploadingCamera, setUploadingCamera] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
+  // iPhone: the recording and files still on their way to Studiply.
+  const offline = useConnectivity() === 'offline';
+  const waitingUploads = usePendingSync(sessionId);
+  const generateBlocked = syncEnabled && (offline || waitingUploads > 0);
 
   // ── Initial data load ────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -253,7 +259,7 @@ export default function PostSessionScreen() {
 
   // ── Generate Notes ───────────────────────────────────────────
   const handleGenerateNotes = async () => {
-    if (!sessionId) return;
+    if (!sessionId || generateBlocked) return;
     setIsGenerating(true);
     try {
       await updateSession(sessionId, { status: 'processing' });
@@ -439,10 +445,17 @@ export default function PostSessionScreen() {
 
       {/* ── Fixed Generate Notes button ───────────────────────── */}
       <View style={[styles.bottomAction, { paddingBottom: insets.bottom + 16 }]}>
+        {generateBlocked && (
+          <Text style={styles.generateHint}>
+            {offline
+              ? 'Generating needs a connection. This lecture is saved in your library.'
+              : `Uploading to Studiply… ${waitingUploads} ${waitingUploads === 1 ? 'step' : 'steps'} left`}
+          </Text>
+        )}
         <TouchableOpacity
-          style={[styles.generateButton, isGenerating && { opacity: 0.6 }]}
+          style={[styles.generateButton, (isGenerating || generateBlocked) && { opacity: 0.6 }]}
           onPress={handleGenerateNotes}
-          disabled={isGenerating}
+          disabled={isGenerating || generateBlocked}
           activeOpacity={0.85}
         >
           {isGenerating ? (
@@ -486,6 +499,12 @@ function MaterialButton({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  generateHint: {
+    fontSize: Typography.size.sm,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   container: { flex: 1, backgroundColor: '#FFFDF9' },
   center: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: {

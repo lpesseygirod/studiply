@@ -89,3 +89,29 @@ export async function hasPendingSync(key: string): Promise<boolean> {
   const ops: SyncOp[] = await queue.pendingFor(key);
   return ops.length > 0;
 }
+
+/** How many operations for this key (e.g. a lecture's uploads) are still waiting. */
+export function usePendingSync(key: string | undefined): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!key) return;
+    let alive = true;
+    const load = () => {
+      queue
+        .pendingFor(key)
+        .then((ops) => {
+          if (alive) setCount(ops.length);
+        })
+        .catch(() => {});
+    };
+    load();
+    const off = queue.subscribe((e: SyncEvent) => {
+      if (e.type === 'changed') load();
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [key]);
+  return count;
+}

@@ -43,3 +43,7 @@ export function useSyncCounts(): { pending: number; failed: number } {
 export async function hasPendingSync(_key: string): Promise<boolean> {
   return false;
 }
+
+export function usePendingSync(_key: string | undefined): number {
+  return 0;
+}

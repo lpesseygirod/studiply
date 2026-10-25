@@ -18,7 +18,14 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { updateSession } from '../../../src/services/session.service';
-import { saveRecordingChunks } from '../../../src/services/source-file.service';
+import {
+  awaitLectureUploads,
+  keepRecordingChunk,
+  queueRecording,
+  saveRecordingChunks,
+} from '../../../src/services/source-file.service';
+import { syncEnabled } from '../../../src/lib/sync';
+import { isOffline } from '../../../src/lib/connectivity';
 import { confirmAction } from '../../../src/utils/confirm';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
@@ -106,6 +113,8 @@ export default function ActiveRecordingScreen() {
   }>();
 
   // ── Recording refs ───────────────────────────────────────────
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
   const currentRecordingRef = useRef<Audio.Recording | null>(null);
   const audioChunksRef      = useRef<RecordedChunk[]>([]);
   const chunkTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +130,9 @@ export default function ActiveRecordingScreen() {
   // Uploading after Stop: progress 0–1, or the error that stopped it.
   const [saveProgress, setSaveProgress] = useState<number | null>(null);
   const [saveError, setSaveError] = useState('');
+  // iPhone: the recording is saved and queued, but can't upload right now.
+  const [savedForLater, setSavedForLater] = useState<'offline' | 'retrying' | null>(null);
+  const queuedRef = useRef(false);
 
   // Re-entry guard for doStop (also keeps auto-stop from firing twice)
   const isStoppingRef = useRef(false);
@@ -173,15 +185,29 @@ export default function ActiveRecordingScreen() {
     pulseAnim.setValue(1);
   }, [pulseAnim]);
 
+  // iPhone: each finished chunk leaves the cache folder (which iOS may empty)
+  // for the app's documents, where it waits for upload. If moving fails the
+  // chunk stays where it is and is uploaded from there.
+  const keepChunk = useCallback(async (chunk: RecordedChunk): Promise<RecordedChunk> => {
+    const id = sessionIdRef.current;
+    if (!id) return chunk;
+    try {
+      return { ...chunk, uri: await keepRecordingChunk(id, audioChunksRef.current.length, chunk.uri) };
+    } catch (e) {
+      console.warn('[active] Could not move the chunk:', e);
+      return chunk;
+    }
+  }, []);
+
   // ── Chunk rotation ───────────────────────────────────────────
-  // useCallback([]) is correct: this function only accesses refs and constants,
-  // so it never needs to update its closure.
+  // Only refs, constants and keepChunk (itself stable), so the closure never
+  // needs to change.
   const rotateChunk = useCallback(async () => {
     try {
       const old = currentRecordingRef.current;
       if (old) {
         const chunk = await finishChunk(old);
-        if (chunk) audioChunksRef.current.push(chunk);
+        if (chunk) audioChunksRef.current.push(await keepChunk(chunk));
       }
       // Gap between chunks is ~100–300ms — imperceptible in a lecture.
       const { recording } = await Audio.Recording.createAsync(LECTURE_RECORDING_OPTIONS);
@@ -190,7 +216,7 @@ export default function ActiveRecordingScreen() {
       console.error('[active] Chunk rotation failed:', e);
       // Non-fatal: recording stays in whatever state it was.
     }
-  }, []);
+  }, [keepChunk]);
 
   // scheduleChunkTimer depends only on rotateChunk (which is stable), so it
   // is itself stable and safe to pass as a dependency or call from a timer.
@@ -322,10 +348,48 @@ export default function ActiveRecordingScreen() {
   // Set by the Library button: after saving, go to the library instead of post-session.
   const leaveAfterSaveRef = useRef(false);
 
+  const leaveAfterSaving = useCallback(() => {
+    if (!sessionId) return;
+    if (leaveAfterSaveRef.current) {
+      leaveRecordingFlow(router);
+      return;
+    }
+    router.replace({
+      pathname: '/record/post-session',
+      params: { sessionId, title: title ?? '', mode: mode ?? '' },
+    });
+  }, [sessionId, title, mode, router]);
+
   const saveRecording = useCallback(async () => {
     if (!profile?.id || !sessionId) return;
     setSaveError('');
     setSaveProgress(0);
+
+    // iPhone: queue the chunks (works offline), then follow the upload.
+    if (syncEnabled) {
+      try {
+        if (!queuedRef.current) {
+          await queueRecording({
+            sessionId,
+            chunks: audioChunksRef.current,
+            durationSeconds: finalDurationRef.current,
+          });
+          queuedRef.current = true;
+        }
+        const outcome = await awaitLectureUploads(sessionId, setSaveProgress);
+        if (outcome === 'later') {
+          setSaveProgress(null);
+          setSavedForLater(isOffline() ? 'offline' : 'retrying');
+          return;
+        }
+        leaveAfterSaving();
+      } catch (err) {
+        setSaveProgress(null);
+        setSaveError(err instanceof Error ? err.message : 'Could not save the recording. Please try again.');
+      }
+      return;
+    }
+
     try {
       await saveRecordingChunks({
         userId: profile.id,
@@ -337,19 +401,12 @@ export default function ActiveRecordingScreen() {
         status: 'transcribing',
         duration_seconds: finalDurationRef.current,
       });
-      if (leaveAfterSaveRef.current) {
-        leaveRecordingFlow(router);
-        return;
-      }
-      router.replace({
-        pathname: '/record/post-session',
-        params: { sessionId, title: title ?? '', mode: mode ?? '' },
-      });
+      leaveAfterSaving();
     } catch (err) {
       setSaveProgress(null);
       setSaveError(err instanceof Error ? err.message : 'Could not save the recording. Please try again.');
     }
-  }, [profile?.id, sessionId, title, mode]);
+  }, [profile?.id, sessionId, leaveAfterSaving]);
 
   // ── Stop recording ───────────────────────────────────────────
   const doStop = useCallback(async () => {
@@ -366,7 +423,7 @@ export default function ActiveRecordingScreen() {
       // Stop the last chunk and collect it.
       const last = await finishChunk(currentRecordingRef.current);
       currentRecordingRef.current = null;
-      if (last) audioChunksRef.current.push(last);
+      if (last) audioChunksRef.current.push(await keepChunk(last));
 
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
     } catch {
@@ -377,7 +434,7 @@ export default function ActiveRecordingScreen() {
     }
 
     await saveRecording();
-  }, [profile?.id, sessionId, stopPulse, clearChunkTimer, saveRecording]);
+  }, [profile?.id, sessionId, stopPulse, clearChunkTimer, saveRecording, keepChunk]);
 
   // Keep the ref in sync so the auto-stop effect always calls the latest version.
   doStopRef.current = doStop;
@@ -461,6 +518,18 @@ export default function ActiveRecordingScreen() {
         {/* ── Saving after Stop ──────────────────────────────── */}
         {saveProgress !== null && (
           <Text style={styles.saveText}>Saving recording… {Math.round(saveProgress * 100)}%</Text>
+        )}
+        {savedForLater && (
+          <View style={styles.saveErrorBox}>
+            <Text style={styles.saveText}>
+              {savedForLater === 'offline'
+                ? "Saved on this iPhone. It uploads automatically when you're back online."
+                : 'Saved on this iPhone. It finishes uploading automatically.'}
+            </Text>
+            <TouchableOpacity style={styles.errorBackButton} onPress={leaveAfterSaving}>
+              <Text style={styles.errorBackText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
         )}
         {!!saveError && (
           <View style={styles.saveErrorBox}>

@@ -3,9 +3,32 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { newId } from '../lib/mappers';
 import { serviceError, type FileRow, type LectureRow } from '../lib/cloudRows';
-import { readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
+import {
+  cacheUser,
+  isSessionLive,
+  markClean,
+  notifyLibraryUpdated,
+  readRow,
+  readRows,
+  readThrough,
+  remember,
+  rememberScope,
+  saveLocalRow,
+  withLocalRows,
+} from '../lib/cache';
 import { audioOf, courseMedia, mediaOf } from '../lib/cache/localQueries';
-import { isOffline } from '../lib/connectivity';
+import { getConnection, isOffline } from '../lib/connectivity';
+import { keepPendingFile, pendingFileExists, removePendingFile } from '../lib/pendingFiles';
+import {
+  enqueue,
+  onSyncEvent,
+  pendingSyncFor,
+  PermanentSyncError,
+  registerSyncHandler,
+  syncEnabled,
+} from '../lib/sync';
+import { syncError } from '../lib/sync/errors';
+import { updateSession } from './session.service';
 import { toJpeg } from '../utils/toJpeg';
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
@@ -19,6 +42,10 @@ import type { SourceFile } from '../types/database';
  *    files in `photos` / `slides` at {userId}/{lectureId}/{mediaId}.{ext};
  *    a PDF's original name is kept in media.caption.
  * Files are uploaded when they are added, so they show on every device.
+ * On the iPhone, recordings, photos and PDFs go through the sync queue: the
+ * file is kept in the app's documents folder (src/lib/pendingFiles) and
+ * uploaded when there is a connection, so nothing is lost offline. Until
+ * then file_path is the local file.
  * SourceFile.file_path is a 1-hour signed URL for showing or playing the
  * file; storage_path is the path in its bucket. Audio retention is set on
  * the lecture (audio only: photos and PDFs are study material and stay).
@@ -85,7 +112,10 @@ function chunkToSourceFile(
   };
 }
 
-function mediaToSourceFile(media: MediaRow, url: string): SourceFile {
+/** A media row made on this iPhone and not uploaded yet carries its local file. */
+type LocalMediaRow = MediaRow & { local_uri?: string };
+
+function mediaToSourceFile(media: LocalMediaRow, url: string): SourceFile {
   return {
     id: media.id,
     user_id: media.user_id,
@@ -98,7 +128,7 @@ function mediaToSourceFile(media: MediaRow, url: string): SourceFile {
     scheduled_deletion_at: null,
     is_deleted: false,
     storage_path: media.storage_path,
-    is_uploaded: true,
+    is_uploaded: !media.local_uri,
     created_at: media.created_at,
     display_name: media.caption,
   };
@@ -177,6 +207,20 @@ export async function createSourceFile(params: {
   }
 
   const kind = params.fileType === 'photo' ? 'photo' : 'slides';
+  if (syncEnabled) {
+    return queueMedia({
+      id,
+      userId: params.userId,
+      sessionId,
+      kind,
+      // A converted photo is ours to move; a picked PDF is the picker's copy.
+      uri: await keepPendingFile(sessionId, `${id}.${ext}`, uri, params.fileType === 'pdf'),
+      contentType,
+      ext,
+      sizeBytes: params.fileType === 'photo' ? null : (params.fileSizeBytes ?? null),
+      caption: params.fileType === 'pdf' ? (params.fileName ?? null) : null,
+    });
+  }
   const { path } = await uploadFile({
     bucket: mediaBucket(kind),
     path: `${sessionId}/${id}.${ext}`,
@@ -246,6 +290,11 @@ export async function saveRecordingChunks(params: {
   return saved;
 }
 
+/** Just enough of a lecture file for courseMedia's filter. */
+function files(lectures: { id: string }[]): FileRow[] {
+  return lectures.map((l) => ({ id: l.id, kind: 'lecture', deleted_at: null }) as FileRow);
+}
+
 // -------------------------------------------------------------------
 // getProjectSourceFiles
 // Returns all photo and PDF files across every lecture in a project,
@@ -271,15 +320,21 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
         .order('created_at', { ascending: false });
       if (mediaError) throw serviceError(mediaError, 'Could not load the project files.');
       remember('media', media);
-      return media;
+      const ids = new Set(lectures.map((l) => l.id));
+      const withLocal = await withLocalRows('media', media, (m) => m.lecture_id !== null && ids.has(m.lecture_id));
+      return withLocal === media ? media : courseMedia(withLocal, files(lectures), projectId);
     },
     async () => {
-      const [media, files] = await Promise.all([readRows<MediaRow>('media'), readRows<FileRow>('files')]);
-      return courseMedia(media, files, projectId);
+      const [media, lectureFiles] = await Promise.all([readRows<MediaRow>('media'), readRows<FileRow>('files')]);
+      return courseMedia(media, lectureFiles, projectId);
     },
   );
 
-  return Promise.all(media.map(async (m) => mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path))));
+  return Promise.all(
+    media.map(async (m) =>
+      mediaToSourceFile(m, (m as LocalMediaRow).local_uri ?? (await signed(mediaBucket(m.kind), m.storage_path))),
+    ),
+  );
 }
 
 // -------------------------------------------------------------------
@@ -305,7 +360,9 @@ export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
       if (error) throw serviceError(error, 'Could not load the files.');
       rememberScope('audio_chunks', chunks.data ?? [], (c) => c.lecture_id === sessionId && c.storage_path !== null);
       rememberScope('media', media.data ?? [], (m) => m.lecture_id === sessionId);
-      return { lecture: lecture.data, chunks: chunks.data ?? [], media: media.data ?? [] };
+      // Photos and PDFs added on this iPhone that are still uploading.
+      const withLocal = await withLocalRows('media', media.data ?? [], (m) => m.lecture_id === sessionId);
+      return { lecture: lecture.data, chunks: chunks.data ?? [], media: mediaOf(withLocal, sessionId) };
     },
     async () => {
       const lecture = await readRow<LectureRow>('lectures', sessionId);
@@ -320,7 +377,7 @@ export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
 
   return Promise.all([
     ...chunks.map(async (c) => chunkToSourceFile(c, lecture, await signed(Buckets.audioChunks, c.storage_path))),
-    ...media.map(async (m) => mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path))),
+    ...media.map(async (m) => mediaToSourceFile(m, (m as LocalMediaRow).local_uri ?? (await signed(mediaBucket(m.kind), m.storage_path)))),
   ]);
 }
 
@@ -448,4 +505,224 @@ export async function bulkApplyRetention(
     Buckets.audioChunks,
     chunks.map((c) => c.storage_path as string),
   ).catch(() => {});
+}
+
+// -------------------------------------------------------------------
+// The iPhone's upload queue for recordings, photos and PDFs
+// -------------------------------------------------------------------
+
+/**
+ * Moves a finished recording chunk out of the cache folder (which iOS may
+ * empty) into the app's documents folder. Called for each chunk as soon as
+ * it is finished. On the web the browser's blob URL is kept as it is.
+ */
+export async function keepRecordingChunk(sessionId: string, seq: number, uri: string): Promise<string> {
+  if (!syncEnabled) return uri;
+  const ext = uri.split('.').pop()?.toLowerCase() || 'm4a';
+  return keepPendingFile(sessionId, `${String(seq).padStart(4, '0')}.${ext}`, uri);
+}
+
+interface UploadChunkPayload {
+  lectureId: string;
+  seq: number;
+  startMs: number;
+  durationMs: number;
+  uri: string;
+}
+
+interface UploadMediaPayload {
+  id: string;
+  lectureId: string;
+  kind: 'photo' | 'slides';
+  uri: string;
+  contentType: string;
+  ext: string;
+  sizeBytes: number | null;
+  caption: string | null;
+}
+
+/**
+ * After Stop on the iPhone: the lecture becomes "uploading" with its length,
+ * every chunk is queued in recording order, then the lecture moves on to
+ * "transcribing". Nothing needs a connection; the queue sends it when it can.
+ */
+export async function queueRecording(params: {
+  sessionId: string;
+  chunks: { uri: string; durationMs: number }[];
+  durationSeconds: number;
+}): Promise<void> {
+  const { sessionId } = params;
+  // Through updateSession: the lecture may itself still be waiting to be created.
+  await enqueueLectureStatus(sessionId, 'uploading', params.durationSeconds);
+  let startMs = 0;
+  for (let seq = 0; seq < params.chunks.length; seq++) {
+    const chunk = params.chunks[seq];
+    await enqueue<UploadChunkPayload>({
+      kind: 'upload_chunk',
+      key: sessionId,
+      payload: { lectureId: sessionId, seq, startMs, durationMs: chunk.durationMs, uri: chunk.uri },
+    });
+    startMs += chunk.durationMs;
+  }
+  await updateSession(sessionId, { status: 'transcribing' });
+}
+
+/** The lecture row as "uploading" (no app status for it), queued in order. */
+async function enqueueLectureStatus(sessionId: string, status: 'uploading', durationSeconds: number): Promise<void> {
+  const lecture = await readRow<LectureRow>('lectures', sessionId);
+  const durationMs = Math.round(durationSeconds * 1000);
+  if (lecture) {
+    const next: LectureRow = { ...lecture, status, duration_ms: durationMs, updated_at: new Date().toISOString() };
+    await saveLocalRow('lectures', next);
+  }
+  await enqueue({
+    kind: 'update_lecture',
+    key: sessionId,
+    payload: { id: sessionId, file: {}, lecture: { status, duration_ms: durationMs } },
+  });
+}
+
+async function queueMedia(
+  media: Omit<UploadMediaPayload, 'lectureId'> & { sessionId: string; userId: string },
+): Promise<SourceFile> {
+  const userId = cacheUser() ?? media.userId;
+  const at = new Date().toISOString();
+  const row: LocalMediaRow = {
+    id: media.id,
+    user_id: userId,
+    lecture_id: media.sessionId,
+    file_id: null,
+    kind: media.kind,
+    // Where uploadFile will put it ({userId}/…).
+    storage_path: `${userId}/${media.sessionId}/${media.id}.${media.ext}`,
+    url: null,
+    mime_type: media.contentType,
+    size_bytes: media.sizeBytes,
+    t_ms: null,
+    page_count: null,
+    extracted_text: null,
+    caption: media.caption,
+    alt_text: null,
+    created_at: at,
+    updated_at: at,
+    local_uri: media.uri,
+  };
+  await saveLocalRow('media', row);
+  const { sessionId, userId: _owner, ...rest } = media;
+  await enqueue<UploadMediaPayload>({ kind: 'upload_media', key: sessionId, payload: { ...rest, lectureId: sessionId } });
+  return mediaToSourceFile(row, media.uri);
+}
+
+registerSyncHandler<UploadChunkPayload>('upload_chunk', {
+  run: async (p, ctx) => {
+    if (!(await pendingFileExists(p.uri))) {
+      // Uploaded just before the app was closed (the file is deleted after).
+      const { data, error } = await supabase
+        .from('audio_chunks')
+        .select('id')
+        .eq('lecture_id', p.lectureId)
+        .eq('seq', p.seq)
+        .not('storage_path', 'is', null)
+        .maybeSingle();
+      if (error) throw syncError(error, 'Could not save the recording.');
+      if (data) return;
+      throw new PermanentSyncError('This part of the recording is no longer on this iPhone.');
+    }
+    await createSourceFile({
+      userId: cacheUser() ?? '',
+      sessionId: p.lectureId,
+      fileType: 'audio',
+      filePath: p.uri,
+      seq: p.seq,
+      startMs: p.startMs,
+      durationMs: p.durationMs,
+      onProgress: ctx.progress,
+    });
+    await removePendingFile(p.uri);
+  },
+});
+
+registerSyncHandler<UploadMediaPayload>('upload_media', {
+  run: async (p, ctx) => {
+    const bucket = mediaBucket(p.kind);
+    const { data: existing, error: readError } = await supabase.from('media').select('*').eq('id', p.id).maybeSingle();
+    if (readError) throw syncError(readError, 'Could not save the file.');
+
+    let row = existing;
+    if (!row) {
+      if (!(await pendingFileExists(p.uri))) {
+        throw new PermanentSyncError('This file is no longer on this iPhone.');
+      }
+      const { path } = await uploadFile({
+        bucket,
+        path: `${p.lectureId}/${p.id}.${p.ext}`,
+        uri: p.uri,
+        contentType: p.contentType,
+        upsert: true,
+        onProgress: ctx.progress,
+      });
+      const { data, error } = await supabase
+        .from('media')
+        .insert({
+          id: p.id,
+          lecture_id: p.lectureId,
+          kind: p.kind,
+          storage_path: path,
+          mime_type: p.contentType,
+          size_bytes: p.sizeBytes,
+          caption: p.caption,
+        })
+        .select('*')
+        .single();
+      if (error) {
+        const failure = syncError(error, 'Could not save the file.');
+        if (failure instanceof PermanentSyncError) await removeFiles(bucket, [path]).catch(() => {});
+        throw failure;
+      }
+      row = data;
+    }
+    await markClean('media', p.id, row);
+    await removePendingFile(p.uri);
+    notifyLibraryUpdated();
+  },
+});
+
+/**
+ * Waits while a lecture's queued work is sent, reporting the share of its
+ * operations done. Resolves 'uploaded' when nothing is left, or 'later' as
+ * soon as it can't go on now (offline, or an operation must wait or failed);
+ * the queue then finishes on its own.
+ */
+export function awaitLectureUploads(
+  sessionId: string,
+  onProgress?: (fraction: number) => void,
+): Promise<'uploaded' | 'later'> {
+  if (!syncEnabled) return Promise.resolve('uploaded');
+  return new Promise((resolve) => {
+    let total = 0;
+    let settled = false;
+    const finish = (outcome: 'uploaded' | 'later') => {
+      if (settled) return;
+      settled = true;
+      offEvent();
+      resolve(outcome);
+    };
+    const check = async () => {
+      const ops = await pendingSyncFor(sessionId);
+      total = Math.max(total, ops.length);
+      if (ops.length === 0) return finish('uploaded');
+      const blocked = getConnection() === 'offline' || !isSessionLive();
+      if (blocked || ops.some((o) => o.status === 'failed' || o.nextAttemptAt)) {
+        return finish('later');
+      }
+      onProgress?.(total === 0 ? 1 : (total - ops.length) / total);
+    };
+    const offEvent = onSyncEvent((e) => {
+      if (e.type === 'progress' && e.op.key === sessionId && total > 0) {
+        pendingSyncFor(sessionId).then((ops) => onProgress?.((total - ops.length + e.fraction) / total));
+      }
+      if (e.type === 'changed' || e.type === 'failed') check().catch(() => finish('later'));
+    });
+    check().catch(() => finish('later'));
+  });
 }

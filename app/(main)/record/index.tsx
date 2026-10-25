@@ -28,6 +28,7 @@ import { getUserSettings } from '../../../src/services/settings.service';
 import { createSession } from '../../../src/services/session.service';
 import { getTodayUsage, type TodayUsage } from '../../../src/services/credit-check.service';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { isOffline } from '../../../src/lib/connectivity';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,9 @@ export default function RecordSetupScreen() {
   }, [loadData]);
 
   // Today's AI use, to warn when a daily limit is reached (best-effort)
+  // Skipped offline: recording never waits for it.
   useEffect(() => {
+    if (isOffline()) return;
     getTodayUsage().then(setUsage).catch(() => {});
   }, []);
 

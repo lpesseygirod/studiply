@@ -10,7 +10,30 @@ import {
   type LectureRow,
   type SummaryRow,
 } from '../lib/cloudRows';
-import { readRow, readRows, readThrough, rememberLectureFiles } from '../lib/cache';
+import {
+  cacheUser,
+  markClean,
+  notifyLibraryUpdated,
+  readRow,
+  readRows,
+  readThrough,
+  remember,
+  rememberLectureFiles,
+  saveLocalRow,
+  withLocalRows,
+} from '../lib/cache';
+import { isNetworkError } from '../lib/cloudRows';
+import { isOffline } from '../lib/connectivity';
+import { newId } from '../lib/mappers';
+import {
+  enqueue,
+  hasPendingSync,
+  pendingSyncFor,
+  PermanentSyncError,
+  registerSyncHandler,
+  syncEnabled,
+} from '../lib/sync';
+import { syncError } from '../lib/sync/errors';
 import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
 import type { Session } from '../types/database';
@@ -22,7 +45,9 @@ import type { Session } from '../types/database';
  * column; it is read from the lecture's note and otherwise 'lecture'.
  *
  * Reads go through the iPhone's cache (src/lib/cache), so the library opens
- * offline.
+ * offline. Offline, the iPhone can still start a lecture: it is saved in the
+ * cache and created on the server by the sync queue (src/lib/sync), with any
+ * change made to it meanwhile; it shows in the library at once.
  */
 
 const LECTURE_SELECT = '*, lectures(*)';
@@ -35,6 +60,23 @@ function toSessions(rows: unknown[]): Session[] {
 async function cachedLectures(): Promise<{ files: FileRow[]; lectures: LectureRow[] }> {
   const [files, lectures] = await Promise.all([readRows<FileRow>('files'), readRows<LectureRow>('lectures')]);
   return { files, lectures };
+}
+
+/**
+ * Lectures started or changed on this iPhone that haven't synced yet, put
+ * into a server answer so they show (and in their latest state).
+ */
+async function withUnsyncedLectures(
+  answer: LectureFileRow[],
+  scope: LectureScope,
+  limit?: number,
+): Promise<LectureFileRow[]> {
+  const fileRows = answer.map(({ lectures: _lecture, ...file }) => file as FileRow);
+  const lectureRows = answer.flatMap((r) => (r.lectures ? [r.lectures] : []));
+  const files = await withLocalRows('files', fileRows, (f) => inLectureScope(f, scope));
+  const lectures = await withLocalRows('lectures', lectureRows, (l) => files.some((f) => f.id === l.id));
+  if (files === fileRows && lectures === lectureRows) return answer;
+  return lecturesIn(files, lectures, scope, limit);
 }
 
 /** Lecture files of a scope: Supabase, kept in the cache, or the cache offline. */
@@ -50,7 +92,7 @@ async function lectureList(
       if (error || !data) throw serviceError(error, failMessage);
       const answer = data as LectureFileRow[];
       rememberLectureFiles(answer, limit === undefined ? (f) => inLectureScope(f, scope) : undefined);
-      return answer;
+      return withUnsyncedLectures(answer, scope, limit);
     },
     async () => {
       const { files, lectures } = await cachedLectures();
@@ -73,6 +115,16 @@ export async function createSession(params: {
   recordingMode: 'lecture' | 'standard' | 'discussion';
   language: string;
 }): Promise<Session> {
+  if (syncEnabled && isOffline()) return createSessionOnDevice(params);
+  try {
+    return await createSessionOnline(params);
+  } catch (err) {
+    if (syncEnabled && isNetworkError(err)) return createSessionOnDevice(params);
+    throw err;
+  }
+}
+
+async function createSessionOnline(params: Parameters<typeof createSession>[0]): Promise<Session> {
   const { data: file, error } = await supabase
     .from('files')
     .insert({
@@ -100,8 +152,160 @@ export async function createSession(params: {
     throw serviceError(lectureError, 'Could not start the recording.');
   }
 
+  rememberLectureFiles([{ ...file, lectures: lecture }]);
   return lectureToSession({ ...file, lectures: lecture }, params.recordingMode);
 }
+
+// -------------------------------------------------------------------
+// Lectures started and changed on the iPhone while offline
+// Saved in the cache with an id made here, then created on the server
+// by the queue (create_lecture), followed by the changes (update_lecture).
+// -------------------------------------------------------------------
+interface CreateLecturePayload {
+  file: Pick<FileRow, 'id' | 'kind' | 'title' | 'course_id' | 'folder_id' | 'created_at'>;
+  lecture: Pick<LectureRow, 'id' | 'language' | 'status' | 'recorded_at'>;
+}
+
+interface UpdateLecturePayload {
+  id: string;
+  file: Partial<Pick<FileRow, 'title' | 'course_id' | 'folder_id'>>;
+  lecture: Partial<Pick<LectureRow, 'language' | 'status' | 'duration_ms'>>;
+}
+
+async function createSessionOnDevice(params: Parameters<typeof createSession>[0]): Promise<Session> {
+  const userId = cacheUser();
+  if (!userId) throw new Error('Could not start the recording.');
+  const id = newId();
+  const at = new Date().toISOString();
+  const file: FileRow = {
+    id,
+    user_id: userId,
+    kind: 'lecture',
+    title: params.title.trim(),
+    course_id: params.projectId ?? null,
+    folder_id: params.folderId ?? null,
+    sort_order: 0,
+    starred_at: null,
+    last_opened_at: null,
+    deleted_at: null,
+    created_at: at,
+    updated_at: at,
+  };
+  const lecture: LectureRow = {
+    id,
+    user_id: userId,
+    lecture_number: null,
+    recorded_at: at,
+    duration_ms: null,
+    language: languageToDb(params.language),
+    status: 'recording',
+    transcript_quality: null,
+    avg_confidence: null,
+    audio_retention: 'delete_3_days',
+    audio_delete_after: null,
+    created_at: at,
+    updated_at: at,
+  };
+  await saveLocalRow('files', file);
+  await saveLocalRow('lectures', lecture);
+  await enqueue<CreateLecturePayload>({
+    kind: 'create_lecture',
+    key: id,
+    payload: {
+      file: { id, kind: 'lecture', title: file.title, course_id: file.course_id, folder_id: file.folder_id, created_at: at },
+      lecture: { id, language: lecture.language, status: lecture.status, recorded_at: at },
+    },
+  });
+  notifyLibraryUpdated();
+  return lectureToSession({ ...file, lectures: lecture }, params.recordingMode);
+}
+
+/** Applies a change to the cached lecture and queues it. */
+async function updateSessionOnDevice(sessionId: string, update: UpdateLecturePayload): Promise<Session> {
+  const [file, lecture] = await Promise.all([
+    readRow<FileRow>('files', sessionId),
+    readRow<LectureRow>('lectures', sessionId),
+  ]);
+  if (!file) throw new Error('Session not found.');
+  const at = new Date().toISOString();
+  const defined = <T extends object>(patch: T) =>
+    Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+
+  const nextFile: FileRow = { ...file, ...defined(update.file), updated_at: at };
+  await saveLocalRow('files', nextFile);
+  let nextLecture = lecture;
+  if (lecture) {
+    nextLecture = { ...lecture, ...defined(update.lecture), updated_at: at };
+    await saveLocalRow('lectures', nextLecture);
+  }
+  await enqueue<UpdateLecturePayload>({
+    kind: 'update_lecture',
+    key: sessionId,
+    payload: { id: sessionId, file: defined(update.file), lecture: defined(update.lecture) },
+  });
+  notifyLibraryUpdated();
+  return getSession(sessionId);
+}
+
+/** The lecture as the server has it now; clean in the cache unless more is waiting. */
+async function refreshSynced(id: string): Promise<void> {
+  const { data, error } = await supabase.from('files').select(LECTURE_SELECT).eq('id', id).maybeSingle();
+  if (error || !data) return;
+  // The running operation itself is still listed.
+  if ((await pendingSyncFor(id)).length > 1) return;
+  const { lectures: lecture, ...file } = data as LectureFileRow;
+  await markClean('files', id, file);
+  if (lecture) await markClean('lectures', id, lecture);
+  remember('files', [file]);
+}
+
+registerSyncHandler<CreateLecturePayload>('create_lecture', {
+  run: async ({ file, lecture }) => {
+    // ignoreDuplicates: a resent operation leaves the existing rows alone.
+    const { error } = await supabase
+      .from('files')
+      .upsert(
+        { id: file.id, kind: file.kind, title: file.title, course_id: file.course_id, folder_id: file.folder_id },
+        { onConflict: 'id', ignoreDuplicates: true },
+      );
+    if (error) throw syncError(error, 'Could not create the lecture.');
+
+    const { error: lectureError } = await supabase
+      .from('lectures')
+      .upsert(
+        { id: lecture.id, language: lecture.language, status: lecture.status, recorded_at: lecture.recorded_at },
+        { onConflict: 'id', ignoreDuplicates: true },
+      );
+    if (lectureError) {
+      const failure = syncError(lectureError, 'Could not create the lecture.');
+      // Today's rule: no half-made lecture in the library.
+      if (failure instanceof PermanentSyncError) await supabase.from('files').delete().eq('id', file.id);
+      throw failure;
+    }
+    await refreshSynced(file.id);
+    notifyLibraryUpdated();
+  },
+});
+
+registerSyncHandler<UpdateLecturePayload>('update_lecture', {
+  run: async ({ id, file, lecture }) => {
+    if (Object.keys(file).length > 0) {
+      const { error } = await supabase.from('files').update(file).eq('id', id);
+      if (error) throw syncError(error, 'Could not save the lecture.');
+    }
+    if (Object.keys(lecture).length > 0) {
+      const { error } = await supabase.from('lectures').update(lecture).eq('id', id);
+      if (error) throw syncError(error, 'Could not save the lecture.');
+    }
+    await refreshSynced(id);
+    notifyLibraryUpdated();
+  },
+  merge: (earlier, later) => ({
+    id: earlier.id,
+    file: { ...earlier.file, ...later.file },
+    lecture: { ...earlier.lecture, ...later.lecture },
+  }),
+});
 
 // -------------------------------------------------------------------
 // updateSession
@@ -140,6 +344,29 @@ export async function updateSession(
   };
   const has = (patch: object) => Object.values(patch).some((v) => v !== undefined);
 
+  // On the iPhone, a lecture with queued work (or no connection) changes in
+  // order behind it.
+  if (syncEnabled && (isOffline() || (await hasPendingSync(sessionId)))) {
+    return updateSessionOnDevice(sessionId, { id: sessionId, file: filePatch, lecture: lecturePatch });
+  }
+
+  try {
+    await updateSessionOnline(sessionId, filePatch, lecturePatch, has);
+  } catch (err) {
+    if (syncEnabled && isNetworkError(err)) {
+      return updateSessionOnDevice(sessionId, { id: sessionId, file: filePatch, lecture: lecturePatch });
+    }
+    throw err;
+  }
+  return getSession(sessionId);
+}
+
+async function updateSessionOnline(
+  sessionId: string,
+  filePatch: UpdateLecturePayload['file'],
+  lecturePatch: UpdateLecturePayload['lecture'],
+  has: (patch: object) => boolean,
+): Promise<void> {
   if (has(filePatch)) {
     const { error } = await supabase.from('files').update(filePatch).eq('id', sessionId);
     if (error) throw serviceError(error, 'Could not save the lecture.');
@@ -148,14 +375,30 @@ export async function updateSession(
     const { error } = await supabase.from('lectures').update(lecturePatch).eq('id', sessionId);
     if (error) throw serviceError(error, 'Could not save the lecture.');
   }
-  return getSession(sessionId);
+}
+
+type SessionAnswer = LectureFileRow & { summaries: { result: Json | null; created_at: string }[] | null };
+
+/** A lecture from the cache, in the shape getSession reads from Supabase. */
+async function localSession(sessionId: string, fallback: SessionAnswer | null): Promise<SessionAnswer | null> {
+  const file = await readRow<FileRow>('files', sessionId);
+  if (!file || file.kind !== 'lecture') return fallback;
+  const [lecture, summaries] = await Promise.all([
+    readRow<LectureRow>('lectures', sessionId),
+    readRows<SummaryRow>('summaries', sessionId),
+  ]);
+  const note = latestNote(summaries, { ...file, deleted_at: null });
+  return {
+    ...withLectures([file], lecture ? [lecture] : [])[0],
+    summaries: note ? [{ result: note.result, created_at: note.created_at }] : (fallback?.summaries ?? []),
+  };
 }
 
 // -------------------------------------------------------------------
 // getSession
 // -------------------------------------------------------------------
 export async function getSession(sessionId: string): Promise<Session> {
-  type Answer = LectureFileRow & { summaries: { result: Json | null; created_at: string }[] | null };
+  type Answer = SessionAnswer;
   const data = await readThrough<Answer | null>(
     async () => {
       const { data, error } = await supabase
@@ -169,21 +412,12 @@ export async function getSession(sessionId: string): Promise<Session> {
         const { summaries: _notes, ...file } = data as Answer;
         rememberLectureFiles([file]);
       }
-      return data as Answer | null;
+      if (!syncEnabled) return data as Answer | null;
+      // Started or changed on this iPhone and not synced yet: the local copy.
+      if (!data || (await hasPendingSync(sessionId))) return localSession(sessionId, data as Answer | null);
+      return data as Answer;
     },
-    async () => {
-      const file = await readRow<FileRow>('files', sessionId);
-      if (!file || file.kind !== 'lecture') return null;
-      const [lecture, summaries] = await Promise.all([
-        readRow<LectureRow>('lectures', sessionId),
-        readRows<SummaryRow>('summaries', sessionId),
-      ]);
-      const note = latestNote(summaries, { ...file, deleted_at: null });
-      return {
-        ...withLectures([file], lecture ? [lecture] : [])[0],
-        summaries: note ? [{ result: note.result, created_at: note.created_at }] : [],
-      };
-    },
+    () => localSession(sessionId, null),
   );
   if (!data) throw new Error('Session not found.');
 

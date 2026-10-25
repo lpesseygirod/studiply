@@ -138,3 +138,28 @@ export async function withLocalChanges<T extends { id: string }>(tbl: CachedTabl
   if (dirty.size === 0) return rows;
   return Promise.all(rows.map(async (r) => (dirty.has(r.id) ? ((await readRow<T>(tbl, r.id)) ?? r) : r)));
 }
+
+/**
+ * A server answer with this iPhone's unsynced rows put in: changed rows
+ * replace the server's, and rows made here (not on the server yet) are added
+ * when they belong to the answer's scope. Returns `rows` itself when there
+ * is nothing local.
+ */
+export async function withLocalRows<T extends { id: string }>(
+  tbl: CachedTable,
+  rows: T[],
+  inScope: (row: T) => boolean,
+): Promise<T[]> {
+  if (!cacheEnabled) return rows;
+  const dirty = await dirtyIds(tbl).catch(() => new Set<string>());
+  if (dirty.size === 0) return rows;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let changed = false;
+  for (const id of dirty) {
+    const local = await readRow<T>(tbl, id);
+    if (!local || (!byId.has(id) && !inScope(local))) continue;
+    byId.set(id, local);
+    changed = true;
+  }
+  return changed ? [...byId.values()] : rows;
+}

@@ -12,7 +12,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { supabase } from '../lib/supabase';
-import { serviceError } from '../lib/cloudRows';
+import { isNetworkError, serviceError } from '../lib/cloudRows';
 import type { UserSettings } from '../types/database';
 
 type Stored = Omit<UserSettings, 'user_id' | 'default_language'>;
@@ -49,10 +49,22 @@ async function readStored(userId: string): Promise<Stored> {
   }
 }
 
+const languageKey = (userId: string) => `studiply.language.${userId}`;
+
+/**
+ * The account's default language. The last one read is kept on the device,
+ * so settings (and the Record screen) load offline.
+ */
 async function readLanguage(userId: string): Promise<string> {
   const { data, error } = await supabase.from('profiles').select('default_language').eq('id', userId).maybeSingle();
-  if (error) throw serviceError(error, 'Could not load your settings.');
-  return data?.default_language ?? 'en';
+  if (error) {
+    const failure = serviceError(error, 'Could not load your settings.');
+    if (!isNetworkError(failure)) throw failure;
+    return (await AsyncStorage.getItem(languageKey(userId)).catch(() => null)) ?? 'en';
+  }
+  const language = data?.default_language ?? 'en';
+  AsyncStorage.setItem(languageKey(userId), language).catch(() => {});
+  return language;
 }
 
 // -------------------------------------------------------------------
