@@ -19,6 +19,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { searchAll } from '../../../src/services/search.service';
+import { useConnectivity } from '../../../src/lib/connectivity';
 import type { SearchResult } from '../../../src/types/database';
 
 export default function SearchScreen() {
@@ -27,6 +28,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
 
+  const offline = useConnectivity() === 'offline';
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -156,7 +158,11 @@ export default function SearchScreen() {
           </View>
         </View>
 
-        {showPrompt ? (
+        {offline ? (
+          <Pressable style={styles.promptState} onPress={Keyboard.dismiss}>
+            <Text style={styles.promptText}>Search needs a connection.</Text>
+          </Pressable>
+        ) : showPrompt ? (
           <Pressable style={styles.promptState} onPress={Keyboard.dismiss}>
             <Text style={styles.promptText}>Search projects, notes, and sessions</Text>
           </Pressable>

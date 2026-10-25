@@ -4,9 +4,12 @@ import {
   readLegacyNote,
   serviceError,
   summaryToNote,
+  type FileRow,
   type LegacyNoteResult,
   type SummaryRow,
 } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, remember } from '../lib/cache';
+import { confirmedNotes, latestNote, lecturesWithNotes } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
 import type { Note, Session } from '../types/database';
 
@@ -16,6 +19,9 @@ import type { Note, Session } from '../types/database';
  * (format legacy-note-v1, see cloudRows). The Phase 4 editor and the Phase 7
  * summary engine replace this with document blocks. A note goes to Trash
  * with its lecture, so reads skip notes whose lecture file is trashed.
+ *
+ * Notes are read through the iPhone's cache (src/lib/cache), so they open
+ * offline.
  */
 
 const ACTIVE_NOTE_SELECT = '*, files!inner(deleted_at)';
@@ -27,13 +33,16 @@ function toNote(row: unknown): Note {
   return note;
 }
 
-function toNotes(rows: unknown[]): Note[] {
-  return rows
-    .map((row) => {
-      const { files: _files, ...summary } = row as SummaryRow & { files?: unknown };
-      return summaryToNote(summary);
-    })
-    .filter((n): n is Note => n !== null);
+/** The summaries rows of an answer, without the joined file. */
+function summaryRows(rows: unknown[]): SummaryRow[] {
+  return rows.map((row) => {
+    const { files: _files, ...summary } = row as SummaryRow & { files?: unknown };
+    return summary;
+  });
+}
+
+function toNotes(rows: SummaryRow[]): Note[] {
+  return rows.map(summaryToNote).filter((n): n is Note => n !== null);
 }
 
 // -------------------------------------------------------------------
@@ -166,15 +175,19 @@ export async function updateNote(
 export async function getSessionsWithNotes(sessionIds: string[]): Promise<Set<string>> {
   if (sessionIds.length === 0) return new Set();
 
-  const { data, error } = await supabase
-    .from('summaries')
-    .select('file_id')
-    .in('file_id', sessionIds)
-    .eq('result->>format', LEGACY_NOTE_FORMAT)
-    .eq('result->>isConfirmed', 'true');
-  if (error) throw serviceError(error, 'Could not load your notes.');
-
-  return new Set(data.map((r) => r.file_id));
+  return readThrough(
+    async () => {
+      const { data, error } = await supabase
+        .from('summaries')
+        .select('file_id')
+        .in('file_id', sessionIds)
+        .eq('result->>format', LEGACY_NOTE_FORMAT)
+        .eq('result->>isConfirmed', 'true');
+      if (error) throw serviceError(error, 'Could not load your notes.');
+      return new Set(data.map((r) => r.file_id));
+    },
+    async () => lecturesWithNotes(await readRows<SummaryRow>('summaries'), sessionIds),
+  );
 }
 
 // -------------------------------------------------------------------
@@ -182,24 +195,44 @@ export async function getSessionsWithNotes(sessionIds: string[]): Promise<Set<st
 // Returns the most recent note for a session (null if none).
 // -------------------------------------------------------------------
 export async function getNoteBySession(sessionId: string): Promise<Note | null> {
-  const { data, error } = await supabase
-    .from('summaries')
-    .select(ACTIVE_NOTE_SELECT)
-    .eq('file_id', sessionId)
-    .eq('result->>format', LEGACY_NOTE_FORMAT)
-    .is('files.deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(1);
-  if (error) throw serviceError(error, 'Could not load the note.');
-  return toNotes(data)[0] ?? null;
+  // Wrapped, so "this lecture has no note" isn't mistaken for "nothing cached".
+  const found = await readThrough<{ row: SummaryRow | null }>(
+    async () => {
+      const { data, error } = await supabase
+        .from('summaries')
+        .select(ACTIVE_NOTE_SELECT)
+        .eq('file_id', sessionId)
+        .eq('result->>format', LEGACY_NOTE_FORMAT)
+        .is('files.deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw serviceError(error, 'Could not load the note.');
+      const rows = summaryRows(data);
+      remember('summaries', rows);
+      return { row: rows[0] ?? null };
+    },
+    async () => {
+      const file = await readRow<FileRow>('files', sessionId);
+      if (!file) return null;
+      return { row: latestNote(await readRows<SummaryRow>('summaries', sessionId), file) };
+    },
+  );
+  return found.row ? summaryToNote(found.row) : null;
 }
 
 // -------------------------------------------------------------------
 // getNote
 // -------------------------------------------------------------------
 export async function getNote(noteId: string): Promise<Note> {
-  const { data, error } = await supabase.from('summaries').select('*').eq('id', noteId).maybeSingle();
-  if (error) throw serviceError(error, 'Could not load the note.');
+  const data = await readThrough(
+    async () => {
+      const { data, error } = await supabase.from('summaries').select('*').eq('id', noteId).maybeSingle();
+      if (error) throw serviceError(error, 'Could not load the note.');
+      if (data) remember('summaries', [data]);
+      return data;
+    },
+    () => readRow<SummaryRow>('summaries', noteId),
+  );
   if (!data) throw new Error('Note not found.');
   return toNote(data);
 }
@@ -208,15 +241,26 @@ export async function getNote(noteId: string): Promise<Note> {
 // getUserNotes
 // -------------------------------------------------------------------
 export async function getUserNotes(_userId: string): Promise<Note[]> {
-  const { data, error } = await supabase
-    .from('summaries')
-    .select(ACTIVE_NOTE_SELECT)
-    .eq('result->>format', LEGACY_NOTE_FORMAT)
-    .eq('result->>isConfirmed', 'true')
-    .is('files.deleted_at', null)
-    .order('created_at', { ascending: false });
-  if (error) throw serviceError(error, 'Could not load your notes.');
-  return toNotes(data);
+  const rows = await readThrough(
+    async () => {
+      const { data, error } = await supabase
+        .from('summaries')
+        .select(ACTIVE_NOTE_SELECT)
+        .eq('result->>format', LEGACY_NOTE_FORMAT)
+        .eq('result->>isConfirmed', 'true')
+        .is('files.deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (error) throw serviceError(error, 'Could not load your notes.');
+      const rows = summaryRows(data);
+      remember('summaries', rows);
+      return rows;
+    },
+    async () => {
+      const [summaries, files] = await Promise.all([readRows<SummaryRow>('summaries'), readRows<FileRow>('files')]);
+      return confirmedNotes(summaries, files);
+    },
+  );
+  return toNotes(rows);
 }
 
 // -------------------------------------------------------------------

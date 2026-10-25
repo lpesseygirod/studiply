@@ -220,6 +220,10 @@ export async function getProfile(user: User): Promise<Profile> {
   return profile;
 }
 
+export async function forgetCachedProfile(userId: string): Promise<void> {
+  await AsyncStorage.removeItem(profileKey(userId)).catch(() => {});
+}
+
 /** The profile as last read on this device, for opening the app offline. */
 export async function getCachedProfile(user: User): Promise<Profile> {
   try {

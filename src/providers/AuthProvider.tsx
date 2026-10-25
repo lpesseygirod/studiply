@@ -1,10 +1,16 @@
 import React, { createContext, useEffect, useState, useCallback, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
+import { clearCache, setCacheSession } from '../lib/cache';
 import { getConnection, onBackOnline, subscribe as subscribeConnection } from '../lib/connectivity';
 import { readStoredSession, startupState } from '../lib/offlineSession';
 import { supabase, supabaseUrl } from '../lib/supabase';
-import { getCachedProfile, getProfile, signOut as authSignOut } from '../services/auth.service';
+import {
+  forgetCachedProfile,
+  getCachedProfile,
+  getProfile,
+  signOut as authSignOut,
+} from '../services/auth.service';
 import { forgetConsent } from '../services/consent.service';
 import { autoCleanTrash } from '../services/trash.service';
 import type { Profile } from '../types/database';
@@ -28,6 +34,9 @@ interface AuthContextValue {
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** After this long without INITIAL_SESSION the stored session is shown (matches the splash). */
+const EARLY_SESSION_MS = 1_500;
+
 /** How often an offline session tries to refresh while the backend answers. */
 const REFRESH_RETRY_MS = 15_000;
 
@@ -41,8 +50,8 @@ const REFRESH_RETRY_MS = 15_000;
 // although the stored session (and its refresh token) is still there. The
 // student then stays signed in from that stored session with the profile
 // last seen on this device, and the session is refreshed as soon as the
-// backend answers again. The stored session is also shown straight away on
-// launch, so the library doesn't wait for Supabase's refresh retries.
+// backend answers again. The stored session is also shown if Supabase takes
+// longer than the splash, so the library doesn't wait for its refresh retries.
 // -------------------------------------------------------------------
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -54,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadedUserId = useRef<string | null>(null);
   // The stored session used while offline, for the refresh once back online.
   const offlineSession = useRef<Session | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  userIdRef.current = session?.user.id ?? null;
 
   const loadProfile = useCallback(async (s: Session) => {
     const p = await getProfile(s.user);
@@ -72,11 +83,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfile]);
 
   const signOut = useCallback(async () => {
+    const userId = userIdRef.current;
     await authSignOut();
+    // The offline copy on this iPhone belongs to the student who left.
+    if (userId) {
+      await clearCache(userId).catch(() => {});
+      await forgetCachedProfile(userId);
+    }
     // Offline there is no SIGNED_OUT event; leave the offline session here.
     if (offlineSession.current) {
       offlineSession.current = null;
       loadedUserId.current = null;
+      setCacheSession(null, false);
       forgetConsent();
       setIsOfflineSession(false);
       setSession(null);
@@ -92,6 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const showStored = async (stored: Session, early: boolean) => {
       const cached = await getCachedProfile(stored.user);
       if (cancelled || (early && reported)) return;
+      // Early, Supabase may still be refreshing; reads use the cache meanwhile.
+      setCacheSession(stored.user.id, false);
       if (!early) {
         offlineSession.current = stored;
         setIsOfflineSession(true);
@@ -101,11 +121,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     };
 
-    readStoredSession(supabaseUrl)
-      .then((stored) => {
-        if (stored && !reported && !cancelled) return showStored(stored, true);
-      })
-      .catch(() => {});
+    // Online, INITIAL_SESSION comes within the splash; only a slow one
+    // (Supabase retrying a refresh offline) shows the stored session first.
+    const early = setTimeout(() => {
+      readStoredSession(supabaseUrl)
+        .then((stored) => {
+          if (stored && !reported && !cancelled) return showStored(stored, true);
+        })
+        .catch(() => {});
+    }, EARLY_SESSION_MS);
 
     const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (cancelled) return;
@@ -134,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       offlineSession.current = null;
+      setCacheSession(newSession.user.id, true);
       setIsOfflineSession(false);
       setSession(newSession);
       if (newSession.user.id === loadedUserId.current) {
@@ -156,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Another account may sign in next; it must be asked again.
       offlineSession.current = null;
       loadedUserId.current = null;
+      setCacheSession(null, false);
       forgetConsent();
       setIsOfflineSession(false);
       setSession(null);
@@ -165,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(early);
       data.subscription.unsubscribe();
     };
   }, [loadProfile]);

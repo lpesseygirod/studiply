@@ -32,6 +32,8 @@ import {
   showAlert,
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
+import { useLibraryUpdates } from '../../../src/lib/cache';
 
 const CARD_GAP = 12;
 const H_PADDING = 24;
@@ -76,6 +78,7 @@ export default function LibraryScreen() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+  useLibraryUpdates(fetchProjects);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -110,8 +113,8 @@ export default function LibraryScreen() {
       setProjects(prev =>
         prev.map(p => p.id === project.id ? { ...p, name } : p)
       );
-    } catch {
-      showAlert('Error', 'Could not rename project.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
   }
 
@@ -133,8 +136,8 @@ export default function LibraryScreen() {
                 await restoreItem({ id: project.id, type: 'project' });
                 fetchProjects();
               });
-            } catch {
-              showAlert('Error', 'Could not delete project.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete project.'));
             }
           },
         },

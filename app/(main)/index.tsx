@@ -29,6 +29,8 @@ import {
   showAlert,
   type Anchor,
 } from '../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../src/utils/errors';
+import { useLibraryUpdates } from '../../src/lib/cache';
 import UserAvatar from '../../src/components/UserAvatar';
 import type { Session } from '../../src/types/database';
 
@@ -100,6 +102,7 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  useLibraryUpdates(fetchData);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -166,8 +169,8 @@ export default function HomeScreen() {
     try {
       await updateProject(project.id, { name: newName });
       setProjects(prev => prev.map(p => p.id === project.id ? { ...p, name: newName } : p));
-    } catch {
-      showAlert('Error', 'Could not rename project.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not rename project.'));
     }
   }
 
@@ -189,8 +192,8 @@ export default function HomeScreen() {
                 await restoreItem({ id: project.id, type: 'project' });
                 fetchData();
               });
-            } catch {
-              showAlert('Error', 'Could not delete project.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete project.'));
             }
           },
         },
@@ -216,8 +219,8 @@ export default function HomeScreen() {
                 await restoreItem({ id: session.id, type: 'session' });
                 fetchData();
               });
-            } catch {
-              showAlert('Error', 'Could not delete session.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
             }
           },
         },

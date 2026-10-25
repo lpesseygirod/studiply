@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { segmentsToTranscript, serviceError, type SegmentRow } from '../lib/cloudRows';
+import { segmentsToTranscript, serviceError, type LectureRow, type SegmentRow } from '../lib/cloudRows';
+import { readRow, readSegments, readThrough, saveSegments } from '../lib/cache';
 import type { Transcript } from '../types/database';
 
 /**
@@ -7,6 +8,9 @@ import type { Transcript } from '../types/database';
  * from the start of the recording). The transcribe-chunk Edge Function
  * writes them for real recordings; createTranscript is only for text the
  * app makes itself (the development mock pipeline).
+ *
+ * A transcript that was read once (or downloaded by the library pull) is
+ * kept on the iPhone and opens offline.
  */
 
 /** PostgREST returns at most 1000 rows per request; a long lecture has more. */
@@ -59,27 +63,44 @@ export async function createTranscript(params: {
 // Returns null if no transcript exists yet.
 // -------------------------------------------------------------------
 export async function getTranscriptBySession(sessionId: string): Promise<Transcript | null> {
-  const { data: lecture, error } = await supabase
-    .from('lectures')
-    .select('id, user_id, language, created_at')
-    .eq('id', sessionId)
-    .maybeSingle();
-  if (error) throw serviceError(error, 'Could not load the transcript.');
-  if (!lecture) return null;
+  // Wrapped, so "no transcript yet" isn't mistaken for "nothing cached".
+  const found = await readThrough<{ transcript: Transcript | null }>(
+    async () => {
+      const { data: lecture, error } = await supabase
+        .from('lectures')
+        .select('id, user_id, language, created_at')
+        .eq('id', sessionId)
+        .maybeSingle();
+      if (error) throw serviceError(error, 'Could not load the transcript.');
+      if (!lecture) return { transcript: null };
 
-  const segments: SegmentRow[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error: pageError } = await supabase
-      .from('transcript_segments')
-      .select('start_ms, end_ms, text, confidence')
-      .eq('lecture_id', sessionId)
-      .order('start_ms', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (pageError) throw serviceError(pageError, 'Could not load the transcript.');
-    segments.push(...data);
-    if (data.length < PAGE) break;
-  }
+      const segments: SegmentRow[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error: pageError } = await supabase
+          .from('transcript_segments')
+          .select('start_ms, end_ms, text, confidence')
+          .eq('lecture_id', sessionId)
+          .order('start_ms', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (pageError) throw serviceError(pageError, 'Could not load the transcript.');
+        segments.push(...data);
+        if (data.length < PAGE) break;
+      }
 
-  return segmentsToTranscript(lecture, segments);
+      saveSegments(sessionId, lecture.user_id, segments).catch(() => {});
+      return { transcript: segmentsToTranscript(lecture, segments) };
+    },
+    async () => {
+      const [lecture, segments] = await Promise.all([
+        readRow<LectureRow>('lectures', sessionId),
+        readSegments(sessionId),
+      ]);
+      if (!lecture) return null;
+      // Segments never downloaded for a lecture that has them: not available offline.
+      if (!segments) return lecture.status === 'ready' ? null : { transcript: null };
+      return { transcript: segmentsToTranscript(lecture, segments) };
+    },
+  );
+  return found.transcript;
 }

@@ -52,6 +52,8 @@ import {
   showAlert,
   type Anchor,
 } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
+import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 
@@ -197,6 +199,7 @@ export default function ProjectDetailScreen() {
       fetchDataRef.current(currentFolderIdRef.current);
     }, [])
   );
+  useLibraryUpdates(() => fetchDataRef.current(currentFolderIdRef.current));
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -314,8 +317,8 @@ export default function ProjectDetailScreen() {
       const { moveFolder } = await import('../../../src/services/folder.service');
       await moveFolder(movingFolderId, target.folderId, target.projectId);
       await fetchData(currentFolderId);
-    } catch {
-      showAlert('Error', 'Could not move folder.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not move folder.'));
     } finally {
       setMovingFolderId(null);
     }
@@ -363,8 +366,8 @@ export default function ProjectDetailScreen() {
           try {
             await markSourceFileDeleted(file.id);
             setProjectFiles(prev => prev.filter(f => f.id !== file.id));
-          } catch {
-            showAlert('Error', 'Could not delete file.');
+          } catch (err) {
+            showAlert('Error', errorMessage(err, 'Could not delete file.'));
           }
         },
       },
@@ -382,8 +385,8 @@ export default function ProjectDetailScreen() {
       const { renameFolder } = await import('../../../src/services/folder.service');
       await renameFolder(folder.id, name);
       await fetchData(currentFolderId);
-    } catch {
-      showAlert('Error', 'Could not rename folder.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not rename folder.'));
     }
   }
 
@@ -409,8 +412,8 @@ export default function ProjectDetailScreen() {
                 await restoreItem({ id: folder.id, type: 'folder' });
                 fetchData(currentFolderId);
               });
-            } catch {
-              showAlert('Error', 'Could not delete folder.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete folder.'));
             }
           },
         },
@@ -440,8 +443,8 @@ export default function ProjectDetailScreen() {
                 await restoreItem({ id: session.id, type: 'session' });
                 fetchData(currentFolderId);
               });
-            } catch {
-              showAlert('Error', 'Could not delete session.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
             }
           },
         },
@@ -464,8 +467,8 @@ export default function ProjectDetailScreen() {
     try {
       await moveSession(movingSessionId, target.projectId, target.folderId);
       await fetchData(currentFolderId);
-    } catch {
-      showAlert('Error', 'Could not move session.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not move session.'));
     } finally {
       setMovingSessionId(null);
     }
@@ -505,8 +508,8 @@ export default function ProjectDetailScreen() {
       setShowNewFolder(false);
       setNewFolderName('');
       await fetchData(currentFolderId);
-    } catch {
-      showAlert('Error', 'Could not create folder.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not create folder.'));
     } finally {
       setIsCreatingFolder(false);
     }

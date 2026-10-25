@@ -24,6 +24,8 @@ import {
   type TrashItem,
 } from '../../../src/services/trash.service';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
+import { useConnectivity } from '../../../src/lib/connectivity';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -58,6 +60,7 @@ export default function TrashScreen() {
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const offline = useConnectivity() === 'offline';
 
   const fetchItems = useCallback(async () => {
     if (!userId) return;
@@ -85,8 +88,8 @@ export default function TrashScreen() {
     try {
       await restoreItem(item);
       setItems(prev => prev.filter(i => i.id !== item.id));
-    } catch {
-      showAlert('Error', 'Could not restore item. Please try again.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not restore item. Please try again.'));
     }
   };
 
@@ -103,8 +106,8 @@ export default function TrashScreen() {
             try {
               await permanentlyDelete(item);
               setItems(prev => prev.filter(i => i.id !== item.id));
-            } catch {
-              showAlert('Error', 'Could not delete item. Please try again.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete item. Please try again.'));
             }
           },
         },
@@ -126,8 +129,8 @@ export default function TrashScreen() {
             try {
               await emptyTrash(userId);
               setItems([]);
-            } catch {
-              showAlert('Error', 'Could not empty trash. Please try again.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not empty trash. Please try again.'));
             }
           },
         },
@@ -187,9 +190,11 @@ export default function TrashScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="trash-outline" size={48} color={Colors.text.placeholder} />
-              <Text style={styles.emptyTitle}>No deleted items</Text>
+              <Text style={styles.emptyTitle}>{offline ? 'Needs a connection' : 'No deleted items'}</Text>
               <Text style={styles.emptyBody}>
-                Items you delete will appear here for 30 days before being permanently removed.
+                {offline
+                  ? "Recently Deleted can be opened when you're back online."
+                  : 'Items you delete will appear here for 30 days before being permanently removed.'}
               </Text>
             </View>
           }

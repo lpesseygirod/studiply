@@ -37,6 +37,7 @@ import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
 import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
+import { errorMessage } from '../../../src/utils/errors';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -273,8 +274,8 @@ export default function NoteDetailScreen() {
       setClarifications([]);
       setHighlightedSentences([]);
       instructionOpacity.setValue(1);
-    } catch {
-      showAlert('Error', 'Could not clear clarification.');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not clear clarification.'));
     }
   };
 
@@ -321,8 +322,8 @@ export default function NoteDetailScreen() {
             try {
               await trashSession(session.id);
               router.back();
-            } catch {
-              showAlert('Error', 'Could not delete session.');
+            } catch (err) {
+              showAlert('Error', errorMessage(err, 'Could not delete session.'));
             }
           },
         },

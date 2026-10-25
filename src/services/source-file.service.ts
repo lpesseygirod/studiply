@@ -2,7 +2,10 @@ import { Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 import { newId } from '../lib/mappers';
-import { serviceError } from '../lib/cloudRows';
+import { serviceError, type FileRow, type LectureRow } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
+import { audioOf, courseMedia, mediaOf } from '../lib/cache/localQueries';
+import { isOffline } from '../lib/connectivity';
 import { toJpeg } from '../utils/toJpeg';
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
@@ -54,7 +57,8 @@ async function audioFormat(uri: string): Promise<{ mimeType: string; ext: string
 }
 
 async function signed(bucket: Bucket, path: string | null): Promise<string> {
-  if (!path) return '';
+  // Offline there is no link; the screens show a placeholder for ''.
+  if (!path || isOffline()) return '';
   return getSignedUrl(bucket, path).catch(() => '');
 }
 
@@ -248,22 +252,32 @@ export async function saveRecordingChunks(params: {
 // ordered newest first. Used for the project-level files section.
 // -------------------------------------------------------------------
 export async function getProjectSourceFiles(projectId: string): Promise<SourceFile[]> {
-  const { data: lectures, error } = await supabase
-    .from('files')
-    .select('id')
-    .eq('kind', 'lecture')
-    .eq('course_id', projectId)
-    .is('deleted_at', null);
-  if (error) throw serviceError(error, 'Could not load the project files.');
-  if (lectures.length === 0) return [];
+  const media = await readThrough(
+    async () => {
+      const { data: lectures, error } = await supabase
+        .from('files')
+        .select('id')
+        .eq('kind', 'lecture')
+        .eq('course_id', projectId)
+        .is('deleted_at', null);
+      if (error) throw serviceError(error, 'Could not load the project files.');
+      if (lectures.length === 0) return [];
 
-  const { data: media, error: mediaError } = await supabase
-    .from('media')
-    .select('*')
-    .in('lecture_id', lectures.map((l) => l.id))
-    .in('kind', ['photo', 'slides'])
-    .order('created_at', { ascending: false });
-  if (mediaError) throw serviceError(mediaError, 'Could not load the project files.');
+      const { data: media, error: mediaError } = await supabase
+        .from('media')
+        .select('*')
+        .in('lecture_id', lectures.map((l) => l.id))
+        .in('kind', ['photo', 'slides'])
+        .order('created_at', { ascending: false });
+      if (mediaError) throw serviceError(mediaError, 'Could not load the project files.');
+      remember('media', media);
+      return media;
+    },
+    async () => {
+      const [media, files] = await Promise.all([readRows<MediaRow>('media'), readRows<FileRow>('files')]);
+      return courseMedia(media, files, projectId);
+    },
+  );
 
   return Promise.all(media.map(async (m) => mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path))));
 }
@@ -271,22 +285,42 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
 // -------------------------------------------------------------------
 // getSourceFiles
 // Returns a lecture's audio chunks (in recording order) and its media.
-// Audio deleted by its retention policy is left out.
+// Audio deleted by its retention policy is left out. Offline the rows come
+// from the cache; their files can't be shown without a connection.
 // -------------------------------------------------------------------
 export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
-  const [lecture, chunks, media] = await Promise.all([
-    supabase.from('lectures').select('audio_retention, audio_delete_after').eq('id', sessionId).maybeSingle(),
-    supabase.from('audio_chunks').select('*').eq('lecture_id', sessionId).not('storage_path', 'is', null).order('seq'),
-    supabase.from('media').select('*').eq('lecture_id', sessionId).order('created_at'),
-  ]);
-  const error = lecture.error ?? chunks.error ?? media.error;
-  if (error) throw serviceError(error, 'Could not load the files.');
+  type Retention = Pick<LectureRow, 'audio_retention' | 'audio_delete_after'>;
+  const { lecture, chunks, media } = await readThrough<{
+    lecture: Retention | null;
+    chunks: AudioChunkRow[];
+    media: MediaRow[];
+  }>(
+    async () => {
+      const [lecture, chunks, media] = await Promise.all([
+        supabase.from('lectures').select('audio_retention, audio_delete_after').eq('id', sessionId).maybeSingle(),
+        supabase.from('audio_chunks').select('*').eq('lecture_id', sessionId).not('storage_path', 'is', null).order('seq'),
+        supabase.from('media').select('*').eq('lecture_id', sessionId).order('created_at'),
+      ]);
+      const error = lecture.error ?? chunks.error ?? media.error;
+      if (error) throw serviceError(error, 'Could not load the files.');
+      rememberScope('audio_chunks', chunks.data ?? [], (c) => c.lecture_id === sessionId && c.storage_path !== null);
+      rememberScope('media', media.data ?? [], (m) => m.lecture_id === sessionId);
+      return { lecture: lecture.data, chunks: chunks.data ?? [], media: media.data ?? [] };
+    },
+    async () => {
+      const lecture = await readRow<LectureRow>('lectures', sessionId);
+      if (!lecture) return null;
+      const [chunks, media] = await Promise.all([
+        readRows<AudioChunkRow>('audio_chunks', sessionId),
+        readRows<MediaRow>('media', sessionId),
+      ]);
+      return { lecture, chunks: audioOf(chunks, sessionId), media: mediaOf(media, sessionId) };
+    },
+  );
 
   return Promise.all([
-    ...(chunks.data ?? []).map(async (c) =>
-      chunkToSourceFile(c, lecture.data, await signed(Buckets.audioChunks, c.storage_path)),
-    ),
-    ...(media.data ?? []).map(async (m) => mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path))),
+    ...chunks.map(async (c) => chunkToSourceFile(c, lecture, await signed(Buckets.audioChunks, c.storage_path))),
+    ...media.map(async (m) => mediaToSourceFile(m, await signed(mediaBucket(m.kind), m.storage_path))),
   ]);
 }
 

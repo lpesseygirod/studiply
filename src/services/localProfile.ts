@@ -10,6 +10,7 @@
  * The web build uses localProfile.web.ts, which never loads expo-sqlite.
  */
 
+import { clearCache } from '../lib/cache';
 import { run } from '../lib/db';
 import { deleteUserStorage } from './storage.service';
 
@@ -27,4 +28,7 @@ export async function deleteLocalUserData(userId: string): Promise<void> {
   // ON DELETE CASCADE, so projects, folders, sessions, notes, transcripts,
   // source_files, ai_usage and user_settings all go with it.
   await run(`DELETE FROM profiles WHERE id = ?`, [userId]);
+
+  // And the offline copy of the library (src/lib/cache).
+  await clearCache(userId);
 }

@@ -3,14 +3,22 @@ import {
   courseToProject,
   lectureToSession,
   serviceError,
+  type CourseRow,
+  type FileRow,
   type LectureFileRow,
+  type LectureRow,
 } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, remember, rememberLectureFiles, rememberScope } from '../lib/cache';
+import { activeCourses, inLectureScope, isActiveCourse, lectureCounts, lecturesIn } from '../lib/cache/localQueries';
 import type { Project, Session } from '../types/database';
 
 /**
  * Projects are `courses` in the database (step 1.2 schema). Row Level
  * Security limits every query to the signed-in student, so the `userId`
  * parameters are kept for the callers but not needed as filters.
+ *
+ * Reads go through the iPhone's cache (src/lib/cache): what Supabase returns
+ * is kept, and offline the same answer is built from the cached rows.
  */
 
 export type ProjectWithCount = Project & { sessionCount: number };
@@ -20,6 +28,17 @@ export type ProjectWithCount = Project & { sessionCount: number };
  * course's badge matches what the course screen actually lists.
  */
 async function projectsWithCount(limit?: number): Promise<ProjectWithCount[]> {
+  return readThrough(
+    () => remoteProjectsWithCount(limit),
+    async () => {
+      const [courses, files] = await Promise.all([readRows<CourseRow>('courses'), readRows<FileRow>('files')]);
+      const counts = lectureCounts(files);
+      return activeCourses(courses, limit).map((c) => ({ ...courseToProject(c), sessionCount: counts.get(c.id) ?? 0 }));
+    },
+  );
+}
+
+async function remoteProjectsWithCount(limit?: number): Promise<ProjectWithCount[]> {
   let query = supabase
     .from('courses')
     .select('*')
@@ -30,6 +49,8 @@ async function projectsWithCount(limit?: number): Promise<ProjectWithCount[]> {
 
   const { data: courses, error } = await query;
   if (error) throw serviceError(error, 'Could not load your courses.');
+  if (limit === undefined) rememberScope('courses', courses, isActiveCourse);
+  else remember('courses', courses);
   if (courses.length === 0) return [];
 
   const { data: files, error: countError } = await supabase
@@ -69,10 +90,17 @@ export async function getRecentProjects(
 // Single project by ID.
 // -------------------------------------------------------------------
 export async function getProject(projectId: string): Promise<Project> {
-  const { data, error } = await supabase.from('courses').select('*').eq('id', projectId).maybeSingle();
-  if (error) throw serviceError(error, 'Could not load this project.');
-  if (!data) throw new Error('Project not found.');
-  return courseToProject(data);
+  const row = await readThrough(
+    async () => {
+      const { data, error } = await supabase.from('courses').select('*').eq('id', projectId).maybeSingle();
+      if (error) throw serviceError(error, 'Could not load this project.');
+      if (data) remember('courses', [data]);
+      return data;
+    },
+    () => readRow<CourseRow>('courses', projectId),
+  );
+  if (!row) throw new Error('Project not found.');
+  return courseToProject(row);
 }
 
 // -------------------------------------------------------------------
@@ -129,16 +157,27 @@ export async function archiveProject(projectId: string): Promise<void> {
 // All lectures inside a project, newest first.
 // -------------------------------------------------------------------
 export async function getProjectSessions(projectId: string): Promise<Session[]> {
-  const { data, error } = await supabase
-    .from('files')
-    .select('*, lectures(*)')
-    .eq('kind', 'lecture')
-    .eq('course_id', projectId)
-    .is('deleted_at', null)
-    .order('updated_at', { ascending: false });
-  if (error) throw serviceError(error, 'Could not load the lectures.');
-  return (data as LectureFileRow[]).map((row) => lectureToSession(row));
+  const rows = await readThrough(
+    async () => {
+      const { data, error } = await supabase
+        .from('files')
+        .select('*, lectures(*)')
+        .eq('kind', 'lecture')
+        .eq('course_id', projectId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false });
+      if (error) throw serviceError(error, 'Could not load the lectures.');
+      rememberLectureFiles(data as LectureFileRow[], (f) => inLectureScope(f, { courseId: projectId }));
+      return data as LectureFileRow[];
+    },
+    async () => {
+      const [files, lectures] = await Promise.all([readRows<FileRow>('files'), readRows<LectureRow>('lectures')]);
+      return lecturesIn(files, lectures, { courseId: projectId });
+    },
+  );
+  return rows.map((row) => lectureToSession(row));
 }
+
 
 // -------------------------------------------------------------------
 // getProjectSessionCount

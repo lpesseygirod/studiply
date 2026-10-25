@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
-import { folderFromRow, PgCodes, serviceError } from '../lib/cloudRows';
+import { folderFromRow, PgCodes, serviceError, type FolderRow } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, remember, rememberScope } from '../lib/cache';
+import { foldersIn, inFolderScope } from '../lib/cache/localQueries';
 import type { Folder } from '../types/database';
 
 /**
@@ -49,30 +51,38 @@ export async function getFolders(params: {
   projectId: string;
   parentFolderId?: string | null;
 }): Promise<Folder[]> {
-  let query = supabase
-    .from('folders')
-    .select('*')
-    .eq('course_id', params.projectId)
-    .is('deleted_at', null);
+  const { projectId, parentFolderId } = params;
+  const rows = await readThrough(
+    async () => {
+      let query = supabase.from('folders').select('*').eq('course_id', projectId).is('deleted_at', null);
 
-  if (params.parentFolderId === null) query = query.is('parent_id', null);
-  else if (params.parentFolderId !== undefined) query = query.eq('parent_id', params.parentFolderId);
+      if (parentFolderId === null) query = query.is('parent_id', null);
+      else if (parentFolderId !== undefined) query = query.eq('parent_id', parentFolderId);
 
-  const { data, error } = await query
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
-  if (error) throw serviceError(error, 'Could not load the folders.');
-  return data.map(folderFromRow);
+      const { data, error } = await query
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) throw serviceError(error, 'Could not load the folders.');
+      rememberScope('folders', data, (f) => inFolderScope(f, projectId, parentFolderId));
+      return data;
+    },
+    async () => foldersIn(await readRows<FolderRow>('folders'), projectId, parentFolderId),
+  );
+  return rows.map(folderFromRow);
 }
 
-// -------------------------------------------------------------------
-// getFolder
-// -------------------------------------------------------------------
 export async function getFolder(folderId: string): Promise<Folder> {
-  const { data, error } = await supabase.from('folders').select('*').eq('id', folderId).maybeSingle();
-  if (error) throw serviceError(error, 'Could not load the folder.');
-  if (!data) throw new Error('Folder not found.');
-  return folderFromRow(data);
+  const row = await readThrough(
+    async () => {
+      const { data, error } = await supabase.from('folders').select('*').eq('id', folderId).maybeSingle();
+      if (error) throw serviceError(error, 'Could not load the folder.');
+      if (data) remember('folders', [data]);
+      return data;
+    },
+    () => readRow<FolderRow>('folders', folderId),
+  );
+  if (!row) throw new Error('Folder not found.');
+  return folderFromRow(row);
 }
 
 // -------------------------------------------------------------------
@@ -150,16 +160,21 @@ export async function getFolderCount(params: {
   projectId: string;
   parentFolderId?: string | null;
 }): Promise<number> {
-  let query = supabase
-    .from('folders')
-    .select('id', { count: 'exact', head: true })
-    .eq('course_id', params.projectId)
-    .is('deleted_at', null);
+  return readThrough(
+    async () => {
+      let query = supabase
+        .from('folders')
+        .select('id', { count: 'exact', head: true })
+        .eq('course_id', params.projectId)
+        .is('deleted_at', null);
 
-  if (params.parentFolderId === null) query = query.is('parent_id', null);
-  else if (params.parentFolderId !== undefined) query = query.eq('parent_id', params.parentFolderId);
+      if (params.parentFolderId === null) query = query.is('parent_id', null);
+      else if (params.parentFolderId !== undefined) query = query.eq('parent_id', params.parentFolderId);
 
-  const { count, error } = await query;
-  if (error) throw serviceError(error, 'Could not load the folders.');
-  return count ?? 0;
+      const { count, error } = await query;
+      if (error) throw serviceError(error, 'Could not load the folders.');
+      return count ?? 0;
+    },
+    async () => foldersIn(await readRows<FolderRow>('folders'), params.projectId, params.parentFolderId).length,
+  );
 }

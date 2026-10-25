@@ -5,8 +5,13 @@ import {
   readLegacyNote,
   serviceError,
   statusToDb,
+  type FileRow,
   type LectureFileRow,
+  type LectureRow,
+  type SummaryRow,
 } from '../lib/cloudRows';
+import { readRow, readRows, readThrough, rememberLectureFiles } from '../lib/cache';
+import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
 import type { Session } from '../types/database';
 
@@ -15,6 +20,9 @@ import type { Session } from '../types/database';
  * lecture: title, course, folder, Trash) plus a `lectures` row with the same
  * id (language, status, duration, audio retention). Recording mode has no
  * column; it is read from the lecture's note and otherwise 'lecture'.
+ *
+ * Reads go through the iPhone's cache (src/lib/cache), so the library opens
+ * offline.
  */
 
 const LECTURE_SELECT = '*, lectures(*)';
@@ -22,6 +30,34 @@ const PROJECT_FILES_TITLE = 'Project Files';
 
 function toSessions(rows: unknown[]): Session[] {
   return (rows as LectureFileRow[]).map((row) => lectureToSession(row));
+}
+
+async function cachedLectures(): Promise<{ files: FileRow[]; lectures: LectureRow[] }> {
+  const [files, lectures] = await Promise.all([readRows<FileRow>('files'), readRows<LectureRow>('lectures')]);
+  return { files, lectures };
+}
+
+/** Lecture files of a scope: Supabase, kept in the cache, or the cache offline. */
+async function lectureList(
+  scope: LectureScope,
+  query: () => PromiseLike<{ data: unknown[] | null; error: { code?: string; message?: string } | null }>,
+  failMessage: string,
+  limit?: number,
+): Promise<Session[]> {
+  const rows = await readThrough(
+    async () => {
+      const { data, error } = await query();
+      if (error || !data) throw serviceError(error, failMessage);
+      const answer = data as LectureFileRow[];
+      rememberLectureFiles(answer, limit === undefined ? (f) => inLectureScope(f, scope) : undefined);
+      return answer;
+    },
+    async () => {
+      const { files, lectures } = await cachedLectures();
+      return lecturesIn(files, lectures, scope, limit);
+    },
+  );
+  return toSessions(rows);
 }
 
 // -------------------------------------------------------------------
@@ -119,18 +155,39 @@ export async function updateSession(
 // getSession
 // -------------------------------------------------------------------
 export async function getSession(sessionId: string): Promise<Session> {
-  const { data, error } = await supabase
-    .from('files')
-    .select(`${LECTURE_SELECT}, summaries(result, created_at)`)
-    .eq('id', sessionId)
-    .eq('kind', 'lecture')
-    .maybeSingle();
-  if (error) throw serviceError(error, 'Could not load the lecture.');
+  type Answer = LectureFileRow & { summaries: { result: Json | null; created_at: string }[] | null };
+  const data = await readThrough<Answer | null>(
+    async () => {
+      const { data, error } = await supabase
+        .from('files')
+        .select(`${LECTURE_SELECT}, summaries(result, created_at)`)
+        .eq('id', sessionId)
+        .eq('kind', 'lecture')
+        .maybeSingle();
+      if (error) throw serviceError(error, 'Could not load the lecture.');
+      if (data) {
+        const { summaries: _notes, ...file } = data as Answer;
+        rememberLectureFiles([file]);
+      }
+      return data as Answer | null;
+    },
+    async () => {
+      const file = await readRow<FileRow>('files', sessionId);
+      if (!file || file.kind !== 'lecture') return null;
+      const [lecture, summaries] = await Promise.all([
+        readRow<LectureRow>('lectures', sessionId),
+        readRows<SummaryRow>('summaries', sessionId),
+      ]);
+      const note = latestNote(summaries, { ...file, deleted_at: null });
+      return {
+        ...withLectures([file], lecture ? [lecture] : [])[0],
+        summaries: note ? [{ result: note.result, created_at: note.created_at }] : [],
+      };
+    },
+  );
   if (!data) throw new Error('Session not found.');
 
-  const { summaries, ...row } = data as LectureFileRow & {
-    summaries: { result: Json | null; created_at: string }[] | null;
-  };
+  const { summaries, ...row } = data;
   const latest = [...(summaries ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const mode = latest.map((s) => readLegacyNote(s.result)?.recordingMode).find(Boolean);
   return lectureToSession(row, mode ?? 'lecture');
@@ -146,34 +203,41 @@ export async function getSessionsByProject(
   projectId: string,
   folderId?: string | null,
 ): Promise<Session[]> {
-  let query = supabase
-    .from('files')
-    .select(LECTURE_SELECT)
-    .eq('kind', 'lecture')
-    .eq('course_id', projectId)
-    .is('deleted_at', null);
+  return lectureList(
+    { courseId: projectId, folderId },
+    () => {
+      let query = supabase
+        .from('files')
+        .select(LECTURE_SELECT)
+        .eq('kind', 'lecture')
+        .eq('course_id', projectId)
+        .is('deleted_at', null);
 
-  if (folderId === null) query = query.is('folder_id', null);
-  else if (folderId !== undefined) query = query.eq('folder_id', folderId);
+      if (folderId === null) query = query.is('folder_id', null);
+      else if (folderId !== undefined) query = query.eq('folder_id', folderId);
 
-  const { data, error } = await query.order('updated_at', { ascending: false });
-  if (error) throw serviceError(error, 'Could not load the lectures.');
-  return toSessions(data);
+      return query.order('updated_at', { ascending: false });
+    },
+    'Could not load the lectures.',
+  );
 }
 
 // -------------------------------------------------------------------
 // getSessionsByFolder
 // -------------------------------------------------------------------
 export async function getSessionsByFolder(folderId: string): Promise<Session[]> {
-  const { data, error } = await supabase
-    .from('files')
-    .select(LECTURE_SELECT)
-    .eq('kind', 'lecture')
-    .eq('folder_id', folderId)
-    .is('deleted_at', null)
-    .order('updated_at', { ascending: false });
-  if (error) throw serviceError(error, 'Could not load the lectures.');
-  return toSessions(data);
+  return lectureList(
+    { folderId },
+    () =>
+      supabase
+        .from('files')
+        .select(LECTURE_SELECT)
+        .eq('kind', 'lecture')
+        .eq('folder_id', folderId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false }),
+    'Could not load the lectures.',
+  );
 }
 
 // -------------------------------------------------------------------
@@ -201,17 +265,27 @@ export async function getOrCreateProjectUploadSession(
   _userId: string,
   projectId: string,
 ): Promise<Session> {
-  const { data, error } = await supabase
-    .from('files')
-    .select(LECTURE_SELECT)
-    .eq('kind', 'lecture')
-    .eq('course_id', projectId)
-    .eq('title', PROJECT_FILES_TITLE)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(1);
-  if (error) throw serviceError(error, 'Could not prepare the project files.');
-  if (data.length > 0) return toSessions(data)[0];
+  const existing = await readThrough(
+    async () => {
+      const { data, error } = await supabase
+        .from('files')
+        .select(LECTURE_SELECT)
+        .eq('kind', 'lecture')
+        .eq('course_id', projectId)
+        .eq('title', PROJECT_FILES_TITLE)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (error) throw serviceError(error, 'Could not prepare the project files.');
+      rememberLectureFiles(data as LectureFileRow[]);
+      return (data[0] as LectureFileRow | undefined) ?? null;
+    },
+    async () => {
+      const { files, lectures } = await cachedLectures();
+      return lectureTitled(files, lectures, projectId, PROJECT_FILES_TITLE);
+    },
+  );
+  if (existing) return toSessions([existing])[0];
 
   const session = await createSession({
     userId: _userId,
@@ -227,15 +301,19 @@ export async function getOrCreateProjectUploadSession(
 // getRecentSessions
 // -------------------------------------------------------------------
 export async function getRecentSessions(_userId: string, limit = 10): Promise<Session[]> {
-  const { data, error } = await supabase
-    .from('files')
-    .select(LECTURE_SELECT)
-    .eq('kind', 'lecture')
-    .is('deleted_at', null)
-    .order('updated_at', { ascending: false })
-    .limit(limit);
-  if (error) throw serviceError(error, 'Could not load your recent lectures.');
-  return toSessions(data);
+  return lectureList(
+    {},
+    () =>
+      supabase
+        .from('files')
+        .select(LECTURE_SELECT)
+        .eq('kind', 'lecture')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(limit),
+    'Could not load your recent lectures.',
+    limit,
+  );
 }
 
 // -------------------------------------------------------------------
