@@ -83,6 +83,13 @@ node .claude/skills/web-check/scripts/new-menu.mjs
 node .claude/skills/web-check/scripts/item-menus.mjs
 ```
 
+## Check menus, uploads and Cut / Copy / Paste (step 3.4)
+
+`scripts/library-menus.mjs`: Upload through the browser's file picker (`chooseFiles(paths, trigger)`: Chrome's file-chooser interception, then `DOM.setFileInputFiles`), a Finder PDF dropped on a sidebar course, Cut / Paste and Copy / Paste (a copy has its own Storage object), Move out, the greyed-out items' hints, ⇧F10 / arrows / Enter / Esc in a menu, ⌘X / ⌘V (a synthetic `paste` event), and at 390 px the "…" button. Move between folders **inside the app** (double-click a folder, click a breadcrumb): `nav()` reloads the page and empties the app's clipboard.
+```bash
+node .claude/skills/web-check/scripts/library-menus.mjs
+```
+
 ## Check the title's menu (step 3.3 feedback)
 
 `scripts/title-menu.mjs`: the course or folder title (with ⌄) opens the menu of the course or folder you're in (click, right-click; tap at 390 px): Rename… (the title follows), Add to Favorites, Delete (up one level, Undo), Move to… another course (the screen follows), and deleting the course (back to the Library, Undo). Checked in the database.

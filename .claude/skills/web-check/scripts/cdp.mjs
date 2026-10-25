@@ -196,6 +196,21 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       }
       await sleep(400);
     },
+    /**
+     * The browser's file picker (an <input type=file> the page clicks):
+     * `trigger` opens it (e.g. clicks Upload), then these files are chosen
+     * as if picked in Finder.
+     */
+    async chooseFiles(paths, trigger) {
+      await send('Page.setInterceptFileChooserDialog', { enabled: true });
+      const opened = new Promise((resolve) => api.onEvent('Page.fileChooserOpened', (p) => resolve(p)));
+      await trigger();
+      const chooser = await Promise.race([opened, sleep(5000).then(() => null)]);
+      await send('Page.setInterceptFileChooserDialog', { enabled: false });
+      if (!chooser) throw new Error('no file picker opened');
+      await send('DOM.setFileInputFiles', { files: paths, backendNodeId: chooser.backendNodeId });
+      await sleep(400);
+    },
     /** A real double-click by visible text (the browser fires dblclick). */
     async doubleClick(text, { exact = true, nth = 0, exclude = null } = {}) {
       const p = await locate(text, { exact, nth, exclude });
