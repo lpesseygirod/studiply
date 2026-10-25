@@ -345,13 +345,13 @@ const makeStyles = (c: ThemeColors) =>
   search: {
     height: 36,
     justifyContent: 'center',
-    backgroundColor: c.salmonLight,
+    backgroundColor: c.search.bg,
     borderWidth: 1,
-    borderColor: c.salmon,
+    borderColor: c.search.border,
     borderRadius: 10,
     paddingHorizontal: 10,
   },
-  searchText: { fontSize: Typography.size.sm, color: c.text.secondary },
+  searchText: { fontSize: Typography.size.sm, color: c.search.placeholder },
 
   group: { gap: 2 },
   sectionLabel: {

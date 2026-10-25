@@ -1333,7 +1333,7 @@ const makeStyles = (c: ThemeColors) =>
 
   // Title banner
   titleBanner: {
-    backgroundColor: c.salmonLight,
+    backgroundColor: c.titleCard,
     borderRadius: 18,
     padding: 20,
     gap: 4,

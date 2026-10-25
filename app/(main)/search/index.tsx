@@ -135,12 +135,12 @@ export default function SearchScreen() {
           {/* Search input + Cancel */}
           <View style={styles.searchRow}>
             <View style={styles.searchBarWrapper}>
-              <Ionicons name="search-outline" size={16} color={c.text.primary} style={styles.searchIcon} />
+              <Ionicons name="search-outline" size={16} color={c.search.text} style={styles.searchIcon} />
               <TextInput
                 ref={inputRef}
                 style={styles.searchInput}
                 placeholder="Search"
-                placeholderTextColor={c.text.secondary}
+                placeholderTextColor={c.search.placeholder}
                 value={query}
                 onChangeText={setQuery}
                 returnKeyType="search"
@@ -221,7 +221,9 @@ const makeStyles = (c: ThemeColors) =>
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: c.salmon,
+    backgroundColor: c.search.bg,
+    borderWidth: 1,
+    borderColor: c.search.border,
     borderRadius: 100,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -239,7 +241,7 @@ const makeStyles = (c: ThemeColors) =>
     flex: 1,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: c.text.primary,
+    color: c.search.text,
     padding: 0,
   },
   searchSpinner: {

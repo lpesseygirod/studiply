@@ -73,9 +73,14 @@ const light = {
   accentDark: '#4F43B0', // accent as text, and filled accent chips
   accentOn: '#FFFFFF',   // text on an accentDark fill
 
-  // Warm accent — search fields, chips, inputs
+  // Warm accent — chips, inputs
   salmon: '#E8B4A0',
   salmonLight: '#F5E0D8',
+
+  /** Search fields (iPhone Library, laptop top bar and sidebar, Search). */
+  search: { bg: '#F5E0D8', border: '#E8B4A0', text: '#0A0A0A', placeholder: '#5A5A6A' },
+  /** The note's title card. */
+  titleCard: '#F5E0D8',
 
   // Recording: the red Record button and recording strip (white text on it)
   recording: '#CC3333',
@@ -180,6 +185,10 @@ export const DarkColors: ThemeColors = {
 
   salmon: '#7A564A',
   salmonLight: '#4A3530',
+
+  // A dimmed salmon with dark text (Lea)
+  search: { bg: '#C99A8C', border: '#A87A6C', text: '#14141F', placeholder: '#33303D' },
+  titleCard: '#262533',
 
   recording: '#CC3333',
   onRecording: '#FFFFFF',

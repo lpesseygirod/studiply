@@ -607,16 +607,16 @@ const makeStyles = (c: ThemeColors) =>
 
   // Search and chips
   searchField: {
-    backgroundColor: c.salmonLight,
+    backgroundColor: c.search.bg,
     borderWidth: 1,
-    borderColor: c.salmon,
+    borderColor: c.search.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   searchPlaceholder: {
     fontSize: Typography.size.base,
-    color: c.text.secondary,
+    color: c.search.placeholder,
   },
   // Horizontal rows keep their content's height (React Native Web's ScrollView grows by default).
   chipsScroll: { flexGrow: 0, marginHorizontal: -H_PADDING, marginTop: 14 },
