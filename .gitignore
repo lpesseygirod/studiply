@@ -75,3 +75,6 @@ android/.gradle/
 *.swp
 coverage/
 .claude/settings.local.json
+
+# Finder/iCloud duplicate copies ("file 2.ts")
+* 2.*
