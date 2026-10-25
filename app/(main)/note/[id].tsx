@@ -49,6 +49,9 @@ import type { Session, Note, Transcript, SourceFile, Project } from '../../../sr
 import { menuTriggerProps, showActionSheet, showAlert, type Anchor } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
 import { GradientFill } from '../../../src/components/GradientBackground';
+import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
+import { formatSaved } from '../../../src/utils/shelf';
 
 // -------------------------------------------------------------------
 // Local display types (cast from JSON columns)
@@ -129,6 +132,9 @@ export default function NoteDetailScreen() {
   // --- Edit mode ---
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Course › folder › subfolder, for the laptop's top bar.
+  const [folderChain, setFolderChain] = useState<Breadcrumb[]>([]);
   // Draft fields
   const [draftTitle, setDraftTitle] = useState('');
   const [draftSummary, setDraftSummary] = useState('');
@@ -188,7 +194,14 @@ export default function NoteDetailScreen() {
       }
       if (s.project_id) {
         getProject(s.project_id)
-          .then(p => setProject(p))
+          .then(async p => {
+            setProject(p);
+            setFolderChain(
+              s.folder_id
+                ? await getFolderBreadcrumbs(s.folder_id, p.name)
+                : [{ id: null, name: p.name, type: 'project' }],
+            );
+          })
           .catch(() => {});
       }
     } catch (err: unknown) {
@@ -204,6 +217,18 @@ export default function NoteDetailScreen() {
 
   // A synced edit, or a newer version downloaded from another device.
   useLibraryUpdates(load);
+
+  // The laptop's top bar: where this lecture is, its title, when it was saved.
+  useShellScreen(
+    session ? { courseId: session.project_id, folderId: session.folder_id, itemId: session.id } : null,
+    session
+      ? {
+          crumbs: courseCrumbs(session.project_id, folderChain),
+          title: note?.title || session.title,
+          saved: isSaving ? 'Saving…' : saveFailed ? 'Not saved' : note ? formatSaved(note.updated_at) : null,
+        }
+      : null,
+  );
 
   // "Move to…" for this lecture and its photos/PDFs, with Undo.
   const { showUndo, toast: undoToast } = useUndoToast();
@@ -253,6 +278,7 @@ export default function NoteDetailScreen() {
   const handleSave = async () => {
     if (!note) return;
     setIsSaving(true);
+    setSaveFailed(false);
     try {
       const updated = await updateNote(
         note.id,
@@ -283,6 +309,7 @@ export default function NoteDetailScreen() {
         }
       }
     } catch (err) {
+      setSaveFailed(true);
       showAlert('Error', errorMessage(err, 'Could not save note. Please try again.'));
     } finally {
       setIsSaving(false);

@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Audio } from 'expo-av';
 
+import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
@@ -111,6 +112,7 @@ export default function ActiveRecordingScreen() {
     title: string;
     mode: string;
   }>();
+  useLectureShell(sessionId, title);
 
   // ── Recording refs ───────────────────────────────────────────
   const sessionIdRef = useRef(sessionId);

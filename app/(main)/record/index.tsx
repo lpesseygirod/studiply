@@ -20,6 +20,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useShellScreen } from '../../../src/components/shell/ShellContext';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
@@ -64,6 +65,19 @@ export default function RecordSetupScreen() {
 
   // Data
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
+
+  // The laptop's top bar: "New recording" under the chosen course.
+  const folderForCourse = selectedProject && selectedProject.id === preselectedProjectId ? preselectedFolderId ?? null : null;
+  useShellScreen(
+    { courseId: selectedProject?.id ?? null, folderId: folderForCourse },
+    {
+      crumbs: selectedProject
+        ? [{ label: selectedProject.name, href: `/project/${selectedProject.id}` }]
+        : [{ label: 'My library', href: '/library' }],
+      title: 'New recording',
+      saved: null,
+    },
+  );
 
   // UI state
   const [showProjectPicker, setShowProjectPicker] = useState(false);

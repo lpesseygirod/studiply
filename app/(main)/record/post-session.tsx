@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { Colors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
@@ -78,6 +79,7 @@ export default function PostSessionScreen() {
   const router = useRouter();
   // `mode` comes from the recording screen; the lecture has no column for it.
   const { sessionId, mode } = useLocalSearchParams<{ sessionId: string; mode?: string }>();
+  useLectureShell(sessionId);
 
   const [session, setSession] = useState<Session | null>(null);
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);

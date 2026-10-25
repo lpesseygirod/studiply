@@ -24,6 +24,7 @@ import type { NoteResult, TranscriptionResult } from '../../../src/services/ai.s
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, SourceFile } from '../../../src/types/database';
 import { useAuth } from '../../../src/hooks/useAuth';
+import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 import { confirmAction } from '../../../src/utils/confirm';
@@ -67,6 +68,7 @@ export default function ReviewScreen() {
     /** How it was recorded (passed along from the recording screen; not stored). */
     mode?: string;
   }>();
+  useLectureShell(sessionId);
   // `session` below is the lecture session; this one is the signed-in profile.
   const { session: authSession } = useAuth();
 

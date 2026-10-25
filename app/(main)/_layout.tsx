@@ -8,6 +8,7 @@ import { Layout } from '../../src/constants/layout';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
+import { ShellProvider } from '../../src/components/shell/ShellContext';
 import { Sidebar } from '../../src/components/shell/Sidebar';
 import { TopBar } from '../../src/components/shell/TopBar';
 import { screenKindFor, useLayoutMode } from '../../src/hooks/useLayoutMode';
@@ -69,57 +70,58 @@ export default function MainLayout() {
   const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
 
   return (
-    <View style={styles.root}>
-      {wide && (
-        <TopBar
-          kind={kind}
-          documentTitle={pathname.startsWith('/record') ? 'New recording' : 'Lecture notes'}
-          sidebarOpen={prefs.sidebarOpen}
-          assistantOpen={prefs.assistantOpen}
-          onToggleSidebar={() => setPrefs({ sidebarOpen: !prefs.sidebarOpen })}
-          onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
-        />
-      )}
-      {/* The recording strip goes here (Phase 5). */}
-      <View style={styles.row}>
-        {showSidebar && <Sidebar kind={kind} />}
-        <View style={styles.center}>
-          {wide && <GradientFill />}
-          <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
-            <Tabs
-              screenOptions={{
-                headerShown: false,
-                tabBarActiveTintColor: Colors.accent,
-                tabBarInactiveTintColor: Colors.text.secondary,
-                tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
-              }}
-            >
-              {MAIN_TABS.map(tab => (
-                <Tabs.Screen
-                  key={tab.name}
-                  name={tab.name}
-                  options={{
-                    title: tab.label,
-                    tabBarAccessibilityLabel: tab.label,
-                    tabBarIcon: tabIcon(tab),
-                    // expo-router refuses href together with a custom button; /record is the default anyway.
-                    ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
-                  }}
-                />
-              ))}
+    <ShellProvider>
+      <View style={styles.root}>
+        {wide && (
+          <TopBar
+            kind={kind}
+            sidebarOpen={prefs.sidebarOpen}
+            assistantOpen={prefs.assistantOpen}
+            onToggleSidebar={() => setPrefs({ sidebarOpen: !prefs.sidebarOpen })}
+            onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
+          />
+        )}
+        {/* The recording strip goes here (Phase 5). */}
+        <View style={styles.row}>
+          {showSidebar && <Sidebar kind={kind} />}
+          <View style={styles.center}>
+            {wide && <GradientFill />}
+            <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
+              <Tabs
+                screenOptions={{
+                  headerShown: false,
+                  tabBarActiveTintColor: Colors.accent,
+                  tabBarInactiveTintColor: Colors.text.secondary,
+                  tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
+                }}
+              >
+                {MAIN_TABS.map(tab => (
+                  <Tabs.Screen
+                    key={tab.name}
+                    name={tab.name}
+                    options={{
+                      title: tab.label,
+                      tabBarAccessibilityLabel: tab.label,
+                      tabBarIcon: tabIcon(tab),
+                      // expo-router refuses href together with a custom button; /record is the default anyway.
+                      ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
+                    }}
+                  />
+                ))}
 
-              {/* Navigable but without a tab */}
-              {HIDDEN_ROUTES.map(name => (
-                <Tabs.Screen key={name} name={name} options={{ href: null }} />
-              ))}
-            </Tabs>
+                {/* Navigable but without a tab */}
+                {HIDDEN_ROUTES.map(name => (
+                  <Tabs.Screen key={name} name={name} options={{ href: null }} />
+                ))}
+              </Tabs>
+            </View>
+            {wide && <OfflineBanner bottom={16} />}
           </View>
-          {wide && <OfflineBanner bottom={16} />}
+          {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
         </View>
-        {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
+        {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
       </View>
-      {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
-    </View>
+    </ShellProvider>
   );
 }
 

@@ -31,7 +31,7 @@ import {
   getSessionsByProject,
   getOrCreateProjectUploadSession,
 } from '../../../src/services/session.service';
-import { getFolders, createFolder, type Breadcrumb } from '../../../src/services/folder.service';
+import { getFolders, createFolder, getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { getSessionsWithNotes } from '../../../src/services/note.service';
 import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
 import {
@@ -60,6 +60,7 @@ import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { confirmAction } from '../../../src/utils/confirm';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
+import { useShellScreen } from '../../../src/components/shell/ShellContext';
 import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
 
@@ -104,7 +105,8 @@ const FOLDER_CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP) / 2;
 export default function ProjectDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `folder`: open at that folder (links from the laptop sidebar and top bar).
+  const { id, folder: folderParam } = useLocalSearchParams<{ id: string; folder?: string }>();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
 
@@ -175,16 +177,40 @@ export default function ProjectDetailScreen() {
   }, [id]);
 
   // This screen stays mounted when the student leaves it, so opening
-  // another project must start from that project's root, not from the
-  // previous project's breadcrumbs and lists.
+  // another project must start from that project's root (or the linked
+  // folder), not from the previous project's breadcrumbs and lists.
+  const shownRef = useRef<{ id: string; folderId: string | null } | null>(null);
   useEffect(() => {
+    const target = folderParam ?? null;
+    const shown = shownRef.current;
+    if (shown && shown.id === id && shown.folderId === target) return; // already there
+    shownRef.current = { id, folderId: target };
     setBreadcrumbs([]);
     setProject(null);
     setFolders([]);
     setSessions([]);
     setLoading(true);
-    fetchData(null);
-  }, [id]);
+    if (!target) {
+      fetchData(null);
+      return;
+    }
+    getProject(id)
+      .then(p => getFolderBreadcrumbs(target, p.name))
+      .then(chain => setBreadcrumbs(chain))
+      .catch(() => {})
+      .finally(() => fetchData(target));
+  }, [id, folderParam]);
+
+  // The link follows the folder the student is in, so the sidebar and
+  // top bar can bring them back to it.
+  function showFolder(folderId: string | null) {
+    shownRef.current = { id, folderId };
+    router.setParams({ folder: folderId ?? undefined });
+  }
+
+  // The laptop shell: Record lecture preselects this course and folder;
+  // the sidebar expands this course.
+  useShellScreen({ courseId: id ?? null, folderId: currentFolderId });
 
   // Coming back to the screen (e.g. after a rename in Library) reloads the
   // level the student is on. The first focus is the initial load above.
@@ -233,6 +259,7 @@ export default function ProjectDetailScreen() {
   function navigateIntoFolder(folder: Folder) {
     const newCrumb: Breadcrumb = { id: folder.id, name: folder.name, type: 'folder' };
     setBreadcrumbs(prev => [...prev, newCrumb]);
+    showFolder(folder.id);
     setFolders([]);
     setSessions([]);
     setLoading(true);
@@ -243,6 +270,7 @@ export default function ProjectDetailScreen() {
     const crumb = breadcrumbs[index];
     const folderId = crumb.type === 'folder' ? crumb.id : null;
     setBreadcrumbs(prev => prev.slice(0, index + 1));
+    showFolder(folderId);
     setFolders([]);
     setSessions([]);
     setLoading(true);
