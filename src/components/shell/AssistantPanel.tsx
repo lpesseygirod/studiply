@@ -1,21 +1,24 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors } from '../../constants/colors';
+import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 
 /** The study assistant beside a document on the laptop (docs/design desktop-01). Built in Phase 6. */
 export function AssistantPanel({ onClose }: { onClose: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   return (
     <View style={styles.panel} testID="assistant-panel">
       <View style={styles.header}>
         <View style={styles.badge}>
-          <Ionicons name="sparkles" size={14} color={Colors.accent} />
+          <Ionicons name="sparkles" size={14} color={c.accent} />
         </View>
         <Text style={styles.title}>Study assistant</Text>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Hide study assistant" hitSlop={6} style={styles.close}>
-          <Ionicons name="close" size={18} color={Colors.text.secondary} />
+          <Ionicons name="close" size={18} color={c.text.secondary} />
         </Pressable>
       </View>
       <View style={styles.body}>
@@ -28,12 +31,13 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   panel: {
     width: Layout.assistantWidth,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderLeftWidth: 1,
-    borderLeftColor: Colors.surfaceMuted,
+    borderLeftColor: c.surfaceMuted,
   },
   header: {
     flexDirection: 'row',
@@ -42,25 +46,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   badge: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: c.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { flex: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
+  title: { flex: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
   close: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   body: { padding: 16, gap: 8 },
   soon: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.accentDark,
+    color: c.accentDark,
     letterSpacing: Typography.tracking.wide,
     textTransform: 'uppercase',
   },
-  text: { fontSize: Typography.size.sm, color: Colors.text.secondary, lineHeight: 20 },
+  text: { fontSize: Typography.size.sm, color: c.text.secondary, lineHeight: 20 },
 });

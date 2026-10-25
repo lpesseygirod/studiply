@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, type Href } from 'expo-router';
 
-import { Colors } from '../../constants/colors';
+import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import { LightColors, type ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
@@ -32,6 +33,7 @@ export function TopBar({
   onToggleSidebar: () => void;
   onToggleAssistant: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { location, header } = useShell();
   const crumbs: Crumb[] = header?.crumbs ?? [{ label: 'My library', href: '/library' }];
@@ -54,12 +56,12 @@ export function TopBar({
         )}
         <Pressable style={styles.logoLink} onPress={() => router.navigate('/library')} accessibilityRole="link" accessibilityLabel="Studiply, My library">
           <LinearGradient
-            colors={[Colors.gradient.top, Colors.gradient.bottomMid]}
+            colors={[LightColors.gradient.top, LightColors.gradient.bottomMid]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.logoTile}
           >
-            <Ionicons name="book" size={15} color={Colors.white} />
+            <Ionicons name="book" size={15} color={LightColors.white} />
           </LinearGradient>
           <Text style={styles.logoText}>Studiply</Text>
         </Pressable>
@@ -146,6 +148,8 @@ function IconButton({
   label: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -154,19 +158,20 @@ function IconButton({
       accessibilityLabel={label}
       hitSlop={6}
     >
-      <Ionicons name={icon} size={18} color={Colors.text.secondary} />
+      <Ionicons name={icon} size={18} color={c.text.secondary} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   bar: {
     height: Layout.topBarHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
     paddingHorizontal: 12,
     gap: 16,
   },
@@ -175,50 +180,50 @@ const styles = StyleSheet.create({
   brandOverSidebar: { width: Layout.sidebarWidth - 12 - 16 },
   logoLink: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoTile: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: Colors.text.primary },
+  logoText: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: c.text.primary },
 
   middle: { flex: 1, minWidth: 0 },
   search: {
     maxWidth: 640,
     height: 38,
     justifyContent: 'center',
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     borderWidth: 1,
-    borderColor: Colors.salmon,
+    borderColor: c.salmon,
     borderRadius: 100,
     paddingHorizontal: 16,
   },
-  searchText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  searchText: { fontSize: Typography.size.sm, color: c.text.secondary },
   titleBlock: { gap: 1 },
   crumbs: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'nowrap', overflow: 'hidden' },
   crumbItem: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
-  crumb: { fontSize: Typography.size.xs, color: Colors.text.secondary },
+  crumb: { fontSize: Typography.size.xs, color: c.text.secondary },
   titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  saved: { fontSize: Typography.size.xs, color: Colors.text.secondary },
-  back: { fontSize: Typography.size.xs, color: Colors.accentDark, fontWeight: Typography.weight.medium },
-  title: { flexShrink: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
+  saved: { fontSize: Typography.size.xs, color: c.text.secondary },
+  back: { fontSize: Typography.size.xs, color: c.accentDark, fontWeight: Typography.weight.medium },
+  title: { flexShrink: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
 
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   recordPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.recording,
+    backgroundColor: c.recording,
     borderRadius: 100,
     paddingHorizontal: 16,
     height: 38,
   },
-  recordDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: Colors.white },
-  recordText: { color: Colors.white, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  recordDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: c.onRecording },
+  recordText: { color: c.onRecording, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
   outlineButton: {
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     borderRadius: 100,
     paddingHorizontal: 16,
     height: 36,
     justifyContent: 'center',
   },
-  outlineText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: Colors.text.primary },
+  outlineText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.primary },
   disabled: { opacity: 0.45 },
   iconButton: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
 });

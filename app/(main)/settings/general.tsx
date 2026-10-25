@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { Colors } from '../../../src/constants/colors';
+import { useTheme } from '../../../src/theme/ThemeProvider';
 import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
 import type { UserSettings } from '../../../src/types/database';
@@ -65,6 +66,7 @@ const RETENTION_OPTIONS = [
 // -------------------------------------------------------------------
 
 export default function GeneralScreen() {
+  const { appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
@@ -180,6 +182,37 @@ export default function GeneralScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── APPEARANCE (this device) ───────────────────────────── */}
+        <Text style={styles.sectionHeader}>APPEARANCE</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Light or dark, on this device</Text>
+          </View>
+          <View style={styles.pillsRow} accessibilityRole="radiogroup">
+            {([
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ] as const).map(({ value, label }) => {
+              const active = appearance === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.pill, active && styles.pillActive]}
+                  onPress={() => setAppearance(value)}
+                  activeOpacity={0.8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                >
+                  <Text style={[styles.pillText, active && styles.pillTextActive]} numberOfLines={1}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* ── RECORDING ──────────────────────────────────────────── */}
         <Text style={styles.sectionHeader}>RECORDING</Text>
         <View style={styles.card}>

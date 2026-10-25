@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TextStyle } from 'react-native';
 import { Typography } from '../constants/typography';
-import { Colors } from '../constants/colors';
+import { useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 
 // -------------------------------------------------------------------
 // Sentence splitter (also used by consumers to map indices → text)
@@ -35,6 +36,7 @@ export default function HighlightableText({
   editable,
   style,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const sentences = splitIntoSentences(text);
 
   return (
@@ -59,18 +61,19 @@ export default function HighlightableText({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: Typography.size.sm * Typography.leading.relaxed,
   },
   sentence: {
     // unhighlighted — inherits container style
   },
   highlighted: {
-    backgroundColor: '#FFF9C4',
-    color: Colors.text.primary,
+    backgroundColor: c.highlight,
+    color: c.text.primary,
     fontWeight: Typography.weight.semibold,
   },
 });

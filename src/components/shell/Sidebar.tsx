@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 
-import { Colors } from '../../constants/colors';
+import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
@@ -34,6 +35,8 @@ export const SECTIONS = [
 
 
 export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUndo }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   const { section } = useGlobalSearchParams<{ section?: string }>();
@@ -64,7 +67,7 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
           accessibilityRole="button"
           accessibilityLabel="New course"
         >
-          <Ionicons name="add" size={18} color={Colors.button.primaryText} />
+          <Ionicons name="add" size={18} color={c.button.primaryText} />
           <Text style={styles.newText}>New</Text>
         </TouchableOpacity>
 
@@ -133,7 +136,7 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
       </ScrollView>
 
       <Pressable style={styles.trash} onPress={() => router.navigate('/settings/trash')} accessibilityRole="link">
-        <Ionicons name="trash-outline" size={16} color={Colors.text.primary} />
+        <Ionicons name="trash-outline" size={16} color={c.text.primary} />
         <Text style={styles.itemText}>Trash</Text>
       </Pressable>
 
@@ -167,6 +170,8 @@ function CourseTree({
   itemId: string | null;
   showUndo: ShowUndo;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const router = useRouter();
   const [levels, setLevels] = useState<Record<string, ShelfItem[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -251,12 +256,12 @@ function CourseTree({
                 accessibilityRole="button"
                 accessibilityLabel={open ? `Collapse ${item.title}` : `Expand ${item.title}`}
               >
-                <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={12} color={Colors.text.secondary} />
+                <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={12} color={c.text.secondary} />
               </Pressable>
             ) : (
               <View style={styles.chevronSpace} />
             )}
-            <Ionicons name={TYPE_ICON[item.type]} size={14} color={active ? Colors.accentDark : Colors.text.secondary} />
+            <Ionicons name={TYPE_ICON[item.type]} size={14} color={active ? c.accentDark : c.text.secondary} />
             <Text style={[styles.treeText, active && styles.treeTextActive]} numberOfLines={1}>
               {item.title}
             </Text>
@@ -290,6 +295,7 @@ function Item({
   count?: number;
   badge?: number;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       style={[styles.item, active && styles.itemActive]}
@@ -312,12 +318,13 @@ function Item({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   sidebar: {
     width: Layout.sidebarWidth,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRightWidth: 1,
-    borderRightColor: Colors.surfaceMuted,
+    borderRightColor: c.surfaceMuted,
   },
   content: { padding: 12, paddingTop: 16, gap: 4 },
   newButton: {
@@ -325,32 +332,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 42,
     marginBottom: 16,
   },
-  newText: { color: Colors.button.primaryText, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
+  newText: { color: c.button.primaryText, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
 
   searchBlock: { gap: 6, marginBottom: 14 },
-  smallLabel: { fontSize: Typography.size.xs, color: Colors.text.secondary, paddingHorizontal: 2 },
+  smallLabel: { fontSize: Typography.size.xs, color: c.text.secondary, paddingHorizontal: 2 },
   search: {
     height: 36,
     justifyContent: 'center',
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     borderWidth: 1,
-    borderColor: Colors.salmon,
+    borderColor: c.salmon,
     borderRadius: 10,
     paddingHorizontal: 10,
   },
-  searchText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  searchText: { fontSize: Typography.size.sm, color: c.text.secondary },
 
   group: { gap: 2 },
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: Typography.tracking.wide,
     marginTop: 18,
     marginBottom: 6,
@@ -364,22 +371,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
   },
-  itemActive: { backgroundColor: Colors.accentLight },
-  itemText: { flex: 1, fontSize: Typography.size.base, color: Colors.text.primary },
+  itemActive: { backgroundColor: c.accentLight },
+  itemText: { flex: 1, fontSize: Typography.size.base, color: c.text.primary },
   itemTextActive: { fontWeight: Typography.weight.semibold },
   square: { width: 10, height: 10, borderRadius: 2 },
-  count: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  count: { fontSize: Typography.size.sm, color: c.text.secondary },
   badge: {
     minWidth: 20,
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 6,
-    backgroundColor: Colors.accent,
+    backgroundColor: c.accentDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: Colors.white, fontSize: Typography.size.xs, fontWeight: Typography.weight.bold },
-  empty: { fontSize: Typography.size.sm, color: Colors.text.secondary, paddingHorizontal: 10 },
+  badgeText: { color: c.accentOn, fontSize: Typography.size.xs, fontWeight: Typography.weight.bold },
+  empty: { fontSize: Typography.size.sm, color: c.text.secondary, paddingHorizontal: 10 },
 
   tree: { paddingVertical: 2 },
   treeEmpty: { paddingVertical: 4 },
@@ -391,10 +398,10 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     borderRadius: 8,
   },
-  treeItemActive: { backgroundColor: Colors.salmonLight },
+  treeItemActive: { backgroundColor: c.salmonLight },
   chevronSpace: { width: 12 },
-  treeText: { flex: 1, fontSize: Typography.size.sm, color: Colors.text.primary },
-  treeTextActive: { color: Colors.accentDark, fontWeight: Typography.weight.semibold },
+  treeText: { flex: 1, fontSize: Typography.size.sm, color: c.text.primary },
+  treeTextActive: { color: c.accentDark, fontWeight: Typography.weight.semibold },
   trash: {
     flexDirection: 'row',
     alignItems: 'center',

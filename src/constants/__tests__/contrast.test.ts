@@ -36,6 +36,7 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['text.primary on highlight', c.text.primary, c.highlight, TEXT],
     ['accent (active tab icon) on card', c.accent, c.card, ICON],
     ['recording (Record button) on card', c.recording, c.card, ICON],
+    ['favorite star on card', c.favorite, c.card, ICON],
   ];
 }
 

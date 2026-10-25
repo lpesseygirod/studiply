@@ -99,6 +99,13 @@ const light = {
   /** A highlighted sentence (clarify). */
   highlight: '#FFF3B0',
 
+  /** The Favorites star. */
+  favorite: '#B26A00',
+  /** Shadows stay black in both appearances. */
+  shadow: '#000000',
+  /** Behind a full-screen photo. */
+  photoBackdrop: 'rgba(0, 0, 0, 0.92)',
+
   /** Colors a student can give a course (stored with the course). */
   courseColors: ['#F5E0D8', '#D8D5F0', '#C8E8D8', '#C5DCF0', '#F5E8C0', '#E0DFE8'],
 };
@@ -183,6 +190,10 @@ export const DarkColors: ThemeColors = {
   fromNotes: { bg: '#1B3328', text: '#9BE3BF' },
 
   highlight: '#5A4E1E',
+
+  favorite: '#F5C060',
+  shadow: '#000000',
+  photoBackdrop: 'rgba(0, 0, 0, 0.92)',
 
   courseColors: light.courseColors,
 };

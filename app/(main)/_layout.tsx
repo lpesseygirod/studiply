@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors } from '../../src/constants/colors';
+import { useTheme, useThemedStyles } from '../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../src/constants/colors';
 import { Layout } from '../../src/constants/layout';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
@@ -33,6 +34,7 @@ function RecordTabButton({
   accessibilityState,
   testID,
 }: Pick<PressableProps, 'onPress' | 'onLongPress' | 'accessibilityState' | 'testID'>) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.recordSlot} pointerEvents="box-none">
       <Pressable
@@ -60,6 +62,8 @@ function RecordTabButton({
  * the layout without losing the open screen.
  */
 export default function MainLayout() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const wide = useLayoutMode() === 'wide';
@@ -93,8 +97,10 @@ export default function MainLayout() {
               <Tabs
                 screenOptions={{
                   headerShown: false,
-                  tabBarActiveTintColor: Colors.accent,
-                  tabBarInactiveTintColor: Colors.text.secondary,
+                  // No white flash between screens in dark mode
+                  sceneStyle: { backgroundColor: c.gradient.top },
+                  tabBarActiveTintColor: c.accentDark,
+                  tabBarInactiveTintColor: c.text.secondary,
                   tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
                 }}
               >
@@ -131,7 +137,8 @@ export default function MainLayout() {
 
 const RING = 4;
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   root: { flex: 1 },
   row: { flex: 1, flexDirection: 'row' },
   center: { flex: 1, minWidth: 0 },
@@ -139,8 +146,8 @@ const styles = StyleSheet.create({
   // Documents and settings: a centered column on the gradient (the page is 820 px).
   centerColumnNarrow: { maxWidth: Layout.documentMaxWidth + 48 },
   tabBar: {
-    backgroundColor: Colors.white,
-    borderTopColor: Colors.surfaceMuted,
+    backgroundColor: c.white,
+    borderTopColor: c.surfaceMuted,
     borderTopWidth: 1,
     overflow: 'visible',
   },
@@ -154,8 +161,8 @@ const styles = StyleSheet.create({
     borderRadius: Layout.recordButtonSize / 2,
     marginTop: -Layout.recordButtonSize / 2 + 4,
     padding: RING,
-    backgroundColor: Colors.white,
-    shadowColor: Colors.black,
+    backgroundColor: c.white,
+    shadowColor: c.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -165,7 +172,7 @@ const styles = StyleSheet.create({
   recordCircle: {
     flex: 1,
     borderRadius: (Layout.recordButtonSize - RING * 2) / 2,
-    backgroundColor: Colors.recording,
+    backgroundColor: c.recording,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -173,6 +180,6 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: Colors.white,
+    backgroundColor: c.onRecording,
   },
 });

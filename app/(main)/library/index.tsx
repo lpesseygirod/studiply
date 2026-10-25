@@ -8,7 +8,6 @@ import {
   RefreshControl,
   useWindowDimensions,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +15,8 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
 import { getProjects, updateProject, type ProjectWithCount } from '../../../src/services/project.service';
@@ -93,6 +93,8 @@ function itemCount(n: number): string {
 let earlierDismissed = false;
 
 export default function LibraryScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
@@ -302,7 +304,7 @@ export default function LibraryScreen() {
 
   return (
     <GradientBackground>
-      <StatusBar style="dark" />
+      <ThemedStatusBar />
 
       <ScrollView
         contentContainerStyle={[
@@ -312,7 +314,7 @@ export default function LibraryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.text.onGradient} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradient} />
         }
       >
         {/* ── Header: on the laptop, search and the avatar are in the top bar ── */}
@@ -322,7 +324,7 @@ export default function LibraryScreen() {
               <TouchableOpacity onPress={() => router.setParams({ section: undefined })} accessibilityRole="link">
                 <Text style={[styles.title, styles.titleWide, styles.crumbMuted]}>My library</Text>
               </TouchableOpacity>
-              <Ionicons name="chevron-forward" size={18} color={Colors.text.onGradient} />
+              <Ionicons name="chevron-forward" size={18} color={c.text.onGradient} />
               <Text style={[styles.title, styles.titleWide]}>{section.label}</Text>
             </View>
           ) : (
@@ -336,7 +338,7 @@ export default function LibraryScreen() {
               accessibilityRole="button"
               accessibilityLabel="New course"
             >
-              <Ionicons name="add" size={22} color={Colors.button.primaryText} />
+              <Ionicons name="add" size={22} color={c.button.primaryText} />
             </TouchableOpacity>
             {!wide && (
               <TouchableOpacity
@@ -439,8 +441,8 @@ export default function LibraryScreen() {
                     {...menuTriggerProps(anchor => showItemActions(item, anchor))}
                     activeOpacity={0.75}
                   >
-                    <View style={[styles.itemIcon, { backgroundColor: item.color ?? Colors.surfaceMuted }]}>
-                      <Ionicons name={TYPE_ICON[item.type]} size={16} color={Colors.text.primary} />
+                    <View style={[styles.itemIcon, { backgroundColor: item.color ?? c.surfaceMuted }]}>
+                      <Ionicons name={TYPE_ICON[item.type]} size={16} color={c.text.primary} />
                     </View>
                     <View style={styles.itemText}>
                       <Text style={styles.itemTitle} numberOfLines={1}>
@@ -452,9 +454,9 @@ export default function LibraryScreen() {
                       </Text>
                     </View>
                     {item.starredAt && (
-                      <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="In Favorites" />
+                      <Ionicons name="star" size={14} color={c.favorite} accessibilityLabel="In Favorites" />
                     )}
-                    <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                    <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -485,9 +487,9 @@ export default function LibraryScreen() {
                     <Text style={styles.courseName} numberOfLines={1}>
                       {project.name}
                     </Text>
-                    {project.starred_at && <Ionicons name="star" size={14} color={Colors.gradient.bottomEnd} accessibilityLabel="In Favorites" />}
+                    {project.starred_at && <Ionicons name="star" size={14} color={c.favorite} accessibilityLabel="In Favorites" />}
                     <Text style={styles.courseCount}>{project.itemCount}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+                    <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -515,7 +517,7 @@ export default function LibraryScreen() {
                     activeOpacity={0.85}
                   >
                     <LinearGradient
-                      colors={[Colors.accent, Colors.gradient.bottomMid, Colors.gradient.bottomEnd]}
+                      colors={[c.accent, c.gradient.bottomMid, c.gradient.bottomEnd]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.recentLine}
@@ -562,7 +564,8 @@ export default function LibraryScreen() {
 
 const radius = Layout.cardRadius.iphone;
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: H_PADDING,
@@ -584,7 +587,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   titleWide: {
     fontSize: Typography.size['2xl'],
@@ -592,52 +595,52 @@ const styles = StyleSheet.create({
   },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   crumbRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  crumbMuted: { color: Colors.text.onGradient, fontWeight: Typography.weight.medium },
+  crumbMuted: { color: c.text.onGradient, fontWeight: Typography.weight.medium },
   newButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Search and chips
   searchField: {
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     borderWidth: 1,
-    borderColor: Colors.salmon,
+    borderColor: c.salmon,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   searchPlaceholder: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   // Horizontal rows keep their content's height (React Native Web's ScrollView grows by default).
   chipsScroll: { flexGrow: 0, marginHorizontal: -H_PADDING, marginTop: 14 },
   chips: { gap: 8, paddingHorizontal: H_PADDING, alignItems: 'flex-start' },
   chip: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  chipActive: { backgroundColor: Colors.accent },
-  chipTextActive: { color: Colors.white, fontWeight: Typography.weight.semibold },
-  chipAccent: { backgroundColor: Colors.accentLight },
+  chipActive: { backgroundColor: c.accentDark },
+  chipTextActive: { color: c.accentOn, fontWeight: Typography.weight.semibold },
+  chipAccent: { backgroundColor: c.accentLight },
   chipText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
-  chipTextAccent: { color: Colors.accentDark, fontWeight: Typography.weight.semibold },
+  chipTextAccent: { color: c.accentDark, fontWeight: Typography.weight.semibold },
 
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.onGradient,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginTop: 24,
     marginBottom: 10,
@@ -646,21 +649,21 @@ const styles = StyleSheet.create({
   // Earlier version card (step 1.9)
   earlierCard: {
     marginTop: 20,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: radius,
     padding: 16,
     gap: 6,
   },
-  earlierTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
-  earlierText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  earlierTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
+  earlierText: { fontSize: Typography.size.sm, color: c.text.secondary },
   earlierButtons: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6 },
-  earlierPrimary: { backgroundColor: Colors.button.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
-  earlierPrimaryText: { color: Colors.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
-  earlierLater: { color: Colors.text.secondary, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium },
+  earlierPrimary: { backgroundColor: c.button.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  earlierPrimaryText: { color: c.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  earlierLater: { color: c.text.secondary, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium },
 
   // Courses
   listCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: radius,
     overflow: 'hidden',
   },
@@ -673,18 +676,18 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   courseSquare: { width: 32, height: 28, borderRadius: 6 },
   courseName: {
     flex: 1,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   courseCount: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Section lists
@@ -698,13 +701,13 @@ const styles = StyleSheet.create({
   },
   itemIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   itemText: { flex: 1, gap: 2 },
-  itemTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
+  itemTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
 
   // Recent
   recentScroll: { flexGrow: 0, marginHorizontal: -H_PADDING },
   recentRow: { gap: CARD_GAP, paddingHorizontal: H_PADDING, alignItems: 'flex-start' },
   recentCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: radius - 4,
     padding: 12,
     gap: 6,
@@ -713,27 +716,27 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   recentMeta: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   // Empty states
   emptyCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: radius,
     padding: 16,
   },
   emptyText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
 
   hint: {
     fontSize: Typography.size.xs,
-    color: Colors.text.onGradient,
+    color: c.text.onGradient,
     textAlign: 'center',
     marginTop: 20,
   },
