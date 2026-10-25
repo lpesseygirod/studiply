@@ -62,4 +62,6 @@ export async function getMeta(_key: string): Promise<string | null> {
 
 export async function setMeta(_key: string, _value: string): Promise<void> {}
 
+export async function deleteMeta(_key: string): Promise<void> {}
+
 export async function clearCache(_userId: string): Promise<void> {}

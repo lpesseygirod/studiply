@@ -66,6 +66,7 @@ export const module = {
     from: (table: string) => builder(table),
     auth: {
       getSession: async () => ({ data: { session: { user: { id: 'user-1' }, access_token: 'token' } } }),
+      refreshSession: async () => ({ data: { session: { user: { id: 'user-1' }, access_token: 'token-2' } }, error: null }),
     },
   },
   supabaseUrl: 'http://127.0.0.1:54321',

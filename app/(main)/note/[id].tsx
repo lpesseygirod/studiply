@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -24,9 +24,15 @@ import {
   getNoteBySession,
   updateNote,
   addClarification,
+  noteHasUnsyncedEdit,
   parseClarifications,
+  takeConflictNotice,
   type ClarificationEntry,
 } from '../../../src/services/note.service';
+import { useLibraryUpdates } from '../../../src/lib/cache';
+import { useConnectivity } from '../../../src/lib/connectivity';
+import { BLOCK_LABELS, type NoteBlock } from '../../../src/lib/noteBlocks';
+import { onSyncEvent, syncEnabled } from '../../../src/lib/sync';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
 import { getActiveSourceFiles } from '../../../src/services/source-file.service';
 import { getProject } from '../../../src/services/project.service';
@@ -92,6 +98,13 @@ const SUMMARY_LABELS: Record<string, string> = {
 // Main component
 // -------------------------------------------------------------------
 
+/** "Summary", "Summary and Tags", "Title, Summary and Tags". */
+function listBlocks(blocks: NoteBlock[]): string {
+  const names = blocks.map((b) => BLOCK_LABELS[b]);
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 export default function NoteDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -137,45 +150,76 @@ export default function NoteDetailScreen() {
   // --- Export ---
   const [isExporting, setIsExporting] = useState(false);
 
+  // --- Sync (iPhone) ---
+  const offline = useConnectivity() === 'offline';
+  const [syncState, setSyncState] = useState<'pending' | 'saved' | 'failed' | null>(null);
+  // Blocks where another device's newer edit replaced this iPhone's.
+  const [conflictBlocks, setConflictBlocks] = useState<NoteBlock[]>([]);
+  // The note as it was when editing started: tells this edit from another device's.
+  const editBaseRef = useRef<Note | null>(null);
+
   // -------------------------------------------------------------------
   // Load data
   // -------------------------------------------------------------------
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) return;
-    (async () => {
-      try {
-        const s = await getSession(id);
-        const n = await getNoteBySession(id);
-        const [t, files] = await Promise.all([
-          getTranscriptBySession(id),
-          getActiveSourceFiles(id),
-        ]);
+    try {
+      const s = await getSession(id);
+      const n = await getNoteBySession(id);
+      const [t, files] = await Promise.all([
+        getTranscriptBySession(id),
+        getActiveSourceFiles(id),
+      ]);
 
-        setSession(s);
-        setNote(n);
-        setTranscript(t);
-        setSourceFiles(files);
-        if (n?.manual_annotations) {
-          setClarifications(parseClarifications(n.manual_annotations));
-        }
-        if (s.project_id) {
-          getProject(s.project_id)
-            .then(p => setProject(p))
-            .catch(() => {});
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Could not load note.');
-      } finally {
-        setLoading(false);
+      setSession(s);
+      setNote(n);
+      setTranscript(t);
+      setSourceFiles(files);
+      setClarifications(parseClarifications(n?.manual_annotations));
+      if (n) {
+        if (await noteHasUnsyncedEdit(n.id)) setSyncState('pending');
+        const lost = await takeConflictNotice(n.id);
+        if (lost.length > 0) setConflictBlocks(lost);
       }
-    })();
+      if (s.project_id) {
+        getProject(s.project_id)
+          .then(p => setProject(p))
+          .catch(() => {});
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not load note.');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // A synced edit, or a newer version downloaded from another device.
+  useLibraryUpdates(load);
+
+  // iPhone: "Saved" once the queued edit has reached Studiply.
+  const noteId = note?.id;
+  useEffect(() => {
+    if (!noteId) return;
+    return onSyncEvent((e) => {
+      if (e.type === 'done' && e.op.key === noteId) {
+        noteHasUnsyncedEdit(noteId).then((waiting) => {
+          if (!waiting) setSyncState('saved');
+        });
+      }
+      if (e.type === 'failed' && e.op.key === noteId) setSyncState('failed');
+    });
+  }, [noteId]);
 
   // -------------------------------------------------------------------
   // Edit mode helpers
   // -------------------------------------------------------------------
   const enterEditMode = () => {
     if (!note) return;
+    editBaseRef.current = note;
     setDraftTitle(note.title);
     setDraftSummary(note.summary ?? '');
     setDraftConcepts((note.key_concepts as unknown as KC[]) ?? []);
@@ -201,19 +245,24 @@ export default function NoteDetailScreen() {
     if (!note) return;
     setIsSaving(true);
     try {
-      const updated = await updateNote(note.id, {
-        title: draftTitle.trim() || note.title,
-        summary: draftSummary,
-        keyConcepts: draftConcepts,
-        formulas: draftFormulas,
-        definitions: draftDefinitions,
-        tags: draftTags,
-        unclearParts: draftUnclearParts,
-      });
+      const updated = await updateNote(
+        note.id,
+        {
+          title: draftTitle.trim() || note.title,
+          summary: draftSummary,
+          keyConcepts: draftConcepts,
+          formulas: draftFormulas,
+          definitions: draftDefinitions,
+          tags: draftTags,
+          unclearParts: draftUnclearParts,
+        },
+        editBaseRef.current ?? note,
+      );
       setNote(updated);
       setIsEditing(false);
-    } catch {
-      showAlert('Error', 'Could not save note. Please try again.');
+      setSyncState(syncEnabled && (await noteHasUnsyncedEdit(updated.id)) ? 'pending' : 'saved');
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not save note. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -269,8 +318,9 @@ export default function NoteDetailScreen() {
   const handleClearClarifications = async () => {
     if (!note) return;
     try {
-      const updated = await updateNote(note.id, { manualAnnotations: null });
+      const updated = await updateNote(note.id, { manualAnnotations: null }, note);
       setNote(updated);
+      if (syncEnabled && (await noteHasUnsyncedEdit(updated.id))) setSyncState('pending');
       setClarifications([]);
       setHighlightedSentences([]);
       instructionOpacity.setValue(1);
@@ -477,8 +527,37 @@ export default function NoteDetailScreen() {
                 <Text style={styles.bannerDuration}>{formatDuration(session.duration_seconds)}</Text>
               )}
             </View>
+            {syncState && !isEditing && (
+              <Text style={[styles.syncStatus, syncState === 'failed' && styles.syncStatusFailed]}>
+                {syncState === 'saved'
+                  ? 'Saved'
+                  : syncState === 'failed'
+                    ? "Couldn't sync this change. Try again in Settings."
+                    : offline
+                      ? "Saved on this iPhone · syncs when you're back online"
+                      : 'Saved on this iPhone · syncing…'}
+              </Text>
+            )}
           </View>
           </TouchableOpacity>
+
+          {/* ── Edited on another device ─────────────────────── */}
+          {conflictBlocks.length > 0 && (
+            <View style={styles.conflictNotice} accessibilityRole="alert">
+              <Ionicons name="git-compare-outline" size={18} color={Colors.text.secondary} />
+              <Text style={styles.conflictText}>
+                {listBlocks(conflictBlocks)} {conflictBlocks.length === 1 ? 'was' : 'were'} also changed on
+                another device. The newer version is shown; yours is kept in version history.
+              </Text>
+              <TouchableOpacity
+                onPress={() => setConflictBlocks([])}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Dismiss"
+              >
+                <Ionicons name="close" size={18} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ── Metadata pills ────────────────────────────────── */}
           <View style={styles.pillsRow}>
@@ -1182,6 +1261,24 @@ const styles = StyleSheet.create({
   bannerMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
   bannerDate: { fontSize: Typography.size.sm, color: Colors.text.secondary },
   bannerDuration: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  syncStatus: { fontSize: Typography.size.xs, color: Colors.text.secondary, marginTop: 4 },
+  syncStatusFailed: { color: Colors.error },
+
+  // Edited on another device
+  conflictNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: Colors.accentLight,
+    borderRadius: 14,
+    padding: 14,
+  },
+  conflictText: {
+    flex: 1,
+    fontSize: Typography.size.sm,
+    color: Colors.text.primary,
+    lineHeight: Typography.size.sm * Typography.leading.normal,
+  },
 
   // Metadata pills
   pillsRow: {

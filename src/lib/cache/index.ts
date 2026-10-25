@@ -14,7 +14,9 @@ import { setPullsEnabled } from './library';
 import { missingFrom } from './localQueries';
 import {
   cacheEnabled,
+  dirtyIds,
   dropRows,
+  readRow,
   readRows,
   saveRows,
   setCacheUser,
@@ -124,4 +126,15 @@ export function rememberLectureFiles(rows: LectureFileRow[], inScope?: (f: FileR
     'lectures',
     rows.flatMap((r) => (r.lectures ? [r.lectures] : [])),
   );
+}
+
+/**
+ * Rows changed on this iPhone and not synced yet replace what Supabase
+ * returned, so a screen shows the student's own latest version.
+ */
+export async function withLocalChanges<T extends { id: string }>(tbl: CachedTable, rows: T[]): Promise<T[]> {
+  if (!cacheEnabled || rows.length === 0) return rows;
+  const dirty = await dirtyIds(tbl).catch(() => new Set<string>());
+  if (dirty.size === 0) return rows;
+  return Promise.all(rows.map(async (r) => (dirty.has(r.id) ? ((await readRow<T>(tbl, r.id)) ?? r) : r)));
 }

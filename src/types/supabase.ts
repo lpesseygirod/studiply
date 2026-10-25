@@ -121,14 +121,14 @@ isOneToOne: false
                   ]
                 },"document_versions": {
                   Row: {
-                    "content": NonNullable<Json>,"created_at": string,"document_id": string,"id": string,"reason": string,"summary_id": string | null,"user_id": string
+                    "content": NonNullable<Json>,"created_at": string,"document_id": string | null,"file_id": string | null,"id": string,"reason": string,"summary_id": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "content": NonNullable<Json>,"created_at"?: string,"document_id": string,"id"?: string,"reason": string,"summary_id"?: string | null,"user_id"?: string
+                    "content": NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"reason": string,"summary_id"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"document_id"?: string,"id"?: string,"reason"?: string,"summary_id"?: string | null,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"reason"?: string,"summary_id"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -136,6 +136,12 @@ isOneToOne: false
       columns: ["document_id","user_id"]
 isOneToOne: false
       referencedRelation: "documents"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "document_versions_file_id_user_id_fkey"
+      columns: ["file_id","user_id"]
+isOneToOne: false
+      referencedRelation: "files"
       referencedColumns: ["id","user_id"]
     },{
       foreignKeyName: "document_versions_summary_id_user_id_fkey"

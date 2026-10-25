@@ -3,7 +3,7 @@
 -- what happens on sign-up and account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(29);
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'lea@test.dev', '{"display_name": "Lea"}');
@@ -121,6 +121,30 @@ insert into public.document_versions (document_id, content, reason) values ('b00
 select throws_ok(
   $$ update public.document_versions set content = '{"changed": true}' $$,
   '42501', null, 'versions can''t be edited');
+
+-- Step 1.8: the other device's version of a note block, kept for the lecture.
+insert into public.files (id, kind, title) values ('d0000000-0000-0000-0000-000000000002', 'lecture', 'Conflicted');
+
+select lives_ok(
+  $$ insert into public.document_versions (file_id, content, reason)
+     values ('d0000000-0000-0000-0000-000000000002', '{"summary": "A"}', 'conflict') $$,
+  'a conflict version can belong to a lecture without a document');
+
+select throws_ok(
+  $$ insert into public.document_versions (content, reason) values ('{}', 'conflict') $$,
+  '23514', null, 'a version belongs to a document or a file');
+
+select throws_ok(
+  $$ insert into public.document_versions (file_id, content, reason)
+     values ('d0000000-0000-0000-0000-000000000002', '{}', 'merged') $$,
+  '23514', null, 'a version''s reason is one of the known ones');
+
+delete from public.files where id = 'd0000000-0000-0000-0000-000000000002';
+
+select is(
+  (select count(*)::int from public.document_versions where file_id = 'd0000000-0000-0000-0000-000000000002'),
+  0,
+  'deleting the lecture deletes its conflict versions');
 
 -- ---------------------------------------------------------------------
 -- AI usage: read-only for users

@@ -176,6 +176,33 @@ export interface LegacyNoteResult {
   unclearParts: Json;
   manualAnnotations: string | null;
   isConfirmed: boolean;
+  /**
+   * Who last wrote each block of the note and when (step 1.8), for the
+   * conflict rule in ../lib/noteBlocks. Older notes don't have it.
+   */
+  blocks?: Partial<Record<string, NoteBlockMeta>>;
+}
+
+export interface NoteBlockMeta {
+  origin: 'ai' | 'student';
+  /** The device clock when the block was written, ISO. */
+  editedAt: string;
+  /** The device that wrote it (random id per install), for breaking ties. */
+  device: string | null;
+}
+
+function readBlockMeta(value: unknown): LegacyNoteResult['blocks'] {
+  if (!isRecord(value)) return undefined;
+  const blocks: Partial<Record<string, NoteBlockMeta>> = {};
+  for (const [key, meta] of Object.entries(value)) {
+    if (!isRecord(meta) || typeof meta.editedAt !== 'string') continue;
+    blocks[key] = {
+      origin: meta.origin === 'student' ? 'student' : 'ai',
+      editedAt: meta.editedAt,
+      device: typeof meta.device === 'string' ? meta.device : null,
+    };
+  }
+  return blocks;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -200,6 +227,7 @@ export function readLegacyNote(result: Json | null): LegacyNoteResult | null {
     unclearParts: Array.isArray(result.unclearParts) ? (result.unclearParts as Json) : [],
     manualAnnotations: typeof result.manualAnnotations === 'string' ? result.manualAnnotations : null,
     isConfirmed: result.isConfirmed === true,
+    ...(isRecord(result.blocks) && { blocks: readBlockMeta(result.blocks) }),
   };
 }
 

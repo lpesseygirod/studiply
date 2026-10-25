@@ -273,6 +273,11 @@ export async function setMeta(key: string, value: string): Promise<void> {
   await db.runAsync(`INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)`, [key, value]);
 }
 
+export async function deleteMeta(key: string): Promise<void> {
+  const db = await getCacheDb();
+  await db.runAsync(`DELETE FROM meta WHERE key = ?`, [key]);
+}
+
 /** Forgets everything cached for a student (sign-out, "Delete all data"). */
 export async function clearCache(userId: string): Promise<void> {
   const db = await getCacheDb();

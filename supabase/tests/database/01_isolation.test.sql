@@ -6,7 +6,7 @@
 -- zero counts for B are not vacuous.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(100);
+select plan(101);
 
 -- ---------------------------------------------------------------------
 -- Test helpers (in a throwaway schema, rolled back with the test)
@@ -160,6 +160,10 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.documents (file_id, tab) values ('a0000000-0000-0000-0000-000000000003', 'summary') $$,
   '23503', null, 'B can''t add a tab to A''s file');
+
+select throws_ok(
+  $$ insert into public.document_versions (file_id, content, reason) values ('a0000000-0000-0000-0000-000000000003', '{}', 'conflict') $$,
+  '23503', null, 'B can''t add a conflict version to A''s lecture');
 
 -- ---------------------------------------------------------------------
 -- Signed-out (anon) can't touch any table (19 tests)
