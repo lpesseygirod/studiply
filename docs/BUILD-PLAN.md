@@ -249,7 +249,7 @@ Branch `phase-2-shell`.
 **Step 2.1 — Navigation and layout**
 
 ```markdown
-Step 2.1: build the app shell from docs/DESIGN.md (Layout section and iPhone section). iPhone: bottom tab bar Library · Record (big red center button) · Search · Settings, documents full screen. Web at 1024 px or wider: top bar, left library sidebar, center document area, right assistant panel (placeholder for now); sidebar and assistant can collapse; narrower windows fall back to the iPhone-style layout. Use expo-router layouts and platform files only where needed. Empty placeholder content is fine in this step.
+Step 2.1: build the app shell from docs/DESIGN.md (Layout section and iPhone section). iPhone: bottom tab bar Library · Search · Record (big raised red center button) · Review · Settings (docs/design iphone-01), documents full screen. Web at 1024 px or wider: top bar, left library sidebar, center document area, right assistant panel (placeholder for now); sidebar and assistant can collapse; narrower windows fall back to the iPhone-style layout. Use expo-router layouts and platform files only where needed. Empty placeholder content is fine in this step.
 ```
 
 **Check:** resize the browser window from wide to narrow and back; the layout switches cleanly. The iPhone shows the tab bar.

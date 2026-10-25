@@ -19,7 +19,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.9 — Move existing data (one-time idempotent migration) — built 26 Oct 2026; the real upload of Lea's own data is done by Lea (steps in the decision below)
 
 ## Phase 2 — App shell (`phase-2-shell`)
-- [ ] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive)
+- [x] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive) — done on `phase-2-shell`, matching `docs/design/` (decision below)
 - [ ] 2.2 — Real data in the shell (top bar, sidebar sections, Record button)
 - [ ] 2.3 — Look and feel (colors/typography, dark mode, Dynamic Type, touch targets, VoiceOver, web shortcuts)
 
@@ -213,7 +213,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Retention is audio only.** "Delete now / after 3 days" acts on a lecture's `audio_chunks`. Photos, PDFs and library files are never removed by it; only the student deletes them. Covered by a test.
 - **Migration timestamps stay in order (26 Oct).** `20261026090000_standalone_images` was dated in the future and is already on the remote, so it keeps its name; every new migration must be dated after the newest one (rule in `CLAUDE.md` → How to work).
 - **Moving the earlier version's data (step 1.9).**
-  - **What happens:** Settings → Earlier version data (and a Home card, "Later" hides it until the next start) reads the old `studiply.db` and its files read-only, lists each old profile with counts and first names (nothing ticked), and uploads the ticked ones (`src/services/legacyImport/`).
+  - **What happens:** Settings → Earlier version data (and a card on Library, "Later" hides it until the next start) reads the old `studiply.db` and its files read-only, lists each old profile with counts and first names (nothing ticked), and uploads the ticked ones (`src/services/legacyImport/`).
   - **Ids and dates kept:** the old UUIDs become the new rows' ids, and dates are kept. Rows are upserted with `ignoreDuplicates`; transcripts, recordings and photos/PDFs already on the server are skipped. It's safe to repeat and resumes after a failure.
   - **Every section of an old note is `student`**, clarifications included: the old app didn't record who wrote what, and regeneration must never overwrite text the student typed (Lea, 26 Oct).
   - **Old trash:** it goes to Recently Deleted with its date; anything deleted more than 30 days ago is left out, and so are deleted notes.
@@ -222,6 +222,16 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **"Already uploaded"** is remembered per Supabase URL + account + data set (real or development sample), so a local test upload never blocks the real upload to the remote project.
   - **Development** uses only `studiply-sample.db` / `documents/legacy-sample/` (DEVELOPMENT → Create / Use sample earlier-version data), never the real data.
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
+
+- **App shell (step 2.1), following the mockups in `docs/design/`.**
+  - **Library absorbs Home** (the design has no Home): `/` redirects to `/library`, and the recording flow returns there. The iPhone Library is laid out like `iphone-01-library`; on the laptop it is "My library" without the search field and avatar (they are in the top bar).
+  - **Five iPhone tabs:** Library · Search · ● Record · Review · Settings (`src/navigation/mainTabs.ts`). Record is a 64 px raised red circle (`Colors.recording` #CC3333) with a white ring, in the exact middle. Review is a placeholder until the study phase.
+  - **Laptop shell (web ≥ 1024 px):** top bar, sidebar and assistant around the same Tabs navigator, which keeps its place in the tree, so resizing never loses the open screen. What shows depends on the screen kind (`screenKindFor`): library screens (search + Record lecture, sidebar), documents (title area, assistant, Share disabled until Phase 4), settings (Back to library, no panels). The sidebar and assistant collapse; the state is kept per device in `studiply.layout`.
+  - **New tokens:** `recording` #CC3333, `text.onGradient` #3A3A48, `accentDark` #4F43B0 (from the design README); sizes in `src/constants/layout.ts`. The gradient is behind Library, Search, Review, Settings, the course screen and the note; their contents are restyled in 2.2/2.3.
+  - **Waits for 2.2:** the real top-bar breadcrumb and "Saved · time" (it shows "My library / Lecture notes" or "New recording" for now), the open course expanding to its files in the sidebar, Starred / Exam packs / Review today (they say "Coming soon"), the Review today badge.
+  - **Waits for 2.3:** the rest of the palette, dark mode, Dynamic Type, keyboard shortcuts.
+  - **Checks:** `.claude/skills/web-check/scripts/layout.mjs` (shell per screen kind, collapse after a reload, 1280 → 1023 → 1280, the 390 px tab bar geometry); `flows.mjs` now runs on Library and uses the top-bar Record lecture button.
+  - **Duplicates removed:** the 87 `* 2.*` Finder/iCloud copies, 4 empty `* 2` test folders and `supabase/.gitignore 2` were byte-identical to their originals and were deleted; `.gitignore` ignores `* 2.*` and `* 2`. `.git/index 2` (an old copy of git's own index from 23 Oct) was left alone.
 
 ## Things Lea must do
 

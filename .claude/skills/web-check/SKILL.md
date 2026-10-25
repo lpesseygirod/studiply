@@ -34,6 +34,13 @@ It only runs against **local** Supabase: `testuser.mjs` reads the service key fr
 
 The test user and its library, rows and Storage files are deleted at the end, also when a step fails.
 
+## Check the app shell (layout)
+
+`scripts/layout.mjs` (about a minute): the laptop shell per kind of screen (Library: top bar with search and Record lecture + sidebar; a note: + the assistant panel; Settings: no panels), collapsing remembered after a reload, resizing 1280 → 1023 → 1280 on the same screen, and at 390 px the five tabs with Record raised in the exact middle. Screenshots `layout-*.png`; compare them with `docs/design/`.
+```bash
+node .claude/skills/web-check/scripts/layout.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
@@ -71,11 +78,12 @@ try {
 }
 ```
 
-Driver API: `launch({ micWav })`, `nav(url)`, `waitText(text, {exact, timeout})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
+Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(url)`, `waitText(text, {exact, timeout, exclude})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth, exclude})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
 
 Check results in the database with `admin` (service role, local only), not just on screen.
 
 ## Gotchas (all hit while building this)
+- **The default window (1280×900) is the laptop layout**: the sidebar repeats course names, so clicks on them pass `exclude: '[data-testid=sidebar]'`. The shell parts have test ids `top-bar`, `sidebar`, `assistant-panel`. Below 1024 px the tab bar shows instead.
 - **Fresh profile every launch**: a kept profile restores the previous run's session (for a user that no longer exists) and skips sign-in.
 - **Text is matched as rendered**: labels styled with `textTransform: 'uppercase'` read as `UNDO`, not `Undo`.
 - **Off-screen elements**: the driver scrolls the target into view before clicking (wide windows make the square course cards very tall).
