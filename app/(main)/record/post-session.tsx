@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +15,9 @@ import * as DocumentPicker from 'expo-document-picker';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLectureShell } from '../../../src/hooks/useLectureShell';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getSession, updateSession } from '../../../src/services/session.service';
 import {
@@ -75,6 +76,8 @@ function getLanguageLabel(lang: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PostSessionScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const router = useRouter();
@@ -297,8 +300,8 @@ export default function PostSessionScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <StatusBar style="dark" />
-        <ActivityIndicator color={Colors.salmon} />
+        <ThemedStatusBar />
+        <ActivityIndicator color={c.salmon} />
       </View>
     );
   }
@@ -310,7 +313,8 @@ export default function PostSessionScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       {/* ── Scrollable body ───────────────────────────────────── */}
       <ScrollView
@@ -322,7 +326,6 @@ export default function PostSessionScreen() {
       >
         {/* Header — the recording is saved, so leaving loses nothing */}
         <FlowCloseButton onPress={() => leaveRecordingFlow(router)} />
-        <Text style={styles.appTitle}>STUDIPLY</Text>
         <Text style={styles.screenSubtitle}>Post-Session</Text>
 
         {/* ── Transcript status banner ─────────────────────── */}
@@ -331,7 +334,7 @@ export default function PostSessionScreen() {
             <Text style={styles.bannerTitle} numberOfLines={2}>{session.title}</Text>
             <View style={styles.bannerMeta}>
               <View style={styles.metaBadge}>
-                <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+                <Ionicons name="checkmark-circle" size={13} color={c.success} />
                 <Text style={styles.metaBadgeText}>Transcript ready</Text>
               </View>
               <View style={styles.metaBadge}>
@@ -383,7 +386,7 @@ export default function PostSessionScreen() {
                 <View>
                   <View style={styles.fileRow}>
                     <View style={styles.fileIcon}>
-                      <Ionicons name="mic" size={18} color={Colors.text.secondary} />
+                      <Ionicons name="mic" size={18} color={c.text.secondary} />
                     </View>
                     <View style={styles.fileInfo}>
                       <Text style={styles.fileName} numberOfLines={1}>Recording</Text>
@@ -409,7 +412,7 @@ export default function PostSessionScreen() {
                       <Ionicons
                         name={FILE_ICONS[file.file_type]}
                         size={18}
-                        color={Colors.text.secondary}
+                        color={c.text.secondary}
                       />
                     </View>
                     <View style={styles.fileInfo}>
@@ -428,7 +431,7 @@ export default function PostSessionScreen() {
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="close" size={14} color={Colors.text.secondary} />
+                      <Ionicons name="close" size={14} color={c.text.secondary} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                   <View style={styles.fileSeparator} />
@@ -483,7 +486,7 @@ export default function PostSessionScreen() {
           activeOpacity={0.85}
         >
           {isGenerating ? (
-            <ActivityIndicator color={Colors.white} size="small" />
+            <ActivityIndicator color={c.white} size="small" />
           ) : (
             <Text style={styles.generateButtonText}>GENERATE NOTES</Text>
           )}
@@ -508,13 +511,15 @@ function MaterialButton({
   loading: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   return (
     <TouchableOpacity style={styles.materialButton} onPress={onPress} disabled={loading} activeOpacity={0.8}>
       <View style={styles.materialButtonIcon}>
         {loading ? (
-          <ActivityIndicator color={Colors.text.secondary} size="small" />
+          <ActivityIndicator color={c.text.secondary} size="small" />
         ) : (
-          <Ionicons name={icon} size={24} color={Colors.text.secondary} />
+          <Ionicons name={icon} size={24} color={c.text.secondary} />
         )}
       </View>
       <Text style={styles.materialButtonLabel}>{label}</Text>
@@ -524,14 +529,15 @@ function MaterialButton({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   generateHint: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     textAlign: 'center',
     marginBottom: 10,
   },
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+  container: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: {
     flexGrow: 1,
@@ -539,17 +545,10 @@ const styles = StyleSheet.create({
   },
 
   // Header
-  appTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: Typography.weight.extrabold,
-    color: Colors.text.primary,
-    letterSpacing: Typography.tracking.widest,
-    marginBottom: 4,
-  },
   screenSubtitle: {
-    fontSize: Typography.size['2xl'],
-    fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.extrabold,
+    color: c.text.onGradientStrong,
     marginBottom: 20,
   },
 
@@ -557,14 +556,14 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 12,
   },
 
   // Transcript status banner
   statusBanner: {
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.titleCard,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -573,7 +572,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   bannerMeta: {
     flexDirection: 'row',
@@ -584,7 +583,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.white,
+    backgroundColor: c.cardMuted,
     borderRadius: 100,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -592,7 +591,7 @@ const styles = StyleSheet.create({
   metaBadgeText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Material buttons
@@ -610,23 +609,23 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 16,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   materialButtonLabel: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     textAlign: 'center',
     fontWeight: Typography.weight.medium,
   },
 
   // Files list
   filesList: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
     paddingHorizontal: 16,
   },
@@ -640,7 +639,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: Colors.salmonLight,
+    backgroundColor: c.salmonLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -651,33 +650,33 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   fileSize: {
     fontSize: Typography.size.xs,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
   },
   deleteButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fileSeparator: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
   },
   noFilesText: {
     fontSize: Typography.size.base,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     paddingVertical: 16,
     textAlign: 'center',
   },
   addMorePrompt: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     paddingVertical: 10,
     paddingBottom: 14,
     textAlign: 'center',
@@ -692,31 +691,31 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
   },
   summaryPillActive: {
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
   },
   summaryPillText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: Typography.tracking.wide,
   },
   summaryPillTextActive: {
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   // Generate Notes button
   bottomAction: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: c.card,
     paddingHorizontal: 24,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceMuted,
+    borderTopColor: c.surfaceMuted,
   },
   generateButton: {
-    backgroundColor: Colors.black,
+    backgroundColor: c.black,
     borderRadius: 100,
     paddingVertical: 18,
     alignItems: 'center',
@@ -724,7 +723,7 @@ const styles = StyleSheet.create({
     minHeight: 58,
   },
   generateButtonText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,

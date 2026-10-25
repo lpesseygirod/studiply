@@ -1620,7 +1620,7 @@ const makeStyles = (c: ThemeColors) =>
   retentionBadgeDeleted: { backgroundColor: c.cardMuted },
   retentionBadgeKept: { backgroundColor: c.status.success.bg },
   retentionBadgeText: {
-    fontSize: 10,
+    fontSize: Typography.size.xxs,
     fontWeight: Typography.weight.semibold,
     color: c.text.secondary,
     letterSpacing: 0.5,
@@ -1756,7 +1756,7 @@ const makeStyles = (c: ThemeColors) =>
     gap: 8,
   },
   clarificationIcon: {
-    fontSize: 16,
+    fontSize: Typography.size.base,
   },
   clarificationActions: {
     flexDirection: 'row',

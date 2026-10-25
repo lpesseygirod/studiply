@@ -3,6 +3,7 @@
 export const Typography = {
   // Font sizes
   size: {
+    xxs: 10,
     xs: 11,
     sm: 13,
     base: 15,
@@ -12,6 +13,8 @@ export const Typography = {
     '2xl': 28,
     '3xl': 34,
     '4xl': 42,
+    /** The recording timer. */
+    timer: 56,
   },
 
   // Font weights (React Native uses string values)
@@ -21,6 +24,7 @@ export const Typography = {
     semibold: '600' as const,
     bold: '700' as const,
     extrabold: '800' as const,
+    black: '900' as const,
   },
 
   // Letter spacing

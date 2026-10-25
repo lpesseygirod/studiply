@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { confirmAction } from '../../../src/utils/confirm';
@@ -56,6 +57,8 @@ function missingLine(record: ImportRecord): string | null {
 }
 
 export default function EarlierVersionScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile } = useAuth();
@@ -131,10 +134,11 @@ export default function EarlierVersionScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity style={styles.iconButton} onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Earlier version data</Text>
         <View style={styles.iconButton} />
@@ -142,18 +146,18 @@ export default function EarlierVersionScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.salmon} />
+          <ActivityIndicator color={c.salmon} />
         </View>
       ) : !data ? (
         <View style={styles.center}>
-          <Ionicons name="checkmark-circle-outline" size={44} color={Colors.text.placeholder} />
+          <Ionicons name="checkmark-circle-outline" size={44} color={c.text.placeholder} />
           <Text style={styles.emptyTitle}>Nothing from the earlier version on this iPhone</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
           {data.source.sample && (
             <View style={styles.sampleBadge}>
-              <Ionicons name="flask-outline" size={14} color={Colors.text.secondary} />
+              <Ionicons name="flask-outline" size={14} color={c.text.secondary} />
               <Text style={styles.sampleText}>Development sample data (not your real earlier-version data)</Text>
             </View>
           )}
@@ -179,7 +183,7 @@ export default function EarlierVersionScreen() {
                 accessibilityState={{ checked: on }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? Colors.salmon : Colors.text.secondary} />
+                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? c.salmon : c.text.secondary} />
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName}>{p.name}</Text>
                   <Text style={styles.profileMeta}>Created {new Date(p.createdAt).toLocaleDateString()}</Text>
@@ -249,8 +253,9 @@ export default function EarlierVersionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.offWhite },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   header: {
     flexDirection: 'row',
@@ -259,69 +264,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: { width: 60, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: Colors.text.primary },
-  emptyTitle: { fontSize: Typography.size.base, color: Colors.text.secondary, textAlign: 'center' },
+  headerTitle: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },
+  emptyTitle: { fontSize: Typography.size.base, color: c.text.onGradient, textAlign: 'center' },
   content: { padding: 16, gap: 12 },
   sampleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  sampleText: { fontSize: Typography.size.xs, color: Colors.text.secondary },
-  intro: { fontSize: Typography.size.sm, color: Colors.text.secondary, lineHeight: Typography.size.sm * Typography.leading.relaxed },
-  warning: { fontSize: Typography.size.sm, color: Colors.error },
+  sampleText: { fontSize: Typography.size.xs, color: c.text.secondary },
+  intro: { fontSize: Typography.size.sm, color: c.text.secondary, lineHeight: Typography.size.sm * Typography.leading.relaxed },
+  warning: { fontSize: Typography.size.sm, color: c.error },
   profileCard: {
     flexDirection: 'row',
     gap: 12,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     padding: 14,
   },
-  profileCardOn: { borderColor: Colors.salmon, backgroundColor: Colors.salmonLight },
+  profileCardOn: { borderColor: c.salmon, backgroundColor: c.salmonLight },
   profileInfo: { flex: 1, gap: 3 },
-  profileName: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
-  profileMeta: { fontSize: Typography.size.xs, color: Colors.text.secondary },
-  profileCounts: { fontSize: Typography.size.sm, color: Colors.text.primary },
-  profileNames: { fontSize: Typography.size.xs, color: Colors.text.secondary },
+  profileName: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
+  profileMeta: { fontSize: Typography.size.xs, color: c.text.secondary },
+  profileCounts: { fontSize: Typography.size.sm, color: c.text.primary },
+  profileNames: { fontSize: Typography.size.xs, color: c.text.secondary },
   progressBox: { gap: 6 },
-  progressText: { fontSize: Typography.size.sm, color: Colors.text.primary },
-  progressTrack: { height: 6, borderRadius: 3, backgroundColor: Colors.surfaceMuted, overflow: 'hidden' },
-  progressFill: { height: 6, backgroundColor: Colors.salmon },
-  error: { fontSize: Typography.size.sm, color: Colors.error },
+  progressText: { fontSize: Typography.size.sm, color: c.text.primary },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: c.surfaceMuted, overflow: 'hidden' },
+  progressFill: { height: 6, backgroundColor: c.salmon },
+  error: { fontSize: Typography.size.sm, color: c.error },
   resultBox: { borderRadius: 12, padding: 14, gap: 4 },
-  resultOk: { backgroundColor: Colors.accentLight },
-  resultPartial: { backgroundColor: Colors.errorLight },
-  resultTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: Colors.text.primary },
-  resultText: { fontSize: Typography.size.sm, color: Colors.text.secondary },
+  resultOk: { backgroundColor: c.accentLight },
+  resultPartial: { backgroundColor: c.errorLight },
+  resultTitle: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
+  resultText: { fontSize: Typography.size.sm, color: c.text.secondary },
   primaryButton: {
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     borderRadius: 14,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
   },
-  buttonDisabled: { backgroundColor: Colors.surfaceMuted },
-  primaryText: { color: Colors.button.primaryText, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
-  buttonTextDisabled: { color: Colors.text.secondary },
+  buttonDisabled: { backgroundColor: c.surfaceMuted },
+  primaryText: { color: c.button.primaryText, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
+  buttonTextDisabled: { color: c.text.secondary },
   removeButton: {
     borderRadius: 14,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.error,
+    borderColor: c.error,
     marginTop: 4,
   },
-  removeText: { color: Colors.error, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
+  removeText: { color: c.error, fontSize: Typography.size.base, fontWeight: Typography.weight.semibold },
 });

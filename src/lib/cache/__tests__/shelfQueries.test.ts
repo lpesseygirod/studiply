@@ -1,7 +1,6 @@
 // The library sections and course tree answered from cached rows (step 2.2).
-import type { CourseRow, FileRow, FolderRow } from '../../cloudRows';
+import type { CourseRow, FileRow, FolderRow, LectureRow } from '../../cloudRows';
 import { examPackFiles, filesAtLevel, itemCounts, recentFiles, starredLectureMedia, starredRows, type MediaRow } from '../localQueries';
-import type { LectureRow } from '../../cloudRows';
 
 const T = (n: number) => `2026-10-${String(n).padStart(2, '0')}T10:00:00.000Z`;
 

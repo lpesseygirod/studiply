@@ -6,17 +6,20 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { confirmSignOut } from '../../../src/utils/signOut';
-import { Colors } from '../../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 
 export default function SecurityScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, signOut } = useAuth();
@@ -29,7 +32,8 @@ export default function SecurityScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -38,7 +42,7 @@ export default function SecurityScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Security</Text>
         <View style={styles.iconButton} />
@@ -50,7 +54,7 @@ export default function SecurityScreen() {
       >
         {/* Account info card */}
         <View style={styles.infoCard}>
-          <Ionicons name="person-circle-outline" size={28} color={Colors.text.secondary} />
+          <Ionicons name="person-circle-outline" size={28} color={c.text.secondary} />
           <View style={styles.infoText}>
             <Text style={styles.infoName}>{username}</Text>
             <Text style={styles.infoHint}>
@@ -72,9 +76,9 @@ export default function SecurityScreen() {
             activeOpacity={0.75}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+              <Ionicons name="log-out-outline" size={18} color={c.error} />
             </View>
-            <Text style={[styles.actionLabel, { color: Colors.error }]}>Sign Out</Text>
+            <Text style={[styles.actionLabel, { color: c.error }]}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -82,8 +86,9 @@ export default function SecurityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
 
   header: {
     flexDirection: 'row',
@@ -92,13 +97,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
 
   content: {
@@ -110,7 +115,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: -4,
   },
@@ -119,7 +124,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
     alignItems: 'center',
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderRadius: 14,
     padding: 16,
   },
@@ -127,20 +132,20 @@ const styles = StyleSheet.create({
   infoName: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
   infoHint: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     lineHeight: 19,
     marginTop: 4,
   },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
   },
   actionRow: {
@@ -154,7 +159,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -162,6 +167,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 });

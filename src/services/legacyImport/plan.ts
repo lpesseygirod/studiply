@@ -19,6 +19,7 @@
  *    the old trash is left out (notes have no trash of their own now).
  */
 
+import { Colors } from '../../constants/colors';
 import { LEGACY_NOTE_FORMAT, languageToDb, statusToDb, type LegacyNoteResult, type NoteBlockMeta } from '../../lib/cloudRows';
 import { NOTE_BLOCKS } from '../../lib/noteBlocks';
 import type { Json } from '../../types/supabase';
@@ -106,7 +107,7 @@ export interface ImportPlan {
 
 export const CHUNK_MS = 20 * 60 * 1000;
 const TRASH_DAYS = 30;
-const DEFAULT_COLOR = '#F5E0D8';
+const DEFAULT_COLOR = Colors.courseColors[0];
 const RETENTIONS = ['delete_now', 'delete_3_days', 'delete_manually', 'keep_permanently'];
 /** Marks block metadata written by the import (the old app's device is unknown). */
 export const IMPORT_DEVICE = 'earlier-version';

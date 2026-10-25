@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { Colors } from '../constants/colors';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { isSessionLive } from '../lib/cache';
 import { useConnectivity } from '../lib/connectivity';
@@ -19,6 +20,8 @@ function when(iso: string | null): string {
 }
 
 export function SyncDebugPanel() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const connection = useConnectivity();
   const [ops, setOps] = useState<SyncOp[]>([]);
   const [busy, setBusy] = useState(false);
@@ -55,7 +58,7 @@ export function SyncDebugPanel() {
           Sync queue · {connection} · session {isSessionLive() ? 'ready' : 'not refreshed'}
         </Text>
         <TouchableOpacity style={styles.button} onPress={sync} disabled={busy} activeOpacity={0.8}>
-          {busy ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.buttonText}>Sync now</Text>}
+          {busy ? <ActivityIndicator size="small" color={c.white} /> : <Text style={styles.buttonText}>Sync now</Text>}
         </TouchableOpacity>
       </View>
       {ops.length === 0 ? (
@@ -72,19 +75,20 @@ export function SyncDebugPanel() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   wrap: { gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  label: { flex: 1, fontSize: Typography.size.sm, color: Colors.text.primary },
+  label: { flex: 1, fontSize: Typography.size.sm, color: c.text.primary },
   button: {
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
     minWidth: 92,
     alignItems: 'center',
   },
-  buttonText: { color: Colors.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
-  op: { fontSize: Typography.size.xs, color: Colors.text.secondary },
-  failed: { color: Colors.error },
+  buttonText: { color: c.button.primaryText, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
+  op: { fontSize: Typography.size.xs, color: c.text.secondary },
+  failed: { color: c.error },
 });

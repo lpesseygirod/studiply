@@ -10,14 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { Colors } from '../../../src/constants/colors';
-import { useTheme } from '../../../src/theme/ThemeProvider';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { GradientFill } from '../../../src/components/GradientBackground';
+import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getUserSettings, upsertUserSettings } from '../../../src/services/settings.service';
 import type { UserSettings } from '../../../src/types/database';
@@ -66,6 +66,8 @@ const RETENTION_OPTIONS = [
 // -------------------------------------------------------------------
 
 export default function GeneralScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const { appearance, setAppearance } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -136,16 +138,17 @@ export default function GeneralScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <GradientFill />
+        <ThemedStatusBar />
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+            <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>General</Text>
           <View style={styles.iconButton} />
         </View>
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.salmon} />
+          <ActivityIndicator color={c.salmon} />
         </View>
       </View>
     );
@@ -156,7 +159,8 @@ export default function GeneralScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <GradientFill />
+      <ThemedStatusBar />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
@@ -165,7 +169,7 @@ export default function GeneralScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+          <Ionicons name="chevron-back" size={24} color={c.text.onGradientStrong} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>General</Text>
         <View style={[styles.iconButton, styles.savedIndicatorWrap]}>
@@ -250,9 +254,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.lecture_mode_default ?? false}
               onValueChange={v => save('lecture mode', { lecture_mode_default: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
 
@@ -267,7 +271,7 @@ export default function GeneralScreen() {
             <Text style={styles.rowLabel}>Default transcription language</Text>
             <View style={styles.rowValue}>
               <Text style={styles.rowValueText}>{currentLanguage.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color={Colors.text.secondary} />
+              <Ionicons name="chevron-forward" size={16} color={c.text.secondary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -312,9 +316,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.auto_title ?? true}
               onValueChange={v => save('auto title', { auto_title: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
 
@@ -325,9 +329,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.auto_tags ?? true}
               onValueChange={v => save('auto tags', { auto_tags: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
 
@@ -338,9 +342,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.include_formulas ?? true}
               onValueChange={v => save('formulas', { include_formulas: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
 
@@ -351,9 +355,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.include_definitions ?? true}
               onValueChange={v => save('definitions', { include_definitions: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
 
@@ -364,9 +368,9 @@ export default function GeneralScreen() {
             <Switch
               value={settings.include_unclear_parts ?? true}
               onValueChange={v => save('unclear parts', { include_unclear_parts: v })}
-              trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-              thumbColor={Colors.white}
-              ios_backgroundColor={Colors.surfaceMuted}
+              trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+              thumbColor={c.white}
+              ios_backgroundColor={c.surfaceMuted}
             />
           </View>
         </View>
@@ -413,9 +417,9 @@ export default function GeneralScreen() {
                 <Switch
                   value={simulatedOffline}
                   onValueChange={setSimulatedOffline}
-                  trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-                  thumbColor={Colors.white}
-                  ios_backgroundColor={Colors.surfaceMuted}
+                  trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+                  thumbColor={c.white}
+                  ios_backgroundColor={c.surfaceMuted}
                 />
               </View>
               <View style={styles.divider} />
@@ -430,18 +434,18 @@ export default function GeneralScreen() {
                 <Switch
                   value={useSample}
                   onValueChange={toggleSample}
-                  trackColor={{ false: Colors.surfaceMuted, true: Colors.salmon }}
-                  thumbColor={Colors.white}
-                  ios_backgroundColor={Colors.surfaceMuted}
+                  trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+                  thumbColor={c.white}
+                  ios_backgroundColor={c.surfaceMuted}
                 />
               </View>
               <View style={styles.divider} />
               <TouchableOpacity style={styles.toggleRow} onPress={createSample} disabled={creatingSample} activeOpacity={0.75}>
                 <Text style={styles.rowLabel}>Create sample earlier-version data</Text>
                 {creatingSample ? (
-                  <ActivityIndicator size="small" color={Colors.salmon} />
+                  <ActivityIndicator size="small" color={c.salmon} />
                 ) : (
-                  <Ionicons name="add-circle-outline" size={20} color={Colors.salmon} />
+                  <Ionicons name="add-circle-outline" size={20} color={c.salmon} />
                 )}
               </TouchableOpacity>
               </>
@@ -480,12 +484,12 @@ export default function GeneralScreen() {
                 >
                   <Text style={styles.pickerRowText}>{item.label}</Text>
                   {settings.default_language === item.code && (
-                    <Ionicons name="checkmark" size={18} color={Colors.salmon} />
+                    <Ionicons name="checkmark" size={18} color={c.salmon} />
                   )}
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => (
-                <View style={{ height: 1, backgroundColor: Colors.surfaceMuted, marginLeft: 20 }} />
+                <View style={{ height: 1, backgroundColor: c.surfaceMuted, marginLeft: 20 }} />
               )}
             />
           </View>
@@ -499,8 +503,9 @@ export default function GeneralScreen() {
 // Styles
 // -------------------------------------------------------------------
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFDF9' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
@@ -510,7 +515,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.surfaceMuted,
+    borderBottomColor: c.surfaceMuted,
   },
   iconButton: {
     width: 40,
@@ -524,13 +529,13 @@ const styles = StyleSheet.create({
   },
   savedIndicator: {
     fontSize: Typography.size.base,
-    color: Colors.success,
+    color: c.success,
     fontWeight: Typography.weight.bold,
   },
   headerTitle: {
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.onGradientStrong,
   },
 
   content: {
@@ -542,16 +547,16 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.secondary,
+    color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: -4,
   },
 
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     overflow: 'hidden',
   },
 
@@ -563,7 +568,7 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
     flex: 1,
   },
 
@@ -582,7 +587,7 @@ const styles = StyleSheet.create({
   },
   rowValueText: {
     fontSize: Typography.size.sm,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     fontWeight: Typography.weight.medium,
   },
 
@@ -597,26 +602,26 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 6,
     borderRadius: 100,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pillActive: {
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
   },
   pillText: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.text.secondary,
+    color: c.text.secondary,
     letterSpacing: Typography.tracking.wide,
   },
   pillTextActive: {
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 
   divider: {
     height: 1,
-    backgroundColor: Colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     marginLeft: 16,
   },
 
@@ -632,28 +637,28 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: Colors.surfaceMuted,
+    borderColor: c.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterActive: {
-    borderColor: Colors.salmon,
+    borderColor: c.salmon,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.salmon,
+    backgroundColor: c.salmon,
   },
 
   // Language picker modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: c.overlay,
     justifyContent: 'flex-end',
   },
   pickerSheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 24,
@@ -662,7 +667,7 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: Typography.size.lg,
     fontWeight: Typography.weight.bold,
-    color: Colors.text.primary,
+    color: c.text.primary,
     paddingHorizontal: 20,
     marginBottom: 12,
   },
@@ -676,6 +681,6 @@ const styles = StyleSheet.create({
   pickerRowText: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.text.primary,
+    color: c.text.primary,
   },
 });

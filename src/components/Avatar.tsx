@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { Colors } from '../constants/colors';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { Buckets, getSignedUrl } from '../services/cloud-storage.service';
 
@@ -14,9 +15,9 @@ interface AvatarProps {
   photoPath?: string | null;
   /** Extra styles applied to the outer container. */
   style?: ViewStyle;
-  /** Background color of the circle. Default: Colors.salmon */
+  /** Background color of the circle. Default: the theme's salmon. */
   backgroundColor?: string;
-  /** Initials text color. Default: Colors.text.primary */
+  /** Initials text color. Default: the theme's primary text. */
   textColor?: string;
 }
 
@@ -25,9 +26,13 @@ export default function Avatar({
   initials,
   photoPath,
   style,
-  backgroundColor = Colors.salmon,
-  textColor = Colors.text.primary,
+  backgroundColor: backgroundProp,
+  textColor: textProp,
 }: AvatarProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
+  const backgroundColor = backgroundProp ?? c.salmon;
+  const textColor = textProp ?? c.text.primary;
   const fontSize = Math.round(size * 0.35);
   const borderRadius = size / 2;
 
@@ -77,7 +82,8 @@ export default function Avatar({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',

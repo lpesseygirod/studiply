@@ -13,7 +13,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -27,7 +26,8 @@ import {
   verifySignUpCode,
 } from '../../src/services/auth.service';
 import { generateInitials } from '../../src/utils/initials';
-import { Colors } from '../../src/constants/colors';
+import { ThemedStatusBar, useTheme, useThemedStyles } from '../../src/theme/ThemeProvider';
+import type { ThemeColors } from '../../src/constants/colors';
 import { Typography } from '../../src/constants/typography';
 import Avatar from '../../src/components/Avatar';
 
@@ -56,6 +56,8 @@ function messageOf(err: unknown): string {
 }
 
 export default function OnboardingScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [mode, setMode] = useState<Mode>('signUp');
@@ -169,17 +171,17 @@ export default function OnboardingScreen() {
   return (
     <DismissKeyboardArea>
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <ThemedStatusBar />
 
         {/* Full-screen gradient background */}
         <LinearGradient
           colors={[
-            Colors.gradient.top,
-            Colors.gradient.topMid,
-            Colors.gradient.mid,
-            Colors.gradient.bottomMid,
-            Colors.gradient.bottom,
-            Colors.gradient.bottomEnd,
+            c.gradient.top,
+            c.gradient.topMid,
+            c.gradient.mid,
+            c.gradient.bottomMid,
+            c.gradient.bottom,
+            c.gradient.bottomEnd,
           ]}
           locations={[0, 0.18, 0.38, 0.58, 0.78, 1]}
           start={{ x: 0, y: 0 }}
@@ -204,8 +206,8 @@ export default function OnboardingScreen() {
                 <Avatar
                   size={64}
                   initials={initials}
-                  backgroundColor="rgba(0,0,0,0.15)"
-                  textColor={Colors.black}
+                  backgroundColor={c.scrim}
+                  textColor={c.text.onGradientStrong}
                   style={styles.initialsCircle}
                 />
               )}
@@ -229,7 +231,7 @@ export default function OnboardingScreen() {
                     clearError();
                   }}
                   placeholder="Your name"
-                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  placeholderTextColor={c.inputPlaceholder}
                   autoCapitalize="words"
                   autoCorrect={false}
                   textContentType="name"
@@ -252,7 +254,7 @@ export default function OnboardingScreen() {
                       clearError();
                     }}
                     placeholder="Email"
-                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    placeholderTextColor={c.inputPlaceholder}
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="email-address"
@@ -273,7 +275,7 @@ export default function OnboardingScreen() {
                     placeholder={
                       mode === 'signUp' ? `Password (${MIN_PASSWORD_LENGTH}+ characters)` : 'Password'
                     }
-                    placeholderTextColor="rgba(255,255,255,0.45)"
+                    placeholderTextColor={c.inputPlaceholder}
                     secureTextEntry
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -295,7 +297,7 @@ export default function OnboardingScreen() {
                     clearError();
                   }}
                   placeholder="6-digit code"
-                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  placeholderTextColor={c.inputPlaceholder}
                   keyboardType="number-pad"
                   textContentType="oneTimeCode"
                   autoComplete="one-time-code"
@@ -316,7 +318,7 @@ export default function OnboardingScreen() {
                     clearError();
                   }}
                   placeholder={`New password (${MIN_PASSWORD_LENGTH}+ characters)`}
-                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  placeholderTextColor={c.inputPlaceholder}
                   secureTextEntry
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -339,7 +341,7 @@ export default function OnboardingScreen() {
                 activeOpacity={0.8}
               >
                 {isLoading ? (
-                  <ActivityIndicator color={Colors.white} size="small" />
+                  <ActivityIndicator color={c.white} size="small" />
                 ) : (
                   <Text style={[styles.buttonText, !canContinue && styles.buttonTextDisabled]}>
                     {BUTTONS[mode]}
@@ -411,6 +413,7 @@ function LinkButton({
   onPress: () => void;
   disabled: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -424,7 +427,8 @@ function LinkButton({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -451,14 +455,14 @@ const styles = StyleSheet.create({
   appTitle: {
     fontSize: Typography.size['2xl'],
     fontWeight: Typography.weight.extrabold,
-    color: Colors.black,
+    color: c.black,
     letterSpacing: Typography.tracking.widest,
     textAlign: 'center',
   },
   appSubtitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.medium,
-    color: Colors.black,
+    color: c.black,
     letterSpacing: Typography.tracking.wider,
     textAlign: 'center',
     opacity: 0.75,
@@ -476,7 +480,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: Typography.size.xs,
     fontWeight: Typography.weight.semibold,
-    color: Colors.black,
+    color: c.black,
     letterSpacing: Typography.tracking.wider,
     textTransform: 'uppercase',
     textAlign: 'center',
@@ -485,31 +489,31 @@ const styles = StyleSheet.create({
   noticeText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium,
-    color: Colors.black,
+    color: c.black,
     textAlign: 'center',
     opacity: 0.8,
   },
   input: {
-    backgroundColor: Colors.inputBackground,
+    backgroundColor: c.inputBackground,
     borderRadius: 100, // pill shape
     paddingVertical: 18,
     paddingHorizontal: 28,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.medium,
-    color: Colors.inputText,
+    color: c.inputText,
     textAlign: 'center',
   },
   codeInput: {
     letterSpacing: Typography.tracking.widest,
   },
   errorText: {
-    color: Colors.error,
+    color: c.error,
     fontSize: Typography.size.sm,
     textAlign: 'center',
     fontWeight: Typography.weight.medium,
   },
   button: {
-    backgroundColor: Colors.button.primary,
+    backgroundColor: c.button.primary,
     borderRadius: 100,
     paddingVertical: 18,
     alignItems: 'center',
@@ -517,10 +521,10 @@ const styles = StyleSheet.create({
     minHeight: 58,
   },
   buttonDisabled: {
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: c.button.disabled,
   },
   buttonText: {
-    color: Colors.button.primaryText,
+    color: c.button.primaryText,
     fontSize: Typography.size.md,
     fontWeight: Typography.weight.semibold,
     letterSpacing: Typography.tracking.wide,
@@ -542,7 +546,7 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.semibold,
-    color: Colors.black,
+    color: c.black,
     textAlign: 'center',
     opacity: 0.75,
   },

@@ -42,6 +42,9 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['accent (active tab icon) on card', c.accent, c.card, ICON],
     ['recording (Record button) on its ring', c.recording, c.recordRing, ICON],
     ['favorite star on card', c.favorite, c.card, ICON],
+    ...Object.entries(c.meter).map(([n, v]) => [`meter.${n} on card`, v, c.card, ICON] as [string, string, string, number]),
+    ['recording screen text on its background', c.recordingScreen.text, c.recordingScreen.bg, TEXT],
+    ['recording warning text on its banner', c.recordingScreen.warningText, c.recordingScreen.warningBg, TEXT],
     ...stops.map(([name, bg]) => [`button.onGradient on gradient.${name}`, c.button.onGradient, bg, ICON] as [string, string, string, number]),
     ['button.onGradientText on button.onGradient', c.button.onGradientText, c.button.onGradient, TEXT],
   ];

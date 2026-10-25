@@ -119,6 +119,32 @@ const light = {
   /** Behind a full-screen photo. */
   photoBackdrop: 'rgba(0, 0, 0, 0.92)',
 
+  /** A meter's empty track. */
+  track: 'rgba(0, 0, 0, 0.08)',
+  /** A see-through white chip on tinted boxes. */
+  glass: 'rgba(255, 255, 255, 0.6)',
+  /** A soft dark circle on the gradient (onboarding initials). */
+  scrim: 'rgba(0, 0, 0, 0.15)',
+  /** Placeholder text in the dark input fields (onboarding). */
+  inputPlaceholder: 'rgba(255, 255, 255, 0.55)',
+  /** Usage meters: plenty left, getting low, almost none. */
+  meter: { good: '#2D8A5A', low: '#B87B14', empty: '#C23B3B' },
+  /** The recording screen stays dark in both appearances. */
+  recordingScreen: {
+    bg: '#0A0A0A',
+    panel: '#111111',
+    text: '#FFFFFF',
+    textStrong: 'rgba(255, 255, 255, 0.75)',
+    textMuted: 'rgba(255, 255, 255, 0.55)',
+    textFaint: 'rgba(255, 255, 255, 0.3)',
+    border: 'rgba(255, 255, 255, 0.2)',
+    borderStrong: 'rgba(255, 255, 255, 0.3)',
+    accentBorder: 'rgba(232, 180, 160, 0.4)',
+    accentText: 'rgba(232, 180, 160, 0.8)',
+    warningBg: '#8A5A00',
+    warningText: '#FFFBE6',
+  },
+
   /** Colors a student can give a course (stored with the course). */
   courseColors: ['#F5E0D8', '#D8D5F0', '#C8E8D8', '#C5DCF0', '#F5E8C0', '#E0DFE8'],
 };
@@ -217,6 +243,13 @@ export const DarkColors: ThemeColors = {
   favorite: '#F5C060',
   shadow: '#000000',
   photoBackdrop: 'rgba(0, 0, 0, 0.92)',
+
+  track: 'rgba(255, 255, 255, 0.14)',
+  glass: 'rgba(255, 255, 255, 0.1)',
+  scrim: 'rgba(0, 0, 0, 0.15)',
+  inputPlaceholder: 'rgba(255, 255, 255, 0.55)',
+  meter: { good: '#6CD3A3', low: '#F5C060', empty: '#F08A8A' },
+  recordingScreen: light.recordingScreen,
 
   courseColors: light.courseColors,
 };

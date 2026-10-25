@@ -1,3 +1,4 @@
+import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import {
   courseToProject,
@@ -127,7 +128,7 @@ export async function getProject(projectId: string): Promise<Project> {
 export async function createProject(
   _userId: string,
   name: string,
-  color = '#F5E0D8',
+  color: string = Colors.courseColors[0],
   icon = 'folder',
 ): Promise<Project> {
   const { data, error } = await supabase
