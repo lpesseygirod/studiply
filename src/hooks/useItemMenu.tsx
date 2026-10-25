@@ -2,14 +2,16 @@ import { useRouter } from 'expo-router';
 
 import { promptText, showActionSheet, showAlert, type Anchor, type DialogButton } from '../components/dialogs/dialogs';
 import { notifyLibraryUpdated } from '../lib/cache';
-import { renameFolder } from '../services/folder.service';
-import { updateProject } from '../services/project.service';
+import { getFolder, renameFolder } from '../services/folder.service';
+import { getProject, updateProject } from '../services/project.service';
 import { getSession } from '../services/session.service';
 import { getLibraryFiles, type LibraryFile } from '../services/source-file.service';
 import { restoreItem, trashFolder, trashProject, trashSession } from '../services/trash.service';
 import { confirmAction } from '../utils/confirm';
 import { errorMessage } from '../utils/errors';
-import { itemActions, itemNoun, movableItem, starTarget, type ItemAction } from '../utils/itemMenu';
+import { actionHint, itemActions, itemNoun, movableItem, starTarget, type ItemAction } from '../utils/itemMenu';
+import { forgetClip, setClip } from '../lib/clipboard';
+import { MoveError, moveItem } from '../services/move.service';
 import { promptRenameLecture, promptRenameLibraryFile } from '../utils/rename';
 import { openTarget, type ShelfItem } from '../utils/shelf';
 import { starButton, type ShowUndo } from '../utils/star';
@@ -49,6 +51,11 @@ export function useItemMenu({
    */
   function open(item: ShelfItem, anchor?: Anchor, { skip = [], dialogRename = false }: { skip?: ItemAction[]; dialogRename?: boolean } = {}) {
     const button = (action: ItemAction): DialogButton => {
+      const base = actionButton(action);
+      const hint = actionHint(action, item.type);
+      return hint ? { ...base, onPress: undefined, disabled: true, hint } : base;
+    };
+    const actionButton = (action: ItemAction): DialogButton => {
       switch (action) {
         case 'open':
           return { text: 'Open', onPress: () => (onOpen ? onOpen(item) : router.navigate(openTarget(item))) };
@@ -58,6 +65,16 @@ export function useItemMenu({
             : { text: 'Rename…', onPress: () => rename(item) };
         case 'move':
           return { text: 'Move to…', onPress: () => { const m = movableItem(item); if (m) move.openMove(m); } };
+        case 'moveOut':
+          return { text: 'Move out', onPress: () => moveOut(item) };
+        case 'cut':
+          return { text: 'Cut', onPress: () => setClip({ mode: 'cut', item }) };
+        case 'copy':
+          return { text: 'Copy', onPress: () => setClip({ mode: 'copy', item }) };
+        case 'summarize':
+          return { text: 'Summarize' };
+        case 'examPack':
+          return { text: 'Make exam pack' };
         case 'star':
           return starButton(
             starTarget(item),
@@ -74,11 +91,32 @@ export function useItemMenu({
     };
     showActionSheet(
       item.title,
-      itemActions(item.type)
+      itemActions(item)
         .filter((action) => !skip.includes(action))
         .map(button),
       { anchor },
     );
+  }
+
+  /** Move out: up one level (the folder it is in → that folder's parent, or the course's top). */
+  async function moveOut(item: ShelfItem) {
+    const movable = movableItem(item);
+    if (!movable || !item.folderId) return;
+    try {
+      const parent = await getFolder(item.folderId);
+      const courseId = parent.project_id || item.courseId;
+      const label = parent.parent_folder_id
+        ? (await getFolder(parent.parent_folder_id)).name
+        : courseId
+          ? (await getProject(courseId)).name
+          : 'My library';
+      const result = await moveItem(movable, { courseId, folderId: parent.parent_folder_id, label });
+      showUndo(`Moved '${item.title}' to ${label}`, () => {
+        result.undo().catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
+      });
+    } catch (err) {
+      showAlert('Could not move it', err instanceof MoveError ? err.message : errorMessage(err, 'Please try again.'));
+    }
   }
 
   async function rename(item: ShelfItem) {
@@ -126,6 +164,7 @@ export function useItemMenu({
       else if (type === 'folder') await trashFolder(item.id);
       else await trashSession(item.id);
       notifyLibraryUpdated();
+      forgetClip(item.id);
       onTrashed?.(item);
       showUndo(`"${item.title}" moved to trash`, () => {
         restoreItem({ id: item.id, type })
@@ -140,8 +179,8 @@ export function useItemMenu({
   return { open, move, modal: move.modal };
 }
 
-/** A PDF or photo with its media (its real file ending), for Rename. */
-async function libraryFile(item: ShelfItem): Promise<LibraryFile> {
+/** A PDF or photo with its media (its real file ending, its Storage object), for Rename and Copy. */
+export async function libraryFile(item: ShelfItem): Promise<LibraryFile> {
   const found = item.courseId ? (await getLibraryFiles(item.courseId, item.folderId)).find((f) => f.id === item.id) : undefined;
   return (
     found ?? {

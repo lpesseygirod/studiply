@@ -42,6 +42,7 @@ export function LibraryHeader({
   crumbTargets,
   dnd,
   onTitleMenu,
+  onMore,
 }: {
   crumbs: string[];
   onLibrary: () => void;
@@ -58,6 +59,8 @@ export function LibraryHeader({
   dnd: DropHandlers;
   /** The menu of the course or folder you're in (tap or click its title; right-click on the laptop). */
   onTitleMenu?: (anchor?: Anchor) => void;
+  /** iPhone: "…" opens the empty-space menu (so it can be found without the long-press). */
+  onMore?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -107,6 +110,9 @@ export function LibraryHeader({
             onPress={onToggleView}
             color={c.text.onGradientStrong}
           />
+        )}
+        {onMore && (
+          <IconButton icon="ellipsis-horizontal" label="More: new folder, upload, paste, sort" onPress={onMore} color={c.text.onGradientStrong} />
         )}
       </View>
     </View>

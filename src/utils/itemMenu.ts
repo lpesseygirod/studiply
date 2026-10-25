@@ -9,19 +9,42 @@ import type { LibraryItem } from '../services/move.service';
 import type { StarTarget } from '../services/shelf.service';
 import type { ShelfItem, ShelfType } from './shelf';
 
-export type ItemAction = 'open' | 'rename' | 'move' | 'star' | 'export' | 'delete';
+export type ItemAction =
+  | 'open'
+  | 'rename'
+  | 'move'
+  | 'moveOut'
+  | 'cut'
+  | 'copy'
+  | 'star'
+  | 'summarize'
+  | 'examPack'
+  | 'export'
+  | 'delete';
 
 const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
-  course: ['open', 'rename', 'star', 'delete'],
-  folder: ['open', 'rename', 'move', 'star', 'delete'],
-  lecture: ['open', 'rename', 'move', 'star', 'export', 'delete'],
-  pdf: ['open', 'rename', 'move', 'star', 'delete'],
-  image: ['open', 'rename', 'move', 'star', 'delete'],
+  course: ['open', 'rename', 'star', 'examPack', 'delete'],
+  folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'examPack', 'delete'],
+  lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'export', 'delete'],
+  pdf: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
+  image: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
 };
 
-/** Kinds without their own actions yet (documents, exam packs, a lecture's photos): Open and Favorites. */
-export function itemActions(type: ShelfType): ItemAction[] {
-  return ACTIONS[type] ?? ['open', 'star'];
+/**
+ * The item's menu, in order (step 3.4). Move out only for an item inside a
+ * folder. Kinds without their own actions yet (documents, exam packs, a
+ * lecture's photos): Open and Favorites.
+ */
+export function itemActions(item: Pick<ShelfItem, 'type' | 'folderId'>): ItemAction[] {
+  const actions = ACTIONS[item.type] ?? ['open', 'star'];
+  return item.folderId ? actions : actions.filter((a) => a !== 'moveOut');
+}
+
+/** Why an action is greyed out (shown under it), or null when it works. */
+export function actionHint(action: ItemAction, type: ShelfType): string | null {
+  if (action === 'copy' && (type === 'lecture' || type === 'folder')) return 'Coming soon';
+  if (action === 'summarize' || action === 'examPack') return 'Coming in a later update';
+  return null;
 }
 
 /** What the confirmation and the Undo toast call it. */
@@ -69,17 +92,25 @@ export function movableItem(item: ShelfItem): LibraryItem | null {
   }
 }
 
-export type SpaceAction = 'newFolder' | 'upload' | 'takePhoto' | 'record' | 'sort';
+export type SpaceAction = 'newFolder' | 'newDocument' | 'record' | 'upload' | 'takePhoto' | 'paste' | 'sort';
 
-/** Right-click (laptop) or long-press (iPhone) on empty space in a course, like Finder. */
+/** Right-click (laptop), long-press or "…" (iPhone) on empty space in a course, like Finder. */
 export function emptySpaceActions(canTakePhoto: boolean): SpaceAction[] {
-  return ['newFolder', 'upload', ...(canTakePhoto ? (['takePhoto'] as const) : []), 'record', 'sort'];
+  return ['newFolder', 'newDocument', 'record', 'upload', ...(canTakePhoto ? (['takePhoto'] as const) : []), 'paste', 'sort'];
 }
 
 export const SPACE_LABELS: Record<SpaceAction, string> = {
   newFolder: 'New folder',
+  newDocument: 'New document',
+  record: 'Record lecture here',
   upload: 'Upload photo or PDF',
   takePhoto: 'Take photo',
-  record: 'Record lecture here',
+  paste: 'Paste',
   sort: 'Sort by…',
 };
+
+/** The Paste line: what it pastes, or why it is greyed out. */
+export function pasteLabel(clip: { mode: 'cut' | 'copy'; title: string } | null): { text: string; hint: string | null } {
+  if (!clip) return { text: 'Paste', hint: 'Nothing to paste' };
+  return { text: `Paste '${clip.title}'`, hint: null };
+}

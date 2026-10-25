@@ -19,7 +19,7 @@ const step = async (name, fn) => {
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 
-const menuItems = () => b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim())`);
+const menuItems = () => b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim().split('\\n')[0])`);
 const sheetHas = (text) => b.hasText(text, true);
 const title = () => b.evaluate(`document.querySelector('[data-testid=crumb-current]')?.innerText ?? ''`);
 const at = () => b.evaluate('location.pathname + location.search');
@@ -63,7 +63,7 @@ try {
     expect((await b.evaluate(`document.querySelector('[data-testid=crumb-title]').getAttribute('aria-label')`)) === 'Math, course menu', 'label');
     await clickTitle();
     const items = await menuItems();
-    expect(items.join('|') === 'Rename…|Add to Favorites|Delete', items.join('|'));
+    expect(items.join('|') === 'Rename…|Add to Favorites|Make exam pack|Delete', items.join('|'));
     await b.shot('title-menu-course');
     await b.press('Escape');
   });
@@ -71,10 +71,10 @@ try {
   await step('A folder title: Rename…, Move to…, Favorites, Delete; a right-click opens it too', async () => {
     await open(data.folder.id, 'Apuntes');
     await clickTitle();
-    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Delete', (await menuItems()).join('|'));
+    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Make exam pack|Delete', (await menuItems()).join('|'));
     await b.press('Escape');
     await clickTitle({ button: 'right' });
-    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Delete', `right-click: ${(await menuItems()).join('|')}`);
+    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Make exam pack|Delete', `right-click: ${(await menuItems()).join('|')}`);
     await b.shot('title-menu-folder');
     await b.press('Escape');
   });

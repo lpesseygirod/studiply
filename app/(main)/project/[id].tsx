@@ -45,6 +45,7 @@ import {
   showActionSheet,
   showAlert,
   type Anchor,
+  type DialogButton,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
 import { promptRenameFile } from '../../../src/utils/rename';
@@ -63,7 +64,8 @@ import {
 } from 'react-native-gesture-handler';
 import { dragLog, useDragDebug } from '../../../src/lib/dnd/dragDebug';
 import type { Dragged, DropTarget } from '../../../src/lib/dnd/rules';
-import { emptySpaceActions, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
+import { emptySpaceActions, pasteLabel, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
+import { getClip } from '../../../src/lib/clipboard';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
@@ -455,7 +457,7 @@ export default function ProjectDetailScreen() {
       const item = currentFolderId
         ? folderItemFromFolder(await getFolder(currentFolderId))
         : courseShelfItem(await getProject(id));
-      itemMenu.open(item, anchor, { skip: ['open'], dialogRename: true });
+      itemMenu.open(item, anchor, { skip: ['open', 'cut', 'copy'], dialogRename: true });
     } catch (err) {
       showAlert('Error', errorMessage(err, 'Could not open the menu.'));
     }
@@ -639,18 +641,23 @@ export default function ProjectDetailScreen() {
     }
     dragLog('empty-space menu: opened');
     setSelectedId(null);
+    const clip = getClip();
+    const paste = pasteLabel(clip && { mode: clip.mode, title: clip.item.title });
     const run: Record<SpaceAction, () => void> = {
       newFolder: startNewFolder,
+      newDocument: () => {},
+      record: recordHere,
       upload: chooseUpload,
       takePhoto: handleTakePhoto,
-      record: recordHere,
+      paste: () => dnd.pasteHere(herePlace()),
       sort: () => showSortMenu(libraryPrefs.sort, sort => setLibraryPrefs({ sort }), anchor),
     };
-    showActionSheet(
-      currentCrumb?.name,
-      emptySpaceActions(Platform.OS !== 'web').map(action => ({ text: SPACE_LABELS[action], onPress: run[action] })),
-      { anchor },
-    );
+    const button = (action: SpaceAction): DialogButton => {
+      if (action === 'newDocument') return { text: SPACE_LABELS.newDocument, disabled: true, hint: 'Coming soon' };
+      if (action === 'paste') return paste.hint ? { text: paste.text, disabled: true, hint: paste.hint } : { text: paste.text, onPress: run.paste };
+      return { text: SPACE_LABELS[action], onPress: run[action] };
+    };
+    showActionSheet(currentCrumb?.name, emptySpaceActions(Platform.OS !== 'web').map(button), { anchor });
   }
 
   /** Laptop: one file picker (PDFs and images). iPhone: Photos, PDF (Files) or Take photo. */
@@ -724,6 +731,7 @@ export default function ProjectDetailScreen() {
               )}
               dnd={dnd}
               onTitleMenu={titleMenu}
+              onMore={compact ? () => spaceMenu() : undefined}
             />
 
             <LibraryToolbar

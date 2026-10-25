@@ -22,9 +22,9 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 const SIDEBAR = '[data-testid=sidebar]';
 const MAIN = { exclude: SIDEBAR };
 
-/** The open menu's items, in order. */
+/** The open menu's items, in order (their first line: a greyed-out item has its hint below). */
 const menuItems = () =>
-  b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim())`);
+  b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim().split('\\n')[0])`);
 /** Clicks a menu item (buttons with the same text under the menu's overlay come first in the DOM). */
 const clickItem = async (text) => {
   const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.trim() === ${JSON.stringify(text)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
@@ -66,10 +66,11 @@ const openCourse = async () => {
   await b.waitText('New folder', { timeout: 20000 });
   await b.sleep(2500);
 };
+// Step 3.4: Cut / Copy, and the Summarize / Make exam pack placeholders (no Move out: these are at the top of the course).
 const ITEM_MENU = {
-  course: ['Open', 'Rename…', 'Add to Favorites', 'Delete'],
-  folder: ['Open', 'Rename…', 'Move to…', 'Add to Favorites', 'Delete'],
-  lecture: ['Open', 'Rename…', 'Move to…', 'Add to Favorites', 'Export PDF', 'Delete'],
+  course: ['Open', 'Rename…', 'Add to Favorites', 'Make exam pack', 'Delete'],
+  folder: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Make exam pack', 'Delete'],
+  lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Export PDF', 'Delete'],
 };
 
 const user = await makeUser();
@@ -148,7 +149,7 @@ try {
 
   await step('Empty space: right-click opens New folder · Upload · Record · Sort by…', async () => {
     const items = await spaceMenu();
-    expect(items.join('|') === 'New folder|Upload photo or PDF|Record lecture here|Sort by…', items.join('|'));
+    expect(items.join('|') === 'New folder|New document|Record lecture here|Upload photo or PDF|Paste|Sort by…', items.join('|'));
     await b.shot('space-menu-1280');
     await closeMenu();
   });
