@@ -16,7 +16,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 1.6 — Claude on the server (`assistant-chat` + `summarize` skeletons)
 - [ ] 1.7 — The app uses the backend (switch services, remove EXPO_PUBLIC keys, prove bundle clean) — **part A (local) done 25 Oct 2026**; part B (remote project) open
 - [x] 1.8 — Offline cache and sync (SQLite cache + conflict rule) — done 25 Oct 2026 (iPhone; web stays online-only)
-- [ ] 1.9 — Move existing data (one-time idempotent migration)
+- [x] 1.9 — Move existing data (one-time idempotent migration) — built 26 Oct 2026; the real upload of Lea's own data is done by Lea (steps in the decision below)
 
 ## Phase 2 — App shell (`phase-2-shell`)
 - [ ] 2.1 — Navigation and layout (iPhone tabs + web 3-column, responsive)
@@ -212,6 +212,15 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Deleting goes by rows, never by path prefix.** A photo moved to another lecture keeps its old Storage path (`{uid}/{oldLecture}/…`). `trash.service` collects the objects to remove from the media and audio rows of the files being deleted, so deleting the old lecture can't take the moved photo. Covered by Jest, pgTAP and the Chrome check.
 - **Retention is audio only.** "Delete now / after 3 days" acts on a lecture's `audio_chunks`. Photos, PDFs and library files are never removed by it; only the student deletes them. Covered by a test.
 - **Migration timestamps stay in order (26 Oct).** `20261026090000_standalone_images` was dated in the future and is already on the remote, so it keeps its name; every new migration must be dated after the newest one (rule in `CLAUDE.md` → How to work).
+- **Moving the earlier version's data (step 1.9).**
+  - **What happens:** Settings → Earlier version data (and a Home card, "Later" hides it until the next start) reads the old `studiply.db` and its files read-only, lists each old profile with counts and first names (nothing ticked), and uploads the ticked ones (`src/services/legacyImport/`).
+  - **Ids and dates kept:** the old UUIDs become the new rows' ids, and dates are kept. Rows are upserted with `ignoreDuplicates`; transcripts, recordings and photos/PDFs already on the server are skipped. It's safe to repeat and resumes after a failure.
+  - **Every section of an old note is `student`**, clarifications included: the old app didn't record who wrote what, and regeneration must never overwrite text the student typed (Lea, 26 Oct).
+  - **Old trash:** it goes to Recently Deleted with its date; anything deleted more than 30 days ago is left out, and so are deleted notes.
+  - **Files:** photos are converted to JPEG. Files no longer on the iPhone (old photos/PDFs only kept the picker's cache URI) are listed, not uploaded. AI usage history and budgets can't be moved.
+  - **Verification:** after the upload every expected row and file is checked on the server. "Remove the old copy from this iPhone" appears only after that, and is the only thing that deletes old data.
+  - **"Already uploaded"** is remembered per Supabase URL + account + data set (real or development sample), so a local test upload never blocks the real upload to the remote project.
+  - **Development** uses only `studiply-sample.db` / `documents/legacy-sample/` (DEVELOPMENT → Create / Use sample earlier-version data), never the real data.
 - **npm audit policy.** At the start of Phase 1, after `npx expo install --fix`, run `npm audit --omit=dev` and only fix what affects the shipped app. Dev-tool warnings are left alone. Never use `npm audit fix --force`.
 
 ## Things Lea must do
@@ -238,6 +247,13 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - The app notices within about 10 s or when it comes to the foreground.
   - For a two-device test with the browser online, use Settings → General → DEVELOPMENT → Simulate offline on the iPhone. **Sync now** and the queue list are there too.
   - After changing the app's code, reload it fully (shake → Reload) before an offline test.
+- **Step 1.9 — upload your real earlier-version data yourself** (after testing with the sample):
+  1. `npm run start:remote` (the remote project, not the Mac).
+  2. In the app: Settings → General → DEVELOPMENT → turn **Use sample earlier-version data** off.
+  3. Sign in with your real account.
+  4. Settings → Earlier version data (or the Home card): compare the profiles' counts and first course/lecture names, and tick only your real profile (not the one with local test lectures). Then **Upload**.
+  5. Check in the browser that the courses, lectures, notes and recordings are there.
+  6. Only then, **Remove the old copy from this iPhone**.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
@@ -248,7 +264,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - `react-hooks/exhaustive-deps` in `app/(main)/project/[id].tsx` (×3), `app/(main)/record/active.tsx`, `app/(main)/record/review.tsx` (×2), `app/_layout.tsx`, `src/components/MoveToModal.tsx`, `src/components/SplashScreen.tsx`, `src/components/UndoToast.tsx`.
   - Unused `sourceFiles` state in `app/(main)/record/review.tsx` (still set from `getActiveSourceFiles`; remove when that screen is rebuilt).
 - **npm audit: `decode-uri-component` DoS in the app bundle** (found at Phase 1 start, accepted). `npm audit --omit=dev` (after `expo install --fix`, 23 Oct 2026): of 18 findings, only `nanoid`, `query-string` and `decode-uri-component` ship in the iOS bundle; the rest are build tools that run only on the Mac. `nanoid` was updated to 3.3.20. `decode-uri-component@0.2.2` (exponential decoding of malformed percent-encoded input, so a crafted deep link could freeze the app) is pulled in by `query-string@7`, which `expo-router` depends on directly; the fix (0.5.x) needs an Expo SDK major upgrade. Low impact (local DoS, needs the user to open a crafted link). Fix before launch: see Things Lea must do.
-- **"Delete data on this device" only deletes this device's data** (step 1.3; renamed and reworded in step 1.7). It removes what earlier versions stored on the iPhone and signs out; the Supabase account, its rows and its Storage files stay, and the dialog now says so. Real account deletion needs a server function and comes in step 10.1. On web it says it's not available yet.
+- **"Delete data on this device" only deletes this device's data** (step 1.3; renamed and reworded in step 1.7). It removes what earlier versions stored on the iPhone and signs out; the Supabase account, its rows and its Storage files stay, and the dialog now says so. Real account deletion needs a server function and comes in step 10.1. On web it says it's not available yet. Since step 1.9 it is also only the current account's old profile; "Remove the old copy from this iPhone" (Earlier version data) removes the whole old database and its files, after a verified upload.
 - ~~**Opening the app offline more than an hour after the last use shows the login screen**~~ (step 1.3; fixed in step 1.8: the stored session is used offline and refreshed when the backend answers).
 - ~~**Security screen still says "Your data is stored on this device"**~~ (found in step 1.3; fixed in step 1.7: it now says the library is in the student's cloud account and that AI services get data only after consent).
 - ~~**Web: library empty and saving fails after login**~~ (step 1.3; fixed in step 1.7: the web reads and writes Supabase).

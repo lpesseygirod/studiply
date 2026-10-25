@@ -29,8 +29,9 @@ Storage buckets whose paths start with the owner's user id. **The app holds no
 AI key.** Whisper and Claude are called by Edge Functions with keys kept on
 the server; the app sends only the student's own login token, and the
 functions check consent and a daily limit before anything leaves the server.
-`expo-sqlite` stays on iPhone only, for data from earlier versions (uploaded
-in step 1.9) and the offline cache (step 1.8); the web build never loads it.
+`expo-sqlite` stays on iPhone only, for the earlier version's data (read and
+uploaded by step 1.9, `src/services/legacyImport`) and the offline cache
+(step 1.8); the web build never loads it.
 
 ### Offline on iPhone (since step 1.8)
 
@@ -98,11 +99,12 @@ nothing is counted. Store builds never simulate.
 - Per-call AI cost tracking on the server, today's use against a daily limit, spend by provider and operation
 - The same library, notes and recordings on iPhone and in the browser
 - Offline on iPhone: library, notes and transcripts readable, note edits and new recordings saved and synced later, with a per-block conflict rule
+- Moving the earlier version's on-device data to the account (Settings → Earlier version data), safe to repeat and checked on the server
 
 **Planned:**
 
 - Quiz generation from notes (`app/(main)/quiz/` is scaffolded and empty)
-- The remote Supabase project (step 1.7 part B), moving old on-device data (1.9)
+- The remote Supabase project (step 1.7 part B)
 - The app shell, library, editor and summary engine from `docs/BUILD-PLAN.md`
 
 ## Running it locally
