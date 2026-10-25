@@ -248,7 +248,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
       - every other table keeps the plain trigger (Lea: so big rows such as summaries aren't serialized);
       - `changed_at` moves on every update of those four tables, and the iPhone downloads them by it, so a favorite set on the laptop still reaches the iPhone.
       - pgTAP: `05_favorites`.
-      - **Applied locally; the remote push waits for Lea's OK.**
+      - **Pushed to the remote after Lea's OK.** `migration list` shows local = remote up to `20261026090100`. Remote types match local (19 tables, 220 columns). A schema dump shows `set_updated_at_favorites` on courses, files, folders and media, and the plain trigger everywhere else.
     - **Project Files numbering:** photos there are now numbered within their lecture (oldest first), like the lecture's own screens and Favorites. Before, "Photo 2" there could be "Photo 1" in the lecture.
   - **PDFs and images** open their course at their folder until files get a viewer; documents, unit summaries and exam packs the same until Phases 4 and 7.
   - **Checks:** `.claude/skills/web-check/scripts/shell-data.mjs` (counts, badge, sections, top bar, crumbs, folder links, Record lecture, Star / Unstar with Undo in the database, iPhone chips and long-press). `flows.mjs` clicks scoped away from the sidebar's course tree.
