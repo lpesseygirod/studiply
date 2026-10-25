@@ -96,7 +96,7 @@ export default function MoveToModal({
   const { colors: c } = useTheme();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RowItem[]>([]);
-  const [crumbs, setCrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'Projects', type: 'root' }]);
+  const [crumbs, setCrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'Courses', type: 'root' }]);
   // 'lecture' mode: the lecture tapped, confirmed with the buttons.
   const [selected, setSelected] = useState<PickedLecture | null>(null);
 
@@ -200,7 +200,7 @@ export default function MoveToModal({
   }
 
   function reset() {
-    setCrumbs([{ id: null, name: 'Projects', type: 'root' }]);
+    setCrumbs([{ id: null, name: 'Courses', type: 'root' }]);
     setItems([]);
     setSelected(null);
   }
@@ -287,7 +287,7 @@ export default function MoveToModal({
           <View style={styles.center}>
             <Text style={styles.emptyText}>
               {currentCrumb.type === 'root'
-                ? 'No projects yet.'
+                ? 'No courses yet.'
                 : pick === 'lecture'
                   ? 'No folders or lectures here.'
                   : 'No sub-folders here.'}

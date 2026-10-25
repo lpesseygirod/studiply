@@ -153,7 +153,7 @@ try {
 
   await step('Record lecture preselects the course', async () => {
     await b.click('Record lecture', { exact: true });
-    await b.waitText('IN WHAT PROJECT', { timeout: 10000 });
+    await b.waitText('IN WHAT COURSE', { timeout: 10000 });
     await b.sleep(800);
     const q = await search();
     expect(q.includes(`projectId=${data.course.id}`) && q.includes(`folderId=${data.folder.id}`), q);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
@@ -9,14 +9,14 @@ import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
 import { useAuth } from '../../hooks/useAuth';
-import { notifyLibraryUpdated, useLibraryUpdates } from '../../lib/cache';
+import { useLibraryUpdates } from '../../lib/cache';
 import { getFolderBreadcrumbs } from '../../services/folder.service';
 import { getProjects, type ProjectWithCount } from '../../services/project.service';
 import { getCourseLevel, getReviewDueCount } from '../../services/shelf.service';
 import { openTarget, TYPE_ICON, type ShelfItem } from '../../utils/shelf';
 import { starButton, type ShowUndo } from '../../utils/star';
 import { menuTriggerProps, showActionSheet, type Anchor } from '../dialogs/dialogs';
-import { NewProjectModal } from '../NewProjectModal';
+import { anchorBelow, useNewMenu } from '../NewMenu';
 import { useShell } from './ShellContext';
 
 /**
@@ -44,7 +44,8 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
   const { profile } = useAuth();
   const [courses, setCourses] = useState<ProjectWithCount[]>([]);
   const [reviewDue, setReviewDue] = useState<number | null>(null);
-  const [showNewCourse, setShowNewCourse] = useState(false);
+  const newMenu = useNewMenu();
+  const newButtonRef = useRef<View>(null);
 
   const load = useCallback(() => {
     if (!profile?.id) return;
@@ -61,11 +62,13 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
     <View style={styles.sidebar} testID="sidebar">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <TouchableOpacity
+          ref={newButtonRef}
           style={styles.newButton}
-          onPress={() => setShowNewCourse(true)}
+          onPress={() => anchorBelow(newButtonRef).then(newMenu.open)}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="New course"
+          accessibilityLabel="New"
+          accessibilityHint="Course, folder, upload, recording"
         >
           <Ionicons name="add" size={18} color={c.button.primaryText} />
           <Text style={styles.newText}>New</Text>
@@ -140,17 +143,7 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
         <Text style={styles.itemText}>Trash</Text>
       </Pressable>
 
-      {profile?.id && (
-        <NewProjectModal
-          visible={showNewCourse}
-          userId={profile.id}
-          onClose={() => setShowNewCourse(false)}
-          onCreated={() => {
-            setShowNewCourse(false);
-            notifyLibraryUpdated();
-          }}
-        />
-      )}
+      {newMenu.dialog}
     </View>
   );
 }

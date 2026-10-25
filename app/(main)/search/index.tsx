@@ -94,7 +94,7 @@ export default function SearchScreen() {
   };
 
   const resultTypeLabel = (type: SearchResult['type']) => {
-    if (type === 'project') return 'Project';
+    if (type === 'project') return 'Course';
     if (type === 'note') return 'Note';
     return 'Session';
   };
@@ -174,7 +174,7 @@ export default function SearchScreen() {
           </Pressable>
         ) : showPrompt ? (
           <Pressable style={styles.promptState} onPress={Keyboard.dismiss}>
-            <Text style={styles.promptText}>Search projects, notes, and sessions</Text>
+            <Text style={styles.promptText}>Search courses, notes and lectures</Text>
           </Pressable>
         ) : showEmpty ? (
           <Pressable style={styles.promptState} onPress={Keyboard.dismiss}>

@@ -19,6 +19,12 @@ export interface DialogButton {
   text: string;
   style?: 'default' | 'cancel' | 'destructive';
   onPress?: () => void | Promise<void>;
+  /** Menus: shown greyed out with `hint`; on the iPhone choosing it shows the hint. */
+  disabled?: boolean;
+  /** Menus: a short line under the item ("Open a course first", "Coming soon"). */
+  hint?: string;
+  /** Menus on the web: an Ionicons name shown before the text. */
+  icon?: string;
 }
 
 /** Where a menu opens on the web (page coordinates of a right-click). */
@@ -74,6 +80,11 @@ export function subscribeDialogs(listener: (queue: DialogRequest[]) => void): ()
 
 /** Runs a button's action; errors are logged, never thrown into the UI. */
 export function runButton(button: DialogButton | undefined): void {
+  if (button?.disabled) {
+    // The iPhone's action sheet can't grey an item out: say why it can't be used.
+    if (button.hint && Platform.OS !== 'web') Alert.alert(button.text, button.hint);
+    return;
+  }
   if (!button?.onPress) return;
   Promise.resolve()
     .then(button.onPress)

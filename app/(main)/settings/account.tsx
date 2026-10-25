@@ -238,7 +238,7 @@ export default function AccountScreen() {
           onPress: () => {
             showAlert(
               'Are you absolutely sure?',
-              'The projects, notes and recordings that earlier versions kept on this iPhone will be gone for good.',
+              'The courses, notes and recordings that earlier versions kept on this iPhone will be gone for good.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {

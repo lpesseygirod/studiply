@@ -32,22 +32,22 @@ try {
   await step('Library: right-click a course opens its menu at the pointer', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
     await b.waitText('Rename', { timeout: 3000, exact: true });
-    expect(await b.hasText('Delete Project', true), 'no Delete Project item');
+    expect(await b.hasText('Delete Course', true), 'no Delete Course item');
     await b.shot('10-home-course-menu');
   });
 
   await step('Library: Escape closes the menu', async () => {
     await b.press('Escape');
     await b.sleep(300);
-    expect(!(await b.hasText('Delete Project', true)), 'menu still open');
+    expect(!(await b.hasText('Delete Course', true)), 'menu still open');
   });
 
   await step('Library: Rename a course through the prompt', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
     await b.click('Rename');
-    await b.waitText('Rename Project');
+    await b.waitText('Rename Course');
     await b.shot('11-home-rename-prompt');
-    await b.fill('input[placeholder="Project name"]', 'Algebra');
+    await b.fill('input[placeholder="Course name"]', 'Algebra');
     await b.click('Save');
     await b.waitText('Algebra', { timeout: 5000, exact: true, ...MAIN });
     const { data: row } = await admin.from('courses').select('name').eq('id', data.course.id).single();
@@ -59,7 +59,7 @@ try {
 
   await step('Library: long-press (mouse hold) also opens the menu', async () => {
     await b.click('Science', { holdMs: 800, ...MAIN });
-    await b.waitText('Delete Project', { timeout: 3000, exact: true });
+    await b.waitText('Delete Course', { timeout: 3000, exact: true });
     await b.press('Escape');
   });
 
@@ -78,7 +78,7 @@ try {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true, ...MAIN });
     await b.click('Science', { button: 'right', ...MAIN });
-    await b.click('Delete Project');
+    await b.click('Delete Course');
     await b.waitText('will be moved to Recently Deleted');
     await b.click('Delete', { exact: true });
     await b.sleep(800);

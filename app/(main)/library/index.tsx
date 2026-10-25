@@ -33,7 +33,8 @@ import { getNoteBySession } from '../../../src/services/note.service';
 import { exportNoteToPDF } from '../../../src/services/export.service';
 import { shouldOfferEarlierVersion } from '../../../src/services/legacyImport';
 import { GradientBackground } from '../../../src/components/GradientBackground';
-import { NewProjectModal } from '../../../src/components/NewProjectModal';
+import { anchorBelow, useNewMenu } from '../../../src/components/NewMenu';
+import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
 import UndoToast from '../../../src/components/UndoToast';
 import UserAvatar from '../../../src/components/UserAvatar';
 import {
@@ -111,6 +112,8 @@ export default function LibraryScreen() {
   const [reviewDue, setReviewDue] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
+  const newMenu = useNewMenu();
+  const newButtonRef = useRef<View>(null);
 
   const [undoVisible, setUndoVisible] = useState(false);
   const [undoMessage, setUndoMessage] = useState('');
@@ -232,25 +235,25 @@ export default function LibraryScreen() {
     showActionSheet(project.name, [
       { text: 'Rename', onPress: () => promptRenameProject(project) },
       starButton({ type: 'course', id: project.id }, project.name, project.starred_at, showUndo),
-      { text: 'Delete Project', style: 'destructive', onPress: () => confirmTrashProject(project) },
+      { text: 'Delete Course', style: 'destructive', onPress: () => confirmTrashProject(project) },
     ], { anchor });
   }
 
   async function promptRenameProject(project: ProjectWithCount) {
-    const name = await promptText('Rename Project', { defaultValue: project.name, placeholder: 'Project name' });
+    const name = await promptText('Rename Course', { defaultValue: project.name, placeholder: 'Course name' });
     if (!name) return;
     try {
       await updateProject(project.id, { name });
       setProjects(prev => prev.map(p => (p.id === project.id ? { ...p, name } : p)));
       notifyLibraryUpdated(); // the laptop sidebar lists the courses too
     } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not rename project.'));
+      showAlert('Error', errorMessage(err, 'Could not rename the course.'));
     }
   }
 
   function confirmTrashProject(project: ProjectWithCount) {
     showAlert(
-      'Delete Project',
+      'Delete Course',
       `"${project.name}" and all its contents will be moved to Recently Deleted.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -268,7 +271,7 @@ export default function LibraryScreen() {
                 notifyLibraryUpdated();
               });
             } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete project.'));
+              showAlert('Error', errorMessage(err, 'Could not delete the course.'));
             }
           },
         },
@@ -334,11 +337,13 @@ export default function LibraryScreen() {
           )}
           <View style={styles.headerButtons}>
             <TouchableOpacity
+              ref={newButtonRef}
               style={styles.newButton}
-              onPress={() => setShowNewCourse(true)}
+              onPress={() => anchorBelow(newButtonRef).then(newMenu.open)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="New course"
+              accessibilityLabel="New"
+              accessibilityHint="Course, folder, upload, recording"
             >
               <Ionicons name="add" size={22} color={c.button.onGradientText} />
             </TouchableOpacity>
@@ -546,8 +551,9 @@ export default function LibraryScreen() {
         </Text>
       </ScrollView>
 
+      {newMenu.dialog}
       {profile?.id && (
-        <NewProjectModal
+        <NewCourseDialog
           visible={showNewCourse}
           userId={profile.id}
           onClose={() => setShowNewCourse(false)}

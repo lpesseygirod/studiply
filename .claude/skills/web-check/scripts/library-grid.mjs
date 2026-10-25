@@ -30,9 +30,9 @@ const inlineField = () =>
     if (!el) return null;
     return { value: el.value, focused: document.activeElement === el, start: el.selectionStart, end: el.selectionEnd };
   })()`);
-/** The tiles' names in the order shown. */
+/** The tiles' names in the order shown (a tile's label is "name, meta"). */
 const order = () =>
-  b.evaluate(`[...document.querySelectorAll('[data-testid^=entry-]')].map((e) => e.innerText.split('\\n').map((l) => l.replace(/[^\\p{L}\\p{N}\\s·().-]/gu, '').trim()).filter(Boolean)[0])`);
+  b.evaluate(`[...document.querySelectorAll('[data-testid^=entry-]')].map((e) => { const l = e.getAttribute('aria-label') ?? ''; return l.slice(0, l.lastIndexOf(', ')); })`);
 const openCourse = async () => {
   await b.nav(`${BASE}/project/${data.course.id}`);
   await b.waitText('New folder', { timeout: 20000 });
@@ -41,6 +41,11 @@ const openCourse = async () => {
 
 const user = await makeUser();
 const data = await seed(user.client);
+// A PDF last edited long ago, so Kind, Name and Date edited all give different orders.
+await admin.from('files').insert({
+  user_id: user.id, kind: 'pdf', title: 'A notes.pdf', course_id: data.course.id,
+  created_at: '2026-01-01T10:00:00Z', updated_at: '2026-01-01T10:00:00Z',
+});
 const b = await launch({ width: 1280, height: 900 });
 
 try {
@@ -83,21 +88,21 @@ try {
     expect((await folderNamed('Resums'))?.length === 1, 'not saved');
   });
 
-  await step('Sort: Name vs Date edited change the order (folders first)', async () => {
-    await b.click('Sort', { exact: false, ...MAIN });
-    await b.click('Name', { exact: true });
-    await b.sleep(500);
-    const byName = await order();
-    expect(byName.slice(0, 3).join('|') === 'Funcions|Resums|Tema 1', `name: ${byName}`);
-    await b.click('Sort', { exact: false, ...MAIN });
-    await b.click('Date edited', { exact: true });
-    await b.sleep(500);
-    const byDate = await order();
-    expect(byDate.slice(0, 3).join('|') === 'Resums|Tema 1|Funcions', `date: ${byDate}`);
-    expect(byDate[3] === 'Lecture 1', `folders not first: ${byDate}`);
-    await b.click('Sort', { exact: false, ...MAIN });
-    await b.click('Kind', { exact: true });
-    await b.sleep(400);
+  await step('Sort: Kind, Name and Date edited each change the order on screen (folders first)', async () => {
+    const choose = async (label) => {
+      await b.click('Sort', { exact: false, ...MAIN });
+      await b.click(label, { exact: true });
+      await b.sleep(600);
+      return (await order()).join('|');
+    };
+    const byName = await choose('Name');
+    expect(byName === 'Funcions|Resums|Tema 1|A notes.pdf|Lecture 1', `name: ${byName}`);
+    const byDate = await choose('Date edited');
+    expect(byDate === 'Resums|Tema 1|Funcions|Lecture 1|A notes.pdf', `date: ${byDate}`);
+    const byKind = await choose('Kind');
+    expect(byKind === 'Funcions|Resums|Tema 1|Lecture 1|A notes.pdf', `kind: ${byKind}`);
+    expect(new Set([byName, byDate, byKind]).size === 3, 'two sorts gave the same order');
+    expect((await b.evaluate(`document.body.innerText`)).includes('Sort\nKind') || (await b.hasText('Kind', true)), 'the Sort button does not show the choice');
   });
 
   await step('A click selects without opening; a double-click opens the folder', async () => {

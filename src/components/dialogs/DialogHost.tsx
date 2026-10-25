@@ -20,6 +20,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
@@ -127,21 +129,36 @@ function Dialog({ request }: { request: DialogRequest }) {
           <Pressable
             key={b.text}
             accessibilityRole="menuitem"
+            accessibilityState={{ disabled: !!b.disabled }}
+            accessibilityHint={b.hint}
+            disabled={b.disabled}
             onPress={() => choose(b)}
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
               styles.menuItem,
-              (pressed || hovered) && styles.menuItemActive,
+              b.icon ? styles.menuItemWithIcon : null,
+              !b.disabled && (pressed || hovered) && styles.menuItemActive,
             ]}
           >
-            <Text
-              style={[
-                styles.menuItemText,
-                b.style === 'destructive' && styles.menuItemDestructive,
-                b.style === 'cancel' && styles.menuItemCancel,
-              ]}
-            >
-              {b.text}
-            </Text>
+            {!!b.icon && (
+              <Ionicons
+                name={b.icon as React.ComponentProps<typeof Ionicons>['name']}
+                size={18}
+                color={b.disabled ? c.text.placeholder : c.text.secondary}
+              />
+            )}
+            <View style={styles.menuItemBody}>
+              <Text
+                style={[
+                  styles.menuItemText,
+                  b.style === 'destructive' && styles.menuItemDestructive,
+                  b.style === 'cancel' && styles.menuItemCancel,
+                  b.disabled && styles.menuItemDisabled,
+                ]}
+              >
+                {b.text}
+              </Text>
+              {!!b.hint && <Text style={styles.menuItemHint}>{b.hint}</Text>}
+            </View>
           </Pressable>
         ))}
       </View>
@@ -279,6 +296,10 @@ const makeStyles = (c: ThemeColors) =>
     justifyContent: 'center',
   },
   menuItemActive: { backgroundColor: c.surfaceMuted },
+  menuItemWithIcon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 12 },
+  menuItemBody: { flexShrink: 1, paddingVertical: 6 },
+  menuItemDisabled: { color: c.text.secondary },
+  menuItemHint: { fontSize: Typography.size.xs, color: c.text.secondary },
   menuItemText: {
     fontSize: Typography.size.base,
     color: c.text.primary,

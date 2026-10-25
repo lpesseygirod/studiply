@@ -95,7 +95,7 @@ export function useShellScreen(location: ShellLocation | null, header: DocumentH
 // Commands (keyboard shortcuts): the focused screen that can do it does it
 // -------------------------------------------------------------------
 
-export type ShellCommand = 'newFolder' | 'focusSearch' | 'showShortcuts';
+export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts';
 
 const commandHandlers = new Map<ShellCommand, (() => void)[]>();
 
@@ -106,6 +106,11 @@ export function runShellCommand(command: ShellCommand): boolean {
   if (!handler) return false;
   handler();
   return true;
+}
+
+/** Whether a focused screen can run the command now (the New menu greys out what it can't). */
+export function hasShellCommand(command: ShellCommand): boolean {
+  return (commandHandlers.get(command)?.length ?? 0) > 0;
 }
 
 /** Registers a command handler for as long as the calling component is mounted. */

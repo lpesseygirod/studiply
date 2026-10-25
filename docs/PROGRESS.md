@@ -311,6 +311,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - Removed: the separate FOLDERS / FILES / SESSIONS sections, the floating New Folder / New Recording buttons and the New Folder sheet; the "Notes ✓" badge (the tile shows the lecture's state instead).
   - Waits for 3.3: moving by drag (with the 3.1 choice), the dashed highlight on real folders, Undo and ⌘Z; the spike screen is removed then. Waits for 3.4: the empty-space menu, New document, Upload as a library file.
   - Checks: `.claude/skills/web-check/scripts/library-grid.mjs` (10 steps, results checked in the database).
+- **Step 3.2 feedback (Lea, 25 Oct).**
+  - **Sort "didn't work":** the cause was data, not the screen. Migration `20261026090100` (favorites) ran `update … set changed_at = updated_at` while the old `updated_at` trigger was active, so every course, folder, file and media row got the same `updated_at` (the migration's time), and Date edited fell back to the name order. The real times had been copied to `changed_at`. Repair: `20261026090200_restore_updated_at.sql` puts them back with the trigger disabled (pgTAP `06_restore_updated_at`). Rows whose favourite changed after the first migration keep the later time. The check now seeds a PDF edited long ago and requires Kind, Name and Date edited to give three different orders.
+  - **"+ New" menu** (`src/components/NewMenu.tsx`, items in `newMenuItems.ts`): anchored menu on the laptop, action sheet on the iPhone. Menu items can now be disabled with a hint and carry an icon (`DialogButton.disabled / hint / icon`); on the iPhone a disabled item explains itself in an alert, because the native sheet can't grey items out. New folder and Upload run the open course's shell commands (`newFolder`, the new `upload`), so they are enabled only where a course screen registered them (`hasShellCommand`).
+  - **New course dialog** (`src/components/NewCourseDialog.tsx`) replaces the full-width `NewProjectModal` (deleted) in the sidebar, the Library and the recording setup.
+  - **"Project" → "Course"** in every user-facing text (menus, dialogs, recording setup, search, Move to…, account deletion text, error messages).
+  - Checks: `.claude/skills/web-check/scripts/new-menu.mjs` (1280 and 390 px, results checked in the database).
 
 ## Things Lea must do
 

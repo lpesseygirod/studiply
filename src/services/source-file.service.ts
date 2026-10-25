@@ -378,7 +378,7 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
         .eq('kind', 'lecture')
         .eq('course_id', projectId)
         .is('deleted_at', null);
-      if (error) throw serviceError(error, 'Could not load the project files.');
+      if (error) throw serviceError(error, 'Could not load the course files.');
       if (lectures.length === 0) return [];
 
       const { data: media, error: mediaError } = await supabase
@@ -387,7 +387,7 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
         .in('lecture_id', lectures.map((l) => l.id))
         .in('kind', ['photo', 'slides'])
         .order('created_at', { ascending: false });
-      if (mediaError) throw serviceError(mediaError, 'Could not load the project files.');
+      if (mediaError) throw serviceError(mediaError, 'Could not load the course files.');
       remember('media', media);
       const ids = new Set(lectures.map((l) => l.id));
       const withLocal = await withLocalRows('media', media, (m) => m.lecture_id !== null && ids.has(m.lecture_id));

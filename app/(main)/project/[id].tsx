@@ -157,7 +157,7 @@ export default function ProjectDetailScreen() {
       // have been renamed elsewhere); the folder crumbs below it stay.
       setBreadcrumbs(prev => withProjectRoot(prev, p.name));
     } catch {
-      setError('Could not load project.');
+      setError('Could not load this course.');
     } finally {
       setLoading(false);
     }
@@ -198,8 +198,10 @@ export default function ProjectDetailScreen() {
     router.setParams({ folder: folderId ?? undefined });
   }
 
-  // ⌥⇧N on the web: a new folder here, named in place.
+  // ⌥⇧N on the web, and the New menu: a new folder here, named in place.
   useShellCommand('newFolder', () => startNewFolder());
+  // The New menu's "Upload photo or PDF".
+  useShellCommand('upload', () => chooseUpload());
 
   // The laptop shell: Record lecture preselects this course and folder;
   // the sidebar expands this course.

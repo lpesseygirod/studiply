@@ -558,7 +558,7 @@ export async function getOrCreateProjectUploadSession(
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
         .limit(1);
-      if (error) throw serviceError(error, 'Could not prepare the project files.');
+      if (error) throw serviceError(error, 'Could not prepare the course files.');
       rememberLectureFiles(data as LectureFileRow[]);
       return (data[0] as LectureFileRow | undefined) ?? null;
     },
