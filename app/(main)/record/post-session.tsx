@@ -28,6 +28,7 @@ import {
 import { promptRenameFile } from '../../../src/utils/rename';
 import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
+import { starButton } from '../../../src/utils/star';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
@@ -242,6 +243,9 @@ export default function PostSessionScreen() {
       { text: 'Rename…', onPress: () => renameFile(file) },
       { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
       { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
+        setSourceFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
+      ),
       { text: 'Remove', style: 'destructive', onPress: () => handleDeleteFile(file) },
     ], { anchor });
   };

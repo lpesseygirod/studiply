@@ -44,6 +44,19 @@ describe('toggleStar', () => {
   });
 });
 
+describe('lecture photos and PDFs (media)', () => {
+  it('writes the media row and tells the screen the new value, also after Undo', async () => {
+    const showUndo = jest.fn();
+    const onChanged = jest.fn();
+    await toggleStar({ type: 'media', id: 'm1' }, 'Photo 2', null, showUndo, onChanged);
+    expect(mockSetStarredAt.mock.calls[0][0]).toEqual({ type: 'media', id: 'm1' });
+    expect(typeof onChanged.mock.calls[0][0]).toBe('string');
+    showUndo.mock.calls[0][1]();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(onChanged).toHaveBeenLastCalledWith(null);
+  });
+});
+
 describe('starButton', () => {
   it('says Add to Favorites or Remove from Favorites', () => {
     expect(starButton({ type: 'file', id: 'x' }, 'X', null, jest.fn()).text).toBe('Add to Favorites');

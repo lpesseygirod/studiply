@@ -216,9 +216,9 @@ export async function getReviewDueCount(now: Date = new Date()): Promise<number 
 // Add to / Remove from Favorites (online only)
 // -------------------------------------------------------------------
 
-export type StarTarget = { type: 'course' | 'folder' | 'file'; id: string };
+export type StarTarget = { type: 'course' | 'folder' | 'file' | 'media'; id: string };
 
-const STAR_TABLE = { course: 'courses', folder: 'folders', file: 'files' } as const;
+const STAR_TABLE = { course: 'courses', folder: 'folders', file: 'files', media: 'media' } as const;
 
 /**
  * Stars (a time) or unstars (null) a course, folder or file. Undo passes the

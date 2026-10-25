@@ -17,6 +17,8 @@ export async function toggleStar(
   title: string,
   current: string | null,
   showUndo: ShowUndo,
+  /** For screens that keep the item in their own list: its new value. */
+  onChanged?: (starredAt: string | null) => void,
 ): Promise<boolean> {
   const next = current ? null : new Date().toISOString();
   try {
@@ -25,8 +27,11 @@ export async function toggleStar(
     showAlert(next ? 'Could not add to Favorites' : 'Could not remove from Favorites', errorMessage(err, 'Please try again.'));
     return false;
   }
+  onChanged?.(next);
   showUndo(next ? 'Added to Favorites' : 'Removed from Favorites', () => {
-    setStarredAt(target, current).catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
+    setStarredAt(target, current)
+      .then(() => onChanged?.(current))
+      .catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
   });
   return true;
 }
@@ -37,6 +42,10 @@ export function starButton(
   title: string,
   current: string | null,
   showUndo: ShowUndo,
+  onChanged?: (starredAt: string | null) => void,
 ): DialogButton {
-  return { text: current ? 'Remove from Favorites' : 'Add to Favorites', onPress: () => void toggleStar(target, title, current, showUndo) };
+  return {
+    text: current ? 'Remove from Favorites' : 'Add to Favorites',
+    onPress: () => void toggleStar(target, title, current, showUndo, onChanged),
+  };
 }

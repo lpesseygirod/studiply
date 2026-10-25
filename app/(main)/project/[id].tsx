@@ -346,6 +346,9 @@ export default function ProjectDetailScreen() {
       { text: 'Rename…', onPress: () => renameFile(file) },
       { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
       { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
+        setProjectFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
+      ),
       { text: Platform.OS === 'web' ? 'Open / Download' : 'Export / Share', onPress: () => shareFile(file) },
       { text: 'Delete', style: 'destructive', onPress: () => confirmDeleteFile(file) },
     ], { anchor });

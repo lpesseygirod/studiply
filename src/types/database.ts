@@ -88,6 +88,8 @@ export interface SourceFile {
   created_at: string;
   /** Name to show (a PDF's original file name), when known. */
   display_name?: string | null;
+  /** A lecture's photo or PDF in Favorites (media.starred_at); null = not. */
+  starred_at?: string | null;
 }
 
 export interface Transcript {

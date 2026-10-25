@@ -188,6 +188,7 @@ function mediaToSourceFile(media: LocalMediaRow, url: string): SourceFile {
     is_uploaded: !media.local_uri,
     created_at: media.created_at,
     display_name: media.caption,
+    starred_at: media.starred_at ?? null,
   };
 }
 
