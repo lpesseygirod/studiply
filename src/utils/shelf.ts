@@ -48,7 +48,7 @@ export interface ShelfItem {
 
 export type CourseInfo = Pick<CourseRow, 'id' | 'name' | 'color'>;
 
-function fileKind(kind: string): FileKind {
+export function fileKind(kind: string): FileKind {
   return (FILE_KINDS.includes(kind) ? kind : 'document') as FileKind;
 }
 

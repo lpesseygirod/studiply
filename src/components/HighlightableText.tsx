@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextStyle } from 'react-native';
 import { Typography } from '../constants/typography';
 import { useThemedStyles } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../constants/colors';
+import FoundText from './FoundText';
 
 // -------------------------------------------------------------------
 // Sentence splitter (also used by consumers to map indices → text)
@@ -23,6 +24,8 @@ interface Props {
   onToggleHighlight: (index: number) => void;
   /** When false the component is read-only — taps are ignored. */
   editable: boolean;
+  /** A word searched for (opened from Search): its matches are marked. */
+  find?: string;
   style?: TextStyle;
 }
 
@@ -34,6 +37,7 @@ export default function HighlightableText({
   highlightedIndices,
   onToggleHighlight,
   editable,
+  find,
   style,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
@@ -52,7 +56,7 @@ export default function HighlightableText({
             suppressHighlighting
             style={[styles.sentence, isHighlighted && styles.highlighted]}
           >
-            {sentence}
+            <FoundText text={sentence} find={find} />
             {i < sentences.length - 1 ? ' ' : ''}
           </Text>
         );

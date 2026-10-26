@@ -111,6 +111,8 @@ const light = {
 
   /** A highlighted sentence (clarify). */
   highlight: '#FFF3B0',
+  /** The searched word in Search results and in a note opened from Search. */
+  found: '#FFE4B5',
 
   /** The Favorites star. */
   favorite: '#B26A00',
@@ -239,6 +241,7 @@ export const DarkColors: ThemeColors = {
   fromNotes: { bg: '#1B3328', text: '#9BE3BF' },
 
   highlight: '#5A4E1E',
+  found: '#4A3815',
 
   favorite: '#F5C060',
   shadow: '#000000',

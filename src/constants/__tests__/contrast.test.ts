@@ -39,6 +39,8 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ),
     ['fromNotes.text on its bg', c.fromNotes.text, c.fromNotes.bg, TEXT],
     ['text.primary on highlight', c.text.primary, c.highlight, TEXT],
+    ['text.primary on found (search matches)', c.text.primary, c.found, TEXT],
+    ['text.secondary on found (search snippets)', c.text.secondary, c.found, TEXT],
     ['accent (active tab icon) on card', c.accent, c.card, ICON],
     ['recording (Record button) on its ring', c.recording, c.recordRing, ICON],
     ['favorite star on card', c.favorite, c.card, ICON],
