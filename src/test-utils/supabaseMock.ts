@@ -89,6 +89,12 @@ function storageBucket(bucket: string) {
 export const module = {
   supabase: {
     from: (table: string) => builder(table),
+    /** Answered and recorded as the table "rpc:<name>"; its arguments are the call "args". */
+    rpc: (fn: string, args?: unknown) => {
+      const proxy = builder(`rpc:${fn}`);
+      chains[chains.length - 1].calls.push(['args', args]);
+      return proxy;
+    },
     storage: { from: (bucket: string) => storageBucket(bucket) },
     auth: {
       getSession: async () => ({ data: { session: { user: { id: 'user-1' }, access_token: 'token' } } }),

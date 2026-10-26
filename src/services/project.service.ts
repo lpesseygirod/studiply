@@ -9,7 +9,8 @@ import {
   type LectureFileRow,
   type LectureRow,
 } from '../lib/cloudRows';
-import { readRow, readRows, readThrough, remember, rememberLectureFiles, rememberScope } from '../lib/cache';
+import { notifyLibraryUpdated, readRow, readRows, readThrough, remember, rememberLectureFiles, rememberScope } from '../lib/cache';
+import { cleanName } from '../utils/names';
 import { activeCourses, inLectureScope, isActiveCourse, itemCounts, lectureCounts, lecturesIn } from '../lib/cache/localQueries';
 import type { Project, Session } from '../types/database';
 
@@ -111,13 +112,13 @@ export async function getProject(projectId: string): Promise<Project> {
   const row = await readThrough(
     async () => {
       const { data, error } = await supabase.from('courses').select('*').eq('id', projectId).maybeSingle();
-      if (error) throw serviceError(error, 'Could not load this project.');
+      if (error) throw serviceError(error, 'Could not load this course.');
       if (data) remember('courses', [data]);
       return data;
     },
     () => readRow<CourseRow>('courses', projectId),
   );
-  if (!row) throw new Error('Project not found.');
+  if (!row) throw new Error('Course not found.');
   return courseToProject(row);
 }
 
@@ -131,12 +132,11 @@ export async function createProject(
   color: string = Colors.courseColors[0],
   icon = 'folder',
 ): Promise<Project> {
-  const { data, error } = await supabase
-    .from('courses')
-    .insert({ name: name.trim(), color, icon })
-    .select('*')
-    .single();
-  if (error) throw serviceError(error, 'Could not create the project.');
+  const clean = cleanName(name);
+  const { data, error } = await supabase.from('courses').insert({ name: clean, color, icon }).select('*').single();
+  if (error) throw serviceError(error, 'Could not create the course.');
+  remember('courses', [data]);
+  notifyLibraryUpdated();
   return courseToProject(data);
 }
 
@@ -150,14 +150,15 @@ export async function updateProject(
   if (Object.values(updates).every((v) => v === undefined)) return getProject(projectId);
 
   // Keys left undefined aren't sent, so those columns stay as they are.
-  const { name, color, icon, sort_order } = updates;
+  const { color, icon, sort_order } = updates;
+  const name = updates.name === undefined ? undefined : cleanName(updates.name);
   const { data, error } = await supabase
     .from('courses')
     .update({ name, color, icon, sort_order })
     .eq('id', projectId)
     .select('*')
     .single();
-  if (error) throw serviceError(error, 'Could not save the project.');
+  if (error) throw serviceError(error, 'Could not save the course.');
   return courseToProject(data);
 }
 
@@ -167,7 +168,7 @@ export async function updateProject(
 // -------------------------------------------------------------------
 export async function archiveProject(projectId: string): Promise<void> {
   const { error } = await supabase.from('courses').update({ is_archived: true }).eq('id', projectId);
-  if (error) throw serviceError(error, 'Could not archive the project.');
+  if (error) throw serviceError(error, 'Could not archive the course.');
 }
 
 // -------------------------------------------------------------------

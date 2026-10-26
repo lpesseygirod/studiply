@@ -4,11 +4,14 @@ import { reportFailure, reportReachable, resetConnectivityForTests } from '../..
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { getProjects } from '../project.service';
 import {
+  getCourseContents,
   getCourseLevel,
   getExamPacks,
   getRecentItems,
   getReviewDueCount,
   getStarredItems,
+  markOpened,
+  resetOpenedForTests,
   setStarredAt,
 } from '../shelf.service';
 
@@ -39,7 +42,20 @@ describe('sections', () => {
     expect(items[1].status).toBe('completed');
     expect(callsOn('files', 'is')).toContainEqual(['deleted_at', null]);
     expect(callsOn('files', 'order')).toContainEqual(['updated_at', { ascending: false }]);
+    expect(callsOn('files', 'order')).toContainEqual(['last_opened_at', { ascending: false }]);
     expect(callsOn('files', 'limit')).toContainEqual([5]);
+  });
+
+  it('Recent: opened or edited, each file once', async () => {
+    answer(
+      'files',
+      { data: [fileRow('edited', { updated_at: T(5) }), fileRow('opened', { updated_at: T(1), last_opened_at: T(7) })] },
+      { data: [fileRow('opened', { updated_at: T(1), last_opened_at: T(7) }), fileRow('old', { updated_at: T(1), last_opened_at: T(2) })] },
+    );
+    answer('courses', { data: [math] });
+    const items = await getRecentItems(5);
+    expect(items.map((i) => i.id)).toEqual(['opened', 'edited', 'old']);
+    expect(callsOn('files', 'not')).toContainEqual(['last_opened_at', 'is', null]);
   });
 
   it('Favorites: courses, folders and files together, newest first', async () => {
@@ -115,6 +131,31 @@ describe('getCourseLevel', () => {
   });
 });
 
+describe('getCourseContents (the course grid)', () => {
+  it('folders with their item counts, lectures with their length, without the Project Files lecture', async () => {
+    answer(
+      'folders',
+      { data: [{ id: 'f', name: 'Funcions', course_id: 'math', parent_id: null, deleted_at: null, sort_order: 0, starred_at: null, updated_at: T(1) }] },
+      { data: [{ id: 'sub', parent_id: 'f', deleted_at: null }] },
+    );
+    answer(
+      'files',
+      {
+        data: [
+          fileRow('l1', { title: 'Tema 1', lectures: { id: 'l1', status: 'ready', duration_ms: 5_520_000 } }),
+          fileRow('pf', { title: 'Project Files', lectures: { id: 'pf', status: 'ready', duration_ms: null } }),
+        ],
+      },
+      { data: [{ id: 'x', folder_id: 'f', deleted_at: null }, { id: 'y', folder_id: 'f', deleted_at: null }] },
+    );
+    const items = await getCourseContents('math', null);
+    expect(items.map((i) => [i.id, i.childCount, i.durationSeconds])).toEqual([
+      ['f', 3, undefined],
+      ['l1', undefined, 5520],
+    ]);
+  });
+});
+
 describe('getReviewDueCount', () => {
   it('counts reviews due by the end of today', async () => {
     answer('review_schedule', { count: 3 });
@@ -131,6 +172,34 @@ describe('getReviewDueCount', () => {
     reportFailure();
     expect(await getReviewDueCount()).toBeNull();
     expect(chains).toHaveLength(0);
+  });
+});
+
+describe('markOpened', () => {
+  beforeEach(() => resetOpenedForTests());
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 26, 10, 0, s));
+
+  it('saves when it was opened, and nothing else', async () => {
+    answer('files', { data: [] });
+    await markOpened('l1', at(0));
+    expect(callsOn('files', 'update')).toEqual([[{ last_opened_at: at(0).toISOString() }]]);
+    expect(callsOn('files', 'eq')).toContainEqual(['id', 'l1']);
+  });
+
+  it('writes at most once a minute per file', async () => {
+    answer('files', { data: [] }, { data: [] }, { data: [] });
+    await markOpened('l1', at(0));
+    await markOpened('l1', at(30));
+    await markOpened('l2', at(30));
+    await markOpened('l1', at(61));
+    expect(callsOn('files', 'eq')).toEqual([['id', 'l1'], ['id', 'l2'], ['id', 'l1']]);
+  });
+
+  it('never fails the screen, and tries again next time after an error', async () => {
+    answer('files', { data: null, error: { message: 'denied', code: '42501' } }, { data: [] });
+    await expect(markOpened('l1', at(0))).resolves.toBeUndefined();
+    await markOpened('l1', at(5));
+    expect(callsOn('files', 'update')).toHaveLength(2);
   });
 });
 

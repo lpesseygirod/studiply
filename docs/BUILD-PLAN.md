@@ -312,7 +312,15 @@ Step 3.4: add the menus from DESIGN.md. Empty space (click or right-click on web
 Step 3.5: finish Trash (restore, delete forever, auto-empty after 30 days), Favorites, Recent, and search across document titles, note text, transcripts and glossary terms, on both devices.
 ```
 
-**Check:** search a word you said in a recorded lecture and find it. Merge the branch.
+**Check:** search a word you said in a recorded lecture and find it.
+
+**Step 3.6 — Settings in sections**
+
+```markdown
+Step 3.6: rebuild Settings from docs/design desktop-05-settings and iphone-07-settings, with the same sections on both devices: Account, Summaries, Recording, AI & privacy, Storage & sync, Notifications, Appearance, Your data, and Development (development builds only). Laptop (1024 px and wider): two columns centred on the gradient, a white menu card on the left (the open section highlighted) and the section on the right with its title and white cards; one route per section. iPhone: the Settings list opens one page per section ("‹ Settings" and the big title), with a short value on the right of each row where it is real (summary level, recording language, today's AI use, storage, theme). Move the existing settings, don't rewrite them: profile, sign-in methods, sync status and Sign out → Account; AI processing defaults → Summaries; recording defaults → Recording; AI usage today, cost breakdown and the limits note → AI & privacy (the consent card comes in step 10.1); default file retention, source-file storage, failed syncs and "Delete data on this device" → Storage & sync; a "Reminders come with Review" card → Notifications; Light / Dark / System and Keyboard shortcuts → Appearance; Recently Deleted and Earlier version data → Your data (opening inside the right column on the laptop); Simulate offline, sync and drag debugging, sample data and the server badge → Development.
+```
+
+**Check:** on the laptop Settings looks like desktop-05 and every existing setting is in its section; on the iPhone the list opens the same sections; nothing from the old General, Manage Account and Security screens is lost. Merge the branch.
 
 ## Phase 4 — Editor like Google Docs
 
@@ -593,10 +601,10 @@ Branch `phase-10-launch`. A rejection costs days, so go slowly here.
 **Step 10.1 — Apple's rules inside the app**
 
 ```markdown
-Step 10.1: add what App Review requires: Sign in with Apple next to email login; account deletion inside the app (Settings > Account) that deletes all my data and files in Supabase; an AI consent screen before anything is sent to an AI service, clearly naming OpenAI (transcription) and Anthropic (summaries and assistant) and what is sent (audio, transcripts, notes, photos), with explicit permission and a way to withdraw it in Settings (App Review Guideline 5.1.2(i)); a reminder before the first recording to check recording is allowed in the class; clear microphone, camera, photo library and notification permission texts in app.json.
+Step 10.1: add what App Review requires: Sign in with Apple next to email login; account deletion inside the app (Settings > Account) that deletes all my data and files in Supabase; an AI consent screen before anything is sent to an AI service, clearly naming OpenAI (transcription) and Anthropic (summaries and assistant) and what is sent (audio, transcripts, notes, photos), with explicit permission (App Review Guideline 5.1.2(i)); in Settings → AI & privacy the consent card from docs/design iphone-08-ai-privacy: "Use AI on my lectures", where the data goes, the date it was allowed, and a switch to withdraw it that is as easy as giving it (GDPR), after which nothing is sent to an AI service until the student allows it again; a reminder before the first recording to check recording is allowed in the class; clear microphone, camera, photo library and notification permission texts in app.json.
 ```
 
-**Check:** create a test account, give consent, record, then delete the account; everything disappears from Supabase.
+**Check:** create a test account, give consent, record, then delete the account; everything disappears from Supabase. Withdraw consent in Settings → AI & privacy, then try an AI action: it asks again and sends nothing before the answer.
 
 **Step 10.2 — Paying for AI**
 

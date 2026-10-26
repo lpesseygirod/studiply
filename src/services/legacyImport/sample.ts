@@ -7,7 +7,9 @@
  * Two profiles (Lea's sample and a "local test" one), a course with a
  * folder and subfolder, lectures with notes (clarifications included),
  * transcripts, a PDF and a photo, one lecture in the old trash, one that
- * was trashed too long ago, and a recording whose file is missing.
+ * was trashed too long ago, a recording whose file is missing, and the
+ * course's own uploads (a PDF and a photo in a "Project Files" session,
+ * which the import turns into library files, step 3.4).
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -95,15 +97,27 @@ export async function createSampleEarlierVersion(): Promise<void> {
   await FileSystem.moveAsync({ from: pdf, to: `${dir}Tema 1 diapositivas.pdf` });
   await FileSystem.writeAsStringAsync(`${dir}pizarra.jpg`, PHOTO_BASE64, { encoding: FileSystem.EncodingType.Base64 });
 
-  const file = async (type: string, path: string, storagePath: string | null, mime: string) =>
+  const file = async (type: string, path: string, storagePath: string | null, mime: string, sessionId = clase1) =>
     q(
       `INSERT INTO source_files (id, session_id, user_id, file_type, file_path, file_size_bytes, mime_type, retention_policy, storage_path, is_uploaded, created_at)
        VALUES (?, ?, ?, ?, ?, 1000, ?, 'keep_permanently', ?, ?, ?)`,
-      [newId(), clase1, lea, type, path, mime, storagePath, storagePath ? 1 : 0, t0],
+      [newId(), sessionId, lea, type, path, mime, storagePath, storagePath ? 1 : 0, t0],
     );
   await file('pdf', 'file:///old-install/cache/DocumentPicker/Tema%201%20diapositivas.pdf', `${lea}/${clase1}/Tema 1 diapositivas.pdf`, 'application/pdf');
   await file('photo', 'file:///old-install/cache/ImagePicker/pizarra.jpg', `${lea}/${clase1}/pizarra.jpg`, 'image/jpeg');
   await file('audio', 'file:///old-install/cache/AV/recording-gone.m4a', null, 'audio/m4a');
+
+  // The course's own uploads, in the old app's hidden "Project Files" session (no recording,
+  // transcript or notes): the import makes them library files in Tema 1 (step 3.4).
+  const uploads = newId();
+  await session(uploads, lea, psico, tema, 'Project Files');
+  const uploadsDir = `${root}${lea}/${uploads}/`;
+  await FileSystem.makeDirectoryAsync(uploadsDir, { intermediates: true });
+  const { uri: temario } = await Print.printToFileAsync({ html: '<h1>Temario</h1><p>Psicobiología (sample).</p>' });
+  await FileSystem.moveAsync({ from: temario, to: `${uploadsDir}Temario.pdf` });
+  await FileSystem.writeAsStringAsync(`${uploadsDir}apuntes.jpg`, PHOTO_BASE64, { encoding: FileSystem.EncodingType.Base64 });
+  await file('pdf', 'file:///old-install/cache/DocumentPicker/Temario.pdf', `${lea}/${uploads}/Temario.pdf`, 'application/pdf', uploads);
+  await file('photo', 'file:///old-install/cache/ImagePicker/apuntes.jpg', `${lea}/${uploads}/apuntes.jpg`, 'image/jpeg', uploads);
 
   // The other profile: test lectures from the Mac's local Supabase days.
   const testCourse = newId();

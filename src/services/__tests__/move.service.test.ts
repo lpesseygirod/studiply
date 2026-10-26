@@ -8,7 +8,7 @@ import { reportFailure, reportReachable, resetConnectivityForTests } from '../..
 import { answer, answerStorage, callsOn, chains, resetSupabaseMock, storageCalls } from '../../test-utils/supabaseMock';
 import type { SourceFile } from '../../types/database';
 import { removeFiles } from '../cloud-storage.service';
-import { canMoveTo, MoveError, moveItem, moveMediaToLecture, saveMediaToLibrary, type LibraryItem, type Place } from '../move.service';
+import { canMoveTo, MoveError, moveItem, moveMediaToLecture, moveMediaToLibrary, saveMediaToLibrary, type LibraryItem, type Place } from '../move.service';
 import { bulkApplyRetention } from '../source-file.service';
 import { permanentlyDelete } from '../trash.service';
 
@@ -209,5 +209,54 @@ describe('retention never removes photos, PDFs or library files', () => {
     await bulkApplyRetention('lecture-a', 'delete_3_days');
     expect(removeFiles).not.toHaveBeenCalled();
     expect(callsOn('lectures', 'update')[0][0]).toMatchObject({ audio_retention: 'delete_3_days' });
+  });
+});
+
+describe('moveMediaToLibrary (Move to… a folder, or a drop: the photo leaves its lecture)', () => {
+  it('a new file in the place owns the media row; nothing is copied', async () => {
+    answer('media', { data: [{ id: 'm2' }] });
+    const result = await moveMediaToLibrary({ ...pdf, starred_at: '2026-10-20T10:00:00Z' }, 'Tema 1.pdf', to('math', 'algebra', 'Math / Algebra'));
+    const fileId = (callsOn('files', 'insert')[0][0] as { id: string }).id;
+    expect(callsOn('files', 'insert')[0][0]).toEqual({
+      id: fileId, kind: 'pdf', title: 'Tema 1.pdf', course_id: 'math', folder_id: 'algebra', starred_at: '2026-10-20T10:00:00Z',
+    });
+    expect(callsOn('media', 'update')[0][0]).toEqual({ file_id: fileId, lecture_id: null, caption: 'Tema 1.pdf' });
+    expect(callsOn('media', 'eq')[0]).toEqual(['id', 'm2']);
+    expect(storageCalls).toEqual([]);
+    expect(result).toMatchObject({ fileId, title: 'Tema 1.pdf', to: { label: 'Math / Algebra' } });
+  });
+
+  it('Undo gives the photo back to its lecture (with its caption), then deletes the file', async () => {
+    answer('media', { data: [{ id: 'm1' }] });
+    const result = await moveMediaToLibrary({ ...photo, display_name: 'Pizarra' }, 'Pizarra', to('math', null));
+    const fileId = (callsOn('files', 'insert')[0][0] as { id: string }).id;
+    await result.undo();
+    expect(callsOn('media', 'update')[1][0]).toEqual({ lecture_id: 'lecture-a', file_id: null, caption: 'Pizarra' });
+    const order = chains.filter((c) => c.calls.some(([m]) => m === 'update' || m === 'delete')).map((c) => `${c.table}.${c.calls[0][0]}`);
+    expect(order.slice(-2)).toEqual(['media.update', 'files.delete']);
+    expect(callsOn('files', 'eq').at(-1)).toEqual(['id', fileId]);
+  });
+
+  it('the media update fails → the new file row is deleted again (Lea)', async () => {
+    answer('media', { error: { code: '42501', message: 'denied' } });
+    await expect(moveMediaToLibrary(pdf, 'Tema 1.pdf', to('math', null))).rejects.toThrow('Could not move the file.');
+    const fileId = (callsOn('files', 'insert')[0][0] as { id: string }).id;
+    expect(callsOn('files', 'delete')).toHaveLength(1);
+    expect(callsOn('files', 'eq').at(-1)).toEqual(['id', fileId]);
+  });
+
+  it('a photo not on the server yet → the new file row is deleted again', async () => {
+    answer('media', { data: [] });
+    await expect(moveMediaToLibrary(photo, 'Photo 1', to('math', null))).rejects.toThrow('still uploading');
+    expect(callsOn('files', 'delete')).toHaveLength(1);
+  });
+
+  it('refuses a recording, an unfinished upload, no place, and offline', async () => {
+    await expect(moveMediaToLibrary({ ...photo, file_type: 'audio' } as SourceFile, 'Rec', to('math', null))).rejects.toThrow(MoveError);
+    await expect(moveMediaToLibrary({ ...photo, is_uploaded: false }, 'P', to('math', null))).rejects.toThrow('still uploading');
+    await expect(moveMediaToLibrary(photo, 'P', to(null, null))).rejects.toThrow('Choose a course or folder.');
+    reportFailure();
+    await expect(moveMediaToLibrary(photo, 'P', to('math', null))).rejects.toThrow(NetworkError);
+    expect(chains).toHaveLength(0);
   });
 });

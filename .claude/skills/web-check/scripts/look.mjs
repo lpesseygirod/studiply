@@ -76,12 +76,12 @@ try {
   });
 
   await step('Appearance → Light overrides a dark system, and survives a reload; System follows it again', async () => {
-    await open('/settings/general', 'APPEARANCE');
+    await open('/settings/appearance', 'Light or dark, on this device');
     await b.click('Light', { exact: true, ...MAIN });
     await b.sleep(800);
     await open('/library', 'COURSES');
     expect((await cardBehind('Science')) === LIGHT.card, 'Light not applied after reload');
-    await open('/settings/general', 'APPEARANCE');
+    await open('/settings/appearance', 'Light or dark, on this device');
     await b.click('System', { exact: true, ...MAIN });
     await b.sleep(800);
     await open('/library', 'COURSES');
@@ -98,7 +98,7 @@ try {
           ['course', `/project/${data.course.id}`, 'Funcions'],
           ['note', `/note/${data.lecture.id}`, 'Summary'],
           ['search', '/search', 'Cancel'],
-          ['settings', '/settings', 'General'],
+          ['settings', '/settings', 'Summaries'],
           ['review', '/review', 'Quizzes and flashcards'],
           ['post-session', `/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Post-Session'],
         ]) {
@@ -120,8 +120,11 @@ try {
     const bad = [];
     for (const [p, text] of [
       ['/library', 'COURSES'], [`/project/${data.course.id}`, 'Funcions'], [`/note/${data.lecture.id}`, 'Summary'],
-      ['/settings', 'General'], ['/settings/account', 'PROFILE'], ['/settings/general', 'APPEARANCE'],
-      ['/settings/security', 'SESSION'], ['/settings/trash', 'Recently Deleted'], ['/search', 'Cancel'], ['/review', 'Review'],
+      ['/settings', 'Summaries'], ['/settings/account', 'Edit profile'], ['/settings/summaries', 'Default summary level'],
+      ['/settings/recording', 'Default recording mode'], ['/settings/ai-privacy', 'AI USAGE TODAY'],
+      ['/settings/storage', 'Default file retention'], ['/settings/notifications', 'Reminders come with Review'],
+      ['/settings/appearance', 'Light or dark, on this device'], ['/settings/your-data', 'Recently Deleted'],
+      ['/settings/development', 'Simulate offline'], ['/settings/trash', 'Recently Deleted'], ['/search', 'Cancel'], ['/review', 'Review'],
       [`/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Post-Session'],
     ]) {
       await open(p, text);

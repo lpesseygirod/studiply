@@ -10,6 +10,9 @@ export const Layout = {
   documentMaxWidth: 820,
   /** Content width for settings and similar pages on the laptop. */
   pageMaxWidth: 820,
+  /** Settings on the laptop: the section menu beside the page (docs/design desktop-05). */
+  settingsMenuWidth: 280,
+  settingsMaxWidth: 1124,
   cardRadius: { laptop: 16, iphone: 18 },
   /** The raised Record button in the iPhone tab bar. */
   recordButtonSize: 64,

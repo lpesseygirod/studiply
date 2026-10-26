@@ -49,8 +49,10 @@ interface MoveToModalProps {
   /**
    * 'place' (default): pick a course or folder with the header button.
    * 'lecture': lectures are listed too, and tapping one picks it.
+   * 'either' (a lecture's photo or PDF): tap a lecture to pick it, or
+   *   confirm with none picked to move it to the course or folder shown.
    */
-  pick?: 'place' | 'lecture';
+  pick?: 'place' | 'lecture' | 'either';
   /** The verb on the confirm buttons: "Move" (default) or "Save". */
   confirmLabel?: string;
   /** IDs to exclude from the list (e.g., the item being moved: a folder hides its subfolders too) */
@@ -96,7 +98,7 @@ export default function MoveToModal({
   const { colors: c } = useTheme();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<RowItem[]>([]);
-  const [crumbs, setCrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'Projects', type: 'root' }]);
+  const [crumbs, setCrumbs] = useState<Breadcrumb[]>([{ id: null, name: 'Courses', type: 'root' }]);
   // 'lecture' mode: the lecture tapped, confirmed with the buttons.
   const [selected, setSelected] = useState<PickedLecture | null>(null);
 
@@ -124,7 +126,7 @@ export default function MoveToModal({
 
         const [folders, lectures] = await Promise.all([
           getFolders({ projectId: currentCrumb.projectId!, parentFolderId }),
-          pick === 'lecture' ? getSessionsByProject(currentCrumb.projectId!, parentFolderId) : Promise.resolve([]),
+          pick !== 'place' ? getSessionsByProject(currentCrumb.projectId!, parentFolderId) : Promise.resolve([]),
         ]);
         const filtered = folders.filter(f => !excludeFolderIds.includes(f.id));
         const pickable = lectures.filter(l => l.title !== PROJECT_FILES_TITLE && !excludeLectureIds.includes(l.id));
@@ -177,7 +179,7 @@ export default function MoveToModal({
 
   function handleConfirm() {
     if (!canConfirm) return;
-    if (pick === 'lecture') {
+    if (pick === 'lecture' || (pick === 'either' && selected)) {
       if (selected) onPickLecture?.(selected);
       reset();
       return;
@@ -200,7 +202,7 @@ export default function MoveToModal({
   }
 
   function reset() {
-    setCrumbs([{ id: null, name: 'Projects', type: 'root' }]);
+    setCrumbs([{ id: null, name: 'Courses', type: 'root' }]);
     setItems([]);
     setSelected(null);
   }
@@ -216,13 +218,15 @@ export default function MoveToModal({
   let reason: string | null = null;
   if (pick === 'lecture') {
     if (!selected) reason = 'Choose a lecture';
+  } else if (pick === 'either' && selected) {
+    reason = null;
   } else if (currentCrumb.type === 'root') {
-    reason = 'Choose a course or folder';
+    reason = pick === 'either' ? 'Choose a course, folder or lecture' : 'Choose a course or folder';
   } else if (isCurrent) {
     reason = 'Already here';
   }
   const canConfirm = reason === null;
-  const destination = pick === 'lecture' ? selected?.label ?? '' : placeLabel;
+  const destination = pick === 'lecture' || (pick === 'either' && selected) ? selected?.label ?? '' : placeLabel;
 
   return (
     <Modal
@@ -287,8 +291,8 @@ export default function MoveToModal({
           <View style={styles.center}>
             <Text style={styles.emptyText}>
               {currentCrumb.type === 'root'
-                ? 'No projects yet.'
-                : pick === 'lecture'
+                ? 'No courses yet.'
+                : pick !== 'place'
                   ? 'No folders or lectures here.'
                   : 'No sub-folders here.'}
             </Text>

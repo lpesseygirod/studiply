@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import {
   dismissDialog,
   menuTriggerProps,
+  nextMenuIndex,
   promptText,
   runButton,
   showActionSheet,
@@ -29,12 +30,12 @@ afterEach(() => {
 
 describe('showAlert', () => {
   it('queues the alert with its buttons', () => {
-    showAlert('Delete Project', '"Math" will be moved to Recently Deleted.', [
+    showAlert('Delete Course', '"Math" will be moved to Recently Deleted.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive' },
     ]);
     expect(queue).toHaveLength(1);
-    expect(queue[0]).toMatchObject({ kind: 'alert', title: 'Delete Project', buttons: [{ text: 'Cancel' }, { text: 'Delete' }] });
+    expect(queue[0]).toMatchObject({ kind: 'alert', title: 'Delete Course', buttons: [{ text: 'Cancel' }, { text: 'Delete' }] });
   });
 
   it('gives a plain alert an OK button', () => {
@@ -53,12 +54,12 @@ describe('showAlert', () => {
 
 describe('showActionSheet', () => {
   it('adds Cancel and keeps the right-click position', () => {
-    showActionSheet('Math', [{ text: 'Rename' }, { text: 'Delete Project', style: 'destructive' }], { anchor: { x: 10, y: 20 } });
+    showActionSheet('Math', [{ text: 'Rename' }, { text: 'Delete Course', style: 'destructive' }], { anchor: { x: 10, y: 20 } });
     expect(queue[0]).toMatchObject({
       kind: 'menu',
       title: 'Math',
       anchor: { x: 10, y: 20 },
-      buttons: [{ text: 'Rename' }, { text: 'Delete Project' }, { text: 'Cancel', style: 'cancel' }],
+      buttons: [{ text: 'Rename' }, { text: 'Delete Course' }, { text: 'Cancel', style: 'cancel' }],
     });
   });
 });
@@ -112,5 +113,42 @@ describe('menuTriggerProps', () => {
     const open = jest.fn();
     menuTriggerProps(open).onLongPress({} as never);
     expect(open).toHaveBeenCalledWith();
+  });
+});
+
+describe('disabled menu items (step 3.2, the New menu)', () => {
+  it('keep their hint and never run on the web', async () => {
+    const run = jest.fn();
+    showActionSheet('New', [{ text: 'New folder', disabled: true, hint: 'Open a course or folder first', onPress: run }]);
+    expect(queue[0]).toMatchObject({ kind: 'menu', buttons: [{ text: 'New folder', disabled: true, hint: 'Open a course or folder first' }, { text: 'Cancel' }] });
+    const menu = queue[0];
+    if (menu.kind !== 'menu') throw new Error('expected a menu');
+    runButton(menu.buttons[0]);
+    await Promise.resolve();
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('nextMenuIndex (keyboard in a menu, step 3.4)', () => {
+  // Rename… · Move to… · Copy (greyed out) · Delete
+  const enabled = [true, true, false, true];
+
+  it('↓ and ↑ move, skip greyed-out items and wrap around', () => {
+    expect(nextMenuIndex(enabled, 0, 'ArrowDown')).toBe(1);
+    expect(nextMenuIndex(enabled, 1, 'ArrowDown')).toBe(3);
+    expect(nextMenuIndex(enabled, 3, 'ArrowDown')).toBe(0);
+    expect(nextMenuIndex(enabled, 3, 'ArrowUp')).toBe(1);
+    expect(nextMenuIndex(enabled, 0, 'ArrowUp')).toBe(3);
+  });
+
+  it('Home and End jump to the first and last available item; nothing focused yet (-1) starts at the top', () => {
+    expect(nextMenuIndex([false, true, true, false], 3, 'Home')).toBe(1);
+    expect(nextMenuIndex([false, true, true, false], 0, 'End')).toBe(2);
+    expect(nextMenuIndex(enabled, -1, 'ArrowDown')).toBe(0);
+  });
+
+  it('other keys, or a menu with nothing available: null', () => {
+    expect(nextMenuIndex(enabled, 0, 'a')).toBeNull();
+    expect(nextMenuIndex([false, false], 0, 'ArrowDown')).toBeNull();
   });
 });

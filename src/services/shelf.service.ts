@@ -10,8 +10,9 @@
 
 import { supabase } from '../lib/supabase';
 import { NetworkError, serviceError, type CourseRow, type FileRow, type FolderRow, type LectureFileRow, type LectureRow } from '../lib/cloudRows';
-import { notifyLibraryUpdated, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
+import { notifyLibraryUpdated, readRow, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
 import {
+  childCounts,
   examPackFiles,
   filesAtLevel,
   foldersIn,
@@ -21,6 +22,8 @@ import {
   type MediaRow,
 } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
+import { PROJECT_FILES_TITLE } from './session.service';
+import { pendingLibraryFileIds } from './library-upload.service';
 import {
   byRecent,
   byStarred,
@@ -76,19 +79,30 @@ async function cachedFiles(): Promise<{ files: FileRow[]; lectures: LectureRow[]
 // Recent
 // -------------------------------------------------------------------
 
-/** Files of every kind, newest change first (lectures made offline on this iPhone included). */
+/**
+ * Files of every kind, last opened or edited first (lectures made offline on
+ * this iPhone included). The newest `limit` by either time are always among
+ * the newest `limit` edited plus the newest `limit` opened, so two indexed
+ * queries give the exact list.
+ */
 export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
   const [items, courses] = await Promise.all([
     readThrough(
       async () => {
-        const { data, error } = await supabase
-          .from('files')
-          .select(FILE_SELECT)
-          .is('deleted_at', null)
-          .order('updated_at', { ascending: false })
-          .limit(limit);
+        const [edited, opened] = await Promise.all([
+          supabase.from('files').select(FILE_SELECT).is('deleted_at', null).order('updated_at', { ascending: false }).limit(limit),
+          supabase
+            .from('files')
+            .select(FILE_SELECT)
+            .is('deleted_at', null)
+            .not('last_opened_at', 'is', null)
+            .order('last_opened_at', { ascending: false })
+            .limit(limit),
+        ]);
+        const error = edited.error ?? opened.error;
         if (error) throw serviceError(error, 'Could not load your recent files.');
-        const split = rememberFiles(data as LectureFileRow[]);
+        const rows = new Map([...(edited.data ?? []), ...(opened.data ?? [])].map((r) => [r.id, r]));
+        const split = rememberFiles([...rows.values()] as LectureFileRow[]);
         const files = await withLocalRows('files', split.files, (f) => f.deleted_at === null);
         const lectures = await withLocalRows('lectures', split.lectures, (l) => files.some((f) => f.id === l.id));
         return fileItems(recentFiles(files, limit), lectures);
@@ -101,6 +115,43 @@ export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
     courseInfo().catch(() => []),
   ]);
   return withCourses(items, courses).sort(byRecent);
+}
+
+/** One write per file per minute is enough for Recent's order. */
+const OPENED_EVERY_MS = 60_000;
+const lastMarked = new Map<string, number>();
+
+/**
+ * A lecture or library file was opened: it goes to the top of Recent. Its
+ * "Date edited" stays (the database keeps updated_at for this change).
+ * Offline it updates only this iPhone's copy, so its Recent follows; the
+ * server learns the next time the file is opened online. Never fails.
+ */
+export async function markOpened(fileId: string, now: Date = new Date()): Promise<void> {
+  const last = lastMarked.get(fileId);
+  if (last !== undefined && now.getTime() - last < OPENED_EVERY_MS) return;
+  lastMarked.set(fileId, now.getTime());
+  const openedAt = now.toISOString();
+  try {
+    if (isOffline()) {
+      const row = await readRow<FileRow>('files', fileId);
+      if (!row) return;
+      const opened: FileRow = { ...row, last_opened_at: openedAt };
+      remember('files', [opened]);
+      return;
+    }
+    const { data, error } = await supabase.from('files').update({ last_opened_at: openedAt }).eq('id', fileId).select('*');
+    if (error) throw error;
+    remember('files', data ?? []);
+  } catch (err) {
+    lastMarked.delete(fileId);
+    if (__DEV__) console.warn('[recent] could not mark as opened', err);
+  }
+}
+
+/** For tests: forget which files were marked. */
+export function resetOpenedForTests(): void {
+  lastMarked.clear();
 }
 
 // -------------------------------------------------------------------
@@ -223,6 +274,48 @@ export async function getCourseLevel(courseId: string, folderId: string | null):
         ...fileItems(filesAtLevel(files, courseId, folderId), lectures),
       ];
     },
+  );
+}
+
+/** How many subfolders and files each folder holds directly (the tiles' "7 items"). */
+export async function getFolderChildCounts(folderIds: string[]): Promise<Map<string, number>> {
+  if (folderIds.length === 0) return new Map();
+  return readThrough(
+    async () => {
+      const [folders, files] = await Promise.all([
+        supabase.from('folders').select('id, parent_id, deleted_at').in('parent_id', folderIds).is('deleted_at', null),
+        supabase.from('files').select('id, folder_id, deleted_at').in('folder_id', folderIds).is('deleted_at', null),
+      ]);
+      const error = folders.error ?? files.error;
+      if (error) throw serviceError(error, 'Could not load this course.');
+      return childCounts(
+        (folders.data ?? []) as Pick<FolderRow, 'id' | 'parent_id' | 'deleted_at'>[],
+        (files.data ?? []) as Pick<FileRow, 'id' | 'folder_id' | 'deleted_at'>[],
+        folderIds,
+      );
+    },
+    async () => {
+      const [folders, files] = await Promise.all([readRows<FolderRow>('folders'), readRows<FileRow>('files')]);
+      return childCounts(folders, files, folderIds);
+    },
+  );
+}
+
+/**
+ * One level of a course for the Finder-style grid (step 3.2): its folders
+ * (with how much each holds) and files of every kind (lectures with their
+ * length), without the hidden "Project Files" lecture.
+ */
+export async function getCourseContents(courseId: string, folderId: string | null): Promise<ShelfItem[]> {
+  const items = (await getCourseLevel(courseId, folderId)).filter(
+    (i) => !(i.type === 'lecture' && i.title === PROJECT_FILES_TITLE),
+  );
+  const [counts, pending] = await Promise.all([
+    getFolderChildCounts(items.filter((i) => i.type === 'folder').map((i) => i.id)).catch(() => new Map<string, number>()),
+    pendingLibraryFileIds(),
+  ]);
+  return items.map((i) =>
+    i.type === 'folder' ? { ...i, childCount: counts.get(i.id) ?? 0 } : pending.has(i.id) ? { ...i, pending: true } : i,
   );
 }
 

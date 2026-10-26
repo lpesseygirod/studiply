@@ -2,12 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
-import { GradientFill } from '../../../src/components/GradientBackground';
-import { IconButton } from '../../../src/components/IconButton';
+import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
@@ -22,8 +20,10 @@ import {
   type ImportProgress,
   type ImportRecord,
   type ProfileSummary,
+  uploadedProfileIds,
 } from '../../../src/services/legacyImport';
 import { describeError } from '../../../src/lib/sync/queue';
+import { BackendBadge, backend } from '../../../src/components/BackendBadge';
 
 // Step 1.9: the data the earlier version of Studiply left on this iPhone.
 // The student sees each old profile with its counts and first names, ticks
@@ -57,11 +57,13 @@ function missingLine(record: ImportRecord): string | null {
   return `Not found on this iPhone (not uploaded): ${parts.join(', ')}.`;
 }
 
+// Development builds: the Upload button names the server ("Upload to REMOTE (xmym…)").
+const uploadTarget = __DEV__ ? ` to ${backend.label}` : '';
+
 export default function EarlierVersionScreen() {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { profile } = useAuth();
   const uid = profile?.id ?? '';
 
@@ -76,7 +78,9 @@ export default function EarlierVersionScreen() {
     try {
       const next = await loadEarlierVersion(uid);
       setData(next);
-      if (next?.record) setChosen(new Set(next.record.profileIds));
+      // Ticked again: profiles of an upload that isn't checked yet (Retry).
+      const done = new Set(uploadedProfileIds(next?.record));
+      setChosen(new Set((next?.record?.profileIds ?? []).filter((id) => !done.has(id))));
     } catch (err) {
       setError(errorMessage(err, 'Could not read the earlier version data.'));
     } finally {
@@ -88,6 +92,16 @@ export default function EarlierVersionScreen() {
     load();
   }, [load]);
 
+  const record = data?.record ?? null;
+  const verified = record?.status === 'verified';
+  const busy = progress !== null;
+  // Profiles already uploaded and checked to this server and account: locked.
+  // The others can still be ticked and uploaded (Lea: after the wrong profile
+  // was verified, the right one could no longer be chosen).
+  const done = new Set(uploadedProfileIds(record));
+  const toUpload = [...chosen].filter((id) => !done.has(id));
+  const notUploaded = data ? data.profiles.filter((p) => !done.has(p.id)) : [];
+
   const toggle = (id: string) =>
     setChosen((prev) => {
       const next = new Set(prev);
@@ -97,11 +111,11 @@ export default function EarlierVersionScreen() {
     });
 
   const upload = async () => {
-    if (!data || chosen.size === 0) return;
+    if (!data || toUpload.length === 0) return;
     setError('');
     setProgress({ done: 0, total: 1, step: 'Starting' });
     try {
-      await uploadEarlierVersion({ data, uid, profileIds: [...chosen], onProgress: setProgress });
+      await uploadEarlierVersion({ data, uid, profileIds: toUpload, onProgress: setProgress });
     } catch (err) {
       // The reason with the server's status and message; Retry continues.
       setError(err instanceof ImportBlockedError ? err.message : `The upload stopped: ${describeError(err)}`);
@@ -113,11 +127,15 @@ export default function EarlierVersionScreen() {
 
   const removeCopy = async () => {
     if (!data) return;
+    const lost =
+      notUploaded.length > 0
+        ? ` Not uploaded, and gone from this iPhone afterwards: ${notUploaded.map((p) => p.name).join(', ')}.`
+        : '';
     const ok = await confirmAction(
       'Remove the old copy?',
-      data.source.sample
+      (data.source.sample
         ? 'This removes the development sample from this iPhone. What was uploaded stays in Studiply.'
-        : 'This removes the earlier version’s database and files from this iPhone. Everything uploaded stays in your Studiply account.',
+        : 'This removes the earlier version’s database and files from this iPhone. Everything uploaded stays in your Studiply account.') + lost,
       'Remove',
     );
     if (!ok) return;
@@ -129,18 +147,11 @@ export default function EarlierVersionScreen() {
     }
   };
 
-  const record = data?.record ?? null;
-  const verified = record?.status === 'verified';
-  const busy = progress !== null;
-
   return (
-    <View style={styles.container}>
-      <GradientFill />
-      <ThemedStatusBar />
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-        <Text style={styles.headerTitle}>Earlier version data</Text>
-        <View style={styles.iconButton} />
+    <SettingsPage title="Earlier version data" back={{ label: 'Your data', href: '/settings/your-data' }} scroll={false}>
+      {/* Development builds: where the upload goes (Lea: the real import once went to local). */}
+      <View style={styles.backendRow}>
+        <BackendBadge />
       </View>
 
       {loading ? (
@@ -171,20 +182,26 @@ export default function EarlierVersionScreen() {
           )}
 
           {data.profiles.map((p) => {
-            const on = chosen.has(p.id);
+            const uploaded = done.has(p.id);
+            const on = uploaded || chosen.has(p.id);
             return (
               <TouchableOpacity
                 key={p.id}
                 style={[styles.profileCard, on && styles.profileCardOn]}
                 onPress={() => toggle(p.id)}
-                disabled={busy || verified}
+                disabled={busy || uploaded}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: on }}
+                accessibilityState={{ checked: on, disabled: busy || uploaded }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? c.salmon : c.text.secondary} />
+                <Ionicons
+                  name={uploaded ? 'checkmark-circle' : on ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={on ? c.salmon : c.text.secondary}
+                />
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName}>{p.name}</Text>
+                  {uploaded && <Text style={styles.profileUploaded}>Uploaded and checked</Text>}
                   <Text style={styles.profileMeta}>Created {new Date(p.createdAt).toLocaleDateString()}</Text>
                   <Text style={styles.profileCounts}>{countsLine(p)}</Text>
                   {p.courseNames.length > 0 && (
@@ -219,7 +236,11 @@ export default function EarlierVersionScreen() {
           {record && !busy && (
             <View style={[styles.resultBox, verified ? styles.resultOk : styles.resultPartial]}>
               <Text style={styles.resultTitle}>
-                {verified ? 'All uploaded and checked on Studiply' : 'Not everything is on Studiply yet'}
+                {verified
+                  ? notUploaded.length === 0
+                    ? 'All uploaded and checked on Studiply'
+                    : 'Uploaded and checked on Studiply'
+                  : 'Not everything is on Studiply yet'}
               </Text>
               {!!missingLine(record) && <Text style={styles.resultText}>{missingLine(record)}</Text>}
               {verified && record.verifiedAt && (
@@ -228,15 +249,17 @@ export default function EarlierVersionScreen() {
             </View>
           )}
 
-          {!verified && (
+          {notUploaded.length > 0 && (
             <TouchableOpacity
-              style={[styles.primaryButton, (chosen.size === 0 || busy) && styles.buttonDisabled]}
+              style={[styles.primaryButton, (toUpload.length === 0 || busy) && styles.buttonDisabled]}
               onPress={upload}
-              disabled={chosen.size === 0 || busy}
+              disabled={toUpload.length === 0 || busy}
               activeOpacity={0.85}
             >
-              <Text style={[styles.primaryText, (chosen.size === 0 || busy) && styles.buttonTextDisabled]}>
-                {chosen.size === 0 ? 'Tick a profile to upload' : record ? 'Retry upload' : 'Upload'}
+              <Text style={[styles.primaryText, (toUpload.length === 0 || busy) && styles.buttonTextDisabled]}>
+                {toUpload.length === 0
+                  ? 'Tick a profile to upload'
+                  : `${record?.status === 'partial' ? 'Retry upload' : 'Upload'}${data.source.sample ? ' sample' : ''}${uploadTarget}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -248,25 +271,14 @@ export default function EarlierVersionScreen() {
           )}
         </ScrollView>
       )}
-    </View>
+    </SettingsPage>
   );
 }
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
-  container: { flex: 1 },
+    backendRow: { paddingHorizontal: 20, paddingBottom: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: { width: 60, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },
   emptyTitle: { fontSize: Typography.size.base, color: c.text.onGradient, textAlign: 'center' },
   content: { padding: 16, gap: 12 },
   sampleBadge: {
@@ -295,6 +307,7 @@ const makeStyles = (c: ThemeColors) =>
   profileInfo: { flex: 1, gap: 3 },
   profileName: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
   profileMeta: { fontSize: Typography.size.xs, color: c.text.secondary },
+  profileUploaded: { fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.status.success.text },
   profileCounts: { fontSize: Typography.size.sm, color: c.text.primary },
   profileNames: { fontSize: Typography.size.xs, color: c.text.secondary },
   progressBox: { gap: 6 },

@@ -45,12 +45,12 @@ try {
     await b.signIn(BASE, user.email, user.password);
   });
 
-  await step('Library: top bar with search and Record lecture, sidebar, no assistant', async () => {
+  await step('Library: top bar with search and Record, sidebar, no assistant', async () => {
     await open('/library', 'COURSES');
     const s = await shell();
     expect(s.topBar && s.sidebar && !s.assistant, JSON.stringify(s));
     const bar = await b.evaluate(`document.querySelector('[data-testid=top-bar]').innerText`);
-    expect(bar.includes('Record lecture') && bar.includes('Search notes'), bar);
+    expect(/\bRecord\b/.test(bar) && bar.includes('Search notes'), bar);
     const side = await b.evaluate(`document.querySelector('[data-testid=sidebar]').innerText`);
     for (const t of ['New', 'Recent', 'Favorites', 'Exam packs', 'Review today', 'Math', 'Science', 'Trash']) {
       expect(side.includes(t), `sidebar has no ${t}`);
@@ -64,12 +64,12 @@ try {
     const s = await shell();
     expect(s.topBar && s.sidebar && s.assistant, JSON.stringify(s));
     const bar = await b.evaluate(`document.querySelector('[data-testid=top-bar]').innerText`);
-    expect(bar.includes('Share') && !bar.includes('Record lecture'), bar);
+    expect(bar.includes('Share') && !/\bRecord\b/.test(bar), bar);
     await b.shot('layout-1280-document');
   });
 
   await step('Settings: Back to library, no sidebar, no assistant', async () => {
-    await open('/settings', 'General');
+    await open('/settings', 'Summaries');
     const s = await shell();
     expect(s.topBar && !s.sidebar && !s.assistant, JSON.stringify(s));
     expect(await b.hasText('‹ Back to library', true), 'no Back to library');

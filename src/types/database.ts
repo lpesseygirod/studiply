@@ -151,14 +151,3 @@ export interface UserSettings {
   created_at: string;
   updated_at: string;
 }
-
-// -------------------------------------------------------------------
-// Search result — used by search.service.ts
-// -------------------------------------------------------------------
-
-export type SearchResult = {
-  id: string;
-  type: 'project' | 'session' | 'note';
-  title: string;
-  subtitle?: string;
-};

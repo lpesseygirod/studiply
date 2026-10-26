@@ -1,5 +1,8 @@
 // Runs before every test file (package.json → jest.setupFiles).
-//
+
+// Gesture handler's native module (the iPhone's drag; its tests fire gestures with its jest-utils).
+import 'react-native-gesture-handler/jestSetup';
+
 // Jest has no SQLite, so services see the cache as the web build does:
 // switched off, every read going to the (mocked) Supabase client. Tests of
 // the cache itself mock ../lib/cache/store with their own fake.

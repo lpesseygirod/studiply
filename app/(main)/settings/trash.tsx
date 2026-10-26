@@ -10,11 +10,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
-import { GradientFill } from '../../../src/components/GradientBackground';
+import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
@@ -23,30 +21,29 @@ import {
   restoreItem,
   permanentlyDelete,
   emptyTrash,
+  trashFolder,
+  trashProject,
+  trashSession,
   type TrashItem,
 } from '../../../src/services/trash.service';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
 import { useConnectivity } from '../../../src/lib/connectivity';
+import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
+import { useAppUndo } from '../../../src/hooks/useAppUndo';
+import { deletedAgo, trashKindLabel } from '../../../src/utils/trash';
+import { TYPE_ICON } from '../../../src/utils/shelf';
+import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
 
-function typeLabel(type: TrashItem['type']): string {
-  switch (type) {
-    case 'project': return 'Project';
-    case 'session': return 'Session';
-    case 'folder':  return 'Folder';
-  }
-}
-
-function typeIcon(type: TrashItem['type']): React.ComponentProps<typeof Ionicons>['name'] {
-  switch (type) {
-    case 'project': return 'folder';
-    case 'session': return 'mic-outline';
-    case 'folder':  return 'folder-open-outline';
-  }
+/** Undo of a restore: back to the trash, as it was. */
+function trashAgain(item: TrashItem): Promise<void> {
+  if (item.type === 'project') return trashProject(item.id);
+  if (item.type === 'folder') return trashFolder(item.id);
+  return trashSession(item.id);
 }
 
 // -------------------------------------------------------------------
@@ -59,12 +56,12 @@ export default function TrashScreen() {
   const insets = useSafeAreaInsets();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
-  const router = useRouter();
 
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const offline = useConnectivity() === 'offline';
+  const showUndo = useAppUndo();
 
   const fetchItems = useCallback(async () => {
     if (!userId) return;
@@ -81,6 +78,8 @@ export default function TrashScreen() {
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+  // Something deleted or restored elsewhere (the grid, the sidebar, Undo) shows here too.
+  useLibraryUpdates(fetchItems);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -92,6 +91,11 @@ export default function TrashScreen() {
     try {
       await restoreItem(item);
       setItems(prev => prev.filter(i => i.id !== item.id));
+      showUndo(item.place ? `Restored '${item.name}' to ${item.place}` : `Restored '${item.name}'`, () => {
+        trashAgain(item)
+          .then(notifyLibraryUpdated)
+          .catch(err => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
+      });
     } catch (err) {
       showAlert('Error', errorMessage(err, 'Could not restore item. Please try again.'));
     }
@@ -143,25 +147,23 @@ export default function TrashScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <GradientFill />
-      <ThemedStatusBar />
-
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-        <Text style={styles.headerTitle}>Recently Deleted</Text>
+    <SettingsPage
+      title="Recently Deleted"
+      back={{ label: 'Your data', href: '/settings/your-data' }}
+      scroll={false}
+      right={
         <TouchableOpacity
-          style={styles.iconButton}
           onPress={handleEmptyTrash}
           disabled={items.length === 0}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
         >
           <Text style={[styles.emptyAllText, items.length === 0 && styles.emptyAllTextDisabled]}>
             Empty
           </Text>
         </TouchableOpacity>
-      </View>
+      }
+    >
 
       <Text style={styles.subheader}>
         Items are deleted automatically after 30 days.
@@ -198,20 +200,26 @@ export default function TrashScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.row}>
+            <View style={styles.row} testID={`trash-${item.id}`}>
               <View style={styles.rowIcon}>
-                <Ionicons name={typeIcon(item.type)} size={20} color={c.text.secondary} />
+                <Ionicons name={TYPE_ICON[item.kind]} size={20} color={c.text.secondary} />
               </View>
               <View style={styles.rowInfo}>
                 <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.rowMeta} numberOfLines={1}>
+                  {trashKindLabel(item.kind)}
+                  {item.place ? ` · from ${item.place}` : ''}
+                </Text>
                 <Text style={styles.rowMeta}>
-                  {typeLabel(item.type)} · {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left
+                  {deletedAgo(item.deletedAt)} · {item.daysRemaining} day{item.daysRemaining !== 1 ? 's' : ''} left
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.restoreButton}
                 onPress={() => handleRestore(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Restore ${item.name}`}
               >
                 <Text style={styles.restoreText}>Restore</Text>
               </TouchableOpacity>
@@ -221,7 +229,7 @@ export default function TrashScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
-    </View>
+    </SettingsPage>
   );
 }
 
@@ -230,25 +238,6 @@ const makeStyles = (c: ThemeColors) =>
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: {
-    width: 60,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.onGradientStrong,
-  },
   emptyAllText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium as '500',

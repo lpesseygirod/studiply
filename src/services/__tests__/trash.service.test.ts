@@ -2,7 +2,7 @@
 // transactions, so order is what keeps a failure from hiding live items.
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { removeFiles } from '../cloud-storage.service';
-import { permanentlyDelete, restoreItem, trashFolder, trashProject } from '../trash.service';
+import { autoCleanTrash, emptyTrash, getTrashItems, permanentlyDelete, restoreItem, trashFolder, trashProject } from '../trash.service';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/supabaseMock').module);
 jest.mock('../cloud-storage.service', () => ({
@@ -103,5 +103,60 @@ describe('permanentlyDelete', () => {
     await expect(permanentlyDelete({ id: 'l1', type: 'session' })).rejects.toThrow('Could not delete');
     expect(removeFiles).not.toHaveBeenCalled();
     jest.restoreAllMocks();
+  });
+});
+
+describe('getTrashItems (step 3.5)', () => {
+  it('real kinds and places; what went with its folder is inside it', async () => {
+    answer('courses', { data: [{ id: 'math', name: 'Math', deleted_at: null }] });
+    answer('folders', {
+      data: [
+        { id: 'tema1', name: 'Tema 1', course_id: 'math', parent_id: null, deleted_at: STAMP },
+        { id: 'tema2', name: 'Tema 2', course_id: 'math', parent_id: null, deleted_at: null },
+      ],
+    });
+    answer('files', {
+      data: [
+        { id: 'inside', title: 'Clase 1', kind: 'lecture', course_id: 'math', folder_id: 'tema1', deleted_at: STAMP },
+        { id: 'pdf', title: 'Notas.pdf', kind: 'pdf', course_id: 'math', folder_id: 'tema2', deleted_at: '2026-10-25T10:00:00.000+00:00' },
+      ],
+    });
+    const items = await getTrashItems('u');
+    expect(items.map((i) => [i.id, i.kind, i.place])).toEqual([
+      ['pdf', 'pdf', 'Math › Tema 2'],
+      ['tema1', 'folder', 'Math'],
+    ]);
+  });
+});
+
+describe('emptyTrash and autoCleanTrash', () => {
+  it('Empty deletes everything in the trash (no date limit)', async () => {
+    answer('courses', { data: [] });
+    answer('folders', { data: [] });
+    answer('files', { data: [{ id: 'l1' }] });
+    await emptyTrash('u');
+    const lists = chains.filter((c) => c.calls[0]?.[0] === 'select');
+    expect(lists.some((c) => c.calls.some(([m]) => m === 'lt'))).toBe(false);
+    expect(steps()).toContain('files.delete');
+  });
+
+  it('the sign-in clean-up only takes what is older than 30 days', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-26T12:00:00.000Z'));
+    for (const table of ['courses', 'folders', 'files']) answer(table, { data: [] });
+    await autoCleanTrash('u');
+    const cutoffs = chains.flatMap((c) => c.calls.filter(([m]) => m === 'lt').map(([, , v]) => v));
+    expect(cutoffs).toEqual(Array(3).fill('2026-09-26T12:00:00.000Z'));
+    jest.useRealTimers();
+  });
+});
+
+describe('permanentlyDelete: a photo moved out of a lecture', () => {
+  it('a library file\'s photo is found by file_id (its old lecture path is still removed with it)', async () => {
+    answer('audio_chunks', { data: [] });
+    answer('media', { data: [] }, { data: [{ kind: 'photo', storage_path: 'u/old-lecture/m1.jpg' }] });
+    await permanentlyDelete({ id: 'f1', type: 'session' });
+    expect(removeFiles).toHaveBeenCalledWith('photos', ['u/old-lecture/m1.jpg']);
+    const mediaQueries = chains.filter((c) => c.table === 'media').map((c) => c.calls.find(([m]) => m === 'in'));
+    expect(mediaQueries).toEqual([['in', 'lecture_id', ['f1']], ['in', 'file_id', ['f1']]]);
   });
 });

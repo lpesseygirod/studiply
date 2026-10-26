@@ -17,6 +17,7 @@ import {
   recordKey,
   runImport,
   sendPlan,
+  uploadedProfileIds,
   verifyPlan,
   type ImportRecord,
 } from '../run';
@@ -118,6 +119,27 @@ describe('sendPlan', () => {
   });
 });
 
+describe('sendPlan: old course uploads (step 3.4)', () => {
+  const uploads: LegacySnapshot = {
+    ...snapshot,
+    sessions: [{ ...snapshot.sessions[0], id: 'pf', folder_id: null, title: 'Project Files', duration_seconds: null }],
+    sourceFiles: [
+      { id: 'u1', session_id: 'pf', user_id: 'me', file_type: 'photo', file_path: 'file:///cache/u1.jpg', file_size_bytes: 9, mime_type: 'image/jpeg', retention_policy: 'keep_permanently', is_deleted: 0, storage_path: null, created_at: T },
+    ],
+    transcripts: [],
+    notes: [],
+  };
+  const uploadsPlan = planImport(uploads, { profileIds: ['me'], now: new Date('2025-03-10T00:00:00Z') });
+
+  it('the file row first, then its photo under {fileId}/ with file_id set and no lecture', async () => {
+    await sendPlan(uploadsPlan, real);
+    expect(writes()).toEqual(['courses:upsert', 'folders:upsert', 'folders:upsert', 'files:upsert', 'media:upsert']);
+    expect((callsOn('files', 'upsert')[0][0] as { id: string; kind: string }[]).map((f) => [f.id, f.kind])).toEqual([['u1', 'image']]);
+    expect(jest.mocked(uploadFile).mock.calls.map(([o]) => [o.bucket, o.path])).toEqual([['photos', 'u1/u1.jpg']]);
+    expect(callsOn('media', 'upsert')[0][0]).toMatchObject({ id: 'u1', lecture_id: null, file_id: 'u1', kind: 'photo', caption: 'Photo 1.jpg' });
+  });
+});
+
 describe('verifyPlan', () => {
   it('verified when the server has every row and file the iPhone had', async () => {
     answer('courses', { data: [{ id: 'c1' }] });
@@ -169,5 +191,35 @@ describe('"already uploaded": per server and account', () => {
     await expect(runImport({ plan, source: sample, url: LOCAL, uid: 'someone-else', profileIds: ['me'] })).rejects.toBeInstanceOf(ImportBlockedError);
     // The real data to the remote project is not affected by the sample test upload.
     await expect(runImport({ plan, source: real, url: REMOTE, uid: 'remote-uid', profileIds: ['me'] })).resolves.toMatchObject({ url: REMOTE, dataset: 'real' });
+  });
+});
+
+describe('uploading another profile after one was checked (Lea, 26 Oct)', () => {
+  const emptyPlan = planImport(snapshot, { profileIds: ['nobody'], now: new Date('2025-03-10T00:00:00Z') });
+
+  it('keeps the checked one and adds the new one, on the same server and account', async () => {
+    const first = await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['wrong'] });
+    expect(uploadedProfileIds(first)).toEqual(['wrong']);
+    const second = await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['right'] });
+    expect(second.profileIds).toEqual(['wrong', 'right']);
+    expect(uploadedProfileIds(second)).toEqual(['wrong', 'right']);
+    expect(Object.keys(await readRecords())).toEqual([recordKey(REMOTE, 'lea', 'real')]);
+  });
+
+  it('a record saved before this change: verified means all its profiles', () => {
+    const old = { url: REMOTE, uid: 'lea', dataset: 'real', profileIds: ['a'], status: 'verified', uploadedAt: T, verifiedAt: T, missing: [] } as ImportRecord;
+    expect(uploadedProfileIds(old)).toEqual(['a']);
+    expect(uploadedProfileIds({ ...old, status: 'partial' })).toEqual([]);
+    expect(uploadedProfileIds(null)).toEqual([]);
+  });
+
+  it('an upload that is not checked yet adds nothing to the checked ones', async () => {
+    await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['a'] });
+    // The server is missing the course this time: not verified.
+    answer('courses', { data: [] });
+    const partial = await runImport({ plan, source: real, url: REMOTE, uid: 'lea', profileIds: ['me'] });
+    expect(partial.status).toBe('partial');
+    expect(uploadedProfileIds(partial)).toEqual(['a']);
+    expect(partial.profileIds).toEqual(['a', 'me']);
   });
 });

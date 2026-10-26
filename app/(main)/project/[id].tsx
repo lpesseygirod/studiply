@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconButton } from '../../../src/components/IconButton';
 import {
   View,
@@ -9,13 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  TextInput,
   BackHandler,
   Platform,
-  Dimensions,
   Image,
   Pressable,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,16 +25,10 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import { LightColors, type ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProject } from '../../../src/services/project.service';
-import {
-  getSessionsByProject,
-  getOrCreateProjectUploadSession,
-} from '../../../src/services/session.service';
-import { getFolders, createFolder, getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
-import { getSessionsWithNotes } from '../../../src/services/note.service';
-import { restoreItem, trashSession, trashFolder } from '../../../src/services/trash.service';
+import { getSessionsByProject } from '../../../src/services/session.service';
+import { getFolders, createFolder, getFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
 import {
   getProjectSourceFiles,
-  createSourceFile,
   markDeleted as markSourceFileDeleted,
   sourceFileName,
   fileLabel,
@@ -47,39 +38,51 @@ import {
 } from '../../../src/services/source-file.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
-import UndoToast from '../../../src/components/UndoToast';
+import { useAppUndo } from '../../../src/hooks/useAppUndo';
 import {
+  isDialogOpen,
   menuTriggerProps,
-  promptText,
   showActionSheet,
   showAlert,
   type Anchor,
+  type DialogButton,
 } from '../../../src/components/dialogs/dialogs';
 import { errorMessage } from '../../../src/utils/errors';
-import { promptRenameFile, promptRenameLecture, promptRenameLibraryFile } from '../../../src/utils/rename';
-import { folderItem, lectureItem, libraryFileItem } from '../../../src/utils/libraryItems';
-import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
-import { confirmAction } from '../../../src/utils/confirm';
+import { promptRenameFile } from '../../../src/utils/rename';
+import { useItemMenu } from '../../../src/hooks/useItemMenu';
+import { useLibraryDrop } from '../../../src/hooks/useLibraryDrop';
+import { useLibraryUpload } from '../../../src/hooks/useLibraryUpload';
+import type { Place } from '../../../src/utils/moveRules';
+import { mergeRefs, useDragSource, useDropZone, type DropHandlers } from '../../../src/lib/dnd/useHtml5Drag';
+import { isEditable } from '../../../src/lib/shortcuts';
+import { DraggableView, GestureDragProvider, lastItemGestureAt, type Scroller } from '../../../src/lib/dnd/GestureDrag';
+import {
+  Gesture,
+  GestureDetector,
+  RefreshControl as GestureRefreshControl,
+  ScrollView as GestureScrollView,
+} from 'react-native-gesture-handler';
+import { dragLog, useDragDebug } from '../../../src/lib/dnd/dragDebug';
+import type { Dragged, DropTarget } from '../../../src/lib/dnd/rules';
+import { actionHint, emptySpaceActions, movableItem, pasteLabel, SPACE_LABELS, type SpaceAction } from '../../../src/utils/itemMenu';
+import { getClip, setClip } from '../../../src/lib/clipboard';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
+import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
+import { getCourseContents, markOpened } from '../../../src/services/shelf.service';
+import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
+import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { sortEntries } from '../../../src/utils/libraryGrid';
+import { courseShelfItem, folderItemFromFolder, type ShelfItem } from '../../../src/utils/shelf';
 import { starButton } from '../../../src/utils/star';
-import type { Project, Session, Folder, SourceFile } from '../../../src/types/database';
+import type { Session, Folder, SourceFile } from '../../../src/types/database';
 import { GradientFill } from '../../../src/components/GradientBackground';
 
 // -------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------
-
-function sessionStatusIcon(status: Session['status'], c: ThemeColors): {
-  name: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
-} {
-  if (status === 'completed') return { name: 'checkmark-circle', color: c.status.success.text };
-  if (status === 'processing' || status === 'transcribing')
-    return { name: 'time-outline', color: c.status.warning.text };
-  return { name: 'alert-circle-outline', color: c.text.secondary };
-}
 
 function formatShortDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString('en-US', {
@@ -89,17 +92,7 @@ function formatShortDate(isoString: string): string {
   });
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return '';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
-
-const CARD_GAP = 12;
 const H_PADDING = 20;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const FOLDER_CARD_WIDTH = (SCREEN_WIDTH - H_PADDING * 2 - CARD_GAP) / 2;
 
 // -------------------------------------------------------------------
 // Component
@@ -115,10 +108,8 @@ export default function ProjectDetailScreen() {
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
 
-  const [project, setProject] = useState<Project | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionNoteIds, setSessionNoteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -128,24 +119,23 @@ export default function ProjectDetailScreen() {
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1];
   const currentFolderId = currentCrumb?.type === 'folder' ? currentCrumb.id : null;
 
-  // New Folder modal
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  // The Finder-style grid (step 3.2): this level's items, the selection
+  // (web), a folder being named in place, and how this device shows them.
+  const [entries, setEntries] = useState<ShelfItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<NameEditing>(null);
+  const [libraryPrefs, setLibraryPrefs] = useLibraryPrefs();
+  const compact = useLayoutMode() === 'compact';
 
-  // Undo toast state
-  const [undoVisible, setUndoVisible] = useState(false);
-  const [undoMessage, setUndoMessage] = useState('');
-  const undoCallbackRef = useRef<(() => void) | null>(null);
+  // The app's Undo toast (also ⌘Z's, src/lib/undo.ts): it stays visible
+  // when deleting the course or folder you're in takes you up a level.
+  const showUndo = useAppUndo();
 
   // Photos and PDFs saved to the library, at the current level
   const [libraryFiles, setLibraryFiles] = useState<LibraryFile[]>([]);
 
   // Project-level files (photos + PDFs across all sessions)
   const [projectFiles, setProjectFiles] = useState<SourceFile[]>([]);
-  const [uploadingCamera, setUploadingCamera] = useState(false);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
-  const [uploadingDocs, setUploadingDocs] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   // -------------------------------------------------------------------
@@ -155,27 +145,33 @@ export default function ProjectDetailScreen() {
   const fetchData = useCallback(async (folderId: string | null = currentFolderId) => {
     if (!id) return;
     try {
-      const [p, folderList, sessionList, fileList] = await Promise.all([
+      const [p, folderList, sessionList, fileList, contents] = await Promise.all([
         getProject(id),
         getFolders({ projectId: id, parentFolderId: folderId }),
         getSessionsByProject(id, folderId),
         getLibraryFiles(id, folderId),
+        getCourseContents(id, folderId),
       ]);
-      setProject(p);
       setFolders(folderList);
       setSessions(sessionList);
       setLibraryFiles(fileList);
+      setEntries(contents);
 
-      // Batch-check which sessions have a confirmed note.
-      const ids = sessionList.map(s => s.id);
-      const noteIds = await getSessionsWithNotes(ids);
-      setSessionNoteIds(noteIds);
-
-      // The root crumb always shows the project's current name (it may
-      // have been renamed elsewhere); the folder crumbs below it stay.
+      // The crumbs show the current names (the course or a folder may have
+      // been renamed elsewhere, or from the title's menu).
       setBreadcrumbs(prev => withProjectRoot(prev, p.name));
+      if (folderId) {
+        const folder = await getFolder(folderId).catch(() => null);
+        // Moved to another course (Move to… on the title): follow it there.
+        if (folder && folder.project_id && folder.project_id !== id && !folder.is_deleted) {
+          router.replace({ pathname: '/project/[id]', params: { id: folder.project_id, folder: folderId } });
+          return;
+        }
+        const chain = await getFolderBreadcrumbs(folderId, p.name).catch(() => null);
+        if (chain) setBreadcrumbs(chain);
+      }
     } catch {
-      setError('Could not load project.');
+      setError('Could not load this course.');
     } finally {
       setLoading(false);
     }
@@ -191,9 +187,11 @@ export default function ProjectDetailScreen() {
     if (shown && shown.id === id && shown.folderId === target) return; // already there
     shownRef.current = { id, folderId: target };
     setBreadcrumbs([]);
-    setProject(null);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     if (!target) {
       fetchData(null);
@@ -213,11 +211,19 @@ export default function ProjectDetailScreen() {
     router.setParams({ folder: folderId ?? undefined });
   }
 
-  // ⌥⇧N on the web: a new folder here.
-  useShellCommand('newFolder', () => {
-    setNewFolderName('');
-    setShowNewFolder(true);
+  // ⌥⇧N on the web, and the New menu: a new folder here, named in place.
+  useShellCommand('newFolder', () => startNewFolder());
+  // Laptop keys (step 3.4): ⇧F10 opens the selected tile's menu (or the empty space's); ⌘X / ⌘C cut or copy it.
+  useShellCommand('contextMenu', () => {
+    const item = selectedId ? entries.find(e => e.id === selectedId) : undefined;
+    const anchor = anchorOf(item ? `[data-testid="entry-selected-${item.id}"]` : '[data-testid=library-grid]');
+    if (item) entryMenu(item, anchor);
+    else spaceMenu(anchor);
   });
+  useShellCommand('cut', () => clipSelected('cut'));
+  useShellCommand('copy', () => clipSelected('copy'));
+  // The New menu's "Upload photo or PDF".
+  useShellCommand('upload', () => chooseUpload());
 
   // The laptop shell: Record lecture preselects this course and folder;
   // the sidebar expands this course.
@@ -273,6 +279,9 @@ export default function ProjectDetailScreen() {
     showFolder(folder.id);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     fetchData(folder.id).finally(() => setLoading(false));
   }
@@ -284,6 +293,9 @@ export default function ProjectDetailScreen() {
     showFolder(folderId);
     setFolders([]);
     setSessions([]);
+    setEntries([]);
+    setSelectedId(null);
+    setEditing(null);
     setLoading(true);
     fetchData(folderId).finally(() => setLoading(false));
   }
@@ -315,47 +327,12 @@ export default function ProjectDetailScreen() {
   // Long-press action sheets
   // -------------------------------------------------------------------
 
-  function showFolderActions(folder: Folder, anchor?: Anchor) {
-    showActionSheet(folder.name, [
-      { text: 'Rename', onPress: () => promptRenameFolder(folder) },
-      { text: 'Move to…', onPress: () => move.openMove(folderItem(folder)) },
-      starButton({ type: 'folder', id: folder.id }, folder.name, folder.starred_at, showUndo),
-      { text: 'Delete Folder', style: 'destructive', onPress: () => confirmTrashFolder(folder) },
-    ], { anchor });
-  }
-
-  function showSessionActions(session: Session, anchor?: Anchor) {
-    showActionSheet(session.title, [
-      { text: 'View Notes', onPress: () => handleSessionPress(session) },
-      { text: 'Rename…', onPress: () => renameLecture(session) },
-      { text: 'Export as PDF', onPress: () => exportSessionPDF(session) },
-      { text: 'Move to…', onPress: () => move.openMove(lectureItem(session)) },
-      starButton({ type: 'file', id: session.id }, session.title, session.starred_at, showUndo),
-      { text: 'Delete Session', style: 'destructive', onPress: () => confirmTrashSession(session) },
-    ], { anchor });
-  }
-
-  async function exportSessionPDF(session: Session) {
-    try {
-      const { getNoteBySession } = await import('../../../src/services/note.service');
-      const { exportNoteToPDF } = await import('../../../src/services/export.service');
-      const note = await getNoteBySession(session.id);
-      if (!note) {
-        showAlert('No Note', 'This session has not been processed yet.');
-        return;
-      }
-      await exportNoteToPDF({ note, session, transcript: null, projectName: project?.name });
-    } catch {
-      showAlert('Error', 'Could not export PDF.');
-    }
-  }
-
   function showFileActions(file: SourceFile, anchor?: Anchor) {
     const name = fileLabel(file, sameLectureFiles(file, projectFiles));
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
-      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
-      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Move to…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save a copy to library…', onPress: () => move.openSaveToLibrary(file, name) },
       starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
         setProjectFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
       ),
@@ -367,10 +344,6 @@ export default function ProjectDetailScreen() {
   async function renameFile(file: SourceFile) {
     const renamed = await promptRenameFile(file, sameLectureFiles(file, projectFiles));
     if (renamed) setProjectFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
-  }
-
-  async function renameLecture(session: Session) {
-    if (await promptRenameLecture(session)) fetchData(currentFolderId);
   }
 
   async function shareFile(file: SourceFile) {
@@ -417,121 +390,39 @@ export default function ProjectDetailScreen() {
   }
 
   // -------------------------------------------------------------------
-  // Folder rename
+  // New folder and rename, in place on the tile (step 3.2)
   // -------------------------------------------------------------------
 
-  async function promptRenameFolder(folder: Folder) {
-    const name = await promptText('Rename Folder', { defaultValue: folder.name, placeholder: 'Folder name' });
-    if (!name) return;
+  function startNewFolder() {
+    setSelectedId(null);
+    setEditing({ mode: 'new' });
+  }
+
+  /** Enter or a tap elsewhere: create or rename. False keeps the field open. */
+  async function saveName(raw: string): Promise<boolean> {
+    const current = editing;
+    if (!current || !id) return true;
     try {
-      const { renameFolder } = await import('../../../src/services/folder.service');
-      await renameFolder(folder.id, name);
+      if (current.mode === 'new') {
+        const created = await createFolder({
+          userId,
+          projectId: id,
+          parentFolderId: currentFolderId,
+          name: raw.trim() || 'Untitled folder',
+        });
+        setEditing(null);
+        setSelectedId(created.id);
+      } else {
+        const before = entries.find(e => e.id === current.id)?.title;
+        setEditing(null);
+        if (raw.trim() && raw.trim() !== before) await renameFolder(current.id, raw);
+      }
       await fetchData(currentFolderId);
+      return true;
     } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not rename folder.'));
-    }
-  }
-
-  // -------------------------------------------------------------------
-  // Folder trash
-  // -------------------------------------------------------------------
-
-  function confirmTrashFolder(folder: Folder) {
-    showAlert(
-      'Delete Folder',
-      `"${folder.name}" and all its contents will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashFolder(folder.id);
-              setFolders(prev => prev.filter(f => f.id !== folder.id));
-              showUndo(`"${folder.name}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: folder.id, type: 'folder' });
-                fetchData(currentFolderId);
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete folder.'));
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // Session trash
-  // -------------------------------------------------------------------
-
-  function confirmTrashSession(session: Session) {
-    showAlert(
-      'Delete Session',
-      `"${session.title}" will be moved to Recently Deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await trashSession(session.id);
-              setSessions(prev => prev.filter(s => s.id !== session.id));
-              showUndo(`"${session.title}" moved to trash`, async () => {
-                const { restoreItem } = await import('../../../src/services/trash.service');
-                await restoreItem({ id: session.id, type: 'session' });
-                fetchData(currentFolderId);
-              });
-            } catch (err) {
-              showAlert('Error', errorMessage(err, 'Could not delete session.'));
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // Undo toast
-  // -------------------------------------------------------------------
-
-  function showUndo(message: string, onUndo: () => void) {
-    undoCallbackRef.current = onUndo;
-    setUndoMessage(message);
-    setUndoVisible(true);
-  }
-
-  function handleUndo() {
-    setUndoVisible(false);
-    undoCallbackRef.current?.();
-    undoCallbackRef.current = null;
-  }
-
-  // -------------------------------------------------------------------
-  // New Folder
-  // -------------------------------------------------------------------
-
-  async function handleCreateFolder() {
-    const name = newFolderName.trim();
-    if (!name || !id || !userId) return;
-    setIsCreatingFolder(true);
-    try {
-      await createFolder({
-        userId,
-        projectId: id,
-        parentFolderId: currentFolderId,
-        name,
-      });
-      setShowNewFolder(false);
-      setNewFolderName('');
-      await fetchData(currentFolderId);
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not create folder.'));
-    } finally {
-      setIsCreatingFolder(false);
+      showAlert(current.mode === 'new' ? 'Could not create the folder' : 'Could not rename the folder', errorMessage(err, err instanceof Error ? err.message : 'Please try again.'));
+      if (current.mode === 'rename') setEditing(current);
+      return false;
     }
   }
 
@@ -553,535 +444,424 @@ export default function ProjectDetailScreen() {
     fetchProjectFiles();
   }, [fetchProjectFiles]);
 
-  // "Move to…", "Move to another lecture…", "Save to library…" (with Undo).
-  const move = useMoveFlow({
+  // The items' menu (shared with the sidebar and Library), and Move to…
+  // for the lecture photos below the grid. Changes reload through
+  // useLibraryUpdates; the lecture photos reload here.
+  const itemMenu = useItemMenu({
     showUndo,
-    onChanged: () => {
-      fetchData(currentFolderIdRef.current);
-      fetchProjectFiles();
+    onOpen: item => openEntry(item),
+    renameFolderInPlace: folderId => setEditing({ mode: 'rename', id: folderId }),
+    // The folder or course you're in went to the trash (its title's menu): go up one level.
+    onTrashed: item => {
+      if (item.type === 'course' && item.id === id) router.navigate('/library');
+      else if (item.type === 'folder' && item.id === currentFolderIdRef.current) navigateUp();
     },
   });
+
+  /** The title's menu: the course or folder you're in (no Open; Rename… in a dialog). */
+  async function titleMenu(anchor?: Anchor) {
+    if (!id) return;
+    try {
+      const item = currentFolderId
+        ? folderItemFromFolder(await getFolder(currentFolderId))
+        : courseShelfItem(await getProject(id));
+      itemMenu.open(item, anchor, { skip: ['open', 'cut', 'copy'], dialogRename: true });
+    } catch (err) {
+      showAlert('Error', errorMessage(err, 'Could not open the menu.'));
+    }
+  }
+  const move = itemMenu.move;
+  // Development: the list without gesture-handler, to compare the iPhone drag (dragDebug.ts).
+  const { plainScroll } = useDragDebug();
+  const Scroll = plainScroll ? ScrollView : ListScroll;
+  const Refresh = plainScroll ? RefreshControl : ListRefresh;
+
+  // Upload (step 3.4): photos and PDFs become files in the open course or folder.
+  const uploader = useLibraryUpload({ showUndo });
+  const herePlace = (): Place => ({ courseId: id ?? null, folderId: currentFolderId, label: currentCrumb?.name ?? 'this course' });
+
+  // Drag and drop (step 3.3): onto folder tiles and the breadcrumb; files from the Finder are uploaded there.
+  const dnd = useLibraryDrop({ showUndo, upload: uploader.upload });
+
+  // Laptop: ⌘V pastes here (not while typing in a field): an image or PDF in the system
+  // clipboard (a screenshot, a copied file) is added as a file; otherwise a cut or copied item.
+  const uploadRef = useRef({ upload: uploader.upload, herePlace, pasteHere: dnd.pasteHere });
+  uploadRef.current = { upload: uploader.upload, herePlace, pasteHere: dnd.pasteHere };
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onPaste = (e: ClipboardEvent) => {
+      if (isEditable(document.activeElement) || isDialogOpen()) return;
+      const { upload, herePlace: here, pasteHere } = uploadRef.current;
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length > 0) {
+        e.preventDefault();
+        upload(
+          here(),
+          files.map(f => ({ uri: URL.createObjectURL(f), name: f.name || null, mimeType: f.type || null, sizeBytes: f.size })),
+        );
+      } else if (getClip()) {
+        e.preventDefault();
+        pasteHere(here());
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  // iPhone: the list scrolls while a dragged item is held near the top or bottom.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollState = useRef({ y: 0, content: 0, height: 0 });
+  const scroller = useMemo<Scroller>(
+    () => ({
+      scrollBy: dy => {
+        const s = scrollState.current;
+        const next = Math.max(0, Math.min(s.y + dy, Math.max(0, s.content - s.height)));
+        const moved = next - s.y;
+        if (moved !== 0) {
+          scrollRef.current?.scrollTo({ y: next, animated: false });
+          s.y = next;
+        }
+        return moved;
+      },
+    }),
+    [],
+  );
+  useLibraryUpdates(fetchProjectFiles);
 
   // -------------------------------------------------------------------
   // Files saved to the library
   // -------------------------------------------------------------------
-
-  function showLibraryFileActions(file: LibraryFile, anchor?: Anchor) {
-    showActionSheet(file.title, [
-      { text: Platform.OS === 'web' ? 'Open / Download' : 'Open / Share', onPress: () => openLibraryFile(file) },
-      { text: 'Rename…', onPress: () => renameLibraryFile(file) },
-      { text: 'Move to…', onPress: () => move.openMove(libraryFileItem(file)) },
-      starButton({ type: 'file', id: file.id }, file.title, file.starredAt, showUndo),
-      { text: 'Delete', style: 'destructive', onPress: () => trashLibraryFile(file) },
-    ], { anchor });
-  }
 
   function openLibraryFile(file: LibraryFile) {
     if (!file.media?.file_path) {
       showAlert('Not available', "This file can't be opened right now. Check your connection.");
       return;
     }
+    markOpened(file.id);
     if (file.kind === 'image') setPreviewUri(file.media.file_path);
     else shareFile({ ...file.media, display_name: file.title });
   }
 
-  async function renameLibraryFile(file: LibraryFile) {
-    const renamed = await promptRenameLibraryFile(file);
-    if (renamed) setLibraryFiles(prev => prev.map(f => (f.id === renamed.id ? renamed : f)));
-  }
+  // ── Upload (step 3.4): photos and PDFs become files in the open course or folder ──
 
-  async function trashLibraryFile(file: LibraryFile) {
-    if (!(await confirmAction('Delete File', `"${file.title}" will be moved to Recently Deleted.`, 'Delete'))) return;
-    try {
-      await trashSession(file.id);
-      setLibraryFiles(prev => prev.filter(f => f.id !== file.id));
-      showUndo(`"${file.title}" moved to trash`, async () => {
-        await restoreItem({ id: file.id, type: 'session' });
-        fetchData(currentFolderIdRef.current);
-      });
-    } catch (err) {
-      showAlert('Error', errorMessage(err, 'Could not delete the file.'));
-    }
-  }
-
-  // ── Take Photo ────────────────────────────────────────────────
   const handleTakePhoto = async () => {
-    if (!userId || !id) return;
-    const granted = await requestCameraPermission();
-    if (!granted) return;
-
-    setUploadingCamera(true);
+    if (!id || !(await requestCameraPermission())) return;
     try {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: false,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const asset = result.assets[0]!;
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const fileSize = asset.fileSize ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-        const newFile = await createSourceFile({
-          userId,
-          sessionId: uploadSession.id,
-          fileType: 'photo',
-          filePath: asset.uri,
-          size: { width: asset.width, height: asset.height },
-          fileSizeBytes: fileSize,
-          mimeType: 'image/jpeg',
-        });
-        setProjectFiles(prev => [newFile, ...prev]);
-      }
+      const a = result.canceled ? undefined : result.assets[0];
+      if (!a) return;
+      await uploader.upload(herePlace(), [
+        { uri: a.uri, name: null, mimeType: a.mimeType ?? 'image/jpeg', sizeBytes: a.fileSize ?? null, size: { width: a.width, height: a.height } },
+      ]);
     } catch {
-      showAlert('Error', 'Could not capture photo. Please try again.');
-    } finally {
-      setUploadingCamera(false);
+      showAlert('Error', 'Could not take the photo. Please try again.');
     }
   };
 
-  // ── Upload from Gallery ───────────────────────────────────────
   const handlePickPhotos = async () => {
-    if (!userId || !id) return;
-    const granted = await requestMediaLibraryPermission();
-    if (!granted) return;
-
-    setUploadingGallery(true);
+    if (!id || !(await requestMediaLibraryPermission())) return;
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         quality: 0.8,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const newFiles = await Promise.all(
-          result.assets.map(async asset => {
-            const fileSize = asset.fileSize ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-            return createSourceFile({
-              userId,
-              sessionId: uploadSession.id,
-              fileType: 'photo',
-              filePath: asset.uri,
-              size: { width: asset.width, height: asset.height },
-              fileSizeBytes: fileSize,
-              mimeType: 'image/jpeg',
-            });
-          })
-        );
-        setProjectFiles(prev => [...newFiles, ...prev]);
-      }
+      if (result.canceled) return;
+      await uploader.upload(
+        herePlace(),
+        result.assets.map(a => ({
+          uri: a.uri,
+          name: a.fileName ?? null,
+          mimeType: a.mimeType ?? 'image/jpeg',
+          sizeBytes: a.fileSize ?? null,
+          size: { width: a.width, height: a.height },
+        })),
+      );
     } catch {
       showAlert('Error', 'Could not pick photos. Please try again.');
-    } finally {
-      setUploadingGallery(false);
     }
   };
 
-  // ── Upload PDF ────────────────────────────────────────────────
+  /** PDFs (iPhone: from Files); on the laptop one picker for PDFs and images. */
   const handlePickDocuments = async () => {
-    if (!userId || !id) return;
-    setUploadingDocs(true);
+    if (!id) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
+        type: Platform.OS === 'web' ? ['application/pdf', 'image/*'] : 'application/pdf',
         multiple: true,
         copyToCacheDirectory: true,
       });
-      if (!result.canceled && result.assets.length > 0) {
-        const uploadSession = await getOrCreateProjectUploadSession(userId, id);
-        const newFiles = await Promise.all(
-          result.assets.map(async asset => {
-            const fileSize = asset.size ?? (await getLocalFileSize(asset.uri)) ?? undefined;
-            return createSourceFile({
-              userId,
-              sessionId: uploadSession.id,
-              fileType: 'pdf',
-              filePath: asset.uri,
-              fileName: asset.name,
-              fileSizeBytes: fileSize,
-              mimeType: asset.mimeType ?? 'application/pdf',
-            });
-          })
-        );
-        setProjectFiles(prev => [...newFiles, ...prev]);
-      }
+      if (result.canceled) return;
+      const picked = await Promise.all(
+        result.assets.map(async a => ({
+          uri: a.uri,
+          name: a.name,
+          mimeType: a.mimeType ?? null,
+          sizeBytes: a.size ?? (await getLocalFileSize(a.uri)) ?? null,
+        })),
+      );
+      await uploader.upload(herePlace(), picked);
     } catch {
-      showAlert('Error', 'Could not pick documents. Please try again.');
-    } finally {
-      setUploadingDocs(false);
+      showAlert('Error', 'Could not pick the files. Please try again.');
     }
   };
+
+  // -------------------------------------------------------------------
+  // Grid items: open and menu, through the screen's existing actions
+  // -------------------------------------------------------------------
+
+  function openEntry(item: ShelfItem) {
+    if (item.type === 'folder') {
+      const folder = folders.find(f => f.id === item.id);
+      if (folder) navigateIntoFolder(folder);
+      return;
+    }
+    if (item.type === 'lecture') {
+      const session = sessions.find(s => s.id === item.id);
+      if (session) handleSessionPress(session);
+      return;
+    }
+    if (item.pending) {
+      showAlert('Waiting to upload', 'This file opens once it has been uploaded.');
+      return;
+    }
+    const file = libraryFiles.find(f => f.id === item.id);
+    if (file) return openLibraryFile(file);
+    showAlert(item.title, 'This kind of file opens with the editor. Coming soon.');
+  }
+
+  function entryMenu(item: ShelfItem, anchor?: Anchor) {
+    setSelectedId(item.id);
+    itemMenu.open(item, anchor);
+  }
+
+  /** ⌘X / ⌘C: the selected tile onto the clipboard; false (the browser's own) when none is selected or it can't be. */
+  function clipSelected(mode: 'cut' | 'copy'): boolean {
+    const item = selectedId ? entries.find(e => e.id === selectedId) : undefined;
+    if (!item || !movableItem(item)) return false;
+    if (mode === 'copy' && actionHint('copy', item.type)) {
+      showAlert(`Can't copy '${item.title}'`, 'Copying lectures and folders is coming soon.');
+      return true;
+    }
+    setClip({ mode, item });
+    return true;
+  }
+
+  function recordHere() {
+    router.push({
+      pathname: '/record',
+      params: { projectId: id, ...(currentFolderId ? { folderId: currentFolderId } : {}) },
+    });
+  }
+
+  /** Empty space: right-click (laptop) or long-press (iPhone), like Finder. The toolbar stays. */
+  function spaceMenu(anchor?: Anchor) {
+    // iPhone: a long-press on a tile is the tile's (its drag or its menu), not the space around it.
+    if (editing || Date.now() - lastItemGestureAt() < 1000) {
+      dragLog('empty-space menu: ignored (an item took the press)');
+      return;
+    }
+    dragLog('empty-space menu: opened');
+    setSelectedId(null);
+    const clip = getClip();
+    const paste = pasteLabel(clip && { mode: clip.mode, title: clip.item.title });
+    const run: Record<SpaceAction, () => void> = {
+      newFolder: startNewFolder,
+      newDocument: () => {},
+      record: recordHere,
+      upload: chooseUpload,
+      takePhoto: handleTakePhoto,
+      paste: () => dnd.pasteHere(herePlace()),
+      sort: () => showSortMenu(libraryPrefs.sort, sort => setLibraryPrefs({ sort }), anchor),
+    };
+    const button = (action: SpaceAction): DialogButton => {
+      if (action === 'newDocument') return { text: SPACE_LABELS.newDocument, disabled: true, hint: 'Coming soon' };
+      if (action === 'paste') return paste.hint ? { text: paste.text, disabled: true, hint: paste.hint } : { text: paste.text, onPress: run.paste };
+      if (action === 'record') return { text: SPACE_LABELS.record, accessibilityLabel: 'Record lecture here', onPress: run.record };
+      return { text: SPACE_LABELS[action], onPress: run[action] };
+    };
+    showActionSheet(currentCrumb?.name, emptySpaceActions(Platform.OS !== 'web').map(button), { anchor });
+  }
+
+  /** Laptop: one file picker (PDFs and images). iPhone: Photos, PDF (Files) or Take photo. */
+  function chooseUpload() {
+    if (Platform.OS === 'web') {
+      handlePickDocuments();
+      return;
+    }
+    showActionSheet(`Upload to ${herePlace().label}`, [
+      { text: 'Photos', onPress: handlePickPhotos },
+      { text: 'PDF (Files)', onPress: handlePickDocuments },
+      { text: 'Take photo', onPress: handleTakePhoto },
+    ]);
+  }
+
+  const sortedEntries = sortEntries(entries, libraryPrefs.sort);
+  const view = compact ? libraryPrefs.view : 'grid';
 
   // -------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------
-
-  const isRoot = breadcrumbs.length <= 1;
 
   return (
     <View style={styles.container}>
       <GradientFill />
       <ThemedStatusBar />
 
-      {/* ── Header ────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={navigateUp} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-
-        <View style={styles.headerCenter}>
-          {project && isRoot && (
-            <View style={[styles.projectColorDot, { backgroundColor: project.color }]} />
-          )}
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {currentCrumb?.name ?? project?.name ?? ''}
-          </Text>
-        </View>
-
-        <View style={styles.iconButton} />
-      </View>
-
-      {/* ── Breadcrumbs (when inside a folder) ────────────────── */}
-      {!isRoot && (
-        <View style={styles.breadcrumbRow}>
-          {breadcrumbs.map((crumb, index) => (
-            <React.Fragment key={index}>
-              {index > 0 && (
-                <Ionicons
-                  name="chevron-forward"
-                  size={12}
-                  color={c.text.onGradient}
-                  style={styles.breadcrumbChevron}
-                />
-              )}
-              <TouchableOpacity
-                onPress={() => navigateToCrumb(index)}
-                disabled={index === breadcrumbs.length - 1}
-              >
-                <Text
-                  style={[
-                    styles.crumbText,
-                    index === breadcrumbs.length - 1 && styles.crumbTextActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {crumb.name}
-                </Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ))}
-        </View>
-      )}
-
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={c.salmon} />
+        <View style={[styles.center, { paddingTop: insets.top }]}>
+          <ActivityIndicator color={c.text.onGradientStrong} />
         </View>
       ) : error ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 120 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={c.salmon}
+        <DragArea check={dnd.check} onDrop={dnd.drop} scroller={scroller}>
+          <Scroll
+            ref={scrollRef}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 48 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            onScroll={e => (scrollState.current.y = e.nativeEvent.contentOffset.y)}
+            onScrollBeginDrag={() => dragLog('list scroll started')}
+            onContentSizeChange={(_w, h) => (scrollState.current.content = h)}
+            onLayout={e => (scrollState.current.height = e.nativeEvent.layout.height)}
+            refreshControl={
+              <Refresh refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.text.onGradientStrong} />
+            }
+          >
+            {/* ── My library › Course › Folder · N items, Sort, grid/list ── */}
+            <LibraryHeader
+              crumbs={breadcrumbs.map(b => b.name)}
+              onLibrary={() => router.navigate('/library')}
+              onCrumb={navigateToCrumb}
+              count={entries.length}
+              sort={libraryPrefs.sort}
+              onSort={sort => setLibraryPrefs({ sort })}
+              view={view}
+              onToggleView={() => setLibraryPrefs({ view: view === 'grid' ? 'list' : 'grid' })}
+              showViewToggle={compact}
+              onBack={navigateUp}
+              crumbTargets={breadcrumbs.map((b, i) =>
+                i === breadcrumbs.length - 1 || !id
+                  ? null
+                  : { id: b.id ?? id, kind: 'place', place: { courseId: id, folderId: b.type === 'folder' ? b.id : null, label: b.name } },
+              )}
+              dnd={dnd}
+              onTitleMenu={titleMenu}
+              onMore={compact ? () => spaceMenu() : undefined}
+              status={
+                uploader.progress
+                  ? `Uploading ${Math.min(uploader.progress.done + 1, uploader.progress.total)} of ${uploader.progress.total}…`
+                  : null
+              }
             />
-          }
-        >
-          {/* ── Upload action buttons ────────────────────────── */}
-          <View style={styles.uploadRow}>
-              <UploadButton
-                icon="camera-outline"
-                label="Take Photo"
-                loading={uploadingCamera}
-                onPress={handleTakePhoto}
-              />
-              <UploadButton
-                icon="images-outline"
-                label="Upload Photo"
-                loading={uploadingGallery}
-                onPress={handlePickPhotos}
-              />
-              <UploadButton
-                icon="document-outline"
-                label="Upload File"
-                loading={uploadingDocs}
-                onPress={handlePickDocuments}
-              />
-            </View>
 
-          {/* ── Project Files section ────────────────────────── */}
-          {projectFiles.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, { marginTop: 4 }]}>PROJECT FILES</Text>
-              <View style={styles.filesList}>
-                {projectFiles.map((file, index) => {
-                  const isPhoto = file.file_type === 'photo';
-                  const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+            {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
+            <SpaceArea
+              onPress={() => setSelectedId(null)}
+              onMenu={spaceMenu}
+              style={styles.space}
+              dropTarget={id ? { id: 'here', kind: 'place', place: herePlace() } : null}
+              dnd={dnd}
+            >
+              {sortedEntries.length === 0 && !editing ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
+                  <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
+                  <Text style={styles.emptyBody}>
+                    {compact
+                      ? 'Tap ••• to make a folder, upload a document or record.'
+                      : 'Use + New or right-click here to make a folder, upload a document or record.'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.gridArea}>
+                  <LibraryGrid
+                    items={sortedEntries}
+                    view={view}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    onOpen={openEntry}
+                    onMenu={entryMenu}
+                    editing={editing}
+                    onSaveName={saveName}
+                    onCancelName={() => setEditing(null)}
+                    dnd={dnd}
+                    thumbnailFor={item =>
+                      item.type === 'image' ? libraryFiles.find(f => f.id === item.id)?.media?.file_path || undefined : undefined
+                    }
+                  />
+                </View>
+              )}
 
-                  return (
-                    <TouchableOpacity
-                      key={file.id}
-                      style={[
-                        styles.fileRow,
-                        index < projectFiles.length - 1 && styles.fileRowDivider,
-                      ]}
-                      onPress={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
-                      {...menuTriggerProps(anchor => showFileActions(file, anchor))}
-                      activeOpacity={0.75}
-                    >
-                      {isPhoto ? (
-                        <Image
-                          source={{ uri: file.file_path }}
-                          style={styles.fileThumb}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.fileIconWrap}>
-                          <Ionicons name="document-text" size={18} color={c.text.secondary} />
-                        </View>
-                      )}
-                      <View style={styles.fileInfo}>
-                        <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
-                        <Text style={styles.fileMeta}>
-                          {formatShortDate(file.created_at)}
-                          {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
-                        </Text>
-                      </View>
-                      {isPhoto && (
-                        <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* ── Folder grid ──────────────────────────────────── */}
-          {folders.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, projectFiles.length > 0 && { marginTop: 24 }]}>FOLDERS</Text>
-              <View style={styles.folderGrid}>
-                {folders.map(folder => (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={styles.folderCard}
-                    onPress={() => navigateIntoFolder(folder)}
-                    {...menuTriggerProps(anchor => showFolderActions(folder, anchor))}
-                    activeOpacity={0.8}
+              {/* ── Photos & PDFs from lectures (the old Project Files list) ── */}
+              {projectFiles.length > 0 && (
+                <View style={styles.lecturePhotos}>
+                  <Pressable
+                    style={styles.lecturePhotosHeader}
+                    onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
                   >
-                    <View style={styles.folderIconWrap}>
-                      <Ionicons name="folder" size={28} color={c.salmon} />
-                    </View>
-                    <Text style={styles.folderName} numberOfLines={2}>
-                      {folder.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* ── Files saved to the library ────────────────────── */}
-          {libraryFiles.length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, folders.length > 0 && { marginTop: 24 }]}>FILES</Text>
-              <View style={styles.filesList}>
-                {libraryFiles.map((file, index) => (
-                  <TouchableOpacity
-                    key={file.id}
-                    style={[styles.fileRow, index < libraryFiles.length - 1 && styles.fileRowDivider]}
-                    onPress={() => openLibraryFile(file)}
-                    {...menuTriggerProps(anchor => showLibraryFileActions(file, anchor))}
-                    activeOpacity={0.75}
-                  >
-                    {file.kind === 'image' && file.media?.file_path ? (
-                      <Image source={{ uri: file.media.file_path }} style={styles.fileThumb} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.fileIconWrap}>
-                        <Ionicons
-                          name={file.kind === 'image' ? 'image-outline' : 'document-text'}
-                          size={18}
-                          color={c.text.secondary}
-                        />
-                      </View>
-                    )}
-                    <View style={styles.fileInfo}>
-                      <Text style={styles.fileName} numberOfLines={1}>{file.title}</Text>
-                      <Text style={styles.fileMeta}>
-                        {formatShortDate(file.createdAt)}
-                        {file.media?.file_size_bytes != null ? ` · ${formatFileSize(file.media.file_size_bytes)}` : ''}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* ── Sessions list ─────────────────────────────────── */}
-          {sessions.filter(s => s.title !== 'Project Files').length > 0 && (
-            <>
-              <Text style={[styles.sectionLabel, (folders.length > 0 || libraryFiles.length > 0) && { marginTop: 24 }]}>
-                SESSIONS
-              </Text>
-              <View style={styles.sessionsList}>
-                {sessions.filter(s => s.title !== 'Project Files').map((session, index, arr) => {
-                  const icon = sessionStatusIcon(session.status, c);
-                  const dur = formatDuration(session.duration_seconds);
-                  const hasNote = sessionNoteIds.has(session.id);
-                  return (
-                    <TouchableOpacity
-                      key={session.id}
-                      style={[
-                        styles.sessionRow,
-                        index < arr.length - 1 && styles.sessionRowDivider,
-                      ]}
-                      onPress={() => handleSessionPress(session)}
-                      {...menuTriggerProps(anchor => showSessionActions(session, anchor))}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name={icon.name} size={22} color={icon.color} />
-                      <View style={styles.sessionInfo}>
-                        <Text style={styles.sessionTitle} numberOfLines={1}>
-                          {session.title}
-                        </Text>
-                        <View style={styles.sessionMetaRow}>
-                          <Text style={styles.sessionMeta}>
-                            {formatShortDate(session.created_at)}
-                          </Text>
-                          {hasNote && (
-                            <View style={styles.noteBadge}>
-                              <Text style={styles.noteBadgeText}>Notes ✓</Text>
+                    <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
+                    <Ionicons
+                      name={libraryPrefs.lecturePhotosOpen ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={c.text.onGradient}
+                    />
+                  </Pressable>
+                  {libraryPrefs.lecturePhotosOpen && (
+                    <View style={styles.filesList}>
+                      {projectFiles.map((file, index) => {
+                        const isPhoto = file.file_type === 'photo';
+                        const label = fileLabel(file, sameLectureFiles(file, projectFiles));
+                        return (
+                          <MediaDragSource
+                            key={file.id}
+                            dragged={{ kind: 'media', file, name: label }}
+                            style={[styles.fileRow, index < projectFiles.length - 1 && styles.fileRowDivider]}
+                            onOpen={isPhoto ? () => setPreviewUri(file.file_path) : undefined}
+                            onMenu={anchor => showFileActions(file, anchor)}
+                          >
+                            {isPhoto ? (
+                              <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                            ) : (
+                              <View style={styles.fileIconWrap}>
+                                <Ionicons name="document-text" size={18} color={c.text.secondary} />
+                              </View>
+                            )}
+                            <View style={styles.fileInfo}>
+                              <Text style={styles.fileName} numberOfLines={1}>{label}</Text>
+                              <Text style={styles.fileMeta}>
+                                {formatShortDate(file.created_at)}
+                                {file.file_size_bytes != null ? ` · ${formatFileSize(file.file_size_bytes)}` : ''}
+                              </Text>
                             </View>
-                          )}
-                        </View>
-                      </View>
-                      {!!dur && <Text style={styles.sessionDuration}>{dur}</Text>}
-                      <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-
-          {/* ── Empty state ───────────────────────────────────── */}
-          {folders.length === 0 && sessions.filter(s => s.title !== 'Project Files').length === 0 && projectFiles.length === 0 && libraryFiles.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={44} color={c.text.onGradient} />
-              <Text style={styles.emptyTitle}>
-                {isRoot ? 'No sessions yet' : 'Empty folder'}
-              </Text>
-              <Text style={styles.emptyBody}>
-                {isRoot
-                  ? 'Start a recording or create a folder to organise your sessions.'
-                  : 'Start a recording to add sessions here.'}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* ── Dual FAB ──────────────────────────────────────────── */}
-      {!loading && !error && (
-        <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]}>
-          <TouchableOpacity
-            style={[styles.fab, styles.fabSecondary]}
-            onPress={() => {
-              setNewFolderName('');
-              setShowNewFolder(true);
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="folder-outline" size={18} color={c.text.primary} />
-            <Text style={styles.fabSecondaryText}>New Folder</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => {
-              router.push({
-                pathname: '/record',
-                params: {
-                  projectId: id,
-                  ...(currentFolderId ? { folderId: currentFolderId } : {}),
-                },
-              });
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="mic-outline" size={18} color={c.white} />
-            <Text style={styles.fabText}>New Recording</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ── New Folder modal ──────────────────────────────────── */}
-      <Modal
-        visible={showNewFolder}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowNewFolder(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowNewFolder(false)}>
-          <KeyboardAvoidingView
-            style={styles.modalKAV}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <Pressable>
-              <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 24 }]}>
-                <Text style={styles.modalTitle}>New Folder</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Folder name"
-                  placeholderTextColor={c.text.placeholder}
-                  value={newFolderName}
-                  onChangeText={setNewFolderName}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateFolder}
-                />
-                <TouchableOpacity
-                  style={[styles.createButton, isCreatingFolder && { opacity: 0.6 }]}
-                  onPress={handleCreateFolder}
-                  disabled={isCreatingFolder || !newFolderName.trim()}
-                  activeOpacity={0.85}
-                >
-                  {isCreatingFolder ? (
-                    <ActivityIndicator color={c.white} size="small" />
-                  ) : (
-                    <Text style={styles.createButtonText}>Create</Text>
+                            {isPhoto && <Ionicons name="chevron-forward" size={16} color={c.text.placeholder} />}
+                          </MediaDragSource>
+                        );
+                      })}
+                    </View>
                   )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowNewFolder(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </KeyboardAvoidingView>
-        </Pressable>
-      </Modal>
+                </View>
+              )}
+            </SpaceArea>
+          </Scroll>
+        </DragArea>
+      )}
 
       {move.modal}
 
-      {/* ── Undo toast ────────────────────────────────────────── */}
-      <UndoToast
-        visible={undoVisible}
-        message={undoMessage}
-        onUndo={handleUndo}
-        onDismiss={() => setUndoVisible(false)}
-      />
 
       {/* ── Photo preview modal ───────────────────────────────── */}
       <Modal
@@ -1106,113 +886,143 @@ export default function ProjectDetailScreen() {
 }
 
 // -------------------------------------------------------------------
-// UploadButton sub-component
+// Styles
 // -------------------------------------------------------------------
 
-function UploadButton({
-  icon,
-  label,
-  loading,
+// iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight (step 3.3).
+const ListScroll = (Platform.OS === 'web' ? ScrollView : GestureScrollView) as typeof ScrollView;
+const ListRefresh = (Platform.OS === 'web' ? RefreshControl : GestureRefreshControl) as typeof RefreshControl;
+
+/** Laptop: where a keyboard-opened menu goes (just below the element). */
+function anchorOf(selector: string): Anchor | undefined {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return undefined;
+  const r = document.querySelector(selector)?.getBoundingClientRect();
+  return r ? { x: r.x + 8, y: r.y + Math.min(r.height, 120) } : undefined;
+}
+
+/**
+ * The empty space around the tiles: a click clears the selection and a
+ * right-click shows the empty-space menu (laptop); a long-press shows it on
+ * the iPhone. There it is a gesture-handler long-press (500 ms), so a tile's
+ * own hold (350 ms, its drag or its menu) wins natively, with no race
+ * between the two (step 3.3 iPhone fix).
+ */
+function SpaceArea({
   onPress,
+  onMenu,
+  style,
+  dropTarget,
+  dnd,
+  children,
 }: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  loading: boolean;
   onPress: () => void;
+  onMenu: (anchor?: Anchor) => void;
+  style: React.ComponentProps<typeof View>['style'];
+  /** Laptop: files from the Finder dropped on the empty grid go here (step 3.4). */
+  dropTarget: DropTarget | null;
+  dnd: DropHandlers;
+  children: React.ReactNode;
 }) {
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
+  const drop = useDropZone(dropTarget, dnd);
+  const menuRef = useRef(onMenu);
+  menuRef.current = onMenu;
+  const longPress = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(500)
+        .runOnJS(true)
+        .withTestId('space-long-press')
+        .onStart(() => menuRef.current()),
+    [],
+  );
+  const menu = menuTriggerProps(onMenu);
+  if (Platform.OS === 'web') {
+    return (
+      <Pressable
+        ref={mergeRefs(menu.ref, drop.ref) as never}
+        onPress={onPress}
+        onLongPress={menu.onLongPress}
+        delayLongPress={menu.delayLongPress}
+        accessible={false}
+        style={[style, drop.hover === 'ok' && styles.spaceDropOk]}
+        testID="library-space"
+      >
+        {children}
+      </Pressable>
+    );
+  }
   return (
-    <TouchableOpacity
-      style={styles.uploadButton}
-      onPress={onPress}
-      disabled={loading}
-      activeOpacity={0.8}
-    >
-      <View style={styles.uploadButtonIcon}>
-        {loading ? (
-          <ActivityIndicator color={c.text.secondary} size="small" />
-        ) : (
-          <Ionicons name={icon} size={22} color={c.text.secondary} />
-        )}
+    <GestureDetector gesture={longPress}>
+      <View style={style} collapsable={false} testID="library-space">
+        {children}
       </View>
-      <Text style={styles.uploadButtonLabel}>{label}</Text>
-    </TouchableOpacity>
+    </GestureDetector>
   );
 }
 
-// -------------------------------------------------------------------
-// Styles
-// -------------------------------------------------------------------
+/** The iPhone's drag (the laptop uses the browser's own drag, no provider needed). */
+function DragArea({ children, ...props }: React.ComponentProps<typeof GestureDragProvider>) {
+  return Platform.OS === 'web' ? <>{children}</> : <GestureDragProvider {...props}>{children}</GestureDragProvider>;
+}
+
+/**
+ * A lecture's photo or PDF row (step 3.3): dragged onto a folder, it leaves
+ * its lecture as a library file. Laptop: the browser's drag on the row, a
+ * click opens, a right-click shows the menu. iPhone: tap opens, hold and
+ * release shows the menu, hold and move drags.
+ */
+function MediaDragSource({
+  dragged,
+  style,
+  onOpen,
+  onMenu,
+  children,
+}: {
+  dragged: Extract<Dragged, { kind: 'media' }>;
+  style: React.ComponentProps<typeof View>['style'];
+  onOpen?: () => void;
+  onMenu: (anchor?: Anchor) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useDragSource(dragged);
+  if (Platform.OS !== 'web') {
+    return (
+      <DraggableView dragged={dragged} onOpen={onOpen ?? (() => {})} onMenu={() => onMenu()} style={style} accessibilityLabel={dragged.name}>
+        {children}
+      </DraggableView>
+    );
+  }
+  return (
+    <View ref={ref as never} collapsable={false}>
+      <TouchableOpacity style={style} onPress={onOpen} {...menuTriggerProps(onMenu)} activeOpacity={0.75}>
+        {children}
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  projectColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  headerTitle: {
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.onGradientStrong,
-    flexShrink: 1,
-  },
-
-  // Breadcrumbs
-  breadcrumbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    paddingHorizontal: H_PADDING,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-    gap: 2,
-  },
-  crumbText: {
-    fontSize: Typography.size.xs,
-    color: c.text.onGradient,
-  },
-  crumbTextActive: {
-    color: c.text.onGradientStrong,
-    fontWeight: Typography.weight.medium as '500',
-  },
-  breadcrumbChevron: {
-    marginHorizontal: 2,
-  },
-
   // Scroll
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: H_PADDING,
-    paddingTop: 20,
+    gap: 16,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
+  gridArea: { minHeight: 140 },
+  // Fills the rest of the screen, so there is empty space to right-click or long-press.
+  space: { flexGrow: 1, gap: 16, minHeight: 240, borderRadius: 16, borderWidth: 2, borderColor: 'transparent' },
+  // Files from the Finder over the empty grid: they go into the folder you're in.
+  spaceDropOk: { borderStyle: 'dashed', borderColor: c.accent },
+  lecturePhotos: { gap: 10, marginTop: 8 },
+  lecturePhotosHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
 
   sectionLabel: {
     fontSize: Typography.size.xs,
@@ -1220,90 +1030,6 @@ const makeStyles = (c: ThemeColors) =>
     color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: 12,
-  },
-
-  // Folder grid
-  folderGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_GAP,
-  },
-  folderCard: {
-    width: FOLDER_CARD_WIDTH,
-    backgroundColor: c.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: c.surfaceMuted,
-    padding: 14,
-    gap: 10,
-  },
-  folderIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: c.salmonLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  folderName: {
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.text.primary,
-  },
-
-  // Sessions list
-  sessionsList: {
-    backgroundColor: c.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: c.surfaceMuted,
-    overflow: 'hidden',
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-  },
-  sessionRowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  sessionInfo: { flex: 1, gap: 2 },
-  sessionTitle: {
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.text.primary,
-  },
-  sessionMetaRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    flexWrap: 'wrap' as const,
-  },
-  sessionMeta: {
-    fontSize: Typography.size.xs,
-    color: c.text.secondary,
-  },
-  noteBadge: {
-    backgroundColor: c.success + '22',
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  noteBadgeText: {
-    fontSize: Typography.size.xs,
-    fontWeight: Typography.weight.semibold as '600',
-    color: c.success,
-    letterSpacing: 0.2,
-  },
-  sessionDuration: {
-    fontSize: Typography.size.xs,
-    fontWeight: Typography.weight.medium as '500',
-    color: c.text.secondary,
-    minWidth: 40,
-    textAlign: 'right',
   },
 
   // Empty state
@@ -1325,134 +1051,10 @@ const makeStyles = (c: ThemeColors) =>
     maxWidth: 280,
   },
 
-  // Dual FAB
-  fabContainer: {
-    position: 'absolute',
-    left: H_PADDING,
-    right: H_PADDING,
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: c.black,
-    borderRadius: 100,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  fabSecondary: {
-    backgroundColor: c.white,
-    borderWidth: 1.5,
-    borderColor: c.surfaceMuted,
-    // Its own width (React Native Web reads `flex: 0` as a zero width).
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: 'auto',
-    paddingHorizontal: 18,
-  },
-  fabText: {
-    color: c.white,
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.semibold as '600',
-    letterSpacing: Typography.tracking.wide,
-  },
-  fabSecondaryText: {
-    color: c.text.primary,
-    fontSize: Typography.size.sm,
-    fontWeight: Typography.weight.medium as '500',
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: c.overlay,
-    justifyContent: 'flex-end',
-  },
-  modalKAV: {
-    width: '100%',
-  },
-  modalSheet: {
-    backgroundColor: c.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 28,
-    paddingHorizontal: 24,
-    gap: 14,
-  },
-  modalTitle: {
-    fontSize: Typography.size.xl,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.primary,
-    marginBottom: 4,
-  },
-  modalInput: {
-    backgroundColor: c.surfaceMuted,
-    borderRadius: 100,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    fontSize: Typography.size.base,
-    color: c.text.primary,
-  },
-  createButton: {
-    backgroundColor: c.black,
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
-    minHeight: 54,
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  createButtonText: {
-    color: c.white,
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.semibold as '600',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    fontSize: Typography.size.base,
-    color: c.text.secondary,
-    fontWeight: Typography.weight.medium as '500',
-  },
-
   // Error
   errorText: {
     fontSize: Typography.size.base,
     color: c.error,
-  },
-
-  // Upload action buttons
-  uploadRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  uploadButton: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  uploadButtonIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: c.salmonLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadButtonLabel: {
-    fontSize: Typography.size.xs,
-    color: c.text.onGradient,
-    fontWeight: Typography.weight.medium as '500',
-    textAlign: 'center',
   },
 
   // Project files list

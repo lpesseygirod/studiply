@@ -31,23 +31,23 @@ try {
 
   await step('Library: right-click a course opens its menu at the pointer', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.waitText('Rename', { timeout: 3000, exact: true });
-    expect(await b.hasText('Delete Project', true), 'no Delete Project item');
+    await b.waitText('Rename…', { timeout: 3000, exact: true });
+    expect(await b.hasText('Delete', true), 'no Delete item');
     await b.shot('10-home-course-menu');
   });
 
   await step('Library: Escape closes the menu', async () => {
     await b.press('Escape');
     await b.sleep(300);
-    expect(!(await b.hasText('Delete Project', true)), 'menu still open');
+    expect(!(await b.hasText('Rename…', true)), 'menu still open');
   });
 
   await step('Library: Rename a course through the prompt', async () => {
     await b.click('Math', { button: 'right', ...MAIN });
-    await b.click('Rename');
-    await b.waitText('Rename Project');
+    await b.click('Rename…');
+    await b.waitText('Rename Course');
     await b.shot('11-home-rename-prompt');
-    await b.fill('input[placeholder="Project name"]', 'Algebra');
+    await b.fill('input[placeholder="Course name"]', 'Algebra');
     await b.click('Save');
     await b.waitText('Algebra', { timeout: 5000, exact: true, ...MAIN });
     const { data: row } = await admin.from('courses').select('name').eq('id', data.course.id).single();
@@ -59,13 +59,13 @@ try {
 
   await step('Library: long-press (mouse hold) also opens the menu', async () => {
     await b.click('Science', { holdMs: 800, ...MAIN });
-    await b.waitText('Delete Project', { timeout: 3000, exact: true });
+    await b.waitText('Rename…', { timeout: 3000, exact: true });
     await b.press('Escape');
   });
 
   await step('Library: Delete a lecture asks first, Cancel keeps it', async () => {
     await b.click('Lecture 1', { button: 'right' });
-    await b.click('Delete Session');
+    await b.click('Delete');
     await b.waitText('will be moved to Recently Deleted');
     await b.shot('12-home-delete-confirm');
     await b.click('Cancel');
@@ -78,7 +78,7 @@ try {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true, ...MAIN });
     await b.click('Science', { button: 'right', ...MAIN });
-    await b.click('Delete Project');
+    await b.click('Delete');
     await b.waitText('will be moved to Recently Deleted');
     await b.click('Delete', { exact: true });
     await b.sleep(800);
@@ -116,12 +116,12 @@ try {
     await b.waitText('Lecture 1', { exact: true, ...MAIN });
     await b.click('Lecture 1', { button: 'right', ...MAIN });
     await b.waitText('Move to…', { exact: true });
-    expect(await b.hasText('Export as PDF', true), 'no Export as PDF');
+    expect(await b.hasText('Export PDF', true), 'no Export PDF');
     await b.press('Escape');
   });
 
   await step('Post-session: Library button leaves to the library', async () => {
-    await b.click('Lecture 1', { ...MAIN });
+    await b.doubleClick('Lecture 1', { ...MAIN }); // on the web a click selects, a double-click opens (step 3.2)
     await b.waitText('Post-Session');
     await b.shot('16-post-session');
     await b.click('Library', { exact: true });
@@ -186,11 +186,11 @@ try {
     expect(count >= 3, `lectures ${count}`);
   });
 
-  await step('Recently Deleted: restore and empty trash through dialogs', async () => {
+  await step('Recently Deleted: Empty asks first; Restore puts it back', async () => {
     await b.nav(BASE);
     await b.waitText('Lecture 1', { exact: true });
     await b.click('Lecture 1', { button: 'right' });
-    await b.click('Delete Session');
+    await b.click('Delete');
     await b.click('Delete', { exact: true });
     await b.sleep(800);
     await b.nav(`${BASE}/settings/trash`);
@@ -200,18 +200,22 @@ try {
     await b.waitText('cannot be recovered', { exact: false, timeout: 3000 }).catch(() => {});
     await b.shot('23-empty-confirm');
     await b.click('Cancel');
+    await b.clickSelector('[aria-label="Restore Lecture 1"]');
+    await b.waitText("Restored 'Lecture 1' to Algebra", { timeout: 5000 }); // Math was renamed above
+    const { data: back } = await admin.from('files').select('deleted_at').eq('user_id', user.id).eq('title', 'Lecture 1').single();
+    expect(back.deleted_at === null, 'Lecture 1 was not restored');
   });
 
-  await step('Settings: AI usage banner (no provider keys or pings)', async () => {
-    await b.nav(`${BASE}/settings`);
-    await b.waitText('AI today:', { timeout: 15000 });
+  await step('AI & privacy: usage without provider keys or pings', async () => {
+    await b.nav(`${BASE}/settings/ai-privacy`);
+    await b.waitText('AI USAGE TODAY', { timeout: 15000 });
     expect(!(await b.hasText('piggy', false)) && !(await b.hasText('API keys', false)), 'old key/credit text still shown');
     await b.sleep(2500); // splash after the reload
     await b.shot('24-settings-banner');
   });
 
-  await step('Manage Account: usage today against the daily limits', async () => {
-    await b.nav(`${BASE}/settings/account`);
+  await step('AI & privacy: usage today against the daily limits', async () => {
+    await b.nav(`${BASE}/settings/ai-privacy`);
     await b.waitText('AI USAGE TODAY', { timeout: 15000 });
     expect(await b.hasText('of 6 h'), 'no transcription allowance');
     expect(await b.hasText('of $3'), 'no Claude allowance');
@@ -220,16 +224,17 @@ try {
     await b.shot('25-account-usage');
   });
 
-  await step('General: settings saved on this device, language in the profile', async () => {
-    await b.nav(`${BASE}/settings/general`);
+  await step('Summaries and Recording: settings saved on this device, language in the profile', async () => {
+    await b.nav(`${BASE}/settings/summaries`);
     await b.waitText('Default summary level');
     await b.click('Detailed', { exact: true });
     await b.sleep(800);
+    await b.click('Recording', { exact: true });
     await b.click('Default transcription language');
     await b.click('French', { exact: true });
     await b.sleep(1000);
-    await b.nav(`${BASE}/settings/general`);
-    await b.waitText('Default summary level');
+    await b.nav(`${BASE}/settings/recording`);
+    await b.waitText('Default transcription language');
     const stored = await b.evaluate(`localStorage.getItem('studiply.settings.${user.id}')`);
     expect(stored && JSON.parse(stored).default_summary_level === 'extra', `stored: ${stored}`);
     expect(await b.hasText('French', true), 'language not shown after reload');
@@ -237,17 +242,18 @@ try {
     expect(profile.default_language === 'fr', `profile language ${profile.default_language}`);
   });
 
-  await step('Security: says the data is in the cloud account, AI only after consent', async () => {
-    await b.nav(`${BASE}/settings/security`);
+  await step('Account and AI & privacy: the data is in the cloud account, AI only after consent', async () => {
+    await b.nav(`${BASE}/settings/account`);
     await b.waitText('stored in your Studiply account in the cloud', { timeout: 15000 });
-    expect(await b.hasText('only after you allow it'), 'no consent sentence');
     expect(!(await b.hasText('stored on this device')), 'old text still shown');
+    await b.click('AI & privacy', { exact: true });
+    await b.waitText('only after you allow it', { timeout: 5000 });
   });
 
-  await step('Record lecture (top bar) starts fresh after leaving the flow', async () => {
+  await step('Record (top bar) starts fresh after leaving the flow', async () => {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true, ...MAIN });
-    await b.click('Record lecture', { exact: true });
+    await b.click('Record', { exact: true });
     await b.sleep(1200);
     expect(await b.hasText('New Recording'), 'record tab did not show the setup screen');
   });

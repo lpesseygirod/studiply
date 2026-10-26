@@ -11,6 +11,11 @@
  *    file + lecture, note → summaries (legacy-note-v1), transcript →
  *    transcript_segments (ms), audio → audio_chunks (20-minute chunks),
  *    photo / PDF → media.
+ *  - The old "Project Files" session (a course's own uploads, no recording,
+ *    transcript or notes) becomes no lecture: each of its photos and PDFs
+ *    becomes a library file in that course and folder (step 3.4), with the
+ *    photo's id as the file's id too, so a second upload still adds nothing.
+ *    "Photo N.jpg" (photos are stored as JPEG) or the PDF's own name.
  *  - Every section of an old note counts as written by the student
  *    (origin 'student'): the old app didn't record who wrote what, and
  *    regeneration must never overwrite what the student typed.
@@ -24,6 +29,7 @@ import { LEGACY_NOTE_FORMAT, languageToDb, statusToDb, type LegacyNoteResult, ty
 import { NOTE_BLOCKS } from '../../lib/noteBlocks';
 import type { Json } from '../../types/supabase';
 import type { Session } from '../../types/database';
+import { nameWithoutExtension, withExtension } from '../../utils/fileNames';
 
 // ── The old rows, as stored in studiply.db (src/lib/db.ts) ───────────────
 
@@ -84,7 +90,10 @@ export interface AudioItem {
 
 export interface MediaItem {
   id: string;
-  lectureId: string;
+  /** The lecture it belongs to; null for an old course upload, which became a library file. */
+  lectureId: string | null;
+  /** That library file (step 3.4); null for a lecture's photo or PDF. */
+  fileId: string | null;
   kind: 'photo' | 'slides';
   caption: string | null;
   sizeBytes: number | null;
@@ -187,11 +196,24 @@ function fileName(path: string): string | null {
  * The plan for the chosen profiles. `now` decides which old trash is too
  * old (more than 30 days) to bring along.
  */
+/** The old app's hidden session holding a course's own uploads. */
+const PROJECT_FILES_TITLE = 'Project Files';
+
+/** A session made only to hold uploads: its title, and none of a real lecture's data. */
+function uploadsHolder(snapshot: LegacySnapshot) {
+  return (s: OldSession): boolean =>
+    s.title === PROJECT_FILES_TITLE &&
+    !snapshot.sourceFiles.some((f) => f.session_id === s.id && f.file_type === 'audio') &&
+    !snapshot.transcripts.some((t) => t.session_id === s.id) &&
+    !snapshot.notes.some((n) => n.session_id === s.id);
+}
+
 export function planImport(snapshot: LegacySnapshot, opts: { profileIds: string[]; now: Date }): ImportPlan {
   const chosen = new Set(opts.profileIds);
   const cutoff = new Date(opts.now.getTime() - TRASH_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const tooOld = (deletedAt: string | null) => deletedAt !== null && new Date(deletedAt).toISOString() < cutoff;
   const skipped = { oldTrash: 0, deletedNotes: 0 };
+  const isUploadsHolder = uploadsHolder(snapshot);
 
   const projects = new Map(snapshot.projects.filter((p) => chosen.has(p.user_id)).map((p) => [p.id, p]));
   const folders = new Map(snapshot.folders.filter((f) => chosen.has(f.user_id)).map((f) => [f.id, f]));
@@ -262,6 +284,29 @@ export function planImport(snapshot: LegacySnapshot, opts: { profileIds: string[
       skipped.oldTrash++;
       continue;
     }
+    // The course's own uploads: library files, no lecture (step 3.4).
+    if (isUploadsHolder(s)) {
+      const uploads = snapshot.sourceFiles
+        .filter((f) => f.session_id === s.id && (f.file_type === 'photo' || f.file_type === 'pdf') && f.is_deleted === 0)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+      const counts = { photo: 0, pdf: 0 };
+      for (const m of uploads) {
+        const isPhoto = m.file_type === 'photo';
+        const n = ++counts[isPhoto ? 'photo' : 'pdf'];
+        const own = isPhoto ? null : fileName(m.storage_path ?? m.file_path);
+        const title = withExtension(nameWithoutExtension(own ?? '').trim() || `${isPhoto ? 'Photo' : 'Document'} ${n}`, isPhoto ? 'jpg' : 'pdf');
+        plan.files.push({
+          id: m.id, kind: isPhoto ? 'image' : 'pdf', title, course_id: inProject ? s.project_id : null,
+          folder_id: inFolder ? s.folder_id : null, deleted_at: deletedAt, created_at: m.created_at, updated_at: m.created_at,
+        });
+        plan.media.push({
+          id: m.id, lectureId: null, fileId: m.id, kind: isPhoto ? 'photo' : 'slides', caption: title,
+          sizeBytes: m.file_size_bytes, createdAt: m.created_at,
+          file: { storagePath: m.storage_path, filePath: m.file_path },
+        });
+      }
+      continue;
+    }
     keptSessions.set(s.id, s);
 
     const audio = snapshot.sourceFiles
@@ -300,7 +345,7 @@ export function planImport(snapshot: LegacySnapshot, opts: { profileIds: string[
 
     for (const m of snapshot.sourceFiles.filter((f) => f.session_id === s.id && (f.file_type === 'photo' || f.file_type === 'pdf') && f.is_deleted === 0)) {
       plan.media.push({
-        id: m.id, lectureId: s.id, kind: m.file_type === 'photo' ? 'photo' : 'slides',
+        id: m.id, lectureId: s.id, fileId: null, kind: m.file_type === 'photo' ? 'photo' : 'slides',
         caption: m.file_type === 'pdf' ? fileName(m.storage_path ?? m.file_path) : null,
         sizeBytes: m.file_size_bytes, createdAt: m.created_at,
         file: { storagePath: m.storage_path, filePath: m.file_path },
@@ -326,9 +371,6 @@ export function planImport(snapshot: LegacySnapshot, opts: { profileIds: string[
 
 // ── What the screen shows per profile, to choose ─────────────────────────
 
-/** The hidden lecture holding a course's own uploads (not counted as a lecture). */
-const PROJECT_FILES_TITLE = 'Project Files';
-
 export interface ProfileSummary {
   id: string;
   name: string;
@@ -350,7 +392,7 @@ export interface ProfileSummary {
 export function summarizeProfiles(snapshot: LegacySnapshot, now: Date): ProfileSummary[] {
   return snapshot.profiles.map((p) => {
     const plan = planImport(snapshot, { profileIds: [p.id], now });
-    const lectures = plan.files.filter((f) => f.title !== PROJECT_FILES_TITLE);
+    const lectures = plan.files.filter((f) => f.kind === 'lecture');
     return {
       id: p.id,
       name: p.display_name || p.username || 'Unnamed profile',

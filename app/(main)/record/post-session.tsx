@@ -32,6 +32,7 @@ import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { starButton } from '../../../src/utils/star';
 import { getUserSettings } from '../../../src/services/settings.service';
+import { markOpened } from '../../../src/services/shelf.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
@@ -127,7 +128,12 @@ export default function PostSessionScreen() {
     loadData();
   }, [loadData]);
 
-  // "Move to another lecture…" / "Save to library…" for photos and PDFs, with Undo.
+  // Opening puts it at the top of Recent (its "Date edited" stays).
+  useEffect(() => {
+    if (sessionId) markOpened(sessionId);
+  }, [sessionId]);
+
+  // "Move to…" / "Save a copy to library…" for photos and PDFs, with Undo.
   const { showUndo, toast: undoToast } = useUndoToast();
   const move = useMoveFlow({ showUndo, onChanged: loadData });
 
@@ -245,8 +251,8 @@ export default function PostSessionScreen() {
     const name = fileLabel(file, sourceFiles);
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
-      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
-      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Move to…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save a copy to library…', onPress: () => move.openSaveToLibrary(file, name) },
       starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
         setSourceFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
       ),

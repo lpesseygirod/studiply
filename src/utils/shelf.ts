@@ -30,17 +30,25 @@ export interface ShelfItem {
   /** The course's color (a course: its own). */
   color?: string;
   updatedAt: string;
+  /** A file: when it was last opened (Recent = opened or edited). */
+  openedAt?: string | null;
   starredAt: string | null;
   /** Lectures (and a lecture's photos/PDFs: their lecture's status). */
   status?: Session['status'];
   /** A lecture's photo or PDF: the lecture it opens. */
   lectureId?: string;
   lectureTitle?: string;
+  /** A folder: how many subfolders and files it holds directly. */
+  childCount?: number;
+  /** A lecture: its recording's length. */
+  durationSeconds?: number | null;
+  /** A PDF or photo added on this iPhone and not uploaded yet. */
+  pending?: boolean;
 }
 
 export type CourseInfo = Pick<CourseRow, 'id' | 'name' | 'color'>;
 
-function fileKind(kind: string): FileKind {
+export function fileKind(kind: string): FileKind {
   return (FILE_KINDS.includes(kind) ? kind : 'document') as FileKind;
 }
 
@@ -96,8 +104,12 @@ export function fileShelfItem(row: FileRow, lecture: LectureRow | null, course?:
     courseName: course?.name,
     color: course?.color,
     updatedAt: row.updated_at,
+    openedAt: row.last_opened_at ?? null,
     starredAt: row.starred_at,
-    ...(type === 'lecture' && { status: statusFromDb(lecture?.status ?? 'draft') }),
+    ...(type === 'lecture' && {
+      status: statusFromDb(lecture?.status ?? 'draft'),
+      durationSeconds: lecture?.duration_ms == null ? null : Math.round(lecture.duration_ms / 1000),
+    }),
   };
 }
 
@@ -148,8 +160,13 @@ export function withCourses(items: ShelfItem[], courses: CourseInfo[]): ShelfIte
 }
 
 /** Newest change first. */
+/** When it was last opened or edited, whichever is later. */
+export function recentAt(item: Pick<ShelfItem, 'updatedAt' | 'openedAt'>): string {
+  return item.openedAt && item.openedAt > item.updatedAt ? item.openedAt : item.updatedAt;
+}
+
 export function byRecent(a: ShelfItem, b: ShelfItem): number {
-  return b.updatedAt.localeCompare(a.updatedAt);
+  return recentAt(b).localeCompare(recentAt(a));
 }
 
 /** Newest star first. */

@@ -25,12 +25,19 @@ import {
   reportReachable,
 } from './connectivity';
 import { secureStorage } from './secureStorage';
-import { resolveSupabaseUrl } from './supabaseUrl';
+import { pickSupabaseEnv, resolveSupabaseUrl } from './supabaseUrl';
 import type { Database } from '../types/supabase';
 
-const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+// Read one by one: Expo replaces each `process.env.EXPO_PUBLIC_…` it sees.
+const picked = pickSupabaseEnv({
+  url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  remoteUrl: process.env.EXPO_PUBLIC_REMOTE_SUPABASE_URL,
+  remoteAnonKey: process.env.EXPO_PUBLIC_REMOTE_SUPABASE_ANON_KEY,
+});
+const envUrl = picked.url;
 /** Public by design (RLS protects the data); also sent by uploads in cloud-storage.service. */
-export const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+export const anonKey = picked.anonKey;
 
 if (!envUrl || !anonKey) {
   console.warn(

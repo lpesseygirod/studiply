@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
+  type LayoutChangeEvent,
   Platform,
   ScrollView,
   StyleSheet,
@@ -44,6 +45,10 @@ import { getProject } from '../../../src/services/project.service';
 import { formatFileSize } from '../../../src/utils/file-size';
 import { exportNoteToPDF } from '../../../src/services/export.service';
 import { trashSession } from '../../../src/services/trash.service';
+import { markOpened } from '../../../src/services/shelf.service';
+import FoundText from '../../../src/components/FoundText';
+import { findInNote, type NoteFindSection } from '../../../src/utils/searchHit';
+import { formatHitTime, matches } from '../../../src/utils/searchText';
 import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
@@ -120,7 +125,9 @@ export default function NoteDetailScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // Opened from Search: `find` is the word to mark, `at` a transcript hit's time (ms).
+  const params = useLocalSearchParams<{ id: string; find?: string; at?: string }>();
+  const { id } = params;
   // `session` below is the lecture session; this one is the signed-in profile.
 
   // --- Core data ---
@@ -218,6 +225,72 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Opening puts it at the top of Recent (its "Date edited" stays).
+  useEffect(() => {
+    if (id) markOpened(id);
+  }, [id]);
+
+  // ── Opened from Search: mark the word and scroll to its first place ──
+  const find = !isEditing && typeof params.find === 'string' ? params.find : '';
+  const findAt = typeof params.at === 'string' && params.at !== '' ? Number(params.at) : null;
+  const transcriptLines = useMemo(
+    () =>
+      Array.isArray(transcript?.segments)
+        ? (transcript.segments as unknown as { start: number; text: string }[]).filter(
+            s => typeof s?.start === 'number' && typeof s?.text === 'string',
+          )
+        : [],
+    [transcript],
+  );
+  const findTarget = useMemo(
+    () =>
+      find && note
+        ? findInNote(
+            {
+              summary: note.summary,
+              concepts: (note.key_concepts as unknown as KC[]) ?? [],
+              formulas: (note.formulas as unknown as F[]) ?? [],
+              definitions: (note.definitions as unknown as D[]) ?? [],
+              segments: transcriptLines,
+            },
+            find,
+            findAt,
+          )
+        : null,
+    [find, findAt, note, transcriptLines],
+  );
+  const transcriptHasFind = !!find && transcriptLines.some(s => matches(s.text, find));
+  const scrollRef = useRef<ScrollView>(null);
+  // Where each part is: its card in the scroll view; the transcript's lines inside their card.
+  const sectionY = useRef<Partial<Record<NoteFindSection, number>>>({});
+  const linesY = useRef<{ list?: number; line?: number }>({});
+  const scrolledFor = useRef<string | null>(null);
+  const findKey = `${id}|${find}|${findAt}`;
+
+  const scrollToFind = useCallback(() => {
+    if (!findTarget || scrolledFor.current === findKey) return;
+    const card = sectionY.current[findTarget.section];
+    if (card === undefined) return;
+    let y = card;
+    if (findTarget.segment !== null) {
+      const { list, line } = linesY.current;
+      if (list === undefined || line === undefined) return;
+      y += list + line;
+    }
+    scrolledFor.current = findKey;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+  }, [findTarget, findKey]);
+
+  const onSectionLayout = (section: NoteFindSection) => (e: LayoutChangeEvent) => {
+    sectionY.current[section] = e.nativeEvent.layout.y;
+    scrollToFind();
+  };
+
+  // The word is in the transcript: open it, line by line.
+  useEffect(() => {
+    if (transcriptHasFind) setTranscriptExpanded(true);
+  }, [transcriptHasFind]);
 
   // A synced edit, or a newer version downloaded from another device.
   useLibraryUpdates(load);
@@ -424,8 +497,8 @@ export default function NoteDetailScreen() {
     const name = fileLabel(file, sourceFiles);
     showActionSheet(name, [
       { text: 'Rename…', onPress: () => renameFile(file) },
-      { text: 'Move to another lecture…', onPress: () => move.openMoveMedia(file, name) },
-      { text: 'Save to library…', onPress: () => move.openSaveToLibrary(file, name) },
+      { text: 'Move to…', onPress: () => move.openMoveMedia(file, name) },
+      { text: 'Save a copy to library…', onPress: () => move.openSaveToLibrary(file, name) },
       starButton({ type: 'media', id: file.id }, name, file.starred_at ?? null, showUndo, starred_at =>
         setSourceFiles(prev => prev.map(f => (f.id === file.id ? { ...f, starred_at } : f))),
       ),
@@ -579,6 +652,7 @@ export default function NoteDetailScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -660,7 +734,7 @@ export default function NoteDetailScreen() {
 
           {/* ── Summary ───────────────────────────────────────── */}
           {(!!note.summary || isEditing) && (
-            <View style={styles.card}>
+            <View style={styles.card} onLayout={onSectionLayout('summary')}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
                 {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Summary
@@ -684,6 +758,7 @@ export default function NoteDetailScreen() {
                   )}
                   <HighlightableText
                     text={note.summary ?? ''}
+                    find={find}
                     highlightedIndices={highlightedSentences}
                     onToggleHighlight={handleToggleHighlight}
                     editable={!isClarifying}
@@ -742,7 +817,7 @@ export default function NoteDetailScreen() {
 
           {/* ── Key Concepts ──────────────────────────────────── */}
           {(viewConcepts.length > 0 || isEditing) && (
-            <View style={styles.card}>
+            <View style={styles.card} onLayout={onSectionLayout('concepts')}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
                 {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Key Concepts
@@ -766,8 +841,8 @@ export default function NoteDetailScreen() {
               {!isEditing &&
                 viewConcepts.map((kc, i) => (
                   <View key={i} style={styles.conceptDetail}>
-                    <Text style={styles.conceptTerm}>{kc.term}</Text>
-                    <Text style={styles.conceptExplanation}>{kc.explanation}</Text>
+                    <Text style={styles.conceptTerm}><FoundText text={kc.term} find={find} /></Text>
+                    <Text style={styles.conceptExplanation}><FoundText text={kc.explanation} find={find} /></Text>
                   </View>
                 ))}
 
@@ -864,7 +939,7 @@ export default function NoteDetailScreen() {
 
           {/* ── Formulas ──────────────────────────────────────── */}
           {(viewFormulas.length > 0 || isEditing) && (
-            <View style={styles.card}>
+            <View style={styles.card} onLayout={onSectionLayout('formulas')}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
                 {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Formulas
@@ -872,7 +947,7 @@ export default function NoteDetailScreen() {
               {(isEditing ? draftFormulas : viewFormulas).map((f, i) => (
                 <View key={i} style={styles.formulaItem}>
                   <View style={styles.formulaHeader}>
-                    <Text style={styles.formulaName}>{f.name}</Text>
+                    <Text style={styles.formulaName}><FoundText text={f.name} find={find} /></Text>
                     {isEditing && (
                       <IconButton icon="close-circle-outline" label="Remove formula" compact onPress={() =>
                           setDraftFormulas(prev => prev.filter((_, idx) => idx !== i))
@@ -880,10 +955,10 @@ export default function NoteDetailScreen() {
                     )}
                   </View>
                   <View style={styles.formulaBox}>
-                    <Text style={styles.formulaExpression}>{f.expression}</Text>
+                    <Text style={styles.formulaExpression}><FoundText text={f.expression} find={find} /></Text>
                   </View>
                   {!!f.description && (
-                    <Text style={styles.formulaDesc}>{f.description}</Text>
+                    <Text style={styles.formulaDesc}><FoundText text={f.description} find={find} /></Text>
                   )}
                 </View>
               ))}
@@ -934,7 +1009,7 @@ export default function NoteDetailScreen() {
 
           {/* ── Definitions ───────────────────────────────────── */}
           {(viewDefinitions.length > 0 || isEditing) && (
-            <View style={styles.card}>
+            <View style={styles.card} onLayout={onSectionLayout('definitions')}>
               <Text style={[styles.sectionTitle, isEditing && styles.editSectionTitle]}>
                 {isEditing && <Ionicons name="pencil-outline" size={13} color={c.salmon} />}
                 {'  '}Definitions
@@ -979,8 +1054,8 @@ export default function NoteDetailScreen() {
                     </>
                   ) : (
                     <>
-                      <Text style={styles.definitionTerm}>{d.term}</Text>
-                      <Text style={styles.definitionBody}>{d.definition}</Text>
+                      <Text style={styles.definitionTerm}><FoundText text={d.term} find={find} /></Text>
+                      <Text style={styles.definitionBody}><FoundText text={d.definition} find={find} /></Text>
                     </>
                   )}
                 </View>
@@ -1084,7 +1159,7 @@ export default function NoteDetailScreen() {
 
           {/* ── Full Transcript ───────────────────────────────── */}
           {transcript && (
-            <View style={styles.card}>
+            <View style={styles.card} onLayout={onSectionLayout('transcript')}>
               <TouchableOpacity
                 style={styles.transcriptToggle}
                 onPress={() => setTranscriptExpanded(v => !v)}
@@ -1096,9 +1171,38 @@ export default function NoteDetailScreen() {
                   {transcriptExpanded ? 'Hide' : 'Show'}
                 </Text>
               </TouchableOpacity>
-              {transcriptExpanded && (
-                <Text style={styles.transcriptText}>{transcript.full_text}</Text>
-              )}
+              {transcriptExpanded &&
+                (transcriptHasFind ? (
+                  // Opened from Search: line by line with times, so it can scroll to the line.
+                  <View
+                    onLayout={e => {
+                      linesY.current.list = e.nativeEvent.layout.y;
+                      scrollToFind();
+                    }}
+                  >
+                    {transcriptLines.map((line, i) => (
+                      <View
+                        key={i}
+                        style={styles.transcriptLine}
+                        onLayout={
+                          i === findTarget?.segment
+                            ? e => {
+                                linesY.current.line = e.nativeEvent.layout.y;
+                                scrollToFind();
+                              }
+                            : undefined
+                        }
+                      >
+                        <Text style={styles.transcriptTime}>{formatHitTime(line.start * 1000)}</Text>
+                        <Text style={[styles.transcriptText, styles.transcriptLineText]}>
+                          <FoundText text={line.text.trim()} find={find} />
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.transcriptText}>{transcript.full_text}</Text>
+                ))}
             </View>
           )}
 
@@ -1540,6 +1644,22 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: Typography.size.sm,
     color: c.text.secondary,
     fontWeight: Typography.weight.medium,
+  },
+  transcriptLine: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 6,
+  },
+  transcriptTime: {
+    width: 44,
+    fontSize: Typography.size.xs,
+    fontWeight: Typography.weight.medium,
+    color: c.text.secondary,
+    fontVariant: ['tabular-nums'],
+    paddingTop: 2,
+  },
+  transcriptLineText: {
+    flex: 1,
   },
   transcriptText: {
     fontSize: Typography.size.xs,

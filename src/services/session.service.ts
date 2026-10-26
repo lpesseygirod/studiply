@@ -35,8 +35,9 @@ import {
   SyncHttpError,
 } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
-import { inLectureScope, latestNote, lectureTitled, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
+import { inLectureScope, latestNote, lecturesIn, withLectures, type LectureScope } from '../lib/cache/localQueries';
 import type { Json } from '../types/supabase';
+import { cleanName, MAX_NAME_LENGTH } from '../utils/names';
 import type { Note, Session } from '../types/database';
 import { getNoteBySession, updateNote } from './note.service';
 
@@ -53,7 +54,8 @@ import { getNoteBySession, updateNote } from './note.service';
  */
 
 const LECTURE_SELECT = '*, lectures(*)';
-const PROJECT_FILES_TITLE = 'Project Files';
+/** The hidden lecture a course's uploaded photos and PDFs hang off (not shown in the library). */
+export const PROJECT_FILES_TITLE = 'Project Files';
 
 function toSessions(rows: unknown[]): Session[] {
   return (rows as LectureFileRow[]).map((row) => lectureToSession(row));
@@ -537,47 +539,6 @@ export async function moveSession(
 }
 
 // -------------------------------------------------------------------
-// getOrCreateProjectUploadSession
-// Returns (or creates) a dedicated 'completed' lecture used to hold
-// files uploaded directly to a project, not tied to any recording.
-// -------------------------------------------------------------------
-export async function getOrCreateProjectUploadSession(
-  _userId: string,
-  projectId: string,
-): Promise<Session> {
-  const existing = await readThrough(
-    async () => {
-      const { data, error } = await supabase
-        .from('files')
-        .select(LECTURE_SELECT)
-        .eq('kind', 'lecture')
-        .eq('course_id', projectId)
-        .eq('title', PROJECT_FILES_TITLE)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: true })
-        .limit(1);
-      if (error) throw serviceError(error, 'Could not prepare the project files.');
-      rememberLectureFiles(data as LectureFileRow[]);
-      return (data[0] as LectureFileRow | undefined) ?? null;
-    },
-    async () => {
-      const { files, lectures } = await cachedLectures();
-      return lectureTitled(files, lectures, projectId, PROJECT_FILES_TITLE);
-    },
-  );
-  if (existing) return toSessions([existing])[0];
-
-  const session = await createSession({
-    userId: _userId,
-    title: PROJECT_FILES_TITLE,
-    projectId,
-    recordingMode: 'standard',
-    language: 'en',
-  });
-  return updateSession(session.id, { status: 'completed' });
-}
-
-// -------------------------------------------------------------------
 // getRecentSessions
 // -------------------------------------------------------------------
 export async function getRecentSessions(_userId: string, limit = 10): Promise<Session[]> {
@@ -615,7 +576,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 // still fails the file's old title is put back; if even that fails, the
 // student is told exactly which title is where. Online only.
 // -------------------------------------------------------------------
-export const MAX_TITLE_LENGTH = 200;
+export const MAX_TITLE_LENGTH = MAX_NAME_LENGTH;
 
 /** Both titles couldn't be brought in line; the message says what is where. */
 export class RenameIncompleteError extends Error {
@@ -627,10 +588,7 @@ export class RenameIncompleteError extends Error {
 
 /** The title to store, or an error the student can act on. */
 export function cleanTitle(title: string): string {
-  const next = title.trim().replace(/\s+/g, ' ');
-  if (!next) throw new Error('Enter a name.');
-  if (next.length > MAX_TITLE_LENGTH) throw new Error(`Use at most ${MAX_TITLE_LENGTH} characters.`);
-  return next;
+  return cleanName(title);
 }
 
 export interface RenameDeps {

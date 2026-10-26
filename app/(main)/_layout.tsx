@@ -10,6 +10,7 @@ import { Typography } from '../../src/constants/typography';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
+import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
 import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
 import { Sidebar } from '../../src/components/shell/Sidebar';
@@ -17,6 +18,7 @@ import { TopBar } from '../../src/components/shell/TopBar';
 import { screenKindFor, useLayoutMode } from '../../src/hooks/useLayoutMode';
 import { useLayoutPrefs } from '../../src/lib/layoutPrefs';
 import { useUndoToast } from '../../src/hooks/useUndoToast';
+import { AppUndoProvider } from '../../src/hooks/useAppUndo';
 import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../../src/navigation/mainTabs';
 
 // The bar's own height, above the home indicator (React Navigation's default).
@@ -88,7 +90,8 @@ export default function MainLayout() {
   const wide = useLayoutMode() === 'wide';
   const kind = screenKindFor(pathname);
   const [prefs, setPrefs] = useLayoutPrefs();
-  // The sidebar's menus (Favorites) show their Undo over the whole window.
+  // The app's Undo toast: the sidebar's actions, and screens whose actions
+  // leave them (the course screen's title menu) show their Undo here.
   const { showUndo, toast } = useUndoToast();
   const isFullScreen = isFullScreenRoute(pathname);
 
@@ -97,61 +100,69 @@ export default function MainLayout() {
 
   return (
     <ShellProvider>
-      <View style={styles.root}>
-        {wide && (
-          <TopBar
-            kind={kind}
-            sidebarOpen={prefs.sidebarOpen}
-            assistantOpen={prefs.assistantOpen}
-            onToggleSidebar={() => setPrefs({ sidebarOpen: !prefs.sidebarOpen })}
-            onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
-          />
-        )}
-        {/* The recording strip goes here (Phase 5). */}
-        <View style={styles.row}>
-          {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
-          <View style={styles.center}>
-            {wide && <GradientFill />}
-            <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
-              <Tabs
-                screenOptions={{
-                  headerShown: false,
-                  // No white flash between screens in dark mode
-                  sceneStyle: { backgroundColor: c.gradient.top },
-                  tabBarActiveTintColor: c.accentDark,
-                  tabBarInactiveTintColor: c.text.secondary,
-                  tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
-                }}
+      <AppUndoProvider value={showUndo}>
+        <View style={styles.root}>
+          {wide && (
+            <TopBar
+              kind={kind}
+              sidebarOpen={prefs.sidebarOpen}
+              assistantOpen={prefs.assistantOpen}
+              onToggleSidebar={() => setPrefs({ sidebarOpen: !prefs.sidebarOpen })}
+              onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
+            />
+          )}
+          {/* The recording strip goes here (Phase 5). */}
+          <View style={styles.row}>
+            {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
+            <View style={styles.center}>
+              {wide && <GradientFill />}
+              <View
+                style={[
+                  styles.centerColumn,
+                  wide && kind !== 'library' && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
+                ]}
               >
-                {MAIN_TABS.map(tab => (
-                  <Tabs.Screen
-                    key={tab.name}
-                    name={tab.name}
-                    options={{
-                      title: tab.label,
-                      tabBarAccessibilityLabel: tab.label,
-                    tabBarLabel: TabLabel,
-                      tabBarIcon: tabIcon(tab),
-                      // expo-router refuses href together with a custom button; /record is the default anyway.
-                      ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
-                    }}
-                  />
-                ))}
+                <Tabs
+                  screenOptions={{
+                    headerShown: false,
+                    // No white flash between screens in dark mode
+                    sceneStyle: { backgroundColor: c.gradient.top },
+                    tabBarActiveTintColor: c.accentDark,
+                    tabBarInactiveTintColor: c.text.secondary,
+                    tabBarStyle: wide || isFullScreen ? { display: 'none' } : styles.tabBar,
+                  }}
+                >
+                  {MAIN_TABS.map(tab => (
+                    <Tabs.Screen
+                      key={tab.name}
+                      name={tab.name}
+                      options={{
+                        title: tab.label,
+                        tabBarAccessibilityLabel: tab.label,
+                      tabBarLabel: TabLabel,
+                        tabBarIcon: tabIcon(tab),
+                        // expo-router refuses href together with a custom button; /record is the default anyway.
+                        ...(tab.href === '/record' ? { tabBarButton: RecordTabButton } : { href: tab.href }),
+                      }}
+                    />
+                  ))}
 
-                {/* Navigable but without a tab */}
-                {HIDDEN_ROUTES.map(name => (
-                  <Tabs.Screen key={name} name={name} options={{ href: null }} />
-                ))}
-              </Tabs>
+                  {/* Navigable but without a tab */}
+                  {HIDDEN_ROUTES.map(name => (
+                    <Tabs.Screen key={name} name={name} options={{ href: null }} />
+                  ))}
+                </Tabs>
+              </View>
+              {wide && <OfflineBanner bottom={16} />}
             </View>
-            {wide && <OfflineBanner bottom={16} />}
+            {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
           </View>
-          {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
+          {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
+          {toast}
+          {Platform.OS === 'web' && <KeyboardShortcuts />}
+          {__DEV__ && <DragDebugOverlay />}
         </View>
-        {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
-        {wide && toast}
-        {Platform.OS === 'web' && <KeyboardShortcuts />}
-      </View>
+      </AppUndoProvider>
     </ShellProvider>
   );
 }
@@ -172,6 +183,8 @@ const makeStyles = (c: ThemeColors) =>
   centerColumn: { flex: 1, width: '100%', alignSelf: 'center' },
   // Documents and settings: a centered column on the gradient (the page is 820 px).
   centerColumnNarrow: { maxWidth: Layout.documentMaxWidth + 48 },
+  // Settings: the section menu beside the page (docs/design desktop-05).
+  centerColumnSettings: { maxWidth: Layout.settingsMaxWidth + 48 },
   tabBar: {
     backgroundColor: c.white,
     borderTopColor: c.surfaceMuted,

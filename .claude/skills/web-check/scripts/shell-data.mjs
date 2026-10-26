@@ -151,9 +151,9 @@ try {
     await b.waitText('Funcions', { exact: true, timeout: 5000, ...MAIN });
   });
 
-  await step('Record lecture preselects the course', async () => {
-    await b.click('Record lecture', { exact: true });
-    await b.waitText('IN WHAT PROJECT', { timeout: 10000 });
+  await step('Record preselects the course', async () => {
+    await b.click('Record', { exact: true });
+    await b.waitText('IN WHAT COURSE', { timeout: 10000 });
     await b.sleep(800);
     const q = await search();
     expect(q.includes(`projectId=${data.course.id}`) && q.includes(`folderId=${data.folder.id}`), q);
@@ -236,7 +236,10 @@ try {
   });
 
   await step('Project Files: a lecture photo goes to Favorites as "Photo 2 · Lecture 1" and opens the lecture', async () => {
-    await open(`/project/${data.course.id}`, 'Photo 2');
+    await open(`/project/${data.course.id}`, 'PHOTOS & PDFS FROM LECTURES');
+    // The lecture photos are folded away under the grid (step 3.2)
+    if (!(await b.hasText('Photo 2', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false, ...MAIN });
+    await b.waitText('Photo 2', { exact: true, ...MAIN });
     await b.click('Photo 2', { button: 'right', ...MAIN });
     await b.click('Add to Favorites', { exact: true });
     await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });

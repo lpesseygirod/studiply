@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { isEditable, SHORTCUTS, shortcutFor } from '../../lib/shortcuts';
+import { undoLast } from '../../lib/undo';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { isDialogOpen, showAlert } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
@@ -42,6 +43,13 @@ export function KeyboardShortcuts() {
         dialogOpen: isDialogOpen(),
       });
       if (!action) return;
+      // ⌘X / ⌘C / ⇧F10 only when a screen has something to do with them
+      // (a selected tile); otherwise they stay the browser's (copying text).
+      if (action === 'cut' || action === 'copy' || action === 'contextMenu') {
+        if (action !== 'contextMenu' && window.getSelection()?.toString()) return;
+        if (runShellCommand(action)) e.preventDefault();
+        return;
+      }
       e.preventDefault();
       switch (action) {
         case 'record':
@@ -58,6 +66,9 @@ export function KeyboardShortcuts() {
           break;
         case 'showShortcuts':
           setSheetOpen(true);
+          break;
+        case 'undo':
+          undoLast();
           break;
       }
     };

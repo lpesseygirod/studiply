@@ -40,6 +40,9 @@ import { extensionFor, nameWithoutExtension, withExtension } from '../utils/file
 import { Buckets, getSignedUrl, removeFiles, uploadFile, type Bucket } from './cloud-storage.service';
 import type { Tables } from '../types/supabase';
 import type { SourceFile } from '../types/database';
+// Registers the library uploads' queue job at start, so uploads queued
+// before the app was closed are sent without opening a course first.
+import './library-upload.service';
 
 /**
  * A lecture's files, in Supabase Storage (step 1.4 buckets):
@@ -378,7 +381,7 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
         .eq('kind', 'lecture')
         .eq('course_id', projectId)
         .is('deleted_at', null);
-      if (error) throw serviceError(error, 'Could not load the project files.');
+      if (error) throw serviceError(error, 'Could not load the course files.');
       if (lectures.length === 0) return [];
 
       const { data: media, error: mediaError } = await supabase
@@ -387,7 +390,7 @@ export async function getProjectSourceFiles(projectId: string): Promise<SourceFi
         .in('lecture_id', lectures.map((l) => l.id))
         .in('kind', ['photo', 'slides'])
         .order('created_at', { ascending: false });
-      if (mediaError) throw serviceError(mediaError, 'Could not load the project files.');
+      if (mediaError) throw serviceError(mediaError, 'Could not load the course files.');
       remember('media', media);
       const ids = new Set(lectures.map((l) => l.id));
       const withLocal = await withLocalRows('media', media, (m) => m.lecture_id !== null && ids.has(m.lecture_id));
@@ -822,7 +825,7 @@ export function awaitLectureUploads(
 }
 
 // -------------------------------------------------------------------
-// Files saved to the library (Save to library…)
+// Files saved to the library (Save a copy to library…, and photos moved out of a lecture)
 // A `files` row of kind pdf or image in a course or folder, with its own
 // media row (file_id set, lecture_id null) and its own Storage object.
 // Readable offline through the iPhone's cache, like lectures.

@@ -14,32 +14,21 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { folderSubtree, NetworkError, serviceError, PgCodes } from '../lib/cloudRows';
+import { NetworkError, serviceError, PgCodes } from '../lib/cloudRows';
 import { notifyLibraryUpdated, remember } from '../lib/cache';
 import { isOffline } from '../lib/connectivity';
 import { newId } from '../lib/mappers';
 import { extensionFor, nameWithoutExtension, withExtension } from '../utils/fileNames';
 import { Buckets, removeFiles } from './cloud-storage.service';
 import type { SourceFile } from '../types/database';
+import { canMoveTo, placeOf, type LibraryItem, type Place } from '../utils/moveRules';
 
-/** Where something is, or goes: a course's top level (folderId null) or a folder. */
-export interface Place {
-  courseId: string | null;
-  folderId: string | null;
-  /** "Math / Funcions", for messages. */
-  label: string;
-}
-
-export type LibraryItem =
-  | { type: 'lecture' | 'file'; id: string; title: string; courseId: string | null; folderId: string | null }
-  | { type: 'folder'; id: string; title: string; courseId: string | null; parentId: string | null };
+export { canMoveTo, type LibraryItem, type MoveCheck, type Place } from '../utils/moveRules';
 
 export interface MoveResult {
   to: Place;
   undo: () => Promise<void>;
 }
-
-export type MoveCheck = 'ok' | 'same-place' | 'into-itself';
 
 /** A refusal written for the student ("It's already in Math."). */
 export class MoveError extends Error {
@@ -47,31 +36,6 @@ export class MoveError extends Error {
     super(message);
     this.name = 'MoveError';
   }
-}
-
-function placeOf(item: LibraryItem): { courseId: string | null; folderId: string | null } {
-  return item.type === 'folder'
-    ? { courseId: item.courseId, folderId: item.parentId }
-    : { courseId: item.courseId, folderId: item.folderId };
-}
-
-/**
- * Whether `item` may go to `place`. `folders` are the student's folders
- * (id and parent), to find a folder's subfolders.
- */
-export function canMoveTo(
-  item: LibraryItem,
-  place: Pick<Place, 'courseId' | 'folderId'>,
-  folders: { id: string; parent_id: string | null }[],
-): MoveCheck {
-  const from = placeOf(item);
-  if (from.folderId === place.folderId && (place.folderId !== null || from.courseId === place.courseId)) {
-    return 'same-place';
-  }
-  if (item.type === 'folder' && place.folderId !== null && folderSubtree(item.id, folders).includes(place.folderId)) {
-    return 'into-itself';
-  }
-  return 'ok';
 }
 
 function online(): void {
@@ -235,6 +199,71 @@ export async function saveMediaToLibrary(file: SourceFile, name: string, to: Pla
       const { error } = await removeFile();
       if (error) throw serviceError(error, 'Could not undo.');
       await removeFiles(bucket, [copyPath]).catch(() => {});
+      notifyLibraryUpdated();
+    },
+  };
+}
+
+// -------------------------------------------------------------------
+// moveMediaToLibrary
+// A lecture's photo or PDF leaves its lecture and becomes a library file
+// (Lea, 26 Oct: a move, not a copy). Its media row now belongs to a new
+// file; the Storage object stays where it is. If the media row can't be
+// moved, the new file is deleted again.
+// -------------------------------------------------------------------
+export async function moveMediaToLibrary(file: SourceFile, name: string, to: Place): Promise<SaveResult> {
+  if (file.file_type === 'audio') throw new MoveError('A recording stays with its lecture.');
+  if (!file.storage_path || !file.is_uploaded) throw new MoveError('This file is still uploading. Try again in a moment.');
+  if (to.courseId === null && to.folderId === null) throw new MoveError('Choose a course or folder.');
+  online();
+
+  const isPhoto = file.file_type === 'photo';
+  const ext = extensionFor({ storagePath: file.storage_path, mimeType: file.mime_type, kind: isPhoto ? 'photo' : 'pdf' });
+  const title = withExtension(nameWithoutExtension(name.trim()) || (isPhoto ? 'Photo' : 'Document'), ext);
+  const fileId = newId();
+  const fromLecture = file.session_id;
+  const removeFile = () => supabase.from('files').delete().eq('id', fileId);
+
+  const { error: fileError } = await supabase.from('files').insert({
+    id: fileId,
+    kind: isPhoto ? 'image' : 'pdf',
+    title,
+    course_id: to.courseId,
+    folder_id: to.folderId,
+    starred_at: file.starred_at ?? null,
+  });
+  if (fileError) throw serviceError(fileError, 'Could not move the file.');
+
+  const { data, error } = await supabase
+    .from('media')
+    .update({ file_id: fileId, lecture_id: null, caption: title })
+    .eq('id', file.id)
+    .select('*');
+  if (error || !data?.length) {
+    await removeFile();
+    if (error) throw serviceError(error, 'Could not move the file.');
+    // Added on this iPhone and not on the server yet.
+    throw new MoveError('This file is still uploading. Try again in a moment.');
+  }
+  remember('media', data);
+  notifyLibraryUpdated();
+
+  return {
+    fileId,
+    title,
+    to,
+    undo: async () => {
+      online();
+      const { data: back, error: backError } = await supabase
+        .from('media')
+        .update({ lecture_id: fromLecture, file_id: null, caption: file.display_name ?? null })
+        .eq('id', file.id)
+        .select('*');
+      if (backError) throw serviceError(backError, 'Could not undo.');
+      remember('media', back ?? []);
+      // Only now: deleting the file first would take the media row with it (cascade).
+      const { error: removeError } = await removeFile();
+      if (removeError) throw serviceError(removeError, 'Could not undo.');
       notifyLibraryUpdated();
     },
   };

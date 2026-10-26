@@ -25,7 +25,7 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
-import { NewProjectModal } from '../../../src/components/NewProjectModal';
+import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { createSession } from '../../../src/services/session.service';
 import { getTodayUsage, type TodayUsage } from '../../../src/services/credit-check.service';
@@ -255,7 +255,7 @@ export default function RecordSetupScreen() {
         />
 
           {/* ── Project selector ───────────────────────────────── */}
-          <Text style={[styles.fieldLabel, { marginTop: 20 }]}>IN WHAT PROJECT</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 20 }]}>IN WHAT COURSE</Text>
           <TouchableOpacity
             style={styles.pickerPill}
             onPress={() => setShowProjectPicker(true)}
@@ -337,7 +337,7 @@ export default function RecordSetupScreen() {
             onPress={() => setShowProjectPicker(false)}
           />
           <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <Text style={styles.pickerSheetTitle}>Select Project</Text>
+            <Text style={styles.pickerSheetTitle}>Select course</Text>
             <FlatList
               data={[null, ...projects] as (ProjectWithCount | null)[]}
               keyExtractor={item => item?.id ?? '__none'}
@@ -351,7 +351,7 @@ export default function RecordSetupScreen() {
                   activeOpacity={0.75}
                 >
                   <View style={[styles.colorDot, { backgroundColor: item ? item.color : c.surfaceMuted }]} />
-                  <Text style={styles.pickerRowText}>{item?.name ?? 'No Project'}</Text>
+                  <Text style={styles.pickerRowText}>{item?.name ?? 'No course'}</Text>
                   {(selectedProject?.id === item?.id || (!selectedProject && !item)) && (
                     <Ionicons name="checkmark" size={18} color={c.salmon} />
                   )}
@@ -374,7 +374,7 @@ export default function RecordSetupScreen() {
                   >
                     <Ionicons name="add-circle-outline" size={18} color={c.salmon} />
                     <Text style={[styles.pickerRowText, styles.createProjectText]}>
-                      + Create New Project
+                      + New course
                     </Text>
                   </TouchableOpacity>
                 </>
@@ -385,7 +385,7 @@ export default function RecordSetupScreen() {
       </Modal>
 
       {profile?.id && (
-        <NewProjectModal
+        <NewCourseDialog
           visible={showNewProjectModal}
           userId={profile.id}
           onClose={() => setShowNewProjectModal(false)}

@@ -94,19 +94,6 @@ export function lecturesIn(
   return withLectures(limit === undefined ? list : list.slice(0, limit), lectures);
 }
 
-/** The oldest lecture titled `title` in a course (the "Project Files" holder). */
-export function lectureTitled(
-  files: FileRow[],
-  lectures: LectureRow[],
-  courseId: string,
-  title: string,
-): LectureFileRow | null {
-  const match = files
-    .filter((f) => inLectureScope(f, { courseId }) && f.title === title)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
-  return match ? withLectures([match], lectures)[0] : null;
-}
-
 // ── Notes ───────────────────────────────────────────────────────────────
 
 function isLegacyNote(s: SummaryRow): boolean {
@@ -114,7 +101,7 @@ function isLegacyNote(s: SummaryRow): boolean {
   return !!result && typeof result === 'object' && result.format === LEGACY_NOTE_FORMAT;
 }
 
-function isConfirmedNote(s: SummaryRow): boolean {
+export function isConfirmedNote(s: SummaryRow): boolean {
   return isLegacyNote(s) && (s.result as { isConfirmed?: unknown }).isConfirmed === true;
 }
 
@@ -163,7 +150,7 @@ export function courseMedia(media: MediaRow[], files: FileRow[], courseId: strin
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
-// ── Files saved to the library (Save to library…) ───────────────────────
+// ── Files saved to the library (Save a copy to library…, and photos moved out of a lecture) ───────────────────────
 
 /** Kinds of files a student keeps in the library besides lectures. */
 export const LIBRARY_FILE_KINDS = ['pdf', 'image'] as const;
@@ -187,9 +174,17 @@ export function libraryFilesIn(
 
 // ── Library sections and the course tree (step 2.2) ─────────────────────
 
-/** Files of any kind, not in Trash, newest change first. */
+/** When a file was last opened or edited, whichever is later (Recent). */
+function openedOrEdited(f: FileRow): string {
+  return f.last_opened_at && f.last_opened_at > f.updated_at ? f.last_opened_at : f.updated_at;
+}
+
+/** Recent: files of every kind, last opened or edited first. */
 export function recentFiles(files: FileRow[], limit: number): FileRow[] {
-  return files.filter((f) => f.deleted_at === null).sort(newestFirst).slice(0, limit);
+  return files
+    .filter((f) => f.deleted_at === null)
+    .sort((a, b) => openedOrEdited(b).localeCompare(openedOrEdited(a)))
+    .slice(0, limit);
 }
 
 /** Starred courses, folders and files, none of them in Trash or archived. */
@@ -236,6 +231,22 @@ export function filesAtLevel(files: FileRow[], courseId: string, folderId: strin
   return files
     .filter((f) => f.deleted_at === null && f.course_id === courseId && f.folder_id === folderId)
     .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+}
+
+/** How many subfolders and files (not in Trash) each of these folders holds directly. */
+export function childCounts(
+  folders: Pick<FolderRow, 'id' | 'parent_id' | 'deleted_at'>[],
+  files: Pick<FileRow, 'id' | 'folder_id' | 'deleted_at'>[],
+  folderIds: string[],
+): Map<string, number> {
+  const counts = new Map(folderIds.map((id) => [id, 0]));
+  for (const f of folders) {
+    if (f.deleted_at === null && f.parent_id && counts.has(f.parent_id)) counts.set(f.parent_id, counts.get(f.parent_id)! + 1);
+  }
+  for (const f of files) {
+    if (f.deleted_at === null && f.folder_id && counts.has(f.folder_id)) counts.set(f.folder_id, counts.get(f.folder_id)! + 1);
+  }
+  return counts;
 }
 
 /** Files of every kind per course, not counting those in Trash. */

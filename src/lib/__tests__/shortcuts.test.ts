@@ -36,6 +36,21 @@ describe('shortcutFor', () => {
   });
 });
 
+describe('⌘Z / Ctrl+Z (step 3.3)', () => {
+  it('undoes the last move, delete or favourite', () => {
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyZ', key: 'z' }))).toBe('undo');
+    expect(shortcutFor(key({ ctrlKey: true, code: 'KeyZ', key: 'z' }))).toBe('undo');
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyZ', key: 'y' }))).toBe('undo'); // German layout: by position
+  });
+
+  it('not in a field (its own text undo), with a dialog open, with ⇧ (redo) or ⌥', () => {
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyZ', targetIsEditable: true }))).toBeNull();
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyZ', dialogOpen: true }))).toBeNull();
+    expect(shortcutFor(key({ metaKey: true, shiftKey: true, code: 'KeyZ' }))).toBeNull();
+    expect(shortcutFor(key({ metaKey: true, altKey: true, code: 'KeyZ' }))).toBeNull();
+  });
+});
+
 describe('isEditable', () => {
   it('text fields and editable text, not buttons', () => {
     expect(isEditable({ tagName: 'INPUT', type: 'text' })).toBe(true);
@@ -45,5 +60,25 @@ describe('isEditable', () => {
     expect(isEditable({ tagName: 'INPUT', type: 'checkbox' })).toBe(false);
     expect(isEditable({ tagName: 'DIV' })).toBe(false);
     expect(isEditable(null)).toBe(false);
+  });
+});
+
+describe('cut, copy and the menu key (step 3.4)', () => {
+  it('⌘X / ⌘C (or Ctrl), by key position; never with ⇧ or ⌥, in a field or with a dialog open', () => {
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyX' }))).toBe('cut');
+    expect(shortcutFor(key({ ctrlKey: true, code: 'KeyC' }))).toBe('copy');
+    expect(shortcutFor(key({ metaKey: true, shiftKey: true, code: 'KeyC' }))).toBeNull();
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyC', targetIsEditable: true }))).toBeNull();
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyX', dialogOpen: true }))).toBeNull();
+  });
+
+  it('⌘V is not a shortcut (the browser\'s paste event carries the clipboard)', () => {
+    expect(shortcutFor(key({ metaKey: true, code: 'KeyV' }))).toBeNull();
+  });
+
+  it('⇧F10 or the Menu key opens a menu', () => {
+    expect(shortcutFor(key({ shiftKey: true, key: 'F10' }))).toBe('contextMenu');
+    expect(shortcutFor(key({ key: 'ContextMenu' }))).toBe('contextMenu');
+    expect(shortcutFor(key({ key: 'F10' }))).toBeNull();
   });
 });

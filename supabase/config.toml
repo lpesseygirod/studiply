@@ -442,6 +442,11 @@ verify_jwt = true
 [functions.summarize]
 verify_jwt = true
 
+# Called by the nightly database job (pg_cron), not by the app: no user
+# token. It checks its own x-cron-secret header instead.
+[functions.purge-trash]
+verify_jwt = false
+
 # Remote project Studiply (eu-west-1). These values replace the ones above only
 # for `supabase config push` / `config diff` against that project, so local-only
 # settings (fast test emails, local pool sizes, vector buckets) don't reach it.

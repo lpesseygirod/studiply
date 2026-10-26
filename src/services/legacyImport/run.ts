@@ -33,14 +33,30 @@ export interface ImportRecord {
   url: string;
   uid: string;
   dataset: 'real' | 'sample';
+  /** Every profile ever sent to this server and account. */
   profileIds: string[];
+  /** The last upload's result. */
   status: 'partial' | 'verified';
   uploadedAt: string;
   verifiedAt: string | null;
   missing: MissingFile[];
+  /**
+   * The profiles uploaded and checked, over all uploads (Lea: after one
+   * profile was verified the others could no longer be ticked). Records
+   * saved before this field: all of `profileIds` if verified.
+   */
+  verifiedProfileIds?: string[];
 }
 
 export type ImportRecords = Record<string, ImportRecord>;
+
+/** The profiles of this record that are uploaded and checked. */
+export function uploadedProfileIds(record: ImportRecord | null | undefined): string[] {
+  if (!record) return [];
+  return record.verifiedProfileIds ?? (record.status === 'verified' ? record.profileIds : []);
+}
+
+const union = (a: string[], b: string[]) => [...new Set([...a, ...b])];
 
 const RECORDS_KEY = 'studiply.legacyImport';
 
@@ -86,7 +102,8 @@ export function conflictingRecord(
 
 export interface MissingFile {
   kind: 'recording' | 'photo' | 'pdf';
-  lectureId: string;
+  /** Its lecture; null for an old course upload (a library file now). */
+  lectureId: string | null;
   id: string;
 }
 
@@ -183,7 +200,8 @@ async function sendMedia(source: LegacySource, m: MediaItem): Promise<boolean> {
   const { uri, mimeType } = isPhoto ? await toJpeg(found) : { uri: found, mimeType: 'application/pdf' };
   const { path } = await uploadFile({
     bucket: isPhoto ? Buckets.photos : Buckets.slides,
-    path: `${m.lectureId}/${m.id}.${isPhoto ? 'jpg' : 'pdf'}`,
+    // Like the app's own: {lectureId}/… for a lecture's photo, {fileId}/… for a library file.
+    path: `${m.fileId ?? m.lectureId}/${m.id}.${isPhoto ? 'jpg' : 'pdf'}`,
     uri,
     contentType: mimeType,
     upsert: true,
@@ -192,6 +210,7 @@ async function sendMedia(source: LegacySource, m: MediaItem): Promise<boolean> {
     {
       id: m.id,
       lecture_id: m.lectureId,
+      file_id: m.fileId,
       kind: m.kind,
       storage_path: path,
       mime_type: mimeType,
@@ -315,15 +334,20 @@ export async function runImport(params: {
 }): Promise<ImportRecord> {
   const dataset = params.source.sample ? 'sample' : 'real';
   const target = { url: params.url, uid: params.uid, dataset, profileIds: params.profileIds } as const;
-  if (conflictingRecord(await readRecords(), target)) throw new ImportBlockedError();
+  const records = await readRecords();
+  if (conflictingRecord(records, target)) throw new ImportBlockedError();
 
+  // Another profile uploaded earlier to this server and account stays recorded.
+  const previous = records[recordKey(target.url, target.uid, dataset)];
+  const verifiedBefore = uploadedProfileIds(previous);
   const base: ImportRecord = {
     ...target,
-    profileIds: [...params.profileIds],
+    profileIds: union(previous?.profileIds ?? [], params.profileIds),
     status: 'partial',
     uploadedAt: new Date().toISOString(),
     verifiedAt: null,
     missing: [],
+    verifiedProfileIds: verifiedBefore,
   };
   // Remembered before sending: a half-done upload still belongs to this account.
   await saveRecord(base);
@@ -334,6 +358,7 @@ export async function runImport(params: {
     missing,
     status: check.verified ? 'verified' : 'partial',
     verifiedAt: check.verified ? new Date().toISOString() : null,
+    verifiedProfileIds: check.verified ? union(verifiedBefore, params.profileIds) : verifiedBefore,
   };
   await saveRecord(record);
   return record;
