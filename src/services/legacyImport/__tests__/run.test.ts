@@ -17,6 +17,7 @@ import {
   recordKey,
   runImport,
   sendPlan,
+  uploadedProfileIds,
   verifyPlan,
   type ImportRecord,
 } from '../run';
@@ -190,5 +191,35 @@ describe('"already uploaded": per server and account', () => {
     await expect(runImport({ plan, source: sample, url: LOCAL, uid: 'someone-else', profileIds: ['me'] })).rejects.toBeInstanceOf(ImportBlockedError);
     // The real data to the remote project is not affected by the sample test upload.
     await expect(runImport({ plan, source: real, url: REMOTE, uid: 'remote-uid', profileIds: ['me'] })).resolves.toMatchObject({ url: REMOTE, dataset: 'real' });
+  });
+});
+
+describe('uploading another profile after one was checked (Lea, 26 Oct)', () => {
+  const emptyPlan = planImport(snapshot, { profileIds: ['nobody'], now: new Date('2025-03-10T00:00:00Z') });
+
+  it('keeps the checked one and adds the new one, on the same server and account', async () => {
+    const first = await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['wrong'] });
+    expect(uploadedProfileIds(first)).toEqual(['wrong']);
+    const second = await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['right'] });
+    expect(second.profileIds).toEqual(['wrong', 'right']);
+    expect(uploadedProfileIds(second)).toEqual(['wrong', 'right']);
+    expect(Object.keys(await readRecords())).toEqual([recordKey(REMOTE, 'lea', 'real')]);
+  });
+
+  it('a record saved before this change: verified means all its profiles', () => {
+    const old = { url: REMOTE, uid: 'lea', dataset: 'real', profileIds: ['a'], status: 'verified', uploadedAt: T, verifiedAt: T, missing: [] } as ImportRecord;
+    expect(uploadedProfileIds(old)).toEqual(['a']);
+    expect(uploadedProfileIds({ ...old, status: 'partial' })).toEqual([]);
+    expect(uploadedProfileIds(null)).toEqual([]);
+  });
+
+  it('an upload that is not checked yet adds nothing to the checked ones', async () => {
+    await runImport({ plan: emptyPlan, source: real, url: REMOTE, uid: 'lea', profileIds: ['a'] });
+    // The server is missing the course this time: not verified.
+    answer('courses', { data: [] });
+    const partial = await runImport({ plan, source: real, url: REMOTE, uid: 'lea', profileIds: ['me'] });
+    expect(partial.status).toBe('partial');
+    expect(uploadedProfileIds(partial)).toEqual(['a']);
+    expect(partial.profileIds).toEqual(['a', 'me']);
   });
 });

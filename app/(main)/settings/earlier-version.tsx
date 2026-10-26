@@ -22,6 +22,7 @@ import {
   type ImportProgress,
   type ImportRecord,
   type ProfileSummary,
+  uploadedProfileIds,
 } from '../../../src/services/legacyImport';
 import { describeError } from '../../../src/lib/sync/queue';
 import { BackendBadge, backend } from '../../../src/components/BackendBadge';
@@ -80,7 +81,9 @@ export default function EarlierVersionScreen() {
     try {
       const next = await loadEarlierVersion(uid);
       setData(next);
-      if (next?.record) setChosen(new Set(next.record.profileIds));
+      // Ticked again: profiles of an upload that isn't checked yet (Retry).
+      const done = new Set(uploadedProfileIds(next?.record));
+      setChosen(new Set((next?.record?.profileIds ?? []).filter((id) => !done.has(id))));
     } catch (err) {
       setError(errorMessage(err, 'Could not read the earlier version data.'));
     } finally {
@@ -92,6 +95,16 @@ export default function EarlierVersionScreen() {
     load();
   }, [load]);
 
+  const record = data?.record ?? null;
+  const verified = record?.status === 'verified';
+  const busy = progress !== null;
+  // Profiles already uploaded and checked to this server and account: locked.
+  // The others can still be ticked and uploaded (Lea: after the wrong profile
+  // was verified, the right one could no longer be chosen).
+  const done = new Set(uploadedProfileIds(record));
+  const toUpload = [...chosen].filter((id) => !done.has(id));
+  const notUploaded = data ? data.profiles.filter((p) => !done.has(p.id)) : [];
+
   const toggle = (id: string) =>
     setChosen((prev) => {
       const next = new Set(prev);
@@ -101,11 +114,11 @@ export default function EarlierVersionScreen() {
     });
 
   const upload = async () => {
-    if (!data || chosen.size === 0) return;
+    if (!data || toUpload.length === 0) return;
     setError('');
     setProgress({ done: 0, total: 1, step: 'Starting' });
     try {
-      await uploadEarlierVersion({ data, uid, profileIds: [...chosen], onProgress: setProgress });
+      await uploadEarlierVersion({ data, uid, profileIds: toUpload, onProgress: setProgress });
     } catch (err) {
       // The reason with the server's status and message; Retry continues.
       setError(err instanceof ImportBlockedError ? err.message : `The upload stopped: ${describeError(err)}`);
@@ -117,11 +130,15 @@ export default function EarlierVersionScreen() {
 
   const removeCopy = async () => {
     if (!data) return;
+    const lost =
+      notUploaded.length > 0
+        ? ` Not uploaded, and gone from this iPhone afterwards: ${notUploaded.map((p) => p.name).join(', ')}.`
+        : '';
     const ok = await confirmAction(
       'Remove the old copy?',
-      data.source.sample
+      (data.source.sample
         ? 'This removes the development sample from this iPhone. What was uploaded stays in Studiply.'
-        : 'This removes the earlier version’s database and files from this iPhone. Everything uploaded stays in your Studiply account.',
+        : 'This removes the earlier version’s database and files from this iPhone. Everything uploaded stays in your Studiply account.') + lost,
       'Remove',
     );
     if (!ok) return;
@@ -132,10 +149,6 @@ export default function EarlierVersionScreen() {
       showAlert('Error', errorMessage(err, 'Could not remove the old copy.'));
     }
   };
-
-  const record = data?.record ?? null;
-  const verified = record?.status === 'verified';
-  const busy = progress !== null;
 
   return (
     <View style={styles.container}>
@@ -179,20 +192,26 @@ export default function EarlierVersionScreen() {
           )}
 
           {data.profiles.map((p) => {
-            const on = chosen.has(p.id);
+            const uploaded = done.has(p.id);
+            const on = uploaded || chosen.has(p.id);
             return (
               <TouchableOpacity
                 key={p.id}
                 style={[styles.profileCard, on && styles.profileCardOn]}
                 onPress={() => toggle(p.id)}
-                disabled={busy || verified}
+                disabled={busy || uploaded}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: on }}
+                accessibilityState={{ checked: on, disabled: busy || uploaded }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? c.salmon : c.text.secondary} />
+                <Ionicons
+                  name={uploaded ? 'checkmark-circle' : on ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={on ? c.salmon : c.text.secondary}
+                />
                 <View style={styles.profileInfo}>
                   <Text style={styles.profileName}>{p.name}</Text>
+                  {uploaded && <Text style={styles.profileUploaded}>Uploaded and checked</Text>}
                   <Text style={styles.profileMeta}>Created {new Date(p.createdAt).toLocaleDateString()}</Text>
                   <Text style={styles.profileCounts}>{countsLine(p)}</Text>
                   {p.courseNames.length > 0 && (
@@ -227,7 +246,11 @@ export default function EarlierVersionScreen() {
           {record && !busy && (
             <View style={[styles.resultBox, verified ? styles.resultOk : styles.resultPartial]}>
               <Text style={styles.resultTitle}>
-                {verified ? 'All uploaded and checked on Studiply' : 'Not everything is on Studiply yet'}
+                {verified
+                  ? notUploaded.length === 0
+                    ? 'All uploaded and checked on Studiply'
+                    : 'Uploaded and checked on Studiply'
+                  : 'Not everything is on Studiply yet'}
               </Text>
               {!!missingLine(record) && <Text style={styles.resultText}>{missingLine(record)}</Text>}
               {verified && record.verifiedAt && (
@@ -236,15 +259,17 @@ export default function EarlierVersionScreen() {
             </View>
           )}
 
-          {!verified && (
+          {notUploaded.length > 0 && (
             <TouchableOpacity
-              style={[styles.primaryButton, (chosen.size === 0 || busy) && styles.buttonDisabled]}
+              style={[styles.primaryButton, (toUpload.length === 0 || busy) && styles.buttonDisabled]}
               onPress={upload}
-              disabled={chosen.size === 0 || busy}
+              disabled={toUpload.length === 0 || busy}
               activeOpacity={0.85}
             >
-              <Text style={[styles.primaryText, (chosen.size === 0 || busy) && styles.buttonTextDisabled]}>
-                {chosen.size === 0 ? 'Tick a profile to upload' : `${record ? 'Retry upload' : 'Upload'}${uploadTarget}`}
+              <Text style={[styles.primaryText, (toUpload.length === 0 || busy) && styles.buttonTextDisabled]}>
+                {toUpload.length === 0
+                  ? 'Tick a profile to upload'
+                  : `${record?.status === 'partial' ? 'Retry upload' : 'Upload'}${data.source.sample ? ' sample' : ''}${uploadTarget}`}
               </Text>
             </TouchableOpacity>
           )}
@@ -304,6 +329,7 @@ const makeStyles = (c: ThemeColors) =>
   profileInfo: { flex: 1, gap: 3 },
   profileName: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
   profileMeta: { fontSize: Typography.size.xs, color: c.text.secondary },
+  profileUploaded: { fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.status.success.text },
   profileCounts: { fontSize: Typography.size.sm, color: c.text.primary },
   profileNames: { fontSize: Typography.size.xs, color: c.text.secondary },
   progressBox: { gap: 6 },

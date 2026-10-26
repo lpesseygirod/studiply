@@ -22,7 +22,7 @@ import { conflictingRecord, readRecords, recordKey, runImport, type ImportProgre
 
 export { legacyDataExists, legacyImportAvailable, setUseSampleData, usesSampleData };
 export type { ImportProgress, ImportRecord, ProfileSummary };
-export { ImportBlockedError } from './run';
+export { ImportBlockedError, uploadedProfileIds } from './run';
 
 export interface EarlierVersion {
   source: LegacySource;
