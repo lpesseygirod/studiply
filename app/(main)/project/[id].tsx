@@ -71,7 +71,7 @@ import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
 import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
-import { getCourseContents } from '../../../src/services/shelf.service';
+import { getCourseContents, markOpened } from '../../../src/services/shelf.service';
 import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { sortEntries } from '../../../src/utils/libraryGrid';
@@ -537,6 +537,7 @@ export default function ProjectDetailScreen() {
       showAlert('Not available', "This file can't be opened right now. Check your connection.");
       return;
     }
+    markOpened(file.id);
     if (file.kind === 'image') setPreviewUri(file.media.file_path);
     else shareFile({ ...file.media, display_name: file.title });
   }

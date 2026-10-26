@@ -10,6 +10,8 @@ import {
   getRecentItems,
   getReviewDueCount,
   getStarredItems,
+  markOpened,
+  resetOpenedForTests,
   setStarredAt,
 } from '../shelf.service';
 
@@ -40,7 +42,20 @@ describe('sections', () => {
     expect(items[1].status).toBe('completed');
     expect(callsOn('files', 'is')).toContainEqual(['deleted_at', null]);
     expect(callsOn('files', 'order')).toContainEqual(['updated_at', { ascending: false }]);
+    expect(callsOn('files', 'order')).toContainEqual(['last_opened_at', { ascending: false }]);
     expect(callsOn('files', 'limit')).toContainEqual([5]);
+  });
+
+  it('Recent: opened or edited, each file once', async () => {
+    answer(
+      'files',
+      { data: [fileRow('edited', { updated_at: T(5) }), fileRow('opened', { updated_at: T(1), last_opened_at: T(7) })] },
+      { data: [fileRow('opened', { updated_at: T(1), last_opened_at: T(7) }), fileRow('old', { updated_at: T(1), last_opened_at: T(2) })] },
+    );
+    answer('courses', { data: [math] });
+    const items = await getRecentItems(5);
+    expect(items.map((i) => i.id)).toEqual(['opened', 'edited', 'old']);
+    expect(callsOn('files', 'not')).toContainEqual(['last_opened_at', 'is', null]);
   });
 
   it('Favorites: courses, folders and files together, newest first', async () => {
@@ -157,6 +172,34 @@ describe('getReviewDueCount', () => {
     reportFailure();
     expect(await getReviewDueCount()).toBeNull();
     expect(chains).toHaveLength(0);
+  });
+});
+
+describe('markOpened', () => {
+  beforeEach(() => resetOpenedForTests());
+  const at = (s: number) => new Date(Date.UTC(2026, 9, 26, 10, 0, s));
+
+  it('saves when it was opened, and nothing else', async () => {
+    answer('files', { data: [] });
+    await markOpened('l1', at(0));
+    expect(callsOn('files', 'update')).toEqual([[{ last_opened_at: at(0).toISOString() }]]);
+    expect(callsOn('files', 'eq')).toContainEqual(['id', 'l1']);
+  });
+
+  it('writes at most once a minute per file', async () => {
+    answer('files', { data: [] }, { data: [] }, { data: [] });
+    await markOpened('l1', at(0));
+    await markOpened('l1', at(30));
+    await markOpened('l2', at(30));
+    await markOpened('l1', at(61));
+    expect(callsOn('files', 'eq')).toEqual([['id', 'l1'], ['id', 'l2'], ['id', 'l1']]);
+  });
+
+  it('never fails the screen, and tries again next time after an error', async () => {
+    answer('files', { data: null, error: { message: 'denied', code: '42501' } }, { data: [] });
+    await expect(markOpened('l1', at(0))).resolves.toBeUndefined();
+    await markOpened('l1', at(5));
+    expect(callsOn('files', 'update')).toHaveLength(2);
   });
 });
 

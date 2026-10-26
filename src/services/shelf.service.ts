@@ -10,7 +10,7 @@
 
 import { supabase } from '../lib/supabase';
 import { NetworkError, serviceError, type CourseRow, type FileRow, type FolderRow, type LectureFileRow, type LectureRow } from '../lib/cloudRows';
-import { notifyLibraryUpdated, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
+import { notifyLibraryUpdated, readRow, readRows, readThrough, remember, withLocalRows } from '../lib/cache';
 import {
   childCounts,
   examPackFiles,
@@ -79,19 +79,30 @@ async function cachedFiles(): Promise<{ files: FileRow[]; lectures: LectureRow[]
 // Recent
 // -------------------------------------------------------------------
 
-/** Files of every kind, newest change first (lectures made offline on this iPhone included). */
+/**
+ * Files of every kind, last opened or edited first (lectures made offline on
+ * this iPhone included). The newest `limit` by either time are always among
+ * the newest `limit` edited plus the newest `limit` opened, so two indexed
+ * queries give the exact list.
+ */
 export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
   const [items, courses] = await Promise.all([
     readThrough(
       async () => {
-        const { data, error } = await supabase
-          .from('files')
-          .select(FILE_SELECT)
-          .is('deleted_at', null)
-          .order('updated_at', { ascending: false })
-          .limit(limit);
+        const [edited, opened] = await Promise.all([
+          supabase.from('files').select(FILE_SELECT).is('deleted_at', null).order('updated_at', { ascending: false }).limit(limit),
+          supabase
+            .from('files')
+            .select(FILE_SELECT)
+            .is('deleted_at', null)
+            .not('last_opened_at', 'is', null)
+            .order('last_opened_at', { ascending: false })
+            .limit(limit),
+        ]);
+        const error = edited.error ?? opened.error;
         if (error) throw serviceError(error, 'Could not load your recent files.');
-        const split = rememberFiles(data as LectureFileRow[]);
+        const rows = new Map([...(edited.data ?? []), ...(opened.data ?? [])].map((r) => [r.id, r]));
+        const split = rememberFiles([...rows.values()] as LectureFileRow[]);
         const files = await withLocalRows('files', split.files, (f) => f.deleted_at === null);
         const lectures = await withLocalRows('lectures', split.lectures, (l) => files.some((f) => f.id === l.id));
         return fileItems(recentFiles(files, limit), lectures);
@@ -104,6 +115,43 @@ export async function getRecentItems(limit = 20): Promise<ShelfItem[]> {
     courseInfo().catch(() => []),
   ]);
   return withCourses(items, courses).sort(byRecent);
+}
+
+/** One write per file per minute is enough for Recent's order. */
+const OPENED_EVERY_MS = 60_000;
+const lastMarked = new Map<string, number>();
+
+/**
+ * A lecture or library file was opened: it goes to the top of Recent. Its
+ * "Date edited" stays (the database keeps updated_at for this change).
+ * Offline it updates only this iPhone's copy, so its Recent follows; the
+ * server learns the next time the file is opened online. Never fails.
+ */
+export async function markOpened(fileId: string, now: Date = new Date()): Promise<void> {
+  const last = lastMarked.get(fileId);
+  if (last !== undefined && now.getTime() - last < OPENED_EVERY_MS) return;
+  lastMarked.set(fileId, now.getTime());
+  const openedAt = now.toISOString();
+  try {
+    if (isOffline()) {
+      const row = await readRow<FileRow>('files', fileId);
+      if (!row) return;
+      const opened: FileRow = { ...row, last_opened_at: openedAt };
+      remember('files', [opened]);
+      return;
+    }
+    const { data, error } = await supabase.from('files').update({ last_opened_at: openedAt }).eq('id', fileId).select('*');
+    if (error) throw error;
+    remember('files', data ?? []);
+  } catch (err) {
+    lastMarked.delete(fileId);
+    if (__DEV__) console.warn('[recent] could not mark as opened', err);
+  }
+}
+
+/** For tests: forget which files were marked. */
+export function resetOpenedForTests(): void {
+  lastMarked.clear();
 }
 
 // -------------------------------------------------------------------

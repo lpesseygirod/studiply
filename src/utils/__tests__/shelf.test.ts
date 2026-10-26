@@ -2,6 +2,7 @@ import type { CourseRow, FileRow, FolderRow, LectureRow } from '../../lib/cloudR
 import type { MediaRow } from '../../lib/cache/localQueries';
 import {
   byRecent,
+  recentAt,
   byStarred,
   courseShelfItem,
   dayLabel,
@@ -46,6 +47,18 @@ describe('shelf items', () => {
     const b = { updatedAt: '2026-10-03', starredAt: '2026-10-02' } as ShelfItem;
     expect([a, b].sort(byRecent)).toEqual([b, a]);
     expect([b, a].sort(byStarred)).toEqual([a, b]);
+  });
+
+  it('Recent counts opening as well as editing', () => {
+    const edited = { updatedAt: '2026-10-03', openedAt: null } as ShelfItem;
+    const opened = { updatedAt: '2026-10-01', openedAt: '2026-10-04' } as ShelfItem;
+    expect([edited, opened].sort(byRecent)).toEqual([opened, edited]);
+    expect(recentAt(opened)).toBe('2026-10-04');
+    expect(recentAt({ updatedAt: '2026-10-05', openedAt: '2026-10-04' })).toBe('2026-10-05');
+  });
+
+  it('a file item carries when it was last opened', () => {
+    expect(fileShelfItem(file({ last_opened_at: '2026-10-04' }), null).openedAt).toBe('2026-10-04');
   });
 });
 

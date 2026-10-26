@@ -174,9 +174,17 @@ export function libraryFilesIn(
 
 // ── Library sections and the course tree (step 2.2) ─────────────────────
 
-/** Files of any kind, not in Trash, newest change first. */
+/** When a file was last opened or edited, whichever is later (Recent). */
+function openedOrEdited(f: FileRow): string {
+  return f.last_opened_at && f.last_opened_at > f.updated_at ? f.last_opened_at : f.updated_at;
+}
+
+/** Recent: files of every kind, last opened or edited first. */
 export function recentFiles(files: FileRow[], limit: number): FileRow[] {
-  return files.filter((f) => f.deleted_at === null).sort(newestFirst).slice(0, limit);
+  return files
+    .filter((f) => f.deleted_at === null)
+    .sort((a, b) => openedOrEdited(b).localeCompare(openedOrEdited(a)))
+    .slice(0, limit);
 }
 
 /** Starred courses, folders and files, none of them in Trash or archived. */

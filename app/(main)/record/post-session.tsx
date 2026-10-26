@@ -32,6 +32,7 @@ import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { starButton } from '../../../src/utils/star';
 import { getUserSettings } from '../../../src/services/settings.service';
+import { markOpened } from '../../../src/services/shelf.service';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../../../src/utils/permissions';
 import { formatFileSize, getLocalFileSize } from '../../../src/utils/file-size';
 import type { Session, SourceFile, UserSettings } from '../../../src/types/database';
@@ -126,6 +127,11 @@ export default function PostSessionScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Opening puts it at the top of Recent (its "Date edited" stays).
+  useEffect(() => {
+    if (sessionId) markOpened(sessionId);
+  }, [sessionId]);
 
   // "Move to…" / "Save a copy to library…" for photos and PDFs, with Undo.
   const { showUndo, toast: undoToast } = useUndoToast();

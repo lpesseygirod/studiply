@@ -44,6 +44,7 @@ import { getProject } from '../../../src/services/project.service';
 import { formatFileSize } from '../../../src/utils/file-size';
 import { exportNoteToPDF } from '../../../src/services/export.service';
 import { trashSession } from '../../../src/services/trash.service';
+import { markOpened } from '../../../src/services/shelf.service';
 import { clarifyContent } from '../../../src/services/ai.service';
 import HighlightableText, { splitIntoSentences } from '../../../src/components/HighlightableText';
 import type { Session, Note, Transcript, SourceFile, Project } from '../../../src/types/database';
@@ -218,6 +219,11 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Opening puts it at the top of Recent (its "Date edited" stays).
+  useEffect(() => {
+    if (id) markOpened(id);
+  }, [id]);
 
   // A synced edit, or a newer version downloaded from another device.
   useLibraryUpdates(load);

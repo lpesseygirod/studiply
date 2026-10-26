@@ -30,6 +30,8 @@ export interface ShelfItem {
   /** The course's color (a course: its own). */
   color?: string;
   updatedAt: string;
+  /** A file: when it was last opened (Recent = opened or edited). */
+  openedAt?: string | null;
   starredAt: string | null;
   /** Lectures (and a lecture's photos/PDFs: their lecture's status). */
   status?: Session['status'];
@@ -102,6 +104,7 @@ export function fileShelfItem(row: FileRow, lecture: LectureRow | null, course?:
     courseName: course?.name,
     color: course?.color,
     updatedAt: row.updated_at,
+    openedAt: row.last_opened_at ?? null,
     starredAt: row.starred_at,
     ...(type === 'lecture' && {
       status: statusFromDb(lecture?.status ?? 'draft'),
@@ -157,8 +160,13 @@ export function withCourses(items: ShelfItem[], courses: CourseInfo[]): ShelfIte
 }
 
 /** Newest change first. */
+/** When it was last opened or edited, whichever is later. */
+export function recentAt(item: Pick<ShelfItem, 'updatedAt' | 'openedAt'>): string {
+  return item.openedAt && item.openedAt > item.updatedAt ? item.openedAt : item.updatedAt;
+}
+
 export function byRecent(a: ShelfItem, b: ShelfItem): number {
-  return b.updatedAt.localeCompare(a.updatedAt);
+  return recentAt(b).localeCompare(recentAt(a));
 }
 
 /** Newest star first. */

@@ -34,6 +34,15 @@ describe('recentFiles', () => {
     expect(recentFiles(files, 2).map((f) => f.id)).toEqual(['pdf', 'image']);
     expect(recentFiles(files, 10).map((f) => f.id)).toEqual(['pdf', 'image', 'old']);
   });
+
+  it('a file opened after the last edit comes first (opened or edited)', () => {
+    const files = [
+      file('edited', { updated_at: T(5) }),
+      file('opened', { updated_at: T(1), last_opened_at: T(7) }),
+      file('opened earlier', { updated_at: T(4), last_opened_at: T(2) }),
+    ];
+    expect(recentFiles(files, 10).map((f) => f.id)).toEqual(['opened', 'edited', 'opened earlier']);
+  });
 });
 
 describe('starredRows', () => {
