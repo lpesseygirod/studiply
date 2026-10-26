@@ -1,4 +1,4 @@
-import { describeBackend, resolveSupabaseUrl } from '../supabaseUrl';
+import { describeBackend, pickSupabaseEnv, resolveSupabaseUrl } from '../supabaseUrl';
 
 const LOCAL = 'http://127.0.0.1:54321';
 
@@ -67,5 +67,22 @@ describe('describeBackend (the development badge)', () => {
   it('a look-alike address is not taken for a hosted project', () => {
     expect(describeBackend('https://xmymneartjmdsawlwzyl.supabase.co.evil.dev').kind).toBe('local');
     expect(describeBackend('http://xmymneartjmdsawlwzyl.supabase.co').kind).toBe('local');
+  });
+});
+
+describe('pickSupabaseEnv', () => {
+  const REMOTE = 'https://xmymneartjmdsawlwzyl.supabase.co';
+
+  it('start:remote wins over .env (whose values Expo merges over the script\'s in development)', () => {
+    expect(pickSupabaseEnv({ url: LOCAL, anonKey: 'local', remoteUrl: REMOTE, remoteAnonKey: 'remote' })).toEqual({
+      url: REMOTE,
+      anonKey: 'remote',
+    });
+  });
+
+  it('otherwise .env (local), and never half of each', () => {
+    expect(pickSupabaseEnv({ url: LOCAL, anonKey: 'local', remoteUrl: undefined, remoteAnonKey: undefined })).toEqual({ url: LOCAL, anonKey: 'local' });
+    expect(pickSupabaseEnv({ url: LOCAL, anonKey: 'local', remoteUrl: REMOTE, remoteAnonKey: '' })).toEqual({ url: LOCAL, anonKey: 'local' });
+    expect(pickSupabaseEnv({ url: undefined, anonKey: undefined, remoteUrl: undefined, remoteAnonKey: undefined })).toEqual({ url: '', anonKey: '' });
   });
 });

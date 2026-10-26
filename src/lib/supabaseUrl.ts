@@ -13,6 +13,27 @@
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost']);
 
+export interface SupabaseEnv {
+  /** EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY (from .env: local Supabase). */
+  url: string | undefined;
+  anonKey: string | undefined;
+  /** EXPO_PUBLIC_REMOTE_SUPABASE_URL / _ANON_KEY, set only by `npm run start:remote`. */
+  remoteUrl: string | undefined;
+  remoteAnonKey: string | undefined;
+}
+
+/**
+ * The URL and key to use. `npm run start:remote` passes the remote project
+ * under its own names because in development Expo's `.env` files win over
+ * variables set by a script (the client's `expo/virtual/env` merges the
+ * .env files over `process.env`), so a remote EXPO_PUBLIC_SUPABASE_URL would
+ * lose to `.env`'s 127.0.0.1. The remote pair counts only when both are set.
+ */
+export function pickSupabaseEnv(env: SupabaseEnv): { url: string; anonKey: string } {
+  if (env.remoteUrl && env.remoteAnonKey) return { url: env.remoteUrl, anonKey: env.remoteAnonKey };
+  return { url: env.url ?? '', anonKey: env.anonKey ?? '' };
+}
+
 export interface ResolveSupabaseUrlInput {
   /** EXPO_PUBLIC_SUPABASE_URL */
   envUrl: string;
