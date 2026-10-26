@@ -69,7 +69,7 @@ try {
   });
 
   await step('Settings: Back to library, no sidebar, no assistant', async () => {
-    await open('/settings', 'General');
+    await open('/settings', 'Summaries');
     const s = await shell();
     expect(s.topBar && !s.sidebar && !s.assistant, JSON.stringify(s));
     expect(await b.hasText('‹ Back to library', true), 'no Back to library');

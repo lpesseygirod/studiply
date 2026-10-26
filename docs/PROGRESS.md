@@ -29,7 +29,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); tested by Lea on the iPhone (drag onto folders and the breadcrumb, Undo, haptic) and in Chrome, plus the title's menu
 - [x] 3.4 — Menus (empty-space + item context menus), uploads as library files, Cut / Copy / Paste, keyboard — waiting for Lea's test; migration `20261026090300` on local and remote
 - [x] 3.5 — Trash, stars, recent, search — tested by Lea in Chrome and on the iPhone; on the remote since 26 Oct (migrations `20261026090400`–`090700`, `purge-trash` deployed, `CRON_SECRET` and the Vault secrets set, the manual run answered 200)
-- [ ] 3.6 — Settings in sections (laptop two columns as desktop-05, iPhone list → pages; existing settings moved; added by Lea after 3.4, planned and approved, built after 3.5; Phase 3 merges here)
+- [x] 3.6 — Settings in sections (laptop two columns as desktop-05, iPhone list → pages; existing settings moved) — waiting for Lea's test; Phase 3 merges after it
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
 - [ ] 4.1 — Development build on iPhone (EAS profiles, device registration)
@@ -361,6 +361,30 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **`start:remote` showed LOCAL on the iPhone (26 Oct, found by Lea before the real import).** In development, Expo SDK 54's client module `expo/virtual/env` merges `.env`, `.env.development`, `.env.local` and `.env.development.local` **over** `process.env`, so `.env`'s `127.0.0.1` beat the remote URL that `scripts/start-remote.mjs` had set (the bundle Metro served contained both; the app read the `.env` one). The badge was right. Fix: `start:remote` also passes `EXPO_PUBLIC_REMOTE_SUPABASE_URL` / `_ANON_KEY`, names no .env file may use (it refuses to start if one does, or if a .env file sets `EXPO_PUBLIC_MOCK_AI`), and `src/lib/supabase.ts` prefers that pair (`pickSupabaseEnv`, tested). Checked by fetching the iOS bundle from a `start:remote` Metro: the `.env` module only overrides the local names. Production builds are unaffected (Babel inlines the build's own variables).
 
 - **Lea's real courses on the remote (26 Oct).** The old copy on the iPhone was gone (the September import had gone to local Supabase), so `scripts/copy-to-remote.mjs` copied Calculus, Finance, Programming and Crypto from the local account to the remote one: 4 courses with their settings, 3 folders, 4 lectures, 4 notes (all 36 blocks still `student`), 3,479 transcript lines, 14 recording chunks and their 14 Storage files (≈58 MB); ids, titles and dates kept. The first `--apply` was interrupted after 13 of 14 recordings; running it again uploaded only the missing one (`--compare`: local and remote match). The two sample courses uploaded by mistake ("Psicobiología (sample)", "Test course") were deleted for good through the purge (`deleted_at` set 31 days back, then `private.run_trash_purge()`: 200, 4 Storage files, 6 files, 2 folders, 2 courses). Local was only read.
+
+- **Settings in sections (step 3.6).** Same sections on both devices, one route each (`src/utils/settingsSections.ts`, tested): Account, Summaries, Recording, AI & privacy, Storage & sync, Notifications, Appearance, Your data, Development (development builds only, name kept by Lea). Laptop: `settings/_layout.tsx` shows the section menu (`SettingsMenu`) beside the page in a 1,124 px column (`Layout.settingsMaxWidth`); iPhone: the list and a stack of pages. Every page uses `SettingsPage` ("‹ Settings" and the big title on the iPhone; the title in the right column on the laptop; Recently Deleted and Earlier version data get "‹ Your data").
+  - **Moved, not rewritten** (step 1 made the groups components with no visible change, checked by flows/look/layout): `src/components/settings/` (PreferenceSettings, AccountSettings, AiUsageSettings, StorageSettings, DevelopmentSettings, StatusBanners) and `useUserSettings`. The old General and Security screens are removed; Manage Account became Account.
+  - **Nothing lost** (checked by `settings.mjs`, every setting by name in its section):
+
+    | Was | Now |
+    |---|---|
+    | General → Appearance, Keyboard shortcuts | Appearance |
+    | General → Recording (mode, Lecture Mode, language) | Recording |
+    | General → AI processing (level, title, tags, formulas, definitions, unclear parts) | Summaries |
+    | General → Source files (default retention) | Storage & sync |
+    | General → Development (server, Simulate offline, sync panel, drag debug, sample) | Development |
+    | Manage Account → Profile and Edit profile | Account |
+    | Manage Account → AI usage today, cost breakdown, About these limits | AI & privacy |
+    | Manage Account → Source files, Delete data on this device | Storage & sync |
+    | Manage Account / Security → Sign out | Account (and the iPhone list) |
+    | Security → "stored in your Studiply account" | Account |
+    | Security → "sent to OpenAI or Anthropic only after you allow it" | AI & privacy |
+    | Settings list → AI today banner | AI & privacy (the iPhone row shows "N% used today") |
+    | Settings list → sync line | iPhone list, Account, Storage & sync |
+    | Settings list → Recently Deleted, Earlier version data | Your data |
+
+  - **Not built** (from the mockups, later phases): password change, Sign in with Apple, signed-in devices, Delete account, Export my data, notification times. The iPhone rows show values only where they are real.
+  - Checks: `settings.mjs` (5 steps), `flows.mjs`, `look.mjs` and `layout.mjs` updated to the new routes; Jest for the sections and values.
 
 ## Things Lea must do
 

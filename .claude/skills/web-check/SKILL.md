@@ -50,7 +50,7 @@ node .claude/skills/web-check/scripts/shell-data.mjs
 
 ## Check the look and feel (step 2.3)
 
-`scripts/look.mjs` (about three minutes): light and dark (it switches `prefers-color-scheme` with `Emulation.setEmulatedMedia`) — the card and gradient colors, Settings → General → Appearance overriding the system and surviving a reload, every icon-only button named and at least 44×44 at 390 px, and the keyboard shortcuts (⌥R, ⌥⇧N, ⌥N, /, ?, Esc; nothing while typing in a field). Screenshots `look-*.png` in both appearances at 390 and 1280.
+`scripts/look.mjs` (about three minutes): light and dark (it switches `prefers-color-scheme` with `Emulation.setEmulatedMedia`) — the card and gradient colors, Settings → Appearance overriding the system and surviving a reload, every icon-only button named and at least 44×44 at 390 px, and the keyboard shortcuts (⌥R, ⌥⇧N, ⌥N, /, ?, Esc; nothing while typing in a field). Screenshots `look-*.png` in both appearances at 390 and 1280.
 ```bash
 node .claude/skills/web-check/scripts/look.mjs
 ```
@@ -95,6 +95,12 @@ node .claude/skills/web-check/scripts/library-menus.mjs
 `scripts/title-menu.mjs`: the course or folder title (with ⌄) opens the menu of the course or folder you're in (click, right-click; tap at 390 px): Rename… (the title follows), Add to Favorites, Delete (up one level, Undo), Move to… another course (the screen follows), and deleting the course (back to the Library, Undo). Checked in the database.
 ```bash
 node .claude/skills/web-check/scripts/title-menu.mjs
+```
+
+`scripts/settings.mjs`: Settings in sections. Laptop: `/settings` opens Account beside the menu; every section opens from the menu (highlighted, read from the computed background `colors.accentLight`) at its own route and holds every setting moved from the old General, Manage Account and Security screens, found by name (sections that load first are polled for up to 8 s); Your data → Recently Deleted in the right column with "‹ Your data". 390 px: the list's rows by `aria-label` ("Summaries, Standard", "AI & privacy, 0% used today"), a page with "‹ Settings" (`[aria-label="Back to Settings"]`) and back, the profile card, Sign out.
+
+```bash
+node .claude/skills/web-check/scripts/settings.mjs
 ```
 
 `scripts/trash.mjs`: Recently Deleted with rows trashed by the service role (a folder and its lecture with the same `deleted_at`, as the app does): each row's kind and place ("PDF · from Math › Funcions", "Deleted today · 30 days left"), the lecture deleted with its folder not listed on its own, Restore with its toast ("Restored 'Lecture 1' to Math") and Undo, the library showing it at once after "‹ Back to library" (sidebar count, course grid), restoring a folder bringing its lecture back, Delete forever (row and Storage file gone) and Empty. Restore buttons are found by their label (`[aria-label="Restore <name>"]`). Laptop Settings pages have no sidebar.

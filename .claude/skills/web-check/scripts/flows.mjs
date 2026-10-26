@@ -206,16 +206,16 @@ try {
     expect(back.deleted_at === null, 'Lecture 1 was not restored');
   });
 
-  await step('Settings: AI usage banner (no provider keys or pings)', async () => {
-    await b.nav(`${BASE}/settings`);
-    await b.waitText('AI today:', { timeout: 15000 });
+  await step('AI & privacy: usage without provider keys or pings', async () => {
+    await b.nav(`${BASE}/settings/ai-privacy`);
+    await b.waitText('AI USAGE TODAY', { timeout: 15000 });
     expect(!(await b.hasText('piggy', false)) && !(await b.hasText('API keys', false)), 'old key/credit text still shown');
     await b.sleep(2500); // splash after the reload
     await b.shot('24-settings-banner');
   });
 
-  await step('Manage Account: usage today against the daily limits', async () => {
-    await b.nav(`${BASE}/settings/account`);
+  await step('AI & privacy: usage today against the daily limits', async () => {
+    await b.nav(`${BASE}/settings/ai-privacy`);
     await b.waitText('AI USAGE TODAY', { timeout: 15000 });
     expect(await b.hasText('of 6 h'), 'no transcription allowance');
     expect(await b.hasText('of $3'), 'no Claude allowance');
@@ -224,16 +224,17 @@ try {
     await b.shot('25-account-usage');
   });
 
-  await step('General: settings saved on this device, language in the profile', async () => {
-    await b.nav(`${BASE}/settings/general`);
+  await step('Summaries and Recording: settings saved on this device, language in the profile', async () => {
+    await b.nav(`${BASE}/settings/summaries`);
     await b.waitText('Default summary level');
     await b.click('Detailed', { exact: true });
     await b.sleep(800);
+    await b.click('Recording', { exact: true });
     await b.click('Default transcription language');
     await b.click('French', { exact: true });
     await b.sleep(1000);
-    await b.nav(`${BASE}/settings/general`);
-    await b.waitText('Default summary level');
+    await b.nav(`${BASE}/settings/recording`);
+    await b.waitText('Default transcription language');
     const stored = await b.evaluate(`localStorage.getItem('studiply.settings.${user.id}')`);
     expect(stored && JSON.parse(stored).default_summary_level === 'extra', `stored: ${stored}`);
     expect(await b.hasText('French', true), 'language not shown after reload');
@@ -241,11 +242,12 @@ try {
     expect(profile.default_language === 'fr', `profile language ${profile.default_language}`);
   });
 
-  await step('Security: says the data is in the cloud account, AI only after consent', async () => {
-    await b.nav(`${BASE}/settings/security`);
+  await step('Account and AI & privacy: the data is in the cloud account, AI only after consent', async () => {
+    await b.nav(`${BASE}/settings/account`);
     await b.waitText('stored in your Studiply account in the cloud', { timeout: 15000 });
-    expect(await b.hasText('only after you allow it'), 'no consent sentence');
     expect(!(await b.hasText('stored on this device')), 'old text still shown');
+    await b.click('AI & privacy', { exact: true });
+    await b.waitText('only after you allow it', { timeout: 5000 });
   });
 
   await step('Record (top bar) starts fresh after leaving the flow', async () => {
