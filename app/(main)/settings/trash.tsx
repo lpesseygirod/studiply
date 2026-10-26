@@ -10,11 +10,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
-import { GradientFill } from '../../../src/components/GradientBackground';
+import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
@@ -35,6 +33,7 @@ import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache'
 import { useAppUndo } from '../../../src/hooks/useAppUndo';
 import { deletedAgo, trashKindLabel } from '../../../src/utils/trash';
 import { TYPE_ICON } from '../../../src/utils/shelf';
+import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 
 // -------------------------------------------------------------------
 // Helpers
@@ -57,7 +56,6 @@ export default function TrashScreen() {
   const insets = useSafeAreaInsets();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
-  const router = useRouter();
 
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,25 +147,23 @@ export default function TrashScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <GradientFill />
-      <ThemedStatusBar />
-
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-        <Text style={styles.headerTitle}>Recently Deleted</Text>
+    <SettingsPage
+      title="Recently Deleted"
+      back={{ label: 'Your data', href: '/settings/your-data' }}
+      scroll={false}
+      right={
         <TouchableOpacity
-          style={styles.iconButton}
           onPress={handleEmptyTrash}
           disabled={items.length === 0}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
         >
           <Text style={[styles.emptyAllText, items.length === 0 && styles.emptyAllTextDisabled]}>
             Empty
           </Text>
         </TouchableOpacity>
-      </View>
+      }
+    >
 
       <Text style={styles.subheader}>
         Items are deleted automatically after 30 days.
@@ -233,7 +229,7 @@ export default function TrashScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
       )}
-    </View>
+    </SettingsPage>
   );
 }
 
@@ -242,25 +238,6 @@ const makeStyles = (c: ThemeColors) =>
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: {
-    width: 60,
-    height: 40,
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: Typography.size.md,
-    fontWeight: Typography.weight.bold as '700',
-    color: c.text.onGradientStrong,
-  },
   emptyAllText: {
     fontSize: Typography.size.sm,
     fontWeight: Typography.weight.medium as '500',

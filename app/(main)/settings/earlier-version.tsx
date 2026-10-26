@@ -2,12 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../../src/hooks/useAuth';
-import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
-import { GradientFill } from '../../../src/components/GradientBackground';
-import { IconButton } from '../../../src/components/IconButton';
+import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
+import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
@@ -66,7 +64,6 @@ export default function EarlierVersionScreen() {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const { profile } = useAuth();
   const uid = profile?.id ?? '';
 
@@ -151,14 +148,7 @@ export default function EarlierVersionScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <GradientFill />
-      <ThemedStatusBar />
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <IconButton icon="chevron-back" label="Back" onPress={() => router.back()} size={24} color={c.text.onGradientStrong} style={styles.iconButton} />
-        <Text style={styles.headerTitle}>Earlier version data</Text>
-        <View style={styles.iconButton} />
-      </View>
+    <SettingsPage title="Earlier version data" back={{ label: 'Your data', href: '/settings/your-data' }} scroll={false}>
       {/* Development builds: where the upload goes (Lea: the real import once went to local). */}
       <View style={styles.backendRow}>
         <BackendBadge />
@@ -281,26 +271,14 @@ export default function EarlierVersionScreen() {
           )}
         </ScrollView>
       )}
-    </View>
+    </SettingsPage>
   );
 }
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     backendRow: { paddingHorizontal: 20, paddingBottom: 8 },
-  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.surfaceMuted,
-  },
-  iconButton: { width: 60, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },
   emptyTitle: { fontSize: Typography.size.base, color: c.text.onGradient, textAlign: 'center' },
   content: { padding: 16, gap: 12 },
   sampleBadge: {

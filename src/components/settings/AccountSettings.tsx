@@ -231,7 +231,8 @@ export function ProfileCard({ title = 'PROFILE', subtitle }: { title?: string | 
 
 // ── Where the account keeps things (from Security) ───────────────────────
 
-export function SignInInfo() {
+/** Where the library is stored; with the name when it stands alone. */
+export function SignInInfo({ showName = true }: { showName?: boolean }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const { profile } = useAuth();
@@ -239,11 +240,24 @@ export function SignInInfo() {
     <View style={styles.infoCard}>
       <Ionicons name="person-circle-outline" size={28} color={c.text.secondary} />
       <View style={styles.infoText}>
-        <Text style={styles.infoName}>{profile?.username ?? '—'}</Text>
+        {showName && <Text style={styles.infoName}>{profile?.username ?? '—'}</Text>}
         <Text style={styles.infoHint}>
           Your library, notes and recordings are stored in your Studiply account in the cloud (Supabase, EU),
           protected by your password.
         </Text>
+      </View>
+    </View>
+  );
+}
+
+/** What goes to an AI service, and when (the consent card comes in step 10.1). */
+export function AiPrivacyNote() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors: c } = useTheme();
+  return (
+    <View style={styles.infoCard}>
+      <Ionicons name="shield-checkmark-outline" size={26} color={c.text.secondary} />
+      <View style={styles.infoText}>
         <Text style={styles.infoHint}>Recordings, notes and photos are sent to OpenAI or Anthropic only after you allow it.</Text>
       </View>
     </View>

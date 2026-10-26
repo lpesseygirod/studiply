@@ -116,7 +116,12 @@ export default function MainLayout() {
             {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
             <View style={styles.center}>
               {wide && <GradientFill />}
-              <View style={[styles.centerColumn, wide && kind !== 'library' && styles.centerColumnNarrow]}>
+              <View
+                style={[
+                  styles.centerColumn,
+                  wide && kind !== 'library' && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
+                ]}
+              >
                 <Tabs
                   screenOptions={{
                     headerShown: false,
@@ -178,6 +183,8 @@ const makeStyles = (c: ThemeColors) =>
   centerColumn: { flex: 1, width: '100%', alignSelf: 'center' },
   // Documents and settings: a centered column on the gradient (the page is 820 px).
   centerColumnNarrow: { maxWidth: Layout.documentMaxWidth + 48 },
+  // Settings: the section menu beside the page (docs/design desktop-05).
+  centerColumnSettings: { maxWidth: Layout.settingsMaxWidth + 48 },
   tabBar: {
     backgroundColor: c.white,
     borderTopColor: c.surfaceMuted,
