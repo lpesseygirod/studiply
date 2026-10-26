@@ -433,7 +433,12 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "trash_purge":
+            "search_library":
+{ Args: { "max_results"?: number,"q": string }; Returns: {
+              "course_color": string,"course_id": string,"course_name": string,"field": string,"file_kind": string,"folder_id": string,"item_id": string,"kind": string,"matched": string,"rank": number,"t_ms": number,"title": string
+            }[]
+                           },
+"trash_purge":
 { Args: { "older_than": string }; Returns: {
               "courses": number,"files": number,"folders": number
             }[]

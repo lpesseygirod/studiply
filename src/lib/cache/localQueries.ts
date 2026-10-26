@@ -101,7 +101,7 @@ function isLegacyNote(s: SummaryRow): boolean {
   return !!result && typeof result === 'object' && result.format === LEGACY_NOTE_FORMAT;
 }
 
-function isConfirmedNote(s: SummaryRow): boolean {
+export function isConfirmedNote(s: SummaryRow): boolean {
   return isLegacyNote(s) && (s.result as { isConfirmed?: unknown }).isConfirmed === true;
 }
 
