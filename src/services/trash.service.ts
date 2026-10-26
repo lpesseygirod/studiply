@@ -1,5 +1,17 @@
 import { supabase } from '../lib/supabase';
 import { folderSubtree, serviceError } from '../lib/cloudRows';
+import { notifyLibraryUpdated } from '../lib/cache';
+import {
+  daysLeft,
+  fileTrashKind,
+  RETENTION_DAYS,
+  trashPlace,
+  visibleTrash,
+  type NamedCourse,
+  type NamedFolder,
+  type TrashedRow,
+  type TrashKind,
+} from '../utils/trash';
 import { Buckets, removeFiles, type Bucket } from './cloud-storage.service';
 
 /**
@@ -15,7 +27,11 @@ import { Buckets, removeFiles, type Bucket } from './cloud-storage.service';
  * In the database, deleting a course or folder deletes everything in it.
  * So a restored item never stays under a trashed parent: restoring a
  * lecture or folder also restores its trashed folders and course above it.
- * Permanent deletes also remove the lectures' files from Storage.
+ * Permanent deletes also remove the lectures' files from Storage. Every
+ * change is announced (notifyLibraryUpdated) so the Library and the laptop
+ * sidebar follow at once. The nightly server job (step 3.5, purge-trash)
+ * removes what has been in the trash for 30 days; autoCleanTrash at sign-in
+ * is its backup.
  */
 
 // -------------------------------------------------------------------
@@ -23,24 +39,23 @@ import { Buckets, removeFiles, type Bucket } from './cloud-storage.service';
 // -------------------------------------------------------------------
 export interface TrashItem {
   id: string;
+  /** Which table: a course, a folder, or any file (lecture, PDF, photo…). */
   type: 'project' | 'session' | 'folder';
+  /** What it is, for its label and icon. */
+  kind: TrashKind;
   name: string;
   deletedAt: string;
   /** Days remaining before permanent deletion (30-day window) */
   daysRemaining: number;
+  /** Where it was ("Math › Tema 1"); null for a course. */
+  place: string | null;
 }
 
 /** How long a trashed item survives before auto-cleanup. */
-const RETENTION_DAYS = 30;
 const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 /** Ids per `in (...)` filter, to keep request URLs short. */
 const ID_BATCH = 100;
-
-function daysUntilExpiry(deletedAt: string): number {
-  const expiry = new Date(deletedAt).getTime() + RETENTION_MS;
-  return Math.max(0, Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000)));
-}
 
 function batches<T>(items: T[]): T[][] {
   const out: T[][] = [];
@@ -112,30 +127,44 @@ export async function trashSession(sessionId: string): Promise<void> {
 }
 
 // -------------------------------------------------------------------
-// getTrashItems — all soft-deleted items for a user, newest first
+// getTrashItems — what Recently Deleted lists, newest first
+// Each with its kind and place; what went with a deleted folder or course
+// is inside that line (src/utils/trash.ts).
 // -------------------------------------------------------------------
 export async function getTrashItems(_userId: string): Promise<TrashItem[]> {
   const [courses, folders, files] = await Promise.all([
-    supabase.from('courses').select('id, name, deleted_at').not('deleted_at', 'is', null),
-    supabase.from('folders').select('id, name, deleted_at').not('deleted_at', 'is', null),
-    supabase.from('files').select('id, title, deleted_at').not('deleted_at', 'is', null),
+    supabase.from('courses').select('id, name, deleted_at'),
+    supabase.from('folders').select('id, name, course_id, parent_id, deleted_at'),
+    supabase.from('files').select('id, title, kind, course_id, folder_id, deleted_at').not('deleted_at', 'is', null),
   ]);
   const error = courses.error ?? folders.error ?? files.error;
   if (error) throw serviceError(error, 'Could not load the trash.');
 
-  const item = (id: string, type: TrashItem['type'], name: string, deletedAt: string | null): TrashItem => ({
-    id,
-    type,
-    name,
-    deletedAt: deletedAt as string,
-    daysRemaining: daysUntilExpiry(deletedAt as string),
-  });
+  const courseMap = new Map<string, NamedCourse>((courses.data ?? []).map((c) => [c.id, c]));
+  const folderMap = new Map<string, NamedFolder>((folders.data ?? []).map((f) => [f.id, f]));
+  const rows: TrashedRow[] = [
+    ...(courses.data ?? [])
+      .filter((c) => c.deleted_at)
+      .map((c): TrashedRow => ({ id: c.id, type: 'project', kind: 'course', name: c.name, deletedAt: c.deleted_at as string, courseId: c.id, folderId: null })),
+    ...(folders.data ?? [])
+      .filter((f) => f.deleted_at)
+      .map((f): TrashedRow => ({ id: f.id, type: 'folder', kind: 'folder', name: f.name, deletedAt: f.deleted_at as string, courseId: f.course_id, folderId: f.parent_id })),
+    ...(files.data ?? []).map((f): TrashedRow => ({
+      id: f.id, type: 'session', kind: fileTrashKind(f.kind), name: f.title, deletedAt: f.deleted_at as string, courseId: f.course_id, folderId: f.folder_id,
+    })),
+  ];
 
-  return [
-    ...(courses.data ?? []).map((c) => item(c.id, 'project', c.name, c.deleted_at)),
-    ...(files.data ?? []).map((f) => item(f.id, 'session', f.title, f.deleted_at)),
-    ...(folders.data ?? []).map((f) => item(f.id, 'folder', f.name, f.deleted_at)),
-  ].sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+  return visibleTrash(rows, courseMap, folderMap)
+    .map((r) => ({
+      id: r.id,
+      type: r.type,
+      kind: r.kind,
+      name: r.name,
+      deletedAt: r.deletedAt,
+      daysRemaining: daysLeft(r.deletedAt),
+      place: trashPlace(r, courseMap, folderMap),
+    }))
+    .sort((a, b) => new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
 }
 
 // -------------------------------------------------------------------
@@ -170,7 +199,10 @@ export async function restoreItem(item: Pick<TrashItem, 'id' | 'type'>): Promise
 
   const restored = await supabase.from(table).update({ deleted_at: null }).eq('id', item.id);
   if (restored.error) throw serviceError(restored.error, RESTORE_ERROR);
-  if (!stamp) return;
+  if (!stamp) {
+    notifyLibraryUpdated();
+    return;
+  }
 
   if (item.type === 'project') {
     for (const child of ['folders', 'files'] as const) {
@@ -192,6 +224,7 @@ export async function restoreItem(item: Pick<TrashItem, 'id' | 'type'>): Promise
       if (files.error) throw serviceError(files.error, RESTORE_ERROR);
     }
   }
+  notifyLibraryUpdated();
 }
 
 /** Restores the trashed course and folders above a lecture or folder. */
@@ -244,6 +277,7 @@ export async function permanentlyDelete(item: Pick<TrashItem, 'id' | 'type'>): P
 
   const { error } = await supabase.from(tableFor(item.type)).delete().eq('id', item.id);
   if (error) throw serviceError(error, DELETE_ERROR);
+  notifyLibraryUpdated();
   await removeStorage(paths);
 }
 
@@ -293,6 +327,7 @@ async function purgeTrashed(cutoff: string | null): Promise<void> {
       if (error) throw serviceError(error, DELETE_ERROR);
     }
   }
+  if (fileIds.length + folderIds.length + courseIds.length > 0) notifyLibraryUpdated();
   await removeStorage(paths);
 }
 

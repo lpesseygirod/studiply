@@ -433,7 +433,16 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "trash_purge":
+{ Args: { "older_than": string }; Returns: {
+              "courses": number,"files": number,"folders": number
+            }[]
+                           },
+"trash_purge_plan":
+{ Args: { "older_than": string }; Returns: {
+              "bucket": string,"path": string
+            }[]
+                           }
           }
           Enums: {
             [_ in never]: never
