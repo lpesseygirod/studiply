@@ -28,7 +28,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
 - [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); tested by Lea on the iPhone (drag onto folders and the breadcrumb, Undo, haptic) and in Chrome, plus the title's menu
 - [x] 3.4 — Menus (empty-space + item context menus), uploads as library files, Cut / Copy / Paste, keyboard — waiting for Lea's test; migration `20261026090300` on local and remote
-- [ ] 3.5 — Trash, stars, recent, search
+- [x] 3.5 — Trash, stars, recent, search — waiting for Lea's test; migrations `20261026090400`–`090700` and the `purge-trash` function are local only (remote steps wait for Lea's OK, see Things Lea must do)
 - [ ] 3.6 — Settings in sections (laptop two columns as desktop-05, iPhone list → pages; existing settings moved; added by Lea after 3.4, planned and approved, built after 3.5; Phase 3 merges here)
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
@@ -350,6 +350,14 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - Checks: `library-menus.mjs` (10 steps, database and Storage); `library-dnd.mjs` now uploads Finder files and pastes a screenshot; Jest for uploads (laptop and queue), the menu rules, clipboard, Paste, the menu keys and shortcuts.
   - Checks: `.claude/skills/web-check/scripts/library-dnd.mjs` (10 steps, every result checked in the database); Jest for the rules (three levels, cycles, same place, across courses, media and Trash), `moveMediaToLibrary` and its Undo and clean-up, `undo.ts`, ⌘Z.
 
+- **Trash, Recent, Search (step 3.5).** Lea's answers: auto-empty on the server, daily (the sign-in clean-up stays as a backup); Recent = opened or edited; offline the iPhone searches what is on it, and says so.
+  - **Recently Deleted** shows each item's real kind and icon (before, every file said "Session"), where it was ("from Math › Tema 1", `utils/trash.ts`), "Deleted 3 days ago · 27 days left", and lists what was deleted with its folder or course once, under it (same `deleted_at`). Restore shows "Restored 'X' to {place}" with Undo; restore, delete forever and Empty now refresh the library at once (`notifyLibraryUpdated`). The Restore button is labelled for VoiceOver ("Restore X").
+  - **Nightly clean-up:** migration `20261026090400` adds `trash_purge_plan(older_than)` (the Storage objects, found through rows, so a photo moved out of a lecture is never listed with it) and `trash_purge(older_than)` (files, folders, courses; the database cascades), service role only. Edge Function `purge-trash` (`verify_jwt = false`; it accepts only the `x-cron-secret` header, compared in constant time) lists, removes the objects through the Storage API (SQL can't: `protect_delete`), then deletes the rows; if Storage fails it keeps the rows and tries again the next night, so no file is left without its row. Logs counts only. Migration `20261026090500` enables `pg_cron` and `pg_net` and schedules `private.run_trash_purge()` daily at 03:15 UTC; it reads `project_url` and `cron_secret` from Vault and does nothing without them (local Supabase, until Lea sets them on the remote). `npm run check:purge` tests it end to end locally (needs `supabase functions serve` and a `CRON_SECRET` in `supabase/functions/.env`; a random local one was added there, git-ignored) and refuses to run if anything else in the local trash is older than 30 days, because the function purges every user's old trash.
+  - **Recent:** opening a lecture (notes, post-session) or a library file sets `files.last_opened_at` (`markOpened`, at most once a minute per file; offline only this iPhone's copy, the server learns at the next online open). Migration `20261026090600`: the favourites trigger also keeps `updated_at` when only `last_opened_at` changes (`changed_at` still moves for the iPhone's download). Recent orders by the later of the two times. Instead of the planned generated `recent_at` column, the app merges the newest `limit` edited with the newest `limit` opened (exact: the top `limit` by either time are always among those, and `files_user_opened_idx` already serves the second), so rows built on the iPhone need no extra column.
+  - **Search:** migration `20261026090700` adds `unaccent` and `pg_trgm`, trigram indexes on the normalized course and folder names, file titles, note text and transcript segments, and `public.search_library(q, max_results)` (security invoker: owner RLS; never the trash; the newest confirmed note per lecture, as the app shows; at most 1 note hit and 3 term hits per lecture, 3 transcript lines per lecture). Its pure helpers (`norm`, `json_list`, `note_fields`, `note_text`) live in a schema of their own, `search`, with usage for signed-in users: the indexes run them as the student on every save, and putting them in `private` would have meant opening `private` (found by the existing pgTAP tests failing; fixed before committing). The schema is not exposed by the API. `utils/searchText.ts` normalizes like the database (accents, case, the Catalan middle dot, ß/æ/ø/ł…), maps highlights back to the original letters, cuts snippets between words, and writes the count line; `lib/cache/localSearch.ts` is the same search over the iPhone's cache. "Term" means a key concept's or definition's term until the glossary (Phase 7). `searchAll` and the `SearchResult` type are removed.
+  - **Search screen and opening at the match:** iphone-09 (chips, count line, badges, marked snippets; new colour token `found`, contrast-tested in both appearances). A lecture opens with `?find=` (and `?at=` for a transcript hit): `FoundText` marks the word in the summary (`HighlightableText` gained `find`), concepts, formulas, definitions and the transcript, which opens line by line with times; the screen scrolls to the first match or the hit's own line (`findInNote`). Read-only marks; the editor comes in Phase 4.
+  - Checks: pgTAP 08–11 (purge, schedule, recent, search: 299 in all); Jest for the trash rows, purge rules, Recent order and throttle, search text, local search, hits and `findInNote` (720 Jest tests in all); `check:purge` (20 checks); Chrome `trash.mjs` (6 steps) and `search.mjs` (5 steps), `flows.mjs` now also restores. Favorites needed nothing new (done in 2.2).
+
 ## Things Lea must do
 
 - **Docker Desktop must be running** before `supabase start` (and before anything that uses the local database, including `npm run test:db` and `npm run gen:types`).
@@ -381,6 +389,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   4. Settings → Earlier version data (or the Home card): compare the profiles' counts and first course/lecture names, and tick only your real profile (not the one with local test lectures). Then **Upload**.
   5. Check in the browser that the courses, lectures, notes and recordings are there.
   6. Only then, **Remove the old copy from this iPhone**.
+- **Step 3.5 — the nightly clean-up and search on the remote project (only with your OK, one step at a time; I give the dry run and the exact commands first):**
+  1. Push migrations `20261026090400`–`20261026090700` (`supabase db push --dry-run` first).
+  2. Deploy the function: `supabase functions deploy purge-trash`.
+  3. Set its secret: `supabase secrets set CRON_SECRET=<a long random string>` (e.g. `openssl rand -hex 32`; never in the app or git).
+  4. In the dashboard's SQL editor, store the two values the nightly job reads: `select vault.create_secret('https://<project ref>.supabase.co', 'project_url');` and `select vault.create_secret('<the same CRON_SECRET>', 'cron_secret');`.
+  5. Check once by hand in the SQL editor: `select private.run_trash_purge();`, then a minute later `select status_code from net._http_response order by created desc limit 1;` should be 200. The function's logs (dashboard → Edge Functions → purge-trash) show only counts.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
@@ -408,8 +422,8 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Conflict versions can't be seen in the app yet** (step 1.8). They're in `document_versions` (Studio); version history with restore comes in step 4.3.
 - **Offline, photos and audio that aren't on the phone show a placeholder** (step 1.8), and post-session lists no "Recording" entry for a recording that hasn't uploaded yet. Caching files for offline viewing isn't planned for v1.
 - **A lecture permanently deleted on another device can come back** (step 1.8, rare). If the iPhone still has unsynced changes or uploads for it, the queue recreates it from the iPhone's copy rather than lose the recording.
-- **Search, Recently Deleted, Generate and course/folder changes need a connection** (step 1.8, by design).
-- **Library files aren't on Home or in Search yet** (26 Oct). They show in their course/folder (FILES). Recently Deleted lists them like lectures. Phase 2/3 rebuild these screens.
+- **Recently Deleted, Generate and course/folder changes need a connection** (step 1.8, by design). Search works offline on the iPhone over what is on it, and says so (step 3.5); on the laptop it needs a connection.
+- ~~**Library files aren't on Home or in Search yet**~~ (26 Oct; Search and Recent list them since step 3.5, and there is no Home screen since Phase 2). They show in their course/folder (FILES). Recently Deleted lists them like lectures. Phase 2/3 rebuild these screens.
 - **The FILES section is per folder, but PROJECT FILES still lists every photo/PDF of the course's lectures at every level** (old screen, Phase 2 replaces it).
 - **`src/types/supabase.ts` is unformatted** (found in step 1.2). `supabase gen types` prints a hint to format it with `oxfmt`; no formatter is installed and adding one is a new dependency, so it's left as generated. It type-checks and lints clean.
 
@@ -423,8 +437,8 @@ Schema pieces step 1.2 deliberately left out; each comes as its own migration in
 - **Course glossary and professor's name as a Whisper prompt** — step 5.2 / Phase 7. Pass them to `transcribe-chunk` as Whisper's `prompt` (max 224 tokens), so technical terms and names are spelled right (SUMMARY-SPEC "The lecture input"). `course_settings.professor` exists; the glossary comes with the summary engine.
 - **Resumable uploads (TUS)** — only if step 5.2 shows audio chunks failing on bad connections.
 - ~~**Sync columns**~~ — done differently in step 1.8: per-block times in the note itself plus `document_versions.file_id` and reason `conflict` (migration `20261025010000_document_version_conflicts`), no revision columns.
-- **Full-text search indexes** (titles, note text, transcripts, glossary terms) — step 3.5.
-- **Trash auto-empty after 30 days** (scheduled job) — step 3.5.
+- ~~**Full-text search indexes**~~ — done in step 3.5 (trigram indexes; glossary terms come with the glossary in Phase 7, key concepts and definitions stand in until then).
+- ~~**Trash auto-empty after 30 days**~~ — done in step 3.5 (`purge-trash` + `pg_cron`; on the remote after Lea's setup).
 - **Comments** (margin comments on documents) — step 4.5.
 - **AI suggestions** (pending accept/reject changes from Ask Claude) — step 6.3.
 - **`share_links` table: read-only share links for summaries** (v1 feature, "Share a summary with classmates") — Phase 8.

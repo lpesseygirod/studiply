@@ -222,6 +222,8 @@ export default function TrashScreen() {
                 style={styles.restoreButton}
                 onPress={() => handleRestore(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Restore ${item.name}`}
               >
                 <Text style={styles.restoreText}>Restore</Text>
               </TouchableOpacity>

@@ -186,7 +186,7 @@ try {
     expect(count >= 3, `lectures ${count}`);
   });
 
-  await step('Recently Deleted: restore and empty trash through dialogs', async () => {
+  await step('Recently Deleted: Empty asks first; Restore puts it back', async () => {
     await b.nav(BASE);
     await b.waitText('Lecture 1', { exact: true });
     await b.click('Lecture 1', { button: 'right' });
@@ -200,6 +200,10 @@ try {
     await b.waitText('cannot be recovered', { exact: false, timeout: 3000 }).catch(() => {});
     await b.shot('23-empty-confirm');
     await b.click('Cancel');
+    await b.clickSelector('[aria-label="Restore Lecture 1"]');
+    await b.waitText("Restored 'Lecture 1' to Algebra", { timeout: 5000 }); // Math was renamed above
+    const { data: back } = await admin.from('files').select('deleted_at').eq('user_id', user.id).eq('title', 'Lecture 1').single();
+    expect(back.deleted_at === null, 'Lecture 1 was not restored');
   });
 
   await step('Settings: AI usage banner (no provider keys or pings)', async () => {

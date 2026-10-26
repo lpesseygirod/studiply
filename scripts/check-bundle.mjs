@@ -6,7 +6,7 @@
  * folder, then searches every output file for:
  *   1. the actual secret values on this Mac: EXPO_PUBLIC_OPENAI_API_KEY and
  *      EXPO_PUBLIC_ANTHROPIC_API_KEY in .env (if still there),
- *      OPENAI_API_KEY and ANTHROPIC_API_KEY in supabase/functions/.env, and
+ *      OPENAI_API_KEY, ANTHROPIC_API_KEY and CRON_SECRET in supabase/functions/.env, and
  *      the local service_role key, secret key and JWT secret from
  *      `supabase status`, and the remote project's service_role and
  *      sb_secret_ keys from `supabase projects api-keys` (step 1.7B);
@@ -89,6 +89,7 @@ const secretSources = [
   ['.env EXPO_PUBLIC_ANTHROPIC_API_KEY', appEnv.EXPO_PUBLIC_ANTHROPIC_API_KEY],
   ['functions OPENAI_API_KEY', functionsEnv.OPENAI_API_KEY],
   ['functions ANTHROPIC_API_KEY', functionsEnv.ANTHROPIC_API_KEY],
+  ['functions CRON_SECRET', functionsEnv.CRON_SECRET],
   ['local SERVICE_ROLE_KEY', status?.SERVICE_ROLE_KEY],
   ['local SECRET_KEY', status?.SECRET_KEY],
   ['local JWT_SECRET', status?.JWT_SECRET],

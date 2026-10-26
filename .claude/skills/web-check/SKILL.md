@@ -97,6 +97,18 @@ node .claude/skills/web-check/scripts/library-menus.mjs
 node .claude/skills/web-check/scripts/title-menu.mjs
 ```
 
+`scripts/trash.mjs`: Recently Deleted with rows trashed by the service role (a folder and its lecture with the same `deleted_at`, as the app does): each row's kind and place ("PDF · from Math › Funcions", "Deleted today · 30 days left"), the lecture deleted with its folder not listed on its own, Restore with its toast ("Restored 'Lecture 1' to Math") and Undo, the library showing it at once after "‹ Back to library" (sidebar count, course grid), restoring a folder bringing its lecture back, Delete forever (row and Storage file gone) and Empty. Restore buttons are found by their label (`[aria-label="Restore <name>"]`). Laptop Settings pages have no sidebar.
+
+```bash
+node .claude/skills/web-check/scripts/trash.mjs
+```
+
+`scripts/search.mjs`: a lecture's transcript, note and a PDF are inserted with the service role, then "filogenetico" (no accent) must find the transcript line ("Transcript 18:22"), the summary, the key-concept term and the PDF title, never the trashed lecture; the count line, the marked word (read from the computed background colour `colors.found`), the chips, opening the transcript hit (the note's URL has `find` and `at`, the word is marked and on screen), opening counting for Recent without moving `updated_at`, and the page at 390 px. Rows are found by their `aria-label` ("Clase 4, Transcript 18:22"). The `files` trigger sets `updated_at` to now() on every edit, so a check can't backdate it; edit another file later instead.
+
+```bash
+node .claude/skills/web-check/scripts/search.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
