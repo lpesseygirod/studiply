@@ -17,15 +17,14 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { SignInInfo } from '../../../src/components/settings/AccountSettings';
 
 export default function SecurityScreen() {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { profile, signOut } = useAuth();
-
-  const username = profile?.username ?? '—';
+  const { signOut } = useAuth();
 
   const handleSignOut = async () => {
     await confirmSignOut(signOut, { title: 'Sign Out', message: 'Are you sure you want to sign out?' });
@@ -47,20 +46,8 @@ export default function SecurityScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Account info card */}
-        <View style={styles.infoCard}>
-          <Ionicons name="person-circle-outline" size={28} color={c.text.secondary} />
-          <View style={styles.infoText}>
-            <Text style={styles.infoName}>{username}</Text>
-            <Text style={styles.infoHint}>
-              Your library, notes and recordings are stored in your Studiply account in the cloud (Supabase, EU),
-              protected by your password.
-            </Text>
-            <Text style={styles.infoHint}>
-              Recordings, notes and photos are sent to OpenAI or Anthropic only after you allow it.
-            </Text>
-          </View>
-        </View>
+        {/* Where the account keeps things */}
+        <SignInInfo />
 
         {/* Sign out */}
         <Text style={styles.sectionLabel}>SESSION</Text>
@@ -113,27 +100,6 @@ const makeStyles = (c: ThemeColors) =>
     color: c.text.onGradient,
     letterSpacing: Typography.tracking.wider,
     marginBottom: -4,
-  },
-
-  infoCard: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-    backgroundColor: c.surfaceMuted,
-    borderRadius: 14,
-    padding: 16,
-  },
-  infoText: { flex: 1, gap: 4 },
-  infoName: {
-    fontSize: Typography.size.base,
-    fontWeight: Typography.weight.semibold,
-    color: c.text.primary,
-  },
-  infoHint: {
-    fontSize: Typography.size.sm,
-    color: c.text.secondary,
-    lineHeight: 19,
-    marginTop: 4,
   },
 
   card: {
