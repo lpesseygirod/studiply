@@ -102,8 +102,8 @@ export function emptySpaceActions(canTakePhoto: boolean): SpaceAction[] {
 export const SPACE_LABELS: Record<SpaceAction, string> = {
   newFolder: 'New folder',
   newDocument: 'New document',
-  record: 'Record lecture here',
-  upload: 'Upload photo or PDF',
+  record: 'Record',
+  upload: 'Upload document',
   takePhoto: 'Take photo',
   paste: 'Paste',
   sort: 'Sort by…',

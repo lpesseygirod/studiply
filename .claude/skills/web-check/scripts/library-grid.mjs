@@ -33,9 +33,23 @@ const inlineField = () =>
 /** The tiles' names in the order shown (a tile's label is "name, meta"). */
 const order = () =>
   b.evaluate(`[...document.querySelectorAll('[data-testid^=entry-]')].map((e) => { const l = e.getAttribute('aria-label') ?? ''; return l.slice(0, l.lastIndexOf(', ')); })`);
+/** New folder from the empty-space menu (step 3.4 removed the course toolbar). */
+const newFolder = async () => {
+  const p = await b.evaluate(`(() => {
+    const g = document.querySelector('[data-testid=library-grid]')?.getBoundingClientRect();
+    if (g) return { x: g.x + g.width / 2, y: g.bottom + 30 };
+    const s = document.querySelector('[data-testid=library-space]').getBoundingClientRect();
+    return { x: s.x + s.width / 2, y: s.y + 40 };
+  })()`);
+  await b.clickAt(p.x, p.y, { button: 'right' });
+  await b.sleep(400);
+  const item = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.trim().split('\\n')[0] === 'New folder'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  if (!item) throw new Error('no New folder in the empty-space menu');
+  await b.clickAt(item.x, item.y);
+};
 const openCourse = async () => {
   await b.nav(`${BASE}/project/${data.course.id}`);
-  await b.waitText('New folder', { timeout: 20000 });
+  await b.waitText('My library', { timeout: 20000 });
   await b.sleep(2500);
 };
 
@@ -55,7 +69,7 @@ try {
 
   await step('New folder starts as "Untitled folder", focused and selected; typing + Enter creates it', async () => {
     await openCourse();
-    await b.click('New folder', { exact: true, ...MAIN });
+    await newFolder();
     await b.sleep(400);
     const field = await inlineField();
     expect(field && field.value === 'Untitled folder' && field.focused, JSON.stringify(field));
@@ -69,7 +83,7 @@ try {
   });
 
   await step('Esc cancels a new folder: nothing is created', async () => {
-    await b.click('New folder', { exact: true, ...MAIN });
+    await newFolder();
     await b.sleep(300);
     await b.type('Nope');
     await b.press('Escape');
@@ -80,7 +94,7 @@ try {
   });
 
   await step('Clicking elsewhere saves the name (as in Finder)', async () => {
-    await b.click('New folder', { exact: true, ...MAIN });
+    await newFolder();
     await b.sleep(300);
     await b.type('Resums');
     await b.clickAt(700, 700); // the empty gradient below the grid
@@ -119,7 +133,7 @@ try {
   });
 
   await step('A nested folder inside it; the breadcrumb goes back to the course', async () => {
-    await b.click('New folder', { exact: true, ...MAIN });
+    await newFolder();
     await b.sleep(300);
     await b.type('Apuntes');
     await b.press('Enter');

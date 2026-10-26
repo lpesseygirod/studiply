@@ -1,8 +1,8 @@
 // item-menus.mjs — Lea's step 3.2 feedback: the laptop sidebar's right-click
 // menu is the same full menu as the grid's (Open, Rename…, Move to…,
 // Favorites, Delete; lectures also Export PDF), and empty space in the
-// course grid has a Finder-style menu (New folder, Upload photo or PDF,
-// Record lecture here, Sort by…), by right-click and, at 390 px, by
+// course grid has a Finder-style menu (New folder, Upload document,
+// Record, Sort by…), by right-click and, at 390 px, by
 // long-press. Results checked in the database. Exit 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
@@ -63,7 +63,7 @@ const spaceMenu = async (opts = { button: 'right' }) => {
 };
 const openCourse = async () => {
   await b.nav(`${BASE}/project/${data.course.id}`);
-  await b.waitText('New folder', { timeout: 20000 });
+  await b.waitText('My library', { timeout: 20000 });
   await b.sleep(2500);
 };
 // Step 3.4: Cut / Copy, and the Summarize / Make exam pack placeholders (no Move out: these are at the top of the course).
@@ -149,7 +149,7 @@ try {
 
   await step('Empty space: right-click opens New folder · Upload · Record · Sort by…', async () => {
     const items = await spaceMenu();
-    expect(items.join('|') === 'New folder|New document|Record lecture here|Upload photo or PDF|Paste|Sort by…', items.join('|'));
+    expect(items.join('|') === 'New folder|New document|Record|Upload document|Paste|Sort by…', items.join('|'));
     await b.shot('space-menu-1280');
     await closeMenu();
   });
@@ -191,9 +191,9 @@ try {
     await b.sleep(400);
   });
 
-  await step('Empty space → Record lecture here opens the recording setup for this course', async () => {
+  await step('Empty space → Record opens the recording setup for this course', async () => {
     await spaceMenu();
-    await clickItem('Record lecture here');
+    await clickItem('Record');
     await b.sleep(1200);
     const at = await b.evaluate('location.pathname + location.search');
     expect(at.startsWith(`/record?projectId=${data.course.id}`), at);

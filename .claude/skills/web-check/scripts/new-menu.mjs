@@ -53,7 +53,7 @@ try {
     const menu = await rect('[role=menu]');
     expect(menu && menu.w <= 300, `menu width ${menu?.w}`);
     expect(Math.abs(menu.x - button.x) <= 40 && menu.y >= button.y + button.h - 4 && menu.y <= button.y + button.h + 40, `menu at ${JSON.stringify(menu)} for button ${JSON.stringify(button)}`);
-    for (const t of ['New course', 'New folder', 'Upload photo or PDF', 'Record lecture', 'New document']) {
+    for (const t of ['New course', 'New folder', 'Upload document', 'Record', 'New document']) {
       expect(await menuItem(t), `no ${t}`);
     }
     await b.shot('new-menu-1280');
@@ -62,7 +62,7 @@ try {
   await step('Outside a course, New folder and Upload are greyed out with a hint; New document is "Coming soon"', async () => {
     const folder = await menuItem('New folder');
     expect(folder.disabled && folder.text.includes('Open a course or folder first'), JSON.stringify(folder));
-    const upload = await menuItem('Upload photo or PDF');
+    const upload = await menuItem('Upload document');
     expect(upload.disabled, JSON.stringify(upload));
     const doc = await menuItem('New document');
     expect(doc.disabled && doc.text.includes('Coming soon'), JSON.stringify(doc));
@@ -103,7 +103,7 @@ try {
   });
 
   await step('In a course, New folder is available and starts the inline name', async () => {
-    await open(`/project/${data.course.id}`, 'New folder');
+    await open(`/project/${data.course.id}`, 'Lecture 1');
     await b.clickSelector('[data-testid=sidebar] [aria-label="New"]');
     const folder = await menuItem('New folder');
     expect(folder && !folder.disabled, JSON.stringify(folder));
@@ -113,9 +113,9 @@ try {
     await b.press('Escape');
   });
 
-  await step('Record lecture opens the recording setup with the course chosen', async () => {
+  await step('Record opens the recording setup with the course chosen', async () => {
     await b.clickSelector('[data-testid=sidebar] [aria-label="New"]');
-    await clickItem('Record lecture');
+    await clickItem('Record');
     await b.sleep(1000);
     expect((await b.evaluate('location.pathname + location.search')).startsWith(`/record?projectId=${data.course.id}`), await b.evaluate('location.search'));
   });
@@ -140,7 +140,7 @@ try {
     await open('/library', 'COURSES');
     await b.clickSelector('[aria-label="New"]');
     await b.waitText('New course', { exact: true, timeout: 3000 });
-    expect(await menuItem('Record lecture'), 'no Record lecture');
+    expect(await menuItem('Record'), 'no Record');
     await b.shot('new-menu-390');
     await b.click('New course', { exact: true });
     await b.sleep(500);

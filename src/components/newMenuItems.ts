@@ -11,6 +11,8 @@ export interface NewMenuItem {
   icon: string;
   disabled?: boolean;
   hint?: string;
+  /** What VoiceOver reads when the text is short ("Record" → "Record lecture"). */
+  accessibilityLabel?: string;
 }
 
 /** The items, given what the open screen can do (pure, tested). */
@@ -19,8 +21,8 @@ export function newMenuItems(can: { folder: boolean; upload: boolean }): NewMenu
   return [
     { action: 'course', text: 'New course', icon: 'library-outline' },
     { action: 'folder', text: 'New folder', icon: 'folder-outline', ...(!can.folder && { disabled: true, hint: needsCourse }) },
-    { action: 'upload', text: 'Upload photo or PDF', icon: 'cloud-upload-outline', ...(!can.upload && { disabled: true, hint: needsCourse }) },
-    { action: 'record', text: 'Record lecture', icon: 'mic-outline' },
+    { action: 'upload', text: 'Upload document', icon: 'cloud-upload-outline', ...(!can.upload && { disabled: true, hint: needsCourse }) },
+    { action: 'record', text: 'Record', icon: 'mic-outline', accessibilityLabel: 'Record lecture' },
     { action: 'document', text: 'New document', icon: 'create-outline', disabled: true, hint: 'Coming soon' },
   ];
 }

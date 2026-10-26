@@ -26,6 +26,8 @@ export interface DialogButton {
   hint?: string;
   /** Menus on the web: an Ionicons name shown before the text. */
   icon?: string;
+  /** Menus on the web: what VoiceOver reads when the text is short ("Record" → "Record lecture"). */
+  accessibilityLabel?: string;
 }
 
 /** Where a menu opens on the web (page coordinates of a right-click). */

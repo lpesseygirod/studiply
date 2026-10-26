@@ -14,7 +14,7 @@ import { recordHref, useShell, type Crumb } from './ShellContext';
 /**
  * The laptop's top bar (docs/design desktop-01/04/05). What sits in the
  * middle depends on the kind of screen:
- *  - library: the search field and the red Record lecture button (it
+ *  - library: the search field and the red Record button (it
  *    preselects the course and folder the student is in);
  *  - document: the breadcrumb, title and "Saved · time" the open
  *    document publishes (ShellContext), Share, the assistant toggle;
@@ -108,9 +108,10 @@ export function TopBar({
             onPress={() => router.navigate(recordHref(location))}
             activeOpacity={0.85}
             accessibilityRole="link"
+            accessibilityLabel="Record lecture"
           >
             <View style={styles.recordDot} />
-            <Text style={styles.recordText}>Record lecture</Text>
+            <Text style={styles.recordText}>Record</Text>
           </TouchableOpacity>
         )}
         {kind === 'document' && (

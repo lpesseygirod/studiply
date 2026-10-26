@@ -71,7 +71,6 @@ import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
 import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
-import { LibraryToolbar } from '../../../src/components/library/LibraryToolbar';
 import { getCourseContents } from '../../../src/services/shelf.service';
 import { useLibraryPrefs } from '../../../src/lib/libraryPrefs';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
@@ -681,6 +680,7 @@ export default function ProjectDetailScreen() {
     const button = (action: SpaceAction): DialogButton => {
       if (action === 'newDocument') return { text: SPACE_LABELS.newDocument, disabled: true, hint: 'Coming soon' };
       if (action === 'paste') return paste.hint ? { text: paste.text, disabled: true, hint: paste.hint } : { text: paste.text, onPress: run.paste };
+      if (action === 'record') return { text: SPACE_LABELS.record, accessibilityLabel: 'Record lecture here', onPress: run.record };
       return { text: SPACE_LABELS[action], onPress: run[action] };
     };
     showActionSheet(currentCrumb?.name, emptySpaceActions(Platform.OS !== 'web').map(button), { anchor });
@@ -758,14 +758,11 @@ export default function ProjectDetailScreen() {
               dnd={dnd}
               onTitleMenu={titleMenu}
               onMore={compact ? () => spaceMenu() : undefined}
-            />
-
-            <LibraryToolbar
-              onNewFolder={startNewFolder}
-              onUpload={chooseUpload}
-              onTakePhoto={handleTakePhoto}
-              onRecord={recordHere}
-              uploadProgress={uploader.progress}
+              status={
+                uploader.progress
+                  ? `Uploading ${Math.min(uploader.progress.done + 1, uploader.progress.total)} of ${uploader.progress.total}…`
+                  : null
+              }
             />
 
             {/* ── The items (docs/design desktop-04), and the empty space around them ── */}
@@ -780,7 +777,11 @@ export default function ProjectDetailScreen() {
                 <View style={styles.emptyState}>
                   <Ionicons name="folder-open-outline" size={44} color={c.text.onGradient} />
                   <Text style={styles.emptyTitle}>{breadcrumbs.length > 1 ? 'This folder is empty' : 'Nothing here yet'}</Text>
-                  <Text style={styles.emptyBody}>Make a folder, upload a file or record a lecture here.</Text>
+                  <Text style={styles.emptyBody}>
+                    {compact
+                      ? 'Tap ••• to make a folder, upload a document or record.'
+                      : 'Use + New or right-click here to make a folder, upload a document or record.'}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.gridArea}>

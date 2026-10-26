@@ -43,9 +43,9 @@ const menu = () =>
     return { text, hint: hint ?? null, disabled: e.getAttribute('aria-disabled') === 'true' };
   })`);
 const line = async (text) => (await menu()).find((l) => l.text === text || l.text.startsWith(text));
-/** Clicks a menu line (buttons with the same text under the menu's overlay come first in the DOM). */
+/** Clicks a menu line (buttons with the same text under the menu's overlay come first in the DOM). Any line counts: an item's icon is a line of its own. */
 const clickItem = async (text) => {
-  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.trim().split('\\n')[0].startsWith(${JSON.stringify(text)})); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.split('\\n').some((l) => l.trim().startsWith(${JSON.stringify(text)}))); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
   if (!p) throw new Error(`no menu item ${text}`);
   await b.clickAt(p.x, p.y);
   await b.sleep(600);
@@ -117,7 +117,12 @@ try {
 
   await step('Upload (the file picker) adds a PDF and a photo as files in Tema A, with their Storage objects', async () => {
     await open(A.id, 'Tema B');
-    await b.chooseFiles([apuntesPdf, pizarraPng], () => b.click('Upload', { exact: true, ...MAIN }));
+    // "+ New" → Upload document (the course toolbar is gone, step 3.4).
+    await b.chooseFiles([apuntesPdf, pizarraPng], async () => {
+      await b.clickSelector('[data-testid=sidebar] [aria-label="New"]');
+      await b.sleep(400);
+      await clickItem('Upload document');
+    });
     await until(async () => (await fileRow('apuntes.pdf')).length === 1 && (await fileRow('pizarra.jpg')).length === 1, 'not added');
     const [pdf] = await fileRow('apuntes.pdf');
     const [photo] = await fileRow('pizarra.jpg');
@@ -248,7 +253,7 @@ try {
     await open(A.id, 'pizarra.jpg');
     await b.clickSelector('[aria-label^="More: new folder"]');
     await b.waitText('New folder', { exact: true, timeout: 3000 });
-    for (const t of ['New document', 'Upload photo or PDF', 'Sort by…']) expect(await b.hasText(t, true), `no ${t}`);
+    for (const t of ['New document', 'Upload document', 'Record', 'Sort by…']) expect(await b.hasText(t, true), `no ${t}`);
     await b.shot('menus34-more-390');
     await b.press('Escape');
   });

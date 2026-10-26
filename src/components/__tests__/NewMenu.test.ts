@@ -1,9 +1,11 @@
 import { newMenuItems } from '../newMenuItems';
 
 describe('the + New menu', () => {
-  it('New course, New folder, Upload, Record lecture, New document (coming soon)', () => {
+  it('New course, New folder, Upload document, Record, New document (coming soon)', () => {
     const items = newMenuItems({ folder: true, upload: true });
-    expect(items.map((i) => i.text)).toEqual(['New course', 'New folder', 'Upload photo or PDF', 'Record lecture', 'New document']);
+    expect(items.map((i) => i.text)).toEqual(['New course', 'New folder', 'Upload document', 'Record', 'New document']);
+    // VoiceOver still hears what Record does.
+    expect(items.find((i) => i.action === 'record')?.accessibilityLabel).toBe('Record lecture');
     expect(items.filter((i) => i.disabled).map((i) => [i.text, i.hint])).toEqual([['New document', 'Coming soon']]);
   });
 

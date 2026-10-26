@@ -43,6 +43,7 @@ export function LibraryHeader({
   dnd,
   onTitleMenu,
   onMore,
+  status,
 }: {
   crumbs: string[];
   onLibrary: () => void;
@@ -61,6 +62,8 @@ export function LibraryHeader({
   onTitleMenu?: (anchor?: Anchor) => void;
   /** iPhone: "…" opens the empty-space menu (so it can be found without the long-press). */
   onMore?: () => void;
+  /** A short state after the count ("Uploading 2 of 5…"; step 3.4 moved it here from the toolbar). */
+  status?: string | null;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -94,6 +97,7 @@ export function LibraryHeader({
           ))}
           <Text style={styles.count}>
             {count === 1 ? '1 item' : `${count} items`}
+            {status ? ` · ${status}` : ''}
           </Text>
         </View>
       </View>

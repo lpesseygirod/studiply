@@ -244,10 +244,10 @@ try {
     expect(!(await b.hasText('stored on this device')), 'old text still shown');
   });
 
-  await step('Record lecture (top bar) starts fresh after leaving the flow', async () => {
+  await step('Record (top bar) starts fresh after leaving the flow', async () => {
     await b.nav(`${BASE}/library`);
     await b.waitText('Science', { exact: true, ...MAIN });
-    await b.click('Record lecture', { exact: true });
+    await b.click('Record', { exact: true });
     await b.sleep(1200);
     expect(await b.hasText('New Recording'), 'record tab did not show the setup screen');
   });

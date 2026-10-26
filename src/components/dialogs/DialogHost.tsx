@@ -177,6 +177,7 @@ function Dialog({ request }: { request: DialogRequest }) {
             accessibilityRole="menuitem"
             accessibilityState={{ disabled: !!b.disabled }}
             accessibilityHint={b.hint}
+            accessibilityLabel={b.accessibilityLabel}
             disabled={b.disabled}
             onPress={() => choose(b)}
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [

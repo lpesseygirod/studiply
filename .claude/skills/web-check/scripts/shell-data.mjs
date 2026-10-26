@@ -151,8 +151,8 @@ try {
     await b.waitText('Funcions', { exact: true, timeout: 5000, ...MAIN });
   });
 
-  await step('Record lecture preselects the course', async () => {
-    await b.click('Record lecture', { exact: true });
+  await step('Record preselects the course', async () => {
+    await b.click('Record', { exact: true });
     await b.waitText('IN WHAT COURSE', { timeout: 10000 });
     await b.sleep(800);
     const q = await search();

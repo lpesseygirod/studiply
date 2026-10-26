@@ -38,7 +38,14 @@ export function useNewMenu() {
       const buttons: DialogButton[] = newMenuItems({
         folder: hasShellCommand('newFolder'),
         upload: hasShellCommand('upload'),
-      }).map((item) => ({ text: item.text, icon: item.icon, disabled: item.disabled, hint: item.hint, onPress: run[item.action] }));
+      }).map((item) => ({
+        text: item.text,
+        icon: item.icon,
+        disabled: item.disabled,
+        hint: item.hint,
+        accessibilityLabel: item.accessibilityLabel,
+        onPress: run[item.action],
+      }));
       showActionSheet('New', buttons, { anchor });
     },
     [router, location],

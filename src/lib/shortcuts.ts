@@ -62,7 +62,7 @@ export function shortcutFor(e: KeyInput): ShortcutAction | null {
 export const SHORTCUTS: { keys: string; action: string; soon?: boolean }[] = [
   { keys: '⌥ N', action: 'New document', soon: true },
   { keys: '⌥ ⇧ N', action: 'New folder (in the open course)' },
-  { keys: '⌥ R', action: 'Record lecture' },
+  { keys: '⌥ R', action: 'Record' },
   { keys: '/', action: 'Search' },
   { keys: '?', action: 'Show these shortcuts' },
   { keys: '⌘ Z', action: 'Undo the last move, delete or favourite' },

@@ -89,8 +89,8 @@ describe('emptySpaceActions', () => {
     expect(emptySpaceActions(true).map((a) => SPACE_LABELS[a])).toEqual([
       'New folder',
       'New document',
-      'Record lecture here',
-      'Upload photo or PDF',
+      'Record',
+      'Upload document',
       'Take photo',
       'Paste',
       'Sort by…',
