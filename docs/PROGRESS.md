@@ -28,7 +28,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 3.2 — Library grid (tiles, sort, breadcrumb, inline rename)
 - [x] 3.3 — Moving files (drop targets, cycle protection, undo, tests) — with Lea's 26 Oct note (one combined Move to… for a lecture's photos and PDFs; "Save a copy to library…"); tested by Lea on the iPhone (drag onto folders and the breadcrumb, Undo, haptic) and in Chrome, plus the title's menu
 - [x] 3.4 — Menus (empty-space + item context menus), uploads as library files, Cut / Copy / Paste, keyboard — waiting for Lea's test; migration `20261026090300` on local and remote
-- [x] 3.5 — Trash, stars, recent, search — waiting for Lea's test; migrations `20261026090400`–`090700` and the `purge-trash` function are local only (remote steps wait for Lea's OK, see Things Lea must do)
+- [x] 3.5 — Trash, stars, recent, search — tested by Lea in Chrome and on the iPhone; on the remote since 26 Oct (migrations `20261026090400`–`090700`, `purge-trash` deployed, `CRON_SECRET` and the Vault secrets set, the manual run answered 200)
 - [ ] 3.6 — Settings in sections (laptop two columns as desktop-05, iPhone list → pages; existing settings moved; added by Lea after 3.4, planned and approved, built after 3.5; Phase 3 merges here)
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
@@ -389,12 +389,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   4. Settings → Earlier version data (or the Home card): compare the profiles' counts and first course/lecture names, and tick only your real profile (not the one with local test lectures). Then **Upload**.
   5. Check in the browser that the courses, lectures, notes and recordings are there.
   6. Only then, **Remove the old copy from this iPhone**.
-- **Step 3.5 — the nightly clean-up and search on the remote project (only with your OK, one step at a time; I give the dry run and the exact commands first):**
-  1. Push migrations `20261026090400`–`20261026090700` (`supabase db push --dry-run` first).
-  2. Deploy the function: `supabase functions deploy purge-trash`.
-  3. Set its secret: `supabase secrets set CRON_SECRET=<a long random string>` (e.g. `openssl rand -hex 32`; never in the app or git).
-  4. In the dashboard's SQL editor, store the two values the nightly job reads: `select vault.create_secret('https://<project ref>.supabase.co', 'project_url');` and `select vault.create_secret('<the same CRON_SECRET>', 'cron_secret');`.
-  5. Check once by hand in the SQL editor: `select private.run_trash_purge();`, then a minute later `select status_code from net._http_response order by created desc limit 1;` should be 200. The function's logs (dashboard → Edge Functions → purge-trash) show only counts.
+- ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
