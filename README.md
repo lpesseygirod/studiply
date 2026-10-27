@@ -109,15 +109,30 @@ nothing is counted. Store builds never simulate.
 
 ## Running it locally
 
-Requires Node 18+ and the Expo Go app, or an iOS Simulator / Android emulator.
+Requires Node 18+ and, on the iPhone, the Studiply **development build**
+(step 4.1; it replaces Expo Go because the editor needs native code).
 
     git clone <repo-url>
     cd Studiply
     npm install
     cp .env.example .env     # then add the local Supabase URL and anon key
-    npm start
+    npm run start:local      # local Supabase; npm run start:remote for the remote project
 
-Then press `i` for iOS, `w` for the browser, or scan the QR code with Expo Go.
+Then scan the QR code with the iPhone's Camera ("Open in Studiply"), or press
+`w` for the browser. Press `s` in Metro to switch to Expo Go if you need it.
+
+### The development build (iPhone)
+
+Built in the cloud by EAS (`eas.json`); no Xcode needed. Signing is managed by
+EAS (certificate and provisioning profile on Expo's servers, never in git).
+
+    eas device:create         # register an iPhone (Website → open the link on the phone)
+    npm run build:dev:ios     # build; install from the QR code it prints
+
+A new iPhone, or a change to native code or `app.json` (a new native module,
+permission text or plugin), needs a new build; JavaScript changes don't. The
+first time you open it, iOS asks for Developer Mode (Settings → Privacy &
+Security → Developer Mode → Restart).
 
 `node verify-setup.js` checks the environment and reports what's missing.
 
@@ -127,14 +142,14 @@ Everything runs against local Supabase. Start Docker Desktop, then:
 
     supabase start
     supabase functions serve     # second terminal: transcription and Claude
-    npx expo start
+    npm run start:local
 
 - **Emails** (sign-up and password-reset codes) never leave your Mac. They land
   in Mailpit: http://127.0.0.1:54324 (from an iPhone: `http://<Mac IP>:54324`).
 - **Users** are listed in Studio: http://127.0.0.1:54323 → Authentication.
 - **Real iPhone:** `.env` keeps `http://127.0.0.1:54321`. In development the app
-  swaps `127.0.0.1` for your Mac's network address (the one Expo Go already uses
-  to load the app, see `src/lib/supabaseUrl.ts`). The iPhone and Mac must be on
+  swaps `127.0.0.1` for your Mac's network address (the one the development
+  build already uses to load the app, see `src/lib/supabaseUrl.ts`). The iPhone and Mac must be on
   the same Wi-Fi; if the network blocks devices from seeing each other (common
   on school Wi-Fi), use the iPhone's Personal Hotspot.
 - **Web:** the browser reads and writes the same Supabase data as the iPhone.
