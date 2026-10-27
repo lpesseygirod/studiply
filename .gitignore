@@ -17,6 +17,9 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+# EAS local credentials (Studiply uses EAS-managed signing; never commit these)
+credentials.json
+credentials/
 
 # Metro
 .metro-health-check*
