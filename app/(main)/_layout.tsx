@@ -11,6 +11,7 @@ import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
+import { SimulatedAiBadge } from '../../src/components/SimulatedAiBadge';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
 import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
 import { Sidebar } from '../../src/components/shell/Sidebar';
@@ -161,6 +162,7 @@ export default function MainLayout() {
           {toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}
+          {__DEV__ && <SimulatedAiBadge top={wide ? Layout.topBarHeight + 6 : insets.top + 2} />}
         </View>
       </AppUndoProvider>
     </ShellProvider>

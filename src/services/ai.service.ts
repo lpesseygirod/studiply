@@ -19,7 +19,7 @@
  */
 
 import { callFunction, callStreamingFunction } from '../lib/functions';
-import { canFallBackToMock, isMockAiForced } from '../lib/aiMode';
+import { canFallBackToMock, isMockAiForced, noteAiFellBack, noteAiReal } from '../lib/aiMode';
 import { ensureConsent } from './consent.service';
 import { getAudioChunks } from './source-file.service';
 import { createTranscript, getTranscriptBySession } from './transcript.service';
@@ -81,10 +81,13 @@ type SummaryLevel = 'minimal' | 'standard' | 'extra';
 async function realOrMock<T>(what: string, real: () => Promise<T>, mock: () => Promise<T>): Promise<T> {
   if (isMockAiForced()) return mock();
   try {
-    return await real();
+    const result = await real();
+    noteAiReal();
+    return result;
   } catch (err) {
     if (!canFallBackToMock(err)) throw err;
     console.warn(`[ai] The Edge Functions can't be reached; using the simulated ${what} (development only).`);
+    noteAiFellBack();
     return mock();
   }
 }

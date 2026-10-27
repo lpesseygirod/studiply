@@ -6,6 +6,7 @@ import { ensureConsent } from '../consent.service';
 import { getAudioChunks } from '../source-file.service';
 import { createTranscript, getTranscriptBySession } from '../transcript.service';
 import { clarifyContent, generateNotes, transcribeAudio } from '../ai.service';
+import { resetSimulatedAiForTests, simulatedAiState } from '../../lib/aiMode';
 
 jest.mock('../../lib/functions', () => ({ callFunction: jest.fn(), callStreamingFunction: jest.fn() }));
 jest.mock('../consent.service', () => ({ ensureConsent: jest.fn(async () => {}) }));
@@ -26,6 +27,7 @@ const transcript = {
 beforeEach(() => {
   jest.clearAllMocks();
   delete process.env.EXPO_PUBLIC_MOCK_AI;
+  resetSimulatedAiForTests();
   jest.mocked(getTranscriptBySession).mockResolvedValue(transcript);
   jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
@@ -118,6 +120,21 @@ describe('simulated pipeline (development only)', () => {
   it('falls back when the functions cannot be reached', async () => {
     jest.mocked(callStreamingFunction).mockRejectedValue(networkError());
     await expect(clarifyContent({ lectureId: 'l1', originalSummary: 'S', highlightedParts: ['a'] })).resolves.toContain('[Simulated clarification]');
+  });
+
+  it('the development badge shows a fallback until a real answer comes back', async () => {
+    expect(simulatedAiState()).toBeNull();
+    jest.mocked(callStreamingFunction).mockRejectedValueOnce(networkError());
+    await clarifyContent({ lectureId: 'l1', originalSummary: 'S', highlightedParts: ['a'] });
+    expect(simulatedAiState()).toBe('fallback');
+    jest.mocked(callStreamingFunction).mockResolvedValueOnce('A real answer.' as never);
+    await clarifyContent({ lectureId: 'l1', originalSummary: 'S', highlightedParts: ['a'] });
+    expect(simulatedAiState()).toBeNull();
+  });
+
+  it('the development badge always shows when the simulation is forced', () => {
+    process.env.EXPO_PUBLIC_MOCK_AI = '1';
+    expect(simulatedAiState()).toBe('forced');
   });
 
   it('never hides a real error behind the simulation', async () => {
