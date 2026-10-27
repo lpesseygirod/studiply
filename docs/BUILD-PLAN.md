@@ -74,18 +74,27 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 
 | Feature | iPhone | Laptop | Phase | When |
 | --- | --- | --- | --- | --- |
-| Tabs: My notes, Summary, Transcript | Segmented control at the top | Tabs above the toolbar | 4 | v1 |
+| Blank documents anywhere in the library (write anything, not only lecture notes) | “+” / long-press empty space → New document | New button / right-click → New document | 4 | v1 |
+| Tabs: My notes, Summary, Transcript (lecture documents) | Segmented control at the top | Tabs above the toolbar | 4 | v1 |
 | Text styles: Title, Heading 1, Heading 2, Subheading, Normal, Quote | “Aa” button opens a style sheet | Style dropdown | 4 | v1 |
 | Bold, italic, underline, strikethrough, text color, highlight | Toolbar above the keyboard, scrolls sideways | Full toolbar | 4 | v1 |
 | Bullet, numbered and checklists, alignment | Keyboard toolbar | Toolbar | 4 | v1 |
+| Paste from Google Docs or Word keeps the formatting | Yes | Yes | 4 | v1 |
 | Links, images, tables, formulas (KaTeX), comments | “+” insert menu | Toolbar buttons | 4 | v1 |
 | Select text → Ask Claude (explain simpler, example, go deeper, flashcard, rewrite) | Edit menu that pops up on selection | Floating menu on selection | 6 | v1 |
 | Tap a timestamp to replay the audio | Mini player at the bottom | Mini player | 4, 5 | v1 |
-| Autosave, offline editing, sync | Yes | Yes (online) | 4 | v1 |
+| Autosave, offline editing, sync | Yes (writing offline, synced when back online) | Yes (online) | 4 | v1 |
 | Version history and restore | Document menu | Document menu | 4 | v1 |
+| Find & replace | Document menu → Find | Cmd+F / Cmd+Shift+H | 4 | v1 |
+| Word count | Document menu | Document menu + status line | 4 | v1 |
+| Outline of the headings to jump around | Sheet from the document menu | Outline beside the page | 4 | v1 |
+| Page setup for printing (A4 / Letter, margins) | Document menu | Document menu | 4 | v1 |
+| Import a Word document (.docx) | Files picker (from the share sheet later, with the share extension) | Upload or drag from Finder | 4 | v1 |
 | AI suggestions accepted or rejected, never automatic | Yes | Yes | 6, 7 | v1 |
-| Export PDF | Share sheet (AirDrop, Files, Mail) | Download | 8 | v1 |
-| Export Markdown or Word | Share sheet | Download | 8 | Later |
+| Export PDF (any document, with its page setup) | Share sheet (AirDrop, Files, Mail) | Download | 4, 8 | v1 |
+| Export Word (.docx) | Share sheet | Download | 4 | v1 |
+| Export Markdown | Share sheet | Download | 8 | Later |
+| Real-time co-editing and sharing a document with others | — | — | — | Later (after launch) |
 
 ### Study assistant (Claude-style chat)
 
@@ -337,26 +346,26 @@ Step 4.1: set up EAS so I can install a development build of Studiply on my iPho
 **Step 4.2 — Spike: one editor, two platforms**
 
 ```markdown
-Step 4.2 (spike): prove the editor approach on a throwaway screen: TenTap (@10play/tentap-editor) on iPhone and Tiptap on web, sharing one ProseMirror schema, with one custom node (a timestamp chip). Save the JSON from the iPhone and open it on web, and the reverse. Report any problems (keyboard, performance with 20 pages of text, web compatibility) and recommend whether to continue.
+Step 4.2 (spike): prove the editor approach on a throwaway screen: TenTap (@10play/tentap-editor) on iPhone and Tiptap on web, sharing one ProseMirror schema, with one custom node (a timestamp chip). Save the JSON from the iPhone and open it on web, and the reverse. Also paste a formatted page from Google Docs and from Word (headings, bold, lists, a table) on both. Report any problems (keyboard, performance with 20 pages of text, web compatibility, what paste loses) and recommend whether to continue.
 ```
 
-**Check:** a document written on the iPhone opens identical in the browser, chip included. If not, stop here and ask for alternatives.
+**Check:** a document written on the iPhone opens identical in the browser, chip included, and a page pasted from Google Docs keeps its headings, bold and lists. If not, stop here and ask for alternatives.
 
 **Step 4.3 — Documents that save themselves**
 
 ```markdown
-Step 4.3: make every lecture a document with three tabs (My notes, Summary, Transcript) using the editor from 4.2, stored as ProseMirror JSON in Supabase with the SQLite cache. Autosave with "Saved · time", version snapshots (each AI generation and the end of each editing session), version history with restore, and an origin attribute on every block (ai, student, media) that switches to student when the student edits it. Add tests for the origin rule.
+Step 4.3: make every lecture a document with three tabs (My notes, Summary, Transcript), and let me create blank documents anywhere in the library (New document in the New menu and the empty-space menu, in a course, a folder or My library; a title, one page, nothing else) that I can use for anything, not only lecture notes. Both use the editor from 4.2, stored as ProseMirror JSON in Supabase with the SQLite cache. Autosave with "Saved · time"; on the iPhone I can keep writing offline (new documents too) and it syncs when I'm back online, using the block-level conflict rule from step 1.8 (nothing I wrote is ever lost). Version snapshots (each AI generation and the end of each editing session), version history with restore, and an origin attribute on every block (ai, student, media) that switches to student when the student edits it. Add tests for the origin rule and for offline edits syncing.
 ```
 
-**Check:** edit on the laptop, see it on the iPhone a few seconds later; restore an older version.
+**Check:** create a blank document in a folder and write in it; edit on the laptop, see it on the iPhone a few seconds later; write on the iPhone in airplane mode, reconnect and see it on the laptop; restore an older version.
 
 **Step 4.4 — Formatting toolbar**
 
 ```markdown
-Step 4.4: build the formatting tools from DESIGN.md. Laptop: full toolbar (undo/redo, text style Title/Heading 1/Heading 2/Subheading/Normal/Quote, font, size −/+, bold, italic, underline, strikethrough with active state, text color, highlight, bullet/numbered/check lists, align, clear formatting) plus Cmd+B/I/U shortcuts. iPhone: keyboard toolbar that scrolls sideways plus an "Aa" sheet for styles and size.
+Step 4.4: build the formatting tools from DESIGN.md. Laptop: full toolbar (undo/redo, text style Title/Heading 1/Heading 2/Subheading/Normal/Quote, font, size −/+, bold, italic, underline, strikethrough with active state, text color, highlight, bullet/numbered/check lists, align, clear formatting) plus Cmd+B/I/U shortcuts. iPhone: keyboard toolbar that scrolls sideways plus an "Aa" sheet for styles and size. Pasting from Google Docs or Word keeps headings, bold/italic/underline, colours, highlights, lists, links and tables (mapped to our styles); "Paste without formatting" (Cmd+Shift+V) is there too.
 ```
 
-**Check:** recreate your Psicobiología notes page (titles, bold, underline, highlight, lists) on both devices.
+**Check:** recreate your Psicobiología notes page (titles, bold, underline, highlight, lists) on both devices; copy a page from Google Docs and one from Word and paste them: they look the same.
 
 **Step 4.5 — Inserting things**
 
@@ -374,13 +383,31 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 
 **Check:** insert one of each block on the laptop; they look the same on the iPhone.
 
-**Step 4.7 — Convert old notes**
+**Step 4.7 — Writing tools**
 
 ```markdown
-Step 4.7: convert all existing notes from the old format into the new document format, keeping text, highlights and attachments. Safe to run twice; keep the old data until I confirm.
+Step 4.7: add the writing tools of a full word processor, on both devices: find & replace (match case, whole words, next/previous, replace all, with Undo; Cmd+F and Cmd+Shift+H on the laptop), word and character count (whole document and selection; a status line on the laptop), an outline of the headings to jump around (beside the page on the laptop, a sheet on the iPhone; it follows as I write), and page setup for printing (A4 or Letter, portrait or landscape, margins; saved with the document, shown as page edges on the laptop, used by printing and PDF export).
+```
+
+**Check:** in a 10-page document, replace a word everywhere and undo it; the word count matches Google Docs for the same text; jump to a heading from the outline on both devices; switch to Letter with 2 cm margins and print a preview.
+
+**Step 4.8 — Import and export**
+
+```markdown
+Step 4.8: import a Word document (.docx) as a new document in the open course or folder (laptop: upload or drag from Finder; iPhone: the Files picker; importing from other apps' share sheet comes later with the share extension), keeping headings, formatting, lists, tables and images; and export any document as PDF (with its page setup) and as Word (.docx), on both devices (laptop: download; iPhone: share sheet). Lecture summaries still get their designed PDF in Phase 8; this is the plain document export. Ask before adding any library for .docx.
+```
+
+**Check:** import a real Word file from your courses and compare it with Word; export it again as .docx and PDF and open both on the Mac.
+
+**Step 4.9 — Convert old notes**
+
+```markdown
+Step 4.9: convert all existing notes from the old format into the new document format, keeping text, highlights and attachments. Safe to run twice; keep the old data until I confirm.
 ```
 
 **Check:** open three old notes and compare them with how they looked before. Merge the branch.
+
+**Later, after launch (not in Phase 4):** real-time co-editing (several people writing in the same document at once, with their cursors) and sharing a document with others to edit or comment. Phase 8 only adds read-only links and PDFs for summaries.
 
 ## Phase 5 — Recording with live notes and marks
 
