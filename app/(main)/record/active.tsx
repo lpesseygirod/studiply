@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   BackHandler,
   Animated,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -84,6 +85,76 @@ const LECTURE_RECORDING_OPTIONS: Audio.RecordingOptions = {
   },
 };
 
+// Step 4.1: the development build failed with "Prepare encountered an error:
+// recorder not prepared" where Expo Go worked. If iOS refuses the speech
+// preset, more common settings are tried (44.1 kHz, 64 kbps ≈ 10 MB per
+// 20-min chunk) and kept for the rest of the lecture.
+const FALLBACK_RECORDING_OPTIONS: Audio.RecordingOptions = {
+  ...LECTURE_RECORDING_OPTIONS,
+  ios: {
+    ...LECTURE_RECORDING_OPTIONS.ios,
+    audioQuality: Audio.IOSAudioQuality.HIGH,
+    sampleRate: 44100,
+    bitRate: 64000,
+  },
+};
+
+const AUDIO_MODE = {
+  allowsRecordingIOS: true,
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: true,
+  shouldDuckAndroid: true,
+} as const;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Prepares and starts a recorder with `options.current`. If iOS won't
+ * prepare it: once more after setting the audio session again, then with the
+ * fallback settings (remembered in `options` for the next chunks). Every
+ * failed attempt is logged in Metro with the microphone permission, so the
+ * cause can be told apart (permission, session, settings).
+ */
+async function startRecorder(options: { current: Audio.RecordingOptions }): Promise<Audio.Recording> {
+  const attempts: { label: string; options: Audio.RecordingOptions; before?: () => Promise<void> }[] = [
+    { label: 'speech preset', options: options.current },
+    {
+      label: 'speech preset after resetting the audio session',
+      options: options.current,
+      before: async () => {
+        await Audio.setAudioModeAsync(AUDIO_MODE);
+        await wait(300);
+      },
+    },
+  ];
+  if (Platform.OS === 'ios' && options.current !== FALLBACK_RECORDING_OPTIONS) {
+    attempts.push({ label: '44.1 kHz / 64 kbps fallback', options: FALLBACK_RECORDING_OPTIONS });
+  }
+
+  let lastError: unknown = null;
+  for (const attempt of attempts) {
+    try {
+      await attempt.before?.();
+      const { recording } = await Audio.Recording.createAsync(attempt.options);
+      if (attempt.options !== options.current) {
+        console.warn(`[recording] started with the ${attempt.label}; keeping it for this lecture`);
+        options.current = attempt.options;
+      }
+      return recording;
+    } catch (err) {
+      lastError = err;
+      const permission = await Audio.getPermissionsAsync().catch(() => null);
+      console.warn(
+        `[recording] ${attempt.label} failed: ${err instanceof Error ? err.message : String(err)}` +
+          ` (microphone: ${permission?.status ?? 'unknown'})`,
+      );
+    }
+  }
+  const permission = await Audio.getPermissionsAsync().catch(() => null);
+  const message = lastError instanceof Error ? lastError.message : 'Failed to start recording.';
+  throw new Error(`${message} (microphone permission: ${permission?.status ?? 'unknown'})`);
+}
+
 /** A finished chunk: its local file and how long it is. */
 interface RecordedChunk {
   uri: string;
@@ -125,6 +196,8 @@ export default function ActiveRecordingScreen() {
   const chunkTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chunkStartTimeRef   = useRef<number>(0);           // wall-clock ms when current chunk began
   const chunkRemainingMsRef = useRef<number>(CHUNK_DURATION_MS); // ms left in current chunk slot
+  // The recorder settings that worked for this lecture (see startRecorder).
+  const recordingOptionsRef = useRef<Audio.RecordingOptions>(LECTURE_RECORDING_OPTIONS);
 
   // ── State ────────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false);
@@ -215,8 +288,7 @@ export default function ActiveRecordingScreen() {
         if (chunk) audioChunksRef.current.push(await keepChunk(chunk));
       }
       // Gap between chunks is ~100–300ms — imperceptible in a lecture.
-      const { recording } = await Audio.Recording.createAsync(LECTURE_RECORDING_OPTIONS);
-      currentRecordingRef.current = recording;
+      currentRecordingRef.current = await startRecorder(recordingOptionsRef);
     } catch (e) {
       console.error('[active] Chunk rotation failed:', e);
       // Non-fatal: recording stays in whatever state it was.
@@ -248,14 +320,9 @@ export default function ActiveRecordingScreen() {
 
     const begin = async () => {
       try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-        });
+        await Audio.setAudioModeAsync(AUDIO_MODE);
 
-        const { recording } = await Audio.Recording.createAsync(LECTURE_RECORDING_OPTIONS);
+        const recording = await startRecorder(recordingOptionsRef);
 
         if (!mounted) {
           await recording.stopAndUnloadAsync().catch(() => {});
