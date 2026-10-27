@@ -357,7 +357,7 @@ Step 4.2 (spike): prove the editor approach on a throwaway screen: TenTap (@10pl
 Step 4.3: make every lecture a document with three tabs (My notes, Summary, Transcript), and let me create blank documents anywhere in the library (New document in the New menu and the empty-space menu, in a course, a folder or My library; a title, one page, nothing else) that I can use for anything, not only lecture notes. Both use the editor from 4.2, stored as ProseMirror JSON in Supabase with the SQLite cache. Autosave with "Saved · time"; on the iPhone I can keep writing offline (new documents too) and it syncs when I'm back online, using the block-level conflict rule from step 1.8 (nothing I wrote is ever lost). Version snapshots (each AI generation and the end of each editing session), version history with restore, and an origin attribute on every block (ai, student, media) that switches to student when the student edits it. Add tests for the origin rule and for offline edits syncing.
 ```
 
-**Check:** create a blank document in a folder and write in it; edit on the laptop, see it on the iPhone a few seconds later; write on the iPhone in airplane mode, reconnect and see it on the laptop; restore an older version.
+**Check:** create a blank document in a folder and write in it; edit on the laptop, see it on the iPhone a few seconds later; write on the iPhone while offline (development build: `supabase stop` or Settings → Development → Simulate offline, because airplane mode would also cut the app off from Metro; real airplane-mode tests only with a preview build), go back online and see it on the laptop; restore an older version.
 
 **Step 4.4 — Formatting toolbar**
 
