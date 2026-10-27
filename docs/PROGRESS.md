@@ -33,7 +33,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
 - [x] 4.1 — Development build on iPhone (EAS profiles, device registration) — tested by Lea on 27 Oct: installed, reloads on code changes, records with the screen locked
-- [ ] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip)
+- [ ] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — built and checked in Chrome 27 Oct; waits for the development build and Lea's iPhone tests
 - [ ] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin)
 - [ ] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting)
 - [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments)
@@ -394,6 +394,18 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Not in 4.1:** EAS environment variables (remote Supabase URL and anon key) for preview and production builds: Phase 10.
   - **Recording in the development build.** The first try failed with "Prepare encountered an error: recorder not prepared" (Expo Go worked with the same expo-av 16.0.8). `startRecorder` (`app/(main)/record/active.tsx`) now tries the speech preset, again after setting the audio session once more, then on iOS a 44.1 kHz / 64 kbps fallback (≈10 MB per 20 minutes instead of 5) kept for the rest of the lecture; each failed attempt is logged in Metro (`[recording] …`, with the microphone permission). Which attempt succeeded on Lea's iPhone isn't known yet: if Metro shows `[recording] … fallback`, make 44.1 kHz the default. Phase 5 replaces expo-av anyway.
   - **SIMULATED AI badge (development).** Notes came back simulated with `npm run start:local`: `.env` doesn't set `EXPO_PUBLIC_MOCK_AI`, but `supabase functions serve` wasn't running, so local Supabase answered 502/503 and the development fallback (`lib/aiMode.ts`) simulated. A badge at the top of every screen now says "SIMULATED AI · EXPO_PUBLIC_MOCK_AI=1" (forced) or "SIMULATED AI · functions not running" (the last AI call fell back); a real answer clears it. Development builds only.
+- **Editor spike (step 4.2; in progress: the iPhone part waits for the second development build).**
+  - **Packages (Lea's OK, installed by Lea):** `@10play/tentap-editor` 1.1.0 and `react-native-webview` 13.15.0 (iPhone); Tiptap **3.32.0** pinned exactly (`core`, `pm`, `react`, `starter-kit`, `extension-table`), one copy of each; Vite, `@vitejs/plugin-react`, `vite-plugin-singlefile`, `@types/react-dom` (build only). `npm audit`: nothing new (see Known issues).
+  - **One schema by construction.** `src/editor/bridges` is the one list (TenTap's start kit, the timestamp chip, tables, the paste report). The iPhone hands it to TenTap; the WebView bundle (`editor-web/`) runs it; the laptop turns it into Tiptap extensions with TenTap's own `resolveBridgeExtensions`. A Jest test builds both schemas as TenTap does and compares nodes, marks and attributes.
+  - **TenTap's sources, not its prebuilt web bundle.** `@10play/tentap-editor/web` carries its own copy of Tiptap and ProseMirror; extensions added on top (tables) would bring a second ProseMirror, a known source of bugs. TenTap exports its sources (`./src/*`, imported with the `.ts` extension, hence `allowImportingTsExtensions`; Jest transforms them), so the bundle has one copy of everything (684 kB, 215 kB gzipped). An upgrade of TenTap means `npm run editor:build` again.
+  - **The laptop runs Tiptap in the page**, not TenTap's iframe shim: real browser paste and shortcuts, no Metro config. `editorHtml.js` is committed, so Metro and EAS need no build step.
+  - **Timestamp chip:** inline atom `timestampChip { ms }`, shown as "4:12" (`formatHitTime`), HTML `<span data-timestamp-ms>`. A tap selects it, and both editors report the selected chip (the iPhone through the bridge state). Playback comes in 4.6 / 5.4.
+  - **Saving:** a `document` file "Editor spike (development)" at My library, its `notes` tab in `public.documents`; no migration. The screen (Settings → Development → Editor spike), the service and the file go when 4.3 starts.
+  - **Found in Chrome (27 Oct, `editor-spike.mjs`, 9/9):**
+    - Round trip both ways: JSON saved on the laptop opens in the iPhone's editor unchanged, and the iPhone's (with a chip at 4:12) comes back to the laptop identical, chip shown and tap reported.
+    - Paste (clipboard HTML shaped like Google Docs' and Word's, written by Claude; the real paste is Lea's check): **both editors make the same document.** Google Docs keeps headings, bold, italic, underline, text colour, bullet and numbered lists and the table; it loses **highlights** (`background-color` spans; Tiptap's Highlight reads only `<mark>`). Word keeps the same, but its **lists arrive as paragraphs starting with "·"** (Word writes list items as `<p style="mso-list:…">`) and highlights are lost. Both are for step 4.4 (paste rules).
+    - 20 pages (9,762 words, 50 chips, 89 KB of JSON): into the laptop editor in 18 ms, typing 6–8 ms from key press to update; the iPhone's editor in desktop Chrome 10 ms (a phone is slower: timed on the iPhone).
+  - **Still to see on the iPhone:** the keyboard and TenTap's toolbar, 20 pages, real paste from the Google Docs and Word apps, and the round trip with the real app. Recommendation after Lea's tests.
 
 ## Things Lea must do
 
@@ -432,6 +444,11 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   6. Only then, **Remove the old copy from this iPhone**.
 - ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **A new iPhone, or native changes (step 4.1).** Register the phone with `eas device:create`, then `npm run build:dev:ios` again and install from the QR code. A new native module, permission text or plugin in `app.json` also needs a new build; JavaScript changes don't.
+- **Step 4.2 — the second development build and the editor tests.** The editor needs native code (WebView), so after Lea's OK: `npm run build:dev:ios`, install from the QR code, `npm run start:local` (Docker on, `supabase start`; no `functions serve` needed). Then Settings → Development → **Editor spike**, on the iPhone and in Chrome with the same local account:
+  1. iPhone: a heading, bold text, a list, two chips (Insert chip) → Save. Laptop: Load → the same text and chips, and the line says "identical to the saved JSON ✓".
+  2. The reverse: write on the laptop, Save; Load on the iPhone.
+  3. Paste a page with headings, bold, a list and a table from Google Docs (Chrome on the Mac; the Docs app or Safari on the iPhone) and from Word (Mac app or Word on the web), on both; read the "Paste —" line (had → kept, and what was lost).
+  4. iPhone: Load 20 pages; scroll; type at the end (is the cursor above the keyboard, does the toolbar stay on top of the keyboard?); tap a chip ("would play from …"). Note the "20 pages … in the editor in … ms" line.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues

@@ -134,6 +134,18 @@ permission text or plugin), needs a new build; JavaScript changes don't. The
 first time you open it, iOS asks for Developer Mode (Settings → Privacy &
 Security → Developer Mode → Restart).
 
+### The editor (step 4.2)
+
+The iPhone's editor is a web page inside a WebView (TenTap), built from
+`editor-web/` into `editor-web/build/editorHtml.js`, which is committed. After
+changing anything it imports (`src/editor/bridges`, `src/editor/schema`,
+`src/editor/pasteReport.ts`) or upgrading TenTap or Tiptap:
+
+    npm run editor:build      # once
+    npm run editor:dev        # or: rebuild on every change (Metro reloads the app)
+
+The laptop's editor is Tiptap in the page with the same extensions.
+
 `node verify-setup.js` checks the environment and reports what's missing.
 
 ### Local Supabase, login and email

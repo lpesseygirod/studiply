@@ -115,6 +115,16 @@ node .claude/skills/web-check/scripts/trash.mjs
 node .claude/skills/web-check/scripts/search.mjs
 ```
 
+## Check the editor spike (step 4.2)
+
+`scripts/editor-spike.mjs`: both editors with one schema. The laptop editor is the spike screen (`/dev/editor-spike`); the **iPhone editor** is the committed `editor-web/build/editorHtml.js` (the page TenTap's WebView loads), written to a file and opened with `?standalone` (it then configures itself with TenTap's `buildBootConfig`, as the app does). Both set `window.studiplyEditor` (the laptop's only in development), so the check reads and drives them the same way. Steps: write, H1, ⌘B and a chip on the laptop → Save → the `documents` row; the iPhone editor loads that JSON unchanged and adds a chip at 4:12 (written back with the service role); the laptop Loads it ("identical to the saved JSON ✓", 4:12 shown, a click on the chip reported); Google Docs- and Word-shaped clipboard HTML (approximations, in the script) pasted into both with a synthetic `paste` event must give the same JSON, and Google Docs must keep headings, bold, lists and the table; 20 pages timed in both and typing timed on the laptop; Delete spike document. `NOTE |` lines print the paste reports and timings for PROGRESS.
+
+After changing anything the iPhone editor imports (`src/editor/bridges`, `schema`, `pasteReport.ts`), run `npm run editor:build` first: the check tests the committed bundle.
+
+```bash
+node .claude/skills/web-check/scripts/editor-spike.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
@@ -164,7 +174,9 @@ Check results in the database with `admin` (service role, local only), not just 
 - **Start Recording is disabled until a title is typed** (`input[placeholder^="e.g."]`). The microphone is Chrome's fake device (a beep once a second, which Whisper hears as "you"); the recording uploads as `.webm`.
 - **Real speech**: `launch({ micWav })` replaces getUserMedia with a Web Audio stream of the file. Chrome's own `--use-file-for-fake-audio-capture` stays silent in headless mode, whatever the WAV format.
 - **Summary sentences are `<span>`s on the web** (nested Text); other text is in `<div>`s.
-- **A full reload shows the splash screen for ~2 s**; wait before a screenshot.
+- **A full reload shows the splash screen for ~2 s**; wait before a screenshot (text checks pass underneath it, the screenshot shows only the splash).
+- **`type()` inserts text without key presses** (`Input.insertText`): no `keydown`. Where a key press matters (the editor's typing time, shortcuts), use `chord({ code: 'KeyE', key: 'e', text: 'e' })`.
+- **Killing a check midway leaves its Chrome (port 9333) and its `ui-…@test.dev` user**: stop that Chrome and drop the user with `dropUser` before the next run.
 - **On the web, Alert with buttons, Alert.prompt and ActionSheetIOS do nothing.** The app uses `src/components/dialogs` (a lint rule enforces it); a missing menu usually means something bypasses it.
 - **TouchableOpacity drops an `onContextMenu` prop on the web**: right-click menus are wired through `menuTriggerProps`' ref.
 - iPhone behaviour (native action sheets, Alert.prompt, the real microphone) can't be checked here; list it for Lea to retest.
