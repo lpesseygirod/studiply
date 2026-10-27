@@ -9,8 +9,9 @@ const WEB_SILENT_DIALOGS = 'Does nothing on the web: use showAlert / showActionS
 module.exports = defineConfig([
   expoConfig,
   {
-    // Edge Functions run on Deno (npm: imports, Deno globals), not in the app.
-    ignores: ['dist/*', 'supabase/functions/**'],
+    // Edge Functions run on Deno (npm: imports, Deno globals), not in the app;
+    // editor-web/build is the generated WebView editor (npm run editor:build).
+    ignores: ['dist/*', 'supabase/functions/**', 'editor-web/build/**'],
   },
   {
     files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],

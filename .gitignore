@@ -82,3 +82,6 @@ coverage/
 # Finder/iCloud duplicate copies ("file 2.ts", "folder 2")
 * 2.*
 * 2
+
+# Editor bundle (step 4.2): editorHtml.js is committed for Metro and EAS; the plain HTML is a build step
+editor-web/build/index.html

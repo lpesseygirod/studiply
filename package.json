@@ -7,6 +7,8 @@
     "start:local": "expo start --clear",
     "start:remote": "node scripts/start-remote.mjs",
     "build:dev:ios": "eas build --profile development --platform ios",
+    "editor:build": "vite build --config editor-web/vite.config.mts",
+    "editor:dev": "vite build --config editor-web/vite.config.mts --watch",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

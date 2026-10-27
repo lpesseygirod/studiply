@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--TENTAP_BOOT-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Studiply editor</title>
+    <!-- Layout only (from TenTap's own bundle). Colours come from the app
+         (src/editor/editorCss.ts, injected by StudiplyEditor), never from here. -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .tentap-root,
+      #root > div:nth-of-type(1) {
+        position: absolute;
+        height: 100%;
+        overflow: auto;
+        width: 100%;
+        top: 0;
+        bottom: 0;
+      }
+      #root div .ProseMirror {
+        min-height: 100%;
+        overflow: visible;
+        display: flow-root;
+      }
+      #root > div.dynamic-height {
+        height: unset;
+      }
+      #root div.dynamic-height .ProseMirror {
+        height: auto;
+        min-height: 0;
+        display: flow-root;
+      }
+      .ProseMirror:focus {
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
