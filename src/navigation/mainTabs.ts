@@ -27,12 +27,13 @@ export const MAIN_TABS: readonly MainTab[] = [
 ];
 
 /** Routes in the tab navigator that have no tab of their own. */
-export const HIDDEN_ROUTES = ['index', 'project/[id]', 'note/[id]'] as const;
+export const HIDDEN_ROUTES = ['index', 'project/[id]', 'note/[id]', 'dev/editor-spike'] as const;
 
-/** Screens shown full screen on the iPhone (no tab bar): documents and the recording flow after setup. */
+/** Screens shown full screen on the iPhone (no tab bar): documents, the recording flow after setup, and the editor spike. */
 export function isFullScreenRoute(pathname: string): boolean {
   return (
     pathname.startsWith('/note/') ||
+    pathname.startsWith('/dev/') ||
     pathname.startsWith('/record/active') ||
     pathname.startsWith('/record/post-session') ||
     pathname.startsWith('/record/review')

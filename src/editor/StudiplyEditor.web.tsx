@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 
@@ -60,7 +60,6 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         },
       },
     },
-    onCreate: () => handlers.current.onReady?.(),
     onUpdate: ({ editor: e }) => {
       if (keyAt.current) {
         const at = keyAt.current;
@@ -79,6 +78,13 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       lastChip.current = ms;
     },
   });
+
+  // The editor exists from the first render (immediatelyRender); ready once mounted.
+  useEffect(() => handlers.current.onReady?.(), []);
+
+  // Development: the Chrome check (editor-spike.mjs) reads and drives both
+  // editors the same way (the iPhone bundle sets the same global).
+  if (__DEV__) (window as unknown as { studiplyEditor?: Editor }).studiplyEditor = editor;
 
   useImperativeHandle(
     ref,

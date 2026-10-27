@@ -46,3 +46,14 @@ describe('the report line', () => {
     expect(pasteLosses({ had, kept })).toEqual(['colour']);
   });
 });
+
+describe('colours', () => {
+  it('counts red text but not black, and transparent is not a highlight', () => {
+    const counts = countSlice([
+      { type: 'text', text: 'rojo', marks: [{ type: 'textStyle', attrs: { color: 'rgb(204, 0, 0)' } }] },
+      { type: 'text', text: 'negro', marks: [{ type: 'textStyle', attrs: { color: 'rgb(0, 0, 0)' } }] },
+      { type: 'text', text: 'nada', marks: [{ type: 'textStyle', attrs: { color: 'rgba(255, 255, 0, 0)' } }] },
+    ]);
+    expect(counts.colour).toBe(4);
+  });
+});

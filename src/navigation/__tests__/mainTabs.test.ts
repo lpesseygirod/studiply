@@ -23,6 +23,7 @@ describe('the iPhone tab bar', () => {
     expect(isFullScreenRoute('/record/active')).toBe(true);
     expect(isFullScreenRoute('/record/post-session')).toBe(true);
     expect(isFullScreenRoute('/record/review')).toBe(true);
+    expect(isFullScreenRoute('/dev/editor-spike')).toBe(true);
     expect(isFullScreenRoute('/record')).toBe(false);
     expect(isFullScreenRoute('/library')).toBe(false);
     expect(isFullScreenRoute('/project/abc')).toBe(false);

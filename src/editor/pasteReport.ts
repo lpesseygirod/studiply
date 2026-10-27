@@ -64,7 +64,7 @@ type Style = Pick<CSSStyleDeclaration, 'fontWeight' | 'fontStyle' | 'textDecorat
 function plainColour(value: string): boolean {
   const v = value.replace(/\s+/g, '').toLowerCase();
   return !v || v === 'inherit' || v === 'initial' || v === 'transparent' || v === 'windowtext' || v === 'black' || v === 'white'
-    || /^#(000|000000|fff|ffffff)$/.test(v) || /^rgba?\((0,0,0|255,255,255)(,1)?\)$/.test(v) || /,0\)$/.test(v);
+    || /^#(000|000000|fff|ffffff)$/.test(v) || /^rgba?\((0,0,0|255,255,255)(,1)?\)$/.test(v) || /^rgba\(\d+,\d+,\d+,0\)$/.test(v);
 }
 
 function isBold(tag: string, style: Style): boolean {
