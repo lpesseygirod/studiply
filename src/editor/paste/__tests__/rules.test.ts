@@ -116,4 +116,14 @@ describe('paste without formatting', () => {
     // Only that one paste.
     expect(editor.view.someProp('handlePaste', (f) => f(editor.view, event, Slice.empty))).toBeFalsy();
   });
+
+  it('a ⌘⇧V that pasted nothing ends when the keys are released: the next paste keeps its formatting', () => {
+    paste('');
+    const storage = (editor.storage as unknown as Record<string, { plainUntil: number }>)[PASTE_RULES];
+    storage.plainUntil = Date.now() + 1000; // ⌘⇧V with an empty clipboard: no paste came
+    editor.view.dom.dispatchEvent(new KeyboardEvent('keyup', { key: 'v', bubbles: true }));
+    expect(storage.plainUntil).toBe(0);
+    const event = { clipboardData: { getData: () => 'Uno' } } as unknown as ClipboardEvent;
+    expect(editor.view.someProp('handlePaste', (f) => f(editor.view, event, Slice.empty))).toBeFalsy();
+  });
 });

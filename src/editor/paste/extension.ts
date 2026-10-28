@@ -10,12 +10,15 @@ import { transformPastedHTML } from './rules';
  *
  * ⌘⇧V lets the browser's paste happen (it is the only way to read the
  * clipboard without asking for permission) and marks it plain: the paste
- * that follows inserts the text alone and is blocked from the browser. On
- * the iPhone the Aa panel reads the clipboard natively instead.
+ * the browser fires while the keys are down inserts the text alone and is
+ * blocked from the browser. Releasing the keys ends the mark, so a ⌘⇧V
+ * that pasted nothing (an empty clipboard) never turns a later, ordinary
+ * paste plain. On the iPhone the Aa panel reads the clipboard natively.
  */
 
 export const PASTE_RULES = 'pasteRules';
-const PLAIN_FOR_MS = 1500;
+/** At most this long, in case the keys' release is never seen. */
+const PLAIN_FOR_MS = 1000;
 const pluginKey = new PluginKey(PASTE_RULES);
 
 export const PasteRules = Extension.create<object, { plainUntil: number }>({
@@ -43,6 +46,12 @@ export const PasteRules = Extension.create<object, { plainUntil: number }>({
         key: pluginKey,
         props: {
           transformPastedHTML: (html) => transformPastedHTML(html),
+          handleDOMEvents: {
+            keyup: () => {
+              storage.plainUntil = 0;
+              return false;
+            },
+          },
           handlePaste: (_view, event) => {
             if (Date.now() > storage.plainUntil) return false;
             storage.plainUntil = 0;

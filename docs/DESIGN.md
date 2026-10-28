@@ -49,7 +49,14 @@ The iPhone app is the main recording device (App Store). Same data, same feature
 **System:** Dynamic Type, dark mode, VoiceOver labels on every control, permission prompts with clear reasons (microphone, camera, photos, notifications).
 
 ## Formatting toolbar
-Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, Quote) · font · size − / + · Bold, Italic, Underline, Strikethrough (toggle state shown) · text color · highlight · bulleted, numbered, checklist · align · link · image · table · formula (∑, KaTeX) · comment · clear formatting.
+Undo, redo · text style (Title, Heading 1, Heading 2, Subheading, Normal text, Quote) · font · size − / + · Bold, Italic, Underline, Strikethrough (toggle state shown) · text color · highlight · bulleted, numbered, checklist · align · line spacing · decrease / increase indent · page break · link · image · table · formula (∑, KaTeX) · comment · clear formatting.
+
+As built in step 4.4:
+- **Laptop toolbar** (the white card above the page): undo, redo · **style menu** ("Normal text ▾", each style in its own look, with its shortcut) · **font menu** (System, Rounded, Serif, Monospace, each in its font; Rounded is Apple's rounded font, System on Windows) · **− size +** (type a size; Normal is 15) · B I U S · **text colour** (A over a coloured line) and **highlight** (a marker): small grids of `DocColors` (made for the white page) with Default / None · bulleted, numbered, checklist · **align menu** · **line spacing menu** (Single, 1.15, 1.5, Double) · indent − + · page break · clear formatting. Active tools are tinted; the row wraps on a narrow window. Link, image, table, ∑ and comment come with 4.5.
+- **Shortcuts** (as in Google Docs; in the "?" sheet under "In a document"): ⌘B / ⌘I / ⌘U, ⌘⇧X strikethrough, ⌘⌥0–3 Normal / Heading 1 / Heading 2 / Subheading, ⌘⇧7 / 8 / 9 numbered / bulleted / checklist, ⌘⇧L / E / R / J align, ⌘] / ⌘[ (and Tab / ⇧Tab) indent, ⌘⇧. / ⌘⇧, size, ⌘↵ page break, ⌘\ clear formatting, ⌘⇧V paste without formatting.
+- **iPhone:** the keyboard toolbar scrolls sideways: **Aa** · B I U S · colours · lists · indent − + · undo · redo, with **Done** at the right. **Aa** and the colours open their panels in place of the keyboard (the selection stays): Aa has the styles in their own look, font, size − / +, align, line spacing, indent, Page break, Clear formatting and **Paste without formatting**; the colour panel has text colour and highlight swatches. The keyboard button brings the keyboard back.
+- **The page:** Title is a style of its own above Heading 1 (the document's name above the page is separate); Subheading is smaller and grey; a page break is a dashed line marked "Page break" (a new page in PDF and Word, 4.8); line spacing defaults to 1.5; each indent step is 2 em.
+- **Paste** from Google Docs or Word keeps headings, B/I/U/S, colours, highlights (snapped to our highlight colours), lists (Word's too, nested and numbered), links and tables; fonts and sizes become the document's own.
 
 ## Recording flow
 ### 1. While recording

@@ -123,6 +123,18 @@ node .claude/skills/web-check/scripts/search.mjs
 node .claude/skills/web-check/scripts/documents.mjs
 ```
 
+## Check formatting (step 4.4)
+
+`scripts/formatting.mjs`:
+- every toolbar control (by its `aria-label`) and Google Docs' shortcuts, read back from the document JSON;
+- ⌘⇧R and ⌘⇧J do the editor's action, their keydown is blocked from Chrome and the page isn't reloaded; ⌘⇧V's paste (sent while the keys are down, as a browser does) goes in as plain text and is blocked from the browser;
+- the paste samples in `src/editor/paste/__tests__/clipboard.json` (Google Docs, Word, Word with Title, nested lists and a page break) lose nothing, and give the same document in the laptop editor and the iPhone bundle;
+- the Psicobiología page rebuilt with the toolbar, staying on screen across the 1024 px width; screenshots `fmt-*.png`.
+
+```bash
+node .claude/skills/web-check/scripts/formatting.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
@@ -174,6 +186,7 @@ Check results in the database with `admin` (service role, local only), not just 
 - **Summary sentences are `<span>`s on the web** (nested Text); other text is in `<div>`s.
 - **A full reload shows the splash screen for ~2 s**; wait before a screenshot (text checks pass underneath it, the screenshot shows only the splash).
 - **`editor.commands.focus()` right after a page load doesn't take the focus** in the app page (headless Chrome hasn't focused the document yet): click into `.ProseMirror` with `clickSelector` instead. In the standalone iPhone bundle it works.
+- **Shortcuts with ⌥ or ⇧ need `keyCode`** (`chord({ code: 'Digit1', key: '¡', meta: true, alt: true, keyCode: 49 })`): on a Mac ⌥1 types "¡", and editors find the shortcut from the key code. `chord` releases Shift itself; a raw `Input.dispatchKeyEvent` with Shift must send its own Shift keyUp (keyCode 16), or ProseMirror thinks Shift is still down and pastes everything as plain text.
 - **`type()` inserts text without key presses** (`Input.insertText`): no `keydown`. Where a key press matters (the editor's typing time, shortcuts), use `chord({ code: 'KeyE', key: 'e', text: 'e' })`.
 - **Killing a check midway leaves its Chrome (port 9333) and its `ui-…@test.dev` user**: stop that Chrome and drop the user with `dropUser` before the next run.
 - **On the web, Alert with buttons, Alert.prompt and ActionSheetIOS do nothing.** The app uses `src/components/dialogs` (a lint rule enforces it); a missing menu usually means something bypasses it.

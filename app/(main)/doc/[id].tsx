@@ -279,60 +279,53 @@ export default function DocumentScreen() {
     <View style={[styles.editorWrap, !wide && styles.pageCard]}>{placeholder}</View>
   );
 
-  if (wide) {
-    return (
-      <View style={styles.container}>
-        <GradientFill />
-        <View style={styles.column}>
-          <View style={styles.topRow}>
-            {isLecture && (
-              <>
-                <DocumentTabs tab={tab} onChange={setTab} />
-                <Text style={styles.hint} numberOfLines={1}>
-                  {HINTS[tab]}
-                </Text>
-              </>
-            )}
-            <View style={styles.spacer} />
-            <View ref={menuButton} collapsable={false}>
-              <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={c.text.onGradientStrong} />
-            </View>
-          </View>
-          {body}
-        </View>
-        {toast}
-        {itemMenu.modal}
-        {file && (
-          <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
-        )}
-      </View>
-    );
-  }
-
   // Accent purple as in the mockup; on the dimmed dark gradient, the strong text colour.
   const backColor = scheme === 'dark' ? c.text.onGradientStrong : c.accentDark;
 
+  const top = wide ? (
+    <View style={styles.topRow}>
+      {isLecture && (
+        <>
+          <DocumentTabs tab={tab} onChange={setTab} />
+          <Text style={styles.hint} numberOfLines={1}>
+            {HINTS[tab]}
+          </Text>
+        </>
+      )}
+      <View style={styles.spacer} />
+      <View ref={menuButton} collapsable={false}>
+        <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={c.text.onGradientStrong} />
+      </View>
+    </View>
+  ) : (
+    // Above the page: a tap on its empty space closes the keyboard (buttons answer their own taps).
+    <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
+      <View style={styles.phoneHeader}>
+        <Pressable onPress={leave} style={styles.back} accessibilityRole="button" accessibilityLabel={`Back to ${courseName ?? 'Library'}`}>
+          <Ionicons name="chevron-back" size={22} color={backColor} />
+          <Text style={[styles.backText, { color: backColor }]} numberOfLines={1}>
+            {courseName ?? 'Library'}
+          </Text>
+        </Pressable>
+        <View ref={menuButton} collapsable={false}>
+          <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
+        </View>
+      </View>
+      {status && <Text style={styles.status}>{status}</Text>}
+      {isLecture && <DocumentTabs tab={tab} onChange={setTab} fill />}
+    </View>
+  );
+
+  // One tree for both layouts, so crossing the laptop width (a window being
+  // resized) keeps the editor and its save session instead of remounting them.
   return (
     <View style={styles.container}>
       <GradientFill />
-      <ThemedStatusBar />
-      {/* Above the page: a tap on its empty space closes the keyboard (buttons answer their own taps). */}
-      <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
-        <View style={styles.phoneHeader}>
-          <Pressable onPress={leave} style={styles.back} accessibilityRole="button" accessibilityLabel={`Back to ${courseName ?? 'Library'}`}>
-            <Ionicons name="chevron-back" size={22} color={backColor} />
-            <Text style={[styles.backText, { color: backColor }]} numberOfLines={1}>
-              {courseName ?? 'Library'}
-            </Text>
-          </Pressable>
-          <View ref={menuButton} collapsable={false}>
-            <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
-          </View>
-        </View>
-        {status && <Text style={styles.status}>{status}</Text>}
-        {isLecture && <DocumentTabs tab={tab} onChange={setTab} fill />}
+      {!wide && <ThemedStatusBar />}
+      <View style={wide ? styles.column : styles.container}>
+        {top}
+        <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       </View>
-      <View style={[styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       {toast}
       {itemMenu.modal}
       {file && (
@@ -341,7 +334,6 @@ export default function DocumentScreen() {
     </View>
   );
 }
-
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({

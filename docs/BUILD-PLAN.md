@@ -89,13 +89,20 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Find & replace | Document menu → Find | Cmd+F / Cmd+Shift+H | 4 | v1 |
 | Word count | Document menu | Document menu + status line | 4 | v1 |
 | Outline of the headings to jump around | Sheet from the document menu | Outline beside the page | 4 | v1 |
+| Line spacing, increase/decrease indent, page breaks | "Aa" sheet | Toolbar + shortcuts | 4 | v1 |
 | Page setup for printing (A4 / Letter, margins) | Document menu | Document menu | 4 | v1 |
+| Page view: separate pages with gaps and the page count, matching the export; "Pageless" switch | Pageless by default, "Print layout" switch | Pages by default | 4 | v1 |
+| Zoom | Pinch to zoom | 50–200 %, ⌘+ / ⌘−, remembered per device | 4 | v1 |
 | Import a Word document (.docx) | Files picker (from the share sheet later, with the share extension) | Upload or drag from Finder | 4 | v1 |
 | AI suggestions accepted or rejected, never automatic | Yes | Yes | 6, 7 | v1 |
 | Export PDF (any document, with its page setup) | Share sheet (AirDrop, Files, Mail) | Download | 4, 8 | v1 |
+| Page numbers and new pages at page breaks in PDF and Word export | Yes | Yes | 4 | v1 |
 | Export Word (.docx) | Share sheet | Download | 4 | v1 |
 | Export Markdown | Share sheet | Download | 8 | Later |
 | Real-time co-editing and sharing a document with others | — | — | — | Later (after launch) |
+| Automatic table of contents (from the headings, updated on request) | Document menu | Insert menu | — | Later |
+| Footnotes | "+" insert menu | Insert menu, ⌘⌥F | — | Later |
+| Headers and footers (in page view and in the export) | Document menu | Double-click the page top / bottom | — | Later |
 
 ### Study assistant (Claude-style chat)
 
@@ -363,7 +370,7 @@ Step 4.3: make every lecture a document with three tabs (My notes, Summary, Tran
 **Step 4.4 — Formatting toolbar**
 
 ```markdown
-Step 4.4: build the formatting tools from DESIGN.md. Laptop: full toolbar (undo/redo, text style Title/Heading 1/Heading 2/Subheading/Normal/Quote, font, size −/+, bold, italic, underline, strikethrough with active state, text color, highlight, bullet/numbered/check lists, align, clear formatting) plus Cmd+B/I/U shortcuts. iPhone: keyboard toolbar that scrolls sideways plus an "Aa" sheet for styles and size. Pasting from Google Docs or Word keeps headings, bold/italic/underline, colours, highlights, lists, links and tables (mapped to our styles); "Paste without formatting" (Cmd+Shift+V) is there too.
+Step 4.4: build the formatting tools from DESIGN.md. Laptop: full toolbar (undo/redo, text style Title/Heading 1/Heading 2/Subheading/Normal/Quote, font, size −/+, bold, italic, underline, strikethrough with active state, text color, highlight, bullet/numbered/check lists, align, line spacing, increase/decrease indent, page break, clear formatting) plus Cmd+B/I/U shortcuts and the other Google Docs shortcuts. iPhone: keyboard toolbar that scrolls sideways plus an "Aa" sheet for styles, size, alignment, line spacing, indent and page breaks. Pasting from Google Docs or Word keeps headings, bold/italic/underline, colours, highlights, lists, links and tables (mapped to our styles); "Paste without formatting" (Cmd+Shift+V) is there too.
 ```
 
 **Check:** recreate your Psicobiología notes page (titles, bold, underline, highlight, lists) on both devices; copy a page from Google Docs and one from Word and paste them: they look the same.
@@ -388,17 +395,23 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 
 ```markdown
 Step 4.7: add the writing tools of a full word processor, on both devices: find & replace (match case, whole words, next/previous, replace all, with Undo; Cmd+F and Cmd+Shift+H on the laptop), word and character count (whole document and selection; a status line on the laptop), an outline of the headings to jump around (beside the page on the laptop, a sheet on the iPhone; it follows as I write), and page setup for printing (A4 or Letter, portrait or landscape, margins; saved with the document, shown as page edges on the laptop, used by printing and PDF export).
+
+Also a page view and zoom, like Word and Google Docs:
+- **Page view:** separate A4/Letter pages with gaps between them and the page count ("Page 3 of 12"). The pages match what the PDF and Word export will produce (page setup's size and margins, page breaks), with a "Pageless" switch. The laptop starts with pages and the iPhone pageless, with a "Print layout" switch.
+- **Zoom:** 50–200 % on the laptop (⌘+ / ⌘−, a zoom menu, remembered per device), and pinch-to-zoom on the iPhone.
+
+Start with a short spike comparing the page-view options (see the recommendation below) and ask before adding any library.
 ```
 
-**Check:** in a 10-page document, replace a word everywhere and undo it; the word count matches Google Docs for the same text; jump to a heading from the outline on both devices; switch to Letter with 2 cm margins and print a preview.
+**Check:** in a 10-page document, replace a word everywhere and undo it; the word count matches Google Docs for the same text; jump to a heading from the outline on both devices; switch to Letter with 2 cm margins and print a preview; in page view the page count and where each page ends match the PDF; zoom to 150 % and back with ⌘+ / ⌘− (it is remembered after a reload); pinch to zoom on the iPhone; Print layout on the iPhone shows the same pages.
 
 **Step 4.8 — Import and export**
 
 ```markdown
-Step 4.8: import a Word document (.docx) as a new document in the open course or folder (laptop: upload or drag from Finder; iPhone: the Files picker; importing from other apps' share sheet comes later with the share extension), keeping headings, formatting, lists, tables and images; and export any document as PDF (with its page setup) and as Word (.docx), on both devices (laptop: download; iPhone: share sheet). Lecture summaries still get their designed PDF in Phase 8; this is the plain document export. Ask before adding any library for .docx.
+Step 4.8: import a Word document (.docx) as a new document in the open course or folder (laptop: upload or drag from Finder; iPhone: the Files picker; importing from other apps' share sheet comes later with the share extension), keeping headings, formatting, lists, tables and images; and export any document as PDF (with its page setup) and as Word (.docx), on both devices (laptop: download; iPhone: share sheet). Both start a new page at every page break and number the pages (an option, on by default). Lecture summaries still get their designed PDF in Phase 8; this is the plain document export. Ask before adding any library for .docx.
 ```
 
-**Check:** import a real Word file from your courses and compare it with Word; export it again as .docx and PDF and open both on the Mac.
+**Check:** import a real Word file from your courses and compare it with Word; export it again as .docx and PDF and open both on the Mac: page breaks start new pages and the pages are numbered.
 
 **Step 4.9 — Convert old notes**
 
@@ -408,7 +421,18 @@ Step 4.9: convert all existing notes from the old format into the new document f
 
 **Check:** open three old notes and compare them with how they looked before. Merge the branch.
 
-**Later, after launch (not in Phase 4):** real-time co-editing (several people writing in the same document at once, with their cursors) and sharing a document with others to edit or comment. Phase 8 only adds read-only links and PDFs for summaries.
+**Later, after launch (not in Phase 4):** real-time co-editing (several people writing in the same document at once, with their cursors) and sharing a document with others to edit or comment. Phase 8 only adds read-only links and PDFs for summaries. Also later: an automatic table of contents, footnotes, and headers and footers (Lea, step 4.4).
+
+**Page view in 4.7: what is feasible (checked 28 Oct 2026, step 4.4).**
+- **Tiptap's own "Tiptap Pages"** is a paid Pro extension (needs a paid Tiptap plan and a private package registry; still marked alpha). It is the most complete option, with page formats, headers and footers, and Word export. But it would be the first paid dependency, and it would have to run inside the iPhone's WebView bundle too. Its exact 2026 terms weren't confirmed, so it isn't recommended unless the free routes fail.
+- **Free community extensions** (`tiptap-pagination-plus`, MIT; `tiptap-extension-pagination`, ISC) exist but are young. Several change the document itself (page nodes), which would break the block ids, the merge and the origin rule (4.3).
+- **Recommendation: a page view of our own, which only changes the display.**
+  - **How:** the document stays one pageless JSON. In page view, the editor measures its blocks and draws page gaps, page edges and "Page n of m" as decorations (nothing is saved). It moves a block that doesn't fit to the next page, and splits a long paragraph between lines.
+  - **Same rules as the export:** the PDF/Word export (4.8) uses the same page size, margins, page breaks and keep-together rules, so the count matches.
+  - **Zoom** is a CSS scale of the page on the laptop and the WebView's own pinch-zoom on the iPhone.
+  - **Cost and risk:** about one step of work. The risk is splitting long tables and lists exactly as Word does, so 4.7 starts with a spike against real documents.
+  - **If that spike shows the count can't match the export,** try `tiptap-pagination-plus` next, and Tiptap Pages last, after asking about the cost.
+  - **Sources:** tiptap.dev/blog/release-notes/structured-paginated-real-meet-tiptap-pages · npmjs.com/package/tiptap-pagination-plus · github.com/hugs7/tiptap-extension-pagination
 
 ## Phase 5 — Recording with live notes and marks
 

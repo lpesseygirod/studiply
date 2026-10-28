@@ -247,10 +247,14 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
      * A key with modifiers, as the keyboard sends it: e.g. ⌥R is
      * { code: 'KeyR', key: '®', alt: true } on a Mac. `text` types a character.
      */
-    async chord({ code, key, alt = false, shift = false, meta = false, ctrl = false, text }) {
+    /** `keyCode`: the key's code (65 for A, 49 for 1…), which editors read when ⌥ or ⇧ change `key` (⌥1 is "¡"). */
+    async chord({ code, key, alt = false, shift = false, meta = false, ctrl = false, text, keyCode }) {
       const modifiers = (alt ? 1 : 0) | (ctrl ? 2 : 0) | (meta ? 4 : 0) | (shift ? 8 : 0);
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, text });
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers });
+      const codes = keyCode ? { windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode } : {};
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, modifiers, text, ...codes });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, modifiers, ...codes });
+      // Release Shift as a keyboard does: editors remember a held Shift (ProseMirror pastes plain text while it is down).
+      if (shift) await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Shift', code: 'ShiftLeft', modifiers: modifiers & ~8, windowsVirtualKeyCode: 16, nativeVirtualKeyCode: 16 });
       await sleep(400);
     },
     async shot(name) {
