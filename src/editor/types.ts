@@ -24,6 +24,8 @@ export type StudiplyEditorHandle = {
 
 export type StudiplyEditorProps = {
   initialContent?: DocJSON;
+  /** The document's file: photos added go with it. Without it (a version's preview) none can be added. */
+  fileId?: string;
   /** False: read only (a version's preview). */
   editable?: boolean;
   /** At the top of the page (title and meta line); on the iPhone hidden while typing. */

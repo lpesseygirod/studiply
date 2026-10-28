@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { clearCache, setCacheSession } from '../lib/cache';
 import { getConnection, onBackOnline, subscribe as subscribeConnection } from '../lib/connectivity';
 import { removeAllPendingFiles } from '../lib/pendingFiles';
+import { removeAllCachedPhotos } from '../lib/photoCache';
 import { readStoredSession, startupState } from '../lib/offlineSession';
 import { supabase, supabaseUrl } from '../lib/supabase';
 import {
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (userId) {
       await clearCache(userId).catch(() => {});
       await removeAllPendingFiles();
+      await removeAllCachedPhotos();
       await forgetCachedProfile(userId);
     }
     // Offline there is no SIGNED_OUT event; leave the offline session here.

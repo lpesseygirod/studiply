@@ -2,6 +2,7 @@ import type { CommandProps, Editor, JSONContent } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
+import { selectedPhoto } from '../schema/photo';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
@@ -75,6 +76,8 @@ export interface FormatState {
   canSplit: boolean;
   /** The last press on the floating table bar that asks for a menu (the iPhone opens it). */
   tableRequest: TableBarRequest | null;
+  /** A selected photo and its width in % of the page (null: its own size); null when none is selected. */
+  photo: { width: number | null } | null;
 }
 
 export type FormatCommand =
@@ -99,7 +102,9 @@ export type FormatCommand =
   /** Links (step 4.5): href already cleaned (cleanUrl); null removes the link. `text` when nothing is selected. */
   | { type: 'link'; href: string | null; text?: string }
   /** Tables (step 4.5). `rows` / `cols` for insert and resize (clamped to MAX_TABLE). */
-  | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null };
+  | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null }
+  /** The selected photo's width in % of the page (step 4.5); null: its own size. */
+  | { type: 'photoWidth'; width: number | null };
 
 export type TableAction =
   | 'insert'
@@ -165,6 +170,7 @@ export function formatState(editor: Editor): FormatState {
     canOutdent: can.outdent(),
     link: (editor.getAttributes('link').href as string | undefined) ?? null,
     ...tableState(editor),
+    photo: selectedPhoto(editor),
   };
 }
 
@@ -336,5 +342,7 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       }
       return chain().extendMarkRange('link').setLink({ href: cmd.href }).run();
     }
+    case 'photoWidth':
+      return chain().setPhotoWidth(cmd.width).run();
   }
 }

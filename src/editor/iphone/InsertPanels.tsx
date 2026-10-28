@@ -31,6 +31,8 @@ export type TableView = 'list' | 'colour' | 'spectrum' | 'size';
  */
 export interface PanelActionsValue {
   addLink: () => void;
+  /** From Photos (several) or the camera; null when photos can't be added here. */
+  addPhotos: ((from: 'library' | 'camera') => void) | null;
   /** A number from 1 to `max`; a larger one comes back as `max`, `lowered`. Null when cancelled. */
   askNumber: (title: string, value: number, max: number) => Promise<{ value: number; lowered: boolean } | null>;
   insertSize: TableSize | null;
@@ -42,6 +44,7 @@ export interface PanelActionsValue {
 }
 export const PanelActions = createContext<PanelActionsValue>({
   addLink: () => {},
+  addPhotos: null,
   askNumber: async () => null,
   insertSize: null,
   setInsertSize: () => {},
@@ -110,13 +113,13 @@ function Stepper({ label, value, max, onChange }: { label: string; value: number
 /**
  * "+" (step 4.5, DESIGN's insert menu), in place of the keyboard: Photo,
  * Take photo, Table (rows and columns, then Insert), Formula, Link,
- * Comment. Photos, formulas and comments come with checkpoint B.
+ * Comment. Formulas and comments come with checkpoint B.
  */
 function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const { run } = useFormat(editor);
-  const { addLink, insertSize: table, setInsertSize: setTable } = useContext(PanelActions);
+  const { addLink, addPhotos, insertSize: table, setInsertSize: setTable } = useContext(PanelActions);
   const soon = (what: string) => () => showAlert(what, 'Coming in the next update.');
 
   if (table) {
@@ -150,8 +153,8 @@ function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   }
 
   const items: { label: string; icon: IconName; onPress: () => void }[] = [
-    { label: 'Photo', icon: 'image-outline', onPress: soon('Photos') },
-    { label: 'Take photo', icon: 'camera-outline', onPress: soon('Photos') },
+    { label: 'Photo', icon: 'image-outline', onPress: () => (addPhotos ? addPhotos('library') : soon('Photos')()) },
+    { label: 'Take photo', icon: 'camera-outline', onPress: () => (addPhotos ? addPhotos('camera') : soon('Photos')()) },
     { label: 'Table', icon: 'table-large-plus', onPress: () => setTable({ rows: 3, cols: 3 }) },
     { label: 'Formula', icon: 'sigma', onPress: soon('Formulas') },
     {

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { FileHandler } from '@tiptap/extension-file-handler';
 
 import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -9,10 +10,16 @@ import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { LinkBubble } from './LinkBubble.web';
+import { setPhotoResolver } from './media/photoSource';
+import { addPhotoFiles, pickPhotoFiles } from './photos.web';
 import { TableMenus } from './TableMenus.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { TableHandles } from './table/tableHandles';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
+import { editorPhotoSource } from '../services/doc-photo.service';
+
+// Photos (`media:<id>`) show from their signed links.
+setPhotoResolver(editorPhotoSource);
 
 const SCOPE = 'studiply-editor';
 // The page card gives the margins on the laptop; the text keeps room below.
@@ -28,14 +35,32 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, editable = true, header, onReady, onChange, onChipPress, onPaste },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
   const narrow = useWindowDimensions().width < 600;
   const [page, setPage] = useState<HTMLElement | null>(null);
-  // The laptop adds the table's hover handles (the iPhone has no hover).
-  const extensions = useMemo(() => [...studiplyExtensions(), TableHandles], []);
+  const photoFile = useRef(fileId);
+  photoFile.current = fileId;
+  // The laptop adds the table's hover handles (the iPhone has no hover), and
+  // photos dropped on the page or pasted (a pasted page with pictures, from
+  // Word or Docs, goes through the normal paste instead).
+  const extensions = useMemo(
+    () => [
+      ...studiplyExtensions(),
+      TableHandles,
+      FileHandler.configure({
+        onDrop: (e, files, pos) => {
+          if (photoFile.current) void addPhotoFiles(e, photoFile.current, files, pos);
+        },
+        onPaste: (e, files, html) => {
+          if (photoFile.current && !html) void addPhotoFiles(e, photoFile.current, files);
+        },
+      }),
+    ],
+    [],
+  );
   const lastChip = useRef<number | null>(null);
   const lastPaste = useRef(0);
 
@@ -92,7 +117,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   return (
     <View style={styles.container}>
       <style>{CSS}</style>
-      {editable && <FormatToolbar editor={editor} />}
+      {editable && <FormatToolbar editor={editor} onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined} />}
       <View style={styles.page} ref={(v) => setPage(v as unknown as HTMLElement | null)}>
         <ScrollView style={styles.scroll} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
           {header}

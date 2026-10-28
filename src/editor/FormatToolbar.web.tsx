@@ -87,7 +87,7 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
  * what is active where the selection is (formatState) and runs the shared
  * commands (src/editor/format); the shortcuts are listed in the "?" sheet.
  */
-export function FormatToolbar({ editor }: { editor: Editor }) {
+export function FormatToolbar({ editor, onImage }: { editor: Editor; /** Photos from the browser's file picker. */ onImage?: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const s = formatState(editor);
@@ -298,7 +298,7 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
     t('ordered', tool('Numbered list', 'format-list-numbered', { type: 'list', list: 'ordered' }, { active: s.list === 'ordered' })),
     gap('g4'),
     t('link', iconButton('link', 'Link (⌘K)', 'link-variant', !!s.link)),
-    t('image', plain('Image', 'image-outline', soon('Images'))),
+    t('image', plain('Image', 'image-outline', onImage ?? soon('Images'))),
     t('table', iconButton('table', 'Insert table', 'table-large-plus')),
   ];
   const secondary: Item[] = [

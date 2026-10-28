@@ -10,3 +10,4 @@ import './session.service';
 import './source-file.service';
 import './document.service';
 import './preferences.service';
+import './doc-photo.service';

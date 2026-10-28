@@ -7,6 +7,7 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatCommand, FormatState } from '../format';
+import { PHOTO_WIDTHS } from '../schema/photo';
 import { useToolbarExpanded } from '../../lib/toolbarPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -90,6 +91,28 @@ export function KeyboardToolbar({
               ))}
             </View>
           ) : null}
+          {s?.photo ? (
+            // A selected photo: its size first.
+            <View style={styles.linkChips}>
+              {[
+                { label: 'Small', width: PHOTO_WIDTHS.small },
+                { label: 'Medium', width: PHOTO_WIDTHS.medium },
+                { label: 'Large', width: PHOTO_WIDTHS.large },
+                { label: 'Full width', width: PHOTO_WIDTHS.full },
+              ].map((a) => (
+                <Pressable
+                  key={a.label}
+                  onPress={() => run({ type: 'photoWidth', width: a.width })}
+                  style={[styles.linkChip, s.photo?.width === a.width && styles.chipOn]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Photo size ${a.label.toLowerCase()}`}
+                  accessibilityState={{ selected: s.photo?.width === a.width }}
+                >
+                  <Text style={[styles.linkChipText, s.photo?.width === a.width && styles.chipOnText]}>{a.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
           <Pressable
             onPress={() => onPanel('aa')}
             style={[styles.button, styles.aa, panel === 'aa' && styles.active]}
@@ -138,6 +161,8 @@ const makeStyles = (c: ThemeColors) =>
     linkChips: { flexDirection: 'row', gap: 4, marginRight: 6, paddingRight: 6, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: c.border },
     linkChip: { height: 34, paddingHorizontal: 12, borderRadius: 17, justifyContent: 'center', backgroundColor: c.accentLight },
     linkChipText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.accentDark },
+    chipOn: { backgroundColor: c.accentDark },
+    chipOnText: { color: c.accentOn },
     done: {
       height: 48,
       paddingHorizontal: 14,

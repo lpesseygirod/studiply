@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   darkEditorTheme,
   defaultEditorTheme,
@@ -20,6 +21,7 @@ import { studiplyBridges } from './bridges';
 import type { PasteReportState } from './bridges/pasteReport';
 import type { BlockMetaInstance } from './bridges/blockMeta';
 import type { FormatBridgeInstance, FormatBridgeState } from './bridges/format';
+import { setNativePhotoResolver, type PhotoBridgeInstance } from './bridges/photo';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { cleanUrl, type FormatCommand, type TableAction } from './format';
@@ -28,8 +30,13 @@ import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/Forma
 import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
 import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
+import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
+import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
 
-type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance;
+type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance & PhotoBridgeInstance;
+
+// The WebView's photos (`media:<id>`): the phone's copy, or a signed link (then kept on the phone).
+setNativePhotoResolver(editorPhotoSource);
 type State = ReturnType<typeof useBridgeState> & Partial<TimestampChipState & PasteReportState & FormatBridgeState>;
 
 const PANELS = [AaKeyboard, ColorKeyboard, InsertKeyboard, TableKeyboard];
@@ -52,7 +59,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, editable = true, header, onReady, onChange, onChipPress, onPaste },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -108,8 +115,41 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     if (!n) return null;
     return { value: Math.min(n, max), lowered: n > max };
   };
+  // "+" → Photo (several) or Take photo: each is kept on the phone and queued, then all go in where the cursor was.
+  const addPhotos = async (from: 'library' | 'camera') => {
+    setPanel(undefined);
+    if (!fileId || !(await (from === 'camera' ? requestCameraPermission() : requestMediaLibraryPermission()))) return;
+    let assets: ImagePicker.ImagePickerAsset[];
+    try {
+      const options = { mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 };
+      const result = from === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: true });
+      if (result.canceled) return;
+      assets = result.assets;
+    } catch {
+      showAlert('Error', from === 'camera' ? 'Could not take the photo. Please try again.' : 'Could not pick photos. Please try again.');
+      return;
+    }
+    const ids: string[] = [];
+    for (const a of assets) {
+      try {
+        ids.push(
+          await addDocPhoto(fileId, {
+            uri: a.uri,
+            name: a.fileName ?? null,
+            mimeType: a.mimeType ?? 'image/jpeg',
+            sizeBytes: a.fileSize ?? null,
+            size: { width: a.width, height: a.height },
+          }),
+        );
+      } catch (err) {
+        showAlert('Could not add the photo', err instanceof Error ? err.message : 'Please try again.');
+      }
+    }
+    if (ids.length) editor.insertPhotos(ids);
+  };
   const panelActions: PanelActionsValue = {
     addLink: () => void addLink(),
+    addPhotos: fileId ? (from) => void addPhotos(from) : null,
     askNumber,
     insertSize,
     setInsertSize,

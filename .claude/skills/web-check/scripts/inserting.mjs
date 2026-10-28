@@ -18,6 +18,7 @@
 //   - screenshots (ins-*.png) at 1280 and 390, light and dark.
 // Prints PASS/FAIL per step. Exit code 1 on any FAIL.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { crc32, deflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, OUT, SHOTS } from './cdp.mjs';
@@ -67,6 +68,33 @@ const fresh = async (text = 'Ver la web de la UNED') => {
   await b.sleep(200);
 };
 const prefs = async (id) => (await admin.from('profiles').select('preferences').eq('id', id).single()).data.preferences;
+
+/** A w × h PNG (a gradient, so a photo that shows can be told from an empty one). */
+function makePng(w, h) {
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(w, 0);
+  header.writeUInt32BE(h, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // RGB
+  const rows = Buffer.alloc((w * 3 + 1) * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * (w * 3 + 1) + 1 + x * 3;
+      rows[i] = Math.round((x / w) * 255);
+      rows[i + 1] = 127;
+      rows[i + 2] = Math.round((y / h) * 255);
+    }
+  }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', header), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
 
 const user = await makeUser();
 const { data: file } = await user.client.from('files').insert({ kind: 'document', title: 'Insertar' }).select().single();
@@ -400,6 +428,91 @@ try {
     await click('Header row');
     expect(!(await table()).content[0].content.every((c) => c.type === 'tableHeader'), 'the bar\'s Header did nothing');
     await b.resize(1280, 900);
+    await openDoc();
+  });
+
+  // ── Part B: photos ──
+  const png = join(OUT, 'pizarra.png');
+  writeFileSync(png, makePng(640, 400));
+  const photoRows = async () => (await admin.from('media').select('id, file_id, lecture_id, kind, storage_path').eq('file_id', file.id)).data ?? [];
+  const imgs = () => b.evaluate(`[...document.querySelectorAll('.ProseMirror .studiply-photo img')].map((i) => ({ src: i.getAttribute('src') ?? '', w: i.naturalWidth, shown: !i.hidden }))`);
+  const waitFor = async (fn, what, timeout = 15000) => {
+    const end = Date.now() + timeout;
+    while (Date.now() < end) {
+      if (await fn()) return;
+      await b.sleep(250);
+    }
+    throw new Error(`timed out waiting for ${what}`);
+  };
+  const imageNodes = async () => (await json()).content.filter((n) => n.type === 'image');
+
+  await step('photos: the Image button; shown at once, uploaded (row and file), and from its link after a reload', async () => {
+    await lastLine();
+    await b.chooseFiles([png], () => toolbarTool('Image'));
+    await waitFor(async () => (await imageNodes())[0]?.attrs.src?.startsWith('media:'), 'the photo in the document');
+    await waitFor(async () => (await imgs())[0]?.w > 0, 'the photo showing');
+    await waitFor(async () => (await photoRows()).length === 1, 'its media row');
+    const [row] = await photoRows();
+    expect(row.kind === 'photo' && row.lecture_id === null && row.storage_path === `${user.id}/${file.id}/${row.id}.jpg`, JSON.stringify(row));
+    const { data: objects } = await admin.storage.from('photos').list(`${user.id}/${file.id}`);
+    expect(objects?.some((o) => o.name === `${row.id}.jpg`), `Storage: ${JSON.stringify(objects?.map((o) => o.name))}`);
+    const src = (await imageNodes())[0].attrs.src;
+    expect(src === `media:${row.id}`, src);
+    await b.shot('ins-photo-1280');
+    // Saved, then opened again: the photo comes from its signed link.
+    const saved = async () => JSON.stringify((await admin.from('documents').select('content').eq('file_id', file.id).single()).data?.content ?? {}).includes(src);
+    await waitFor(saved, 'the document saved with the photo', 20000);
+    await openDoc();
+    await waitFor(async () => {
+      const [i] = await imgs();
+      return i?.w > 0 && i.src.includes('/object/sign/photos/');
+    }, 'the photo from its signed link after a reload');
+  });
+
+  await step('photos: one dragged onto the page, a screenshot pasted', async () => {
+    const target = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 }; })()`);
+    await b.htmlDrag(null, target, { files: [png] });
+    await waitFor(async () => (await imgs()).length === 2 && (await imgs()).every((i) => i.w > 0), 'the dropped photo');
+    // Dropped on the line "Tabla:" near its start: before that paragraph, not splitting it.
+    const kinds = (await json()).content.map((n) => (n.type === 'paragraph' ? `p:${n.content?.[0]?.text ?? ''}` : n.type)).join(',');
+    expect(kinds.startsWith('image,p:Tabla:,image'), kinds);
+    // A screenshot on the clipboard: an image file and no HTML.
+    await b.evaluate(`(async () => {
+      const c = document.createElement('canvas'); c.width = 300; c.height = 200;
+      const g = c.getContext('2d'); g.fillStyle = '#3366cc'; g.fillRect(0, 0, 300, 200);
+      const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+      const dt = new DataTransfer(); dt.items.add(new File([blob], 'Captura.png', { type: 'image/png' }));
+      ${EDITOR}.commands.focus('end');
+      ${EDITOR}.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    })()`);
+    await waitFor(async () => (await imgs()).length === 3 && (await imgs()).every((i) => i.w > 0), 'the pasted photo');
+    await waitFor(async () => (await photoRows()).length === 3, 'three media rows');
+  });
+
+  await step('photos: a corner handle drags the width (saved in % of the page)', async () => {
+    const frame = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror .studiply-photo-frame').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await b.clickAt(frame.x, frame.y);
+    const handle = await b.evaluate(`(() => { const h = document.querySelector('.ProseMirror .studiply-photo-handle[data-corner="se"]'); const r = h?.getBoundingClientRect(); return r?.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+    expect(handle, 'no handles on the selected photo');
+    await b.shot('ins-photo-selected-1280');
+    await b.mouseDrag(handle, { x: handle.x - 200, y: handle.y });
+    const width = (await imageNodes())[0].attrs.width;
+    expect(typeof width === 'number' && width > 5 && width < 100, `width ${width}`);
+    const shown = await b.evaluate(`document.querySelector('.ProseMirror .studiply-photo-frame').style.width`);
+    expect(shown === `${width}%`, `the frame is ${shown}, the photo ${width}%`);
+  });
+
+  await step('photos: the iPhone bundle draws a photo ("Loading photo…") and asks native for it', async () => {
+    await b.nav(IPHONE);
+    await waitEditor();
+    // What the WebView posts to native (the app isn't here: catch it).
+    await b.evaluate(`(() => { window.__posted = []; window.ReactNativeWebView = { postMessage: (m) => window.__posted.push(m) }; })()`);
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }, { type: 'image', attrs: { src: 'media:iphone-1', width: 50 } }, { type: 'paragraph' }] })`);
+    await b.sleep(300);
+    const note = await b.evaluate(`document.querySelector('.studiply-photo-note')?.textContent`);
+    expect(note === 'Loading photo…', `note: ${note}`);
+    const posted = await b.evaluate(`JSON.stringify(window.__posted)`);
+    expect(posted.includes('photo-need') && posted.includes('iphone-1'), `posted: ${posted.slice(0, 300)}`);
     await openDoc();
   });
 

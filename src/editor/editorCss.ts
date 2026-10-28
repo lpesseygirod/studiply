@@ -4,6 +4,7 @@ import { DEFAULT_LINE_SPACING } from './schema/blocks';
 import { DEFAULT_FONT_CSS, DEFAULT_SIZE } from './schema/fonts';
 import { TABLE_BAR_CLASS } from './table/tableBar';
 import { TABLE_HANDLES_CLASS } from './table/tableHandles';
+import { PHOTO_CLASS } from './schema/photo';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -20,6 +21,7 @@ export function editorCss(scope = ''): string {
   const pm = `${scope} .ProseMirror`.trim();
   const bar = `${scope} .${TABLE_BAR_CLASS}`.trim();
   const handles = `${scope} .${TABLE_HANDLES_CLASS}`.trim();
+  const photo = `${pm} .${PHOTO_CLASS}`;
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
 ${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
@@ -67,6 +69,20 @@ ${handles} .grip:hover { background: ${c.accent}; opacity: 1; }
 ${handles} .plus { z-index: 1; display: flex; align-items: center; justify-content: center; background: transparent; }
 ${handles} .plus span { width: 16px; height: 16px; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; pointer-events: none; }
 ${handles} .plus:hover span { transform: scale(1.2); }
+${photo} { margin: 0 0 0.6em; line-height: 0; }
+${photo}-frame { position: relative; display: inline-block; max-width: 100%; vertical-align: top; border-radius: 4px; }
+${photo}-frame img { display: block; max-width: 100%; height: auto; border-radius: 4px; }
+${photo}-frame.sized img { width: 100%; }
+${photo}-frame.empty { min-width: min(240px, 100%); }
+${photo}-note { display: flex; align-items: center; justify-content: center; min-height: 120px; padding: 0 16px; border-radius: 4px; background: ${c.cardMuted}; color: ${c.text.secondary}; font-size: 0.85em; line-height: 1.4; text-align: center; }
+${photo}-note[hidden], ${photo}-frame img[hidden] { display: none; }
+${photo}.ProseMirror-selectednode .${PHOTO_CLASS}-frame { outline: 2px solid ${c.accent}; outline-offset: 2px; }
+${photo}-handle { display: none; position: absolute; width: 12px; height: 12px; border-radius: 3px; background: ${c.card}; border: 2px solid ${c.accent}; box-sizing: border-box; z-index: 2; }
+${photo}.ProseMirror-selectednode .${PHOTO_CLASS}-handle, ${photo}.resizing .${PHOTO_CLASS}-handle { display: block; }
+${photo}-handle[data-corner='nw'] { left: -7px; top: -7px; cursor: nwse-resize; }
+${photo}-handle[data-corner='ne'] { right: -7px; top: -7px; cursor: nesw-resize; }
+${photo}-handle[data-corner='sw'] { left: -7px; bottom: -7px; cursor: nesw-resize; }
+${photo}-handle[data-corner='se'] { right: -7px; bottom: -7px; cursor: nwse-resize; }
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 @media (max-width: 480px) { ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;

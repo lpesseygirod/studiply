@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
 import { EditorContent } from '@tiptap/react';
 import { useTenTap } from '@10play/tentap-editor/src/web/useTenTap.tsx';
-import { boot } from '@10play/tentap-editor/src/web/runtime.ts';
+import { boot, sendMessage } from '@10play/tentap-editor/src/web/runtime.ts';
 
 import { studiplyBridges } from '../src/editor/bridges';
+import { PHOTO_NEED } from '../src/editor/bridges/photo';
+import { setPhotoResolver } from '../src/editor/media/photoSource';
 
 declare global {
   interface Window {
@@ -11,6 +13,13 @@ declare global {
     studiplyEditor?: ReturnType<typeof useTenTap>;
   }
 }
+
+// Photos (`media:<id>`): native has them (the phone's copy, or a signed
+// link) and answers through the photo bridge.
+setPhotoResolver(async (mediaId) => {
+  sendMessage({ type: PHOTO_NEED, payload: mediaId });
+  return null;
+});
 
 /** How far a finger must drag the page before the keyboard closes. */
 const DRAG_TO_CLOSE_PX = 12;

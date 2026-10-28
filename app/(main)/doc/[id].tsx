@@ -268,6 +268,7 @@ export default function DocumentScreen() {
       <StudiplyEditor
         key={editorKey}
         ref={editorRef}
+        fileId={id}
         header={makeHeader(nativeEditor)}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
