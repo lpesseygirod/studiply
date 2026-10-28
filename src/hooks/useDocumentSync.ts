@@ -54,11 +54,20 @@ export function useDocumentSync(params: {
     }, []),
   );
 
+  // The editor as last seen: leaving unmounts it before the session's last
+  // save runs, which still needs its text (the laptop's can still be read).
+  const lastEditor = useRef<StudiplyEditorHandle | null>(null);
+  if (editor.current) lastEditor.current = editor.current;
+
   useEffect(() => {
     if (!fileId || !editorReady) return;
     setState(INITIAL);
     const port = {
-      getJSON: () => editor.current!.getJSON(),
+      getJSON: () => {
+        const e = editor.current ?? lastEditor.current;
+        if (!e) return Promise.reject(new Error('The editor is gone.'));
+        return e.getJSON();
+      },
       loadDoc: (doc: Parameters<StudiplyEditorHandle['loadDoc']>[0]) => editor.current?.loadDoc(doc),
       applyBlocks: (doc: Parameters<StudiplyEditorHandle['applyBlocks']>[0]) => editor.current?.applyBlocks(doc),
     };
