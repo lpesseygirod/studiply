@@ -28,12 +28,14 @@ const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
   lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'export', 'delete'],
   pdf: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   image: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
+  // Copying a document (its text and versions) comes later.
+  document: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
 };
 
 /**
  * The item's menu, in order (step 3.4). Move out only for an item inside a
- * folder. Kinds without their own actions yet (documents, exam packs, a
- * lecture's photos): Open and Favorites.
+ * folder. Kinds without their own actions yet (exam packs, a lecture's
+ * photos): Open and Favorites.
  */
 export function itemActions(item: Pick<ShelfItem, 'type' | 'folderId'>): ItemAction[] {
   const actions = ACTIONS[item.type] ?? ['open', 'star'];
@@ -56,6 +58,8 @@ export function itemNoun(type: ShelfType): string {
       return 'Folder';
     case 'lecture':
       return 'Lecture';
+    case 'document':
+      return 'Document';
     default:
       return 'File';
   }
@@ -86,6 +90,7 @@ export function movableItem(item: ShelfItem): LibraryItem | null {
       return { ...base, type: 'lecture', folderId: item.folderId };
     case 'pdf':
     case 'image':
+    case 'document':
       return { ...base, type: 'file', folderId: item.folderId };
     default:
       return null;

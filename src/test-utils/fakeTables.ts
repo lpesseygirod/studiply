@@ -121,6 +121,7 @@ function builder(table: string) {
     delete: () => ((op = 'delete'), chain),
     eq: (column: string, value: unknown) => (filters.push((r) => valueAt(r, column) === value), chain),
     in: (column: string, values: unknown[]) => (filters.push((r) => values.includes(valueAt(r, column))), chain),
+    is: (column: string, value: unknown) => (filters.push((r) => (valueAt(r, column) ?? null) === value), chain),
     order: (column: string, opts: { ascending?: boolean } = {}) => ((order = { column, ascending: opts.ascending ?? true }), chain),
     limit: (n: number) => ((limit = n), chain),
     single: () => ((single = 'single'), chain),

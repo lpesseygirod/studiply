@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { AppState, Platform } from 'react-native';
 
 import { DocumentSession, type SessionState } from '../editor/documentSession';
+import { formatSaved } from '../utils/shelf';
 import type { StudiplyEditorHandle } from '../editor/types';
 import { useLibraryUpdates } from '../lib/cache';
 import { isOffline } from '../lib/connectivity';
@@ -100,4 +101,22 @@ export function useDocumentSync(params: {
   const clearLost = useCallback(() => session.current?.clearLost(), []);
 
   return { state, onChange, flush, clearLost };
+}
+
+/** "Saved · 10:31", "Saving…", "Saved on this iPhone", … for the top bar and the iPhone header. */
+export function saveLabel(state: SessionState): string | null {
+  switch (state.status) {
+    case 'loading':
+      return null;
+    case 'saving':
+      return 'Saving…';
+    case 'saved':
+      return state.savedAt ? formatSaved(new Date(state.savedAt).toISOString()) : 'Saved';
+    case 'local':
+      return 'Saved on this iPhone';
+    case 'failed':
+      return 'Not saved · trying again';
+    case 'unavailable':
+      return 'Not available offline';
+  }
 }

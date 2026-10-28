@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 
@@ -46,19 +46,19 @@ const TOOLS: Tool[] = [
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, editable = true, header, onReady, onChange, onChipPress, onPaste, onTyping },
+  { initialContent, editable = true, header, onReady, onChange, onChipPress, onPaste },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
+  const narrow = useWindowDimensions().width < 600;
   const extensions = useMemo(() => studiplyExtensions(), []);
-  const keyAt = useRef(0);
   const lastChip = useRef<number | null>(null);
   const lastPaste = useRef(0);
 
   // Callbacks change between renders; the editor reads the latest.
-  const handlers = useRef({ onReady, onChange, onChipPress, onPaste, onTyping });
-  handlers.current = { onReady, onChange, onChipPress, onPaste, onTyping };
+  const handlers = useRef({ onReady, onChange, onChipPress, onPaste });
+  handlers.current = { onReady, onChange, onChipPress, onPaste };
 
   const editor = useEditor({
     extensions,
@@ -66,21 +66,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     editable,
     immediatelyRender: true,
     shouldRerenderOnTransaction: true,
-    editorProps: {
-      handleDOMEvents: {
-        keydown: () => {
-          keyAt.current = performance.now();
-          return false;
-        },
-      },
-    },
     onUpdate: ({ editor: e }) => {
       handlers.current.onChange?.();
-      if (keyAt.current) {
-        const at = keyAt.current;
-        keyAt.current = 0;
-        requestAnimationFrame(() => handlers.current.onTyping?.(performance.now() - at));
-      }
       const report = e.storage.pasteReport?.last;
       if (report && report.id !== lastPaste.current) {
         lastPaste.current = report.id;
@@ -142,7 +129,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           })}
         </View>
       )}
-      <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
+      <ScrollView style={styles.page} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
         {header}
         <EditorContent editor={editor} className={SCOPE} />
       </ScrollView>
@@ -172,4 +159,5 @@ const makeStyles = (c: ThemeColors) =>
     toolActive: { backgroundColor: c.accentLight },
     page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },
+    pageContentNarrow: { paddingHorizontal: 20, paddingTop: 20 },
   });

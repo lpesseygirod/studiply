@@ -22,6 +22,7 @@ import { enqueue, pendingSyncFor, PermanentSyncError, registerSyncHandler, syncE
 import { syncError } from '../lib/sync/errors';
 import { combineDocEdits, makeDocEdit, mergeDocEdit, type DocConflict, type DocConflictVersion, type DocEdit } from '../editor/docBlocks';
 import { newBlockId } from '../editor/schema/blockMeta';
+import { transcriptDoc } from '../editor/transcriptDoc';
 import type { DocJSON } from '../editor/types';
 import type { Json, Tables } from '../types/supabase';
 import { cleanName } from '../utils/names';
@@ -96,6 +97,34 @@ export async function openDocument(fileId: string, tab: DocTab): Promise<OpenedD
       return (await readRow<FileRow>('files', fileId)) ? opened(fileId, tab, null) : null;
     },
   );
+}
+
+/** The file a document screen shows (a blank document or a lecture): title, place, kind. */
+export async function getDocumentFile(fileId: string): Promise<FileRow> {
+  const row = await readThrough<FileRow | null>(
+    async () => {
+      const { data, error } = await supabase.from('files').select('*').eq('id', fileId).is('deleted_at', null).maybeSingle();
+      if (error) throw serviceError(error, 'Could not open the document.');
+      if (data) remember('files', [data]);
+      const [overlaid] = data ? await withLocalChanges('files', [data]) : [await readRow<FileRow>('files', fileId).catch(() => null)];
+      return overlaid ?? null;
+    },
+    () => readRow<FileRow>('files', fileId),
+  );
+  if (!row || row.deleted_at) throw new Error('This document was deleted.');
+  return row;
+}
+
+/**
+ * A lecture's Transcript tab the first time it opens: made from its
+ * transcript (one paragraph per segment with its time) and saved. Nothing
+ * when the tab exists or there is no transcript yet.
+ */
+export async function ensureTranscriptDocument(lectureId: string, segments: { start: number; text: string }[]): Promise<void> {
+  if (segments.length === 0) return;
+  const current = await openDocument(lectureId, 'transcript');
+  if (current.id !== null) return;
+  await saveDocument({ fileId: lectureId, tab: 'transcript', base: EMPTY, next: transcriptDoc(segments) });
 }
 
 /** When the server's copy last changed, for the open document's check every few seconds. Online only. */

@@ -1,4 +1,5 @@
 import { promptText, showAlert } from '../components/dialogs/dialogs';
+import { renameDocument } from '../services/document.service';
 import { RenameIncompleteError, renameSession } from '../services/session.service';
 import {
   editableName,
@@ -12,7 +13,7 @@ import type { Session, SourceFile } from '../types/database';
 import { errorMessage } from './errors';
 
 /**
- * The Rename… menu items for lectures, photos and PDFs: the shared prompt
+ * The Rename… menu items for lectures, documents, photos and PDFs: the shared prompt
  * (native on iPhone; on the web Enter saves and Esc cancels), the rename,
  * and the error. Each resolves with the renamed item, or null when the
  * student cancelled or it failed (the error has then been shown).
@@ -34,6 +35,17 @@ export async function promptRenameLecture(session: Pick<Session, 'id' | 'title'>
     return await renameSession(session.id, title);
   } catch (err) {
     showRenameError(err, 'Could not rename the lecture.');
+    return null;
+  }
+}
+
+export async function promptRenameDocument(file: { id: string; title: string }): Promise<string | null> {
+  const title = await promptText('Rename Document', { defaultValue: file.title, placeholder: 'Document name' });
+  if (!title || title === file.title) return null;
+  try {
+    return await renameDocument(file.id, title);
+  } catch (err) {
+    showRenameError(err, 'Could not rename the document.');
     return null;
   }
 }

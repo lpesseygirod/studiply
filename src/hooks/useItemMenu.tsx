@@ -12,7 +12,7 @@ import { errorMessage } from '../utils/errors';
 import { actionHint, itemActions, itemNoun, movableItem, starTarget, type ItemAction } from '../utils/itemMenu';
 import { forgetClip, setClip } from '../lib/clipboard';
 import { MoveError, moveItem } from '../services/move.service';
-import { promptRenameLecture, promptRenameLibraryFile } from '../utils/rename';
+import { promptRenameDocument, promptRenameLecture, promptRenameLibraryFile } from '../utils/rename';
 import { openTarget, type ShelfItem } from '../utils/shelf';
 import { starButton, type ShowUndo } from '../utils/star';
 import { useMoveFlow } from './useMoveFlow';
@@ -47,9 +47,14 @@ export function useItemMenu({
   /**
    * `skip`: actions to leave out (the title's menu has no Open: you're in
    * it). `dialogRename`: Rename… in a dialog even where folders are renamed
-   * in place (the folder you're in has no tile to edit).
+   * in place (the folder you're in has no tile to edit). `extra`: the
+   * screen's own items, before Delete (a document's Version history).
    */
-  function open(item: ShelfItem, anchor?: Anchor, { skip = [], dialogRename = false }: { skip?: ItemAction[]; dialogRename?: boolean } = {}) {
+  function open(
+    item: ShelfItem,
+    anchor?: Anchor,
+    { skip = [], dialogRename = false, extra = [] }: { skip?: ItemAction[]; dialogRename?: boolean; extra?: DialogButton[] } = {},
+  ) {
     const button = (action: ItemAction): DialogButton => {
       const base = actionButton(action);
       const hint = actionHint(action, item.type);
@@ -89,13 +94,12 @@ export function useItemMenu({
           return { text: 'Delete', style: 'destructive', onPress: () => trash(item) };
       }
     };
-    showActionSheet(
-      item.title,
-      itemActions(item)
-        .filter((action) => !skip.includes(action))
-        .map(button),
-      { anchor },
-    );
+    const buttons = itemActions(item)
+      .filter((action) => !skip.includes(action))
+      .map(button);
+    const at = buttons.findIndex((b) => b.style === 'destructive');
+    buttons.splice(at < 0 ? buttons.length : at, 0, ...extra);
+    showActionSheet(item.title, buttons, { anchor });
   }
 
   /** Move out: up one level (the folder it is in → that folder's parent, or the course's top). */
@@ -129,6 +133,8 @@ export function useItemMenu({
         else await renameFolder(item.id, name);
       } else if (item.type === 'lecture') {
         if (!(await promptRenameLecture({ id: item.id, title: item.title }))) return;
+      } else if (item.type === 'document') {
+        if (!(await promptRenameDocument({ id: item.id, title: item.title }))) return;
       } else {
         if (!(await promptRenameLibraryFile(await libraryFile(item)))) return;
       }

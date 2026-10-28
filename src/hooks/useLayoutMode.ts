@@ -24,6 +24,6 @@ export type ScreenKind = 'library' | 'document' | 'settings';
 
 export function screenKindFor(pathname: string): ScreenKind {
   if (pathname.startsWith('/settings')) return 'settings';
-  if (pathname.startsWith('/note/') || pathname.startsWith('/record')) return 'document';
+  if (pathname.startsWith('/note/') || pathname.startsWith('/doc/') || pathname.startsWith('/record')) return 'document';
   return 'library';
 }

@@ -36,6 +36,4 @@ export type StudiplyEditorProps = {
   onChipPress?: (ms: number) => void;
   /** After a paste with HTML: what it had and what the document kept. */
   onPaste?: (report: PasteReport) => void;
-  /** Laptop only: ms from a key press to the editor's update. */
-  onTyping?: (ms: number) => void;
 };

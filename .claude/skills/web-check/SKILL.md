@@ -115,16 +115,6 @@ node .claude/skills/web-check/scripts/trash.mjs
 node .claude/skills/web-check/scripts/search.mjs
 ```
 
-## Check the editor spike (step 4.2)
-
-`scripts/editor-spike.mjs`: both editors with one schema. The laptop editor is the spike screen (`/dev/editor-spike`); the **iPhone editor** is the committed `editor-web/build/editorHtml.js` (the page TenTap's WebView loads), written to a file and opened with `?standalone` (it then configures itself with TenTap's `buildBootConfig`, as the app does). Both set `window.studiplyEditor` (the laptop's only in development), so the check reads and drives them the same way. Steps: write, H1, ⌘B and a chip on the laptop → Save → the `documents` row; the iPhone editor loads that JSON unchanged and adds a chip at 4:12 (written back with the service role); the laptop Loads it ("identical to the saved JSON ✓", 4:12 shown, a click on the chip reported); Google Docs- and Word-shaped clipboard HTML (approximations, in the script) pasted into both with a synthetic `paste` event must give the same JSON, and Google Docs must keep headings, bold, lists and the table; 20 pages timed in both and typing timed on the laptop; in the iPhone editor a tap keeps the focus (the keyboard), a cancelled touch too, and a drag removes it (touch emulation, `Input.dispatchTouchEvent`); a tap above the editor on the spike screen leaves it; dark mode (`Emulation.setEmulatedMedia` prefers-color-scheme) turns the app dark and leaves the document page white; Delete spike document. `NOTE |` lines print the paste reports and timings for PROGRESS.
-
-After changing anything the iPhone editor imports (`src/editor/bridges`, `schema`, `pasteReport.ts`), run `npm run editor:build` first: the check tests the committed bundle.
-
-```bash
-node .claude/skills/web-check/scripts/editor-spike.mjs
-```
-
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).

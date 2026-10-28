@@ -1,14 +1,13 @@
 /**
  * DevelopmentSettings.tsx
  * Development builds only (never in a release): the server badge, Simulate
- * offline, the sync panel, drag debugging, the earlier-version sample, and
- * the editor spike (step 4.2). Moved from the old General screen (step 3.6).
+ * offline, the sync panel, drag debugging and the earlier-version sample.
+ * Moved from the old General screen (step 3.6).
  */
 
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { showAlert } from '../dialogs/dialogs';
@@ -26,7 +25,6 @@ export function DevelopmentSettings({ title = 'DEVELOPMENT' }: { title?: string 
   const { colors: c } = useTheme();
   const simulatedOffline = useSimulatedOffline();
   const dragDebug = useDragDebug();
-  const router = useRouter();
   // Step 1.9 is tested on sample data, never the real earlier-version data.
   const [useSample, setUseSample] = useState(false);
   const [creatingSample, setCreatingSample] = useState(false);
@@ -66,11 +64,6 @@ export function DevelopmentSettings({ title = 'DEVELOPMENT' }: { title?: string 
         <View style={styles.row}>
           <SyncDebugPanel />
         </View>
-        <View style={styles.divider} />
-        <TouchableOpacity style={styles.toggleRow} onPress={() => router.push('/dev/editor-spike')} activeOpacity={0.75} accessibilityRole="button">
-          <Text style={styles.rowLabel}>Editor spike (step 4.2)</Text>
-          <Ionicons name="chevron-forward" size={18} color={c.text.secondary} />
-        </TouchableOpacity>
         <View style={styles.divider} />
         <View style={styles.toggleRow}>
           <Text style={styles.rowLabel}>Drag debug overlay</Text>

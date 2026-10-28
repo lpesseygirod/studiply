@@ -22,6 +22,7 @@ describe('screenKindFor', () => {
 
   it('shows documents and recording with the assistant', () => {
     expect(screenKindFor('/note/abc')).toBe('document');
+    expect(screenKindFor('/doc/abc')).toBe('document');
     expect(screenKindFor('/record')).toBe('document');
     expect(screenKindFor('/record/session')).toBe('document');
   });
