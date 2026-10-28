@@ -1,10 +1,13 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { CustomKeyboardExtension, useBridgeState, type CustomKeyboardComponentProps, type EditorBridge } from '@10play/tentap-editor';
 
-import { DocColors, type ThemeColors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
+import { ColorGrid } from '../../components/editor/ColorGrid';
+import { SpectrumPicker } from '../../components/editor/SpectrumPicker';
+import { useRecentColours } from '../../services/preferences.service';
 import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatBridgeInstance, FormatBridgeState } from '../bridges/format';
@@ -163,48 +166,68 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   );
 }
 
-/** Text colour and highlight, in place of the keyboard. */
+/**
+ * Text colour and highlight, in place of the keyboard (step 4.5): the same
+ * picker as the laptop's: Automatic / None, the 10 colours with their
+ * shades, Recent colours (synced with the laptop), More colours… (the
+ * spectrum, here in the panel).
+ */
 function ColorPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
+  const { width } = useWindowDimensions();
   const bridge = editor as Bridge;
   const s = (useBridgeState(bridge) as ReturnType<typeof useBridgeState> & Partial<FormatBridgeState>).format;
   const run = (cmd: FormatCommand) => bridge.format(cmd);
+  const recent = useRecentColours();
+  const [kind, setKind] = useState<'color' | 'highlight'>('color');
+  const [spectrum, setSpectrum] = useState(false);
+  const current = kind === 'color' ? (s?.color ?? null) : s?.highlight && s.highlight !== 'default' ? s.highlight : null;
+  // Ten columns across the panel.
+  const size = Math.floor((width - 24 - 9 * 6) / 10);
 
-  const grid = (kind: 'color' | 'highlight') => {
-    const list = kind === 'color' ? DocColors.text : DocColors.highlight;
-    const current = (kind === 'color' ? s?.color : s?.highlight)?.toUpperCase();
-    return (
-      <View style={styles.swatches}>
-        <Pressable
-          onPress={() => run(kind === 'color' ? { type: 'color', color: null } : { type: 'highlight', color: null })}
-          style={[styles.swatch, styles.none, !current && styles.swatchActive]}
-          accessibilityRole="button"
-          accessibilityLabel={kind === 'color' ? 'Default text colour' : 'No highlight'}
-        >
-          <MaterialCommunityIcons name="cancel" size={20} color={c.text.secondary} />
-        </Pressable>
-        {list.map((col) => (
-          <Pressable
-            key={col.key}
-            onPress={() => run(kind === 'color' ? { type: 'color', color: col.value } : { type: 'highlight', color: col.value })}
-            style={[styles.swatch, { backgroundColor: col.value }, current === col.value && styles.swatchActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`${kind === 'color' ? 'Text colour' : 'Highlight'} ${col.label}`}
-          />
-        ))}
-      </View>
-    );
+  const pick = (colour: string | null) => {
+    if (colour) recent.add(colour);
+    setSpectrum(false);
+    run(kind === 'color' ? { type: 'color', color: colour } : { type: 'highlight', color: colour });
   };
 
   return (
     <View style={styles.panel}>
       <PanelHeader title="Colour" close={() => close?.()} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
-        <Text style={styles.label}>Text colour</Text>
-        {grid('color')}
-        <Text style={styles.label}>Highlight</Text>
-        {grid('highlight')}
+        <View style={styles.row}>
+          {(['color', 'highlight'] as const).map((k) => (
+            <Pressable
+              key={k}
+              onPress={() => {
+                setKind(k);
+                setSpectrum(false);
+              }}
+              style={[styles.chip, styles.tab, kind === k && styles.chipActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: kind === k }}
+            >
+              <Text style={[styles.chipText, kind === k && styles.chipTextActive]}>{k === 'color' ? 'Text colour' : 'Highlight'}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.card}>
+          <View style={styles.pickerBox}>
+            {spectrum ? (
+              <SpectrumPicker initial={current} showHex={false} onDone={pick} onCancel={() => setSpectrum(false)} width={width - 48} />
+            ) : (
+              <ColorGrid
+                value={current}
+                noneLabel={kind === 'color' ? 'Automatic' : 'None'}
+                recent={recent.recent}
+                onPick={pick}
+                onMore={() => setSpectrum(true)}
+                size={size}
+                kind={kind === 'color' ? 'Text colour' : 'Highlight'}
+              />
+            )}
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -241,8 +264,6 @@ const makeStyles = (c: ThemeColors) =>
     alignRow: { flexDirection: 'row', gap: 8 },
     alignButton: { flex: 1, minHeight: 56, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
     alignText: { fontSize: Typography.size.xs, color: c.text.primary },
-    swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 4 },
-    swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.border },
-    none: { alignItems: 'center', justifyContent: 'center', backgroundColor: c.card },
-    swatchActive: { borderWidth: 3, borderColor: c.accentDark },
+    pickerBox: { padding: 12 },
+    tab: { flex: 1, alignItems: 'center' },
   });

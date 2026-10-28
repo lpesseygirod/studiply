@@ -4,8 +4,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Editor } from '@tiptap/react';
 
 import { anchorBelow, type Anchor } from '../components/dialogs/dialogs';
+import { ColorGrid } from '../components/editor/ColorGrid';
+import { SpectrumPicker } from '../components/editor/SpectrumPicker';
 import { ToolbarPopover } from '../components/editor/ToolbarPopover';
-import { DocColors, type ThemeColors } from '../constants/colors';
+import { useRecentColours } from '../services/preferences.service';
+import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
@@ -48,6 +51,8 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const { colors: c } = useTheme();
   const s = formatState(editor);
   const [menu, setMenu] = useState<{ kind: Menu; anchor: Anchor } | null>(null);
+  const [spectrum, setSpectrum] = useState(false);
+  const recent = useRecentColours();
   const refs = useRef<Partial<Record<Menu, View | null>>>({});
   const [sizeText, setSizeText] = useState(String(s.size));
   const sizeFocused = useRef(false);
@@ -58,13 +63,17 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
 
   const run = (cmd: FormatCommand) => {
     setMenu(null);
+    setSpectrum(false);
     runFormat(editor, cmd);
   };
   const open = async (kind: Menu) => {
     const anchor = await anchorBelow({ current: refs.current[kind] ?? null });
     if (anchor) setMenu({ kind, anchor });
   };
-  const close = () => setMenu(null);
+  const close = () => {
+    setMenu(null);
+    setSpectrum(false);
+  };
 
   const tool = (label: string, icon: IconName, cmd: FormatCommand, { active = false, disabled = false } = {}) => (
     <Pressable
@@ -138,31 +147,25 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
     </Pressable>
   );
 
-  const swatches = (kind: 'color' | 'highlight') => {
-    const list = kind === 'color' ? DocColors.text : DocColors.highlight;
-    const current = kind === 'color' ? s.color : s.highlight;
-    return (
-      <View style={styles.grid}>
-        <Pressable
-          onPress={() => run(kind === 'color' ? { type: 'color', color: null } : { type: 'highlight', color: null })}
-          style={({ hovered }: { hovered?: boolean }) => [styles.noneRow, hovered && styles.toolHover]}
-          accessibilityRole="button"
-        >
-          <MaterialCommunityIcons name={kind === 'color' ? 'format-color-text' : 'format-color-marker-cancel'} size={16} color={c.text.primary} />
-          <Text style={styles.menuText}>{kind === 'color' ? 'Default' : 'None'}</Text>
-        </Pressable>
-        <View style={styles.swatches}>
-          {list.map((col) => (
-            <Pressable
-              key={col.key}
-              onPress={() => run(kind === 'color' ? { type: 'color', color: col.value } : { type: 'highlight', color: col.value })}
-              style={[styles.swatch, { backgroundColor: col.value }, current?.toUpperCase() === col.value && styles.swatchActive]}
-              accessibilityRole="button"
-              accessibilityLabel={`${kind === 'color' ? 'Text colour' : 'Highlight'} ${col.label}`}
-            />
-          ))}
-        </View>
-      </View>
+  // The colour picker (step 4.5): the grid, or the spectrum after More colours…
+  const chooser = (kind: 'color' | 'highlight') => {
+    const current = kind === 'color' ? s.color : s.highlight && s.highlight !== 'default' ? s.highlight : null;
+    const pick = (colour: string | null) => {
+      if (colour) recent.add(colour);
+      setSpectrum(false);
+      run(kind === 'color' ? { type: 'color', color: colour } : { type: 'highlight', color: colour });
+    };
+    return spectrum ? (
+      <SpectrumPicker initial={current} showHex onDone={pick} onCancel={() => setSpectrum(false)} width={236} />
+    ) : (
+      <ColorGrid
+        value={current}
+        noneLabel={kind === 'color' ? 'Automatic' : 'None'}
+        recent={recent.recent}
+        onPick={pick}
+        onMore={() => setSpectrum(true)}
+        kind={kind === 'color' ? 'Text colour' : 'Highlight'}
+      />
     );
   };
 
@@ -235,11 +238,11 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
           row(String(v), <Text style={styles.menuText}>{SPACING_LABEL[v]}</Text>, () => run({ type: 'lineSpacing', spacing: v }), v === s.lineSpacing),
         )}
       </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'color' ? menu.anchor : null} onClose={close} width={240} label="Text colour">
-        {swatches('color')}
+      <ToolbarPopover anchor={menu?.kind === 'color' ? menu.anchor : null} onClose={close} width={260} label="Text colour">
+        <View style={styles.picker}>{chooser('color')}</View>
       </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'highlight' ? menu.anchor : null} onClose={close} width={240} label="Highlight">
-        {swatches('highlight')}
+      <ToolbarPopover anchor={menu?.kind === 'highlight' ? menu.anchor : null} onClose={close} width={260} label="Highlight">
+        <View style={styles.picker}>{chooser('highlight')}</View>
       </ToolbarPopover>
     </View>
   );
@@ -296,9 +299,5 @@ const makeStyles = (c: ThemeColors) =>
     check: { width: 22 },
     menuText: { fontSize: Typography.size.base, color: c.text.primary },
     hint: { fontSize: Typography.size.xs, color: c.text.secondary, marginLeft: 8 },
-    grid: { paddingHorizontal: 10, paddingVertical: 4, gap: 8 },
-    noneRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 6, borderRadius: 8 },
-    swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 4, paddingBottom: 4 },
-    swatch: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: c.border },
-    swatchActive: { borderWidth: 2, borderColor: c.accentDark },
+    picker: { paddingHorizontal: 12, paddingVertical: 6 },
   });

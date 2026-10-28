@@ -110,10 +110,10 @@ try {
     await click('Text colour');
     await click('Text colour Red');
     await click('Highlight');
-    await click('Highlight Yellow');
+    await click('Highlight Yellow lighter 60 %');
     const marks = marksOf(await first());
-    expect(marks.some((m) => m.type === 'textStyle' && m.attrs.color === '#C5221F'), 'no red');
-    expect(marks.some((m) => m.type === 'highlight' && m.attrs.color === '#FFF3A3'), 'no yellow highlight');
+    expect(marks.some((m) => m.type === 'textStyle' && m.attrs.color === '#DC2626'), 'no red');
+    expect(marks.some((m) => m.type === 'highlight' && m.attrs.color === '#F7E19C'), `no light yellow highlight: ${JSON.stringify(marks)}`);
     await b.shot('fmt-marks-1280');
     await click('Clear formatting');
     expect(marksOf(await first()).length === 0, JSON.stringify(marksOf(await first())));
@@ -228,7 +228,7 @@ try {
     await click('Underline');
     await b.type(': ');
     await click('Highlight');
-    await click('Highlight Yellow');
+    await click('Highlight Yellow lighter 60 %');
     await b.type('Repasar la Fig. 1.1.');
     await b.press('Enter');
     await click('Bulleted list');
