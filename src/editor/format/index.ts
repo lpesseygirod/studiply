@@ -58,6 +58,10 @@ export interface FormatState {
   canOutdent: boolean;
   /** The link the selection is on, if any. */
   link: string | null;
+  /** The cursor is in a table; whether it has a header row; the cell's colour. */
+  inTable: boolean;
+  headerRow: boolean;
+  cellColor: string | null;
 }
 
 export type FormatCommand =
@@ -80,7 +84,24 @@ export type FormatCommand =
   /** Paste without formatting (iPhone: the clipboard read natively). */
   | { type: 'insertText'; text: string }
   /** Links (step 4.5): href already cleaned (cleanUrl); null removes the link. `text` when nothing is selected. */
-  | { type: 'link'; href: string | null; text?: string };
+  | { type: 'link'; href: string | null; text?: string }
+  /** Tables (step 4.5). */
+  | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null };
+
+export type TableAction =
+  | 'insert'
+  | 'rowAbove'
+  | 'rowBelow'
+  | 'columnLeft'
+  | 'columnRight'
+  | 'deleteRow'
+  | 'deleteColumn'
+  | 'deleteTable'
+  | 'headerRow'
+  | 'cellColor';
+
+/** The largest table the insert grid offers; the iPhone's stepper goes as far. */
+export const MAX_TABLE = 10;
 
 /** The first text block of the selection (with everything selected, the document's first). */
 function blockOf(editor: Editor) {
@@ -128,7 +149,27 @@ export function formatState(editor: Editor): FormatState {
     canIndent: can.indent(),
     canOutdent: can.outdent(),
     link: (editor.getAttributes('link').href as string | undefined) ?? null,
+    ...tableState(editor),
   };
+}
+
+/** Where the cursor is in a table, for the table menu and panel. */
+function tableState(editor: Editor): Pick<FormatState, 'inTable' | 'headerRow' | 'cellColor'> {
+  if (!editor.isActive('table')) return { inTable: false, headerRow: false, cellColor: null };
+  const { $from } = editor.state.selection;
+  let table: PMNode | null = null;
+  let cell: PMNode | null = null;
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (!cell && (node.type.name === 'tableCell' || node.type.name === 'tableHeader')) cell = node;
+    if (node.type.name === 'table') {
+      table = node;
+      break;
+    }
+  }
+  const firstRow = table?.firstChild;
+  const headerRow = !!firstRow && firstRow.childCount > 0 && Array.from({ length: firstRow.childCount }, (_, i) => firstRow.child(i)).every((c) => c.type.name === 'tableHeader');
+  return { inTable: true, headerRow, cellColor: (cell?.attrs.backgroundColor as string | null) ?? null };
 }
 
 /** Plain text as paragraphs (one per line; empty lines kept). */
@@ -218,6 +259,32 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().redo().run();
     case 'insertText':
       return cmd.text ? chain().insertContent(plainParagraphs(cmd.text)).run() : false;
+    case 'table': {
+      const clamp = (n: number | undefined) => Math.max(1, Math.min(MAX_TABLE, Math.round(n ?? 3)));
+      switch (cmd.action) {
+        case 'insert':
+          return chain().insertTable({ rows: clamp(cmd.rows), cols: clamp(cmd.cols), withHeaderRow: false }).run();
+        case 'rowAbove':
+          return chain().addRowBefore().run();
+        case 'rowBelow':
+          return chain().addRowAfter().run();
+        case 'columnLeft':
+          return chain().addColumnBefore().run();
+        case 'columnRight':
+          return chain().addColumnAfter().run();
+        case 'deleteRow':
+          return chain().deleteRow().run();
+        case 'deleteColumn':
+          return chain().deleteColumn().run();
+        case 'deleteTable':
+          return chain().deleteTable().run();
+        case 'headerRow':
+          return chain().toggleHeaderRow().run();
+        case 'cellColor':
+          return chain().setCellAttribute('backgroundColor', cmd.color ?? null).run();
+      }
+      return false;
+    }
     case 'link': {
       if (!cmd.href) return chain().extendMarkRange('link').unsetLink().run();
       const { empty } = editor.state.selection;

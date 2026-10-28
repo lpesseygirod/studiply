@@ -118,6 +118,14 @@ function cleanStyle(el: HTMLElement): string | null {
   return highlight;
 }
 
+/** A pasted cell's shading, as it is (cells keep their own colour, not a highlight's). */
+function cellShading(el: HTMLElement): string | null {
+  const style = el.getAttribute('style') ?? '';
+  const m = /(?:^|;)\s*(?:background-color|background)\s*:\s*([^;]+)/i.exec(style);
+  const rgb = m ? rgbOf(m[1].trim().split(/\s+/)[0]) : null;
+  return rgb && !isPlainBackground(rgb) ? toHex(rgb) : null;
+}
+
 function wrapInMark(doc: Document, el: HTMLElement, color: string) {
   const mark = doc.createElement('mark');
   mark.setAttribute('data-color', color);
@@ -229,10 +237,15 @@ export function transformPastedHTML(html: string): string {
   for (const el of Array.from(body.querySelectorAll('p.MsoSubtitle, p.subtitle'))) rename(doc, el, 'h3');
   for (const el of Array.from(body.querySelectorAll('h4, h5, h6'))) rename(doc, el, 'h3');
 
-  // Styles: highlights become <mark>; fonts, sizes, margins and plain colours go.
+  // Styles: highlights become <mark> (a table cell's shading its colour);
+  // fonts, sizes, margins and plain colours go.
   for (const el of Array.from(body.querySelectorAll<HTMLElement>('[style]'))) {
+    const isCell = el.tagName === 'TD' || el.tagName === 'TH';
+    const shading = isCell ? cellShading(el) : null;
     const highlight = cleanStyle(el);
-    if (highlight) wrapInMark(doc, el, highlight);
+    if (isCell) {
+      if (shading) el.setAttribute('data-background', shading);
+    } else if (highlight) wrapInMark(doc, el, highlight);
   }
   // Word's and Google Docs' own <font> and class names say nothing to the editor.
   for (const el of Array.from(body.querySelectorAll('[class]'))) el.removeAttribute('class');

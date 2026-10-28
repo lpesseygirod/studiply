@@ -15,17 +15,7 @@ import { countHtml, countSlice, pasteLosses } from '../../pasteReport';
 import { PASTE_RULES } from '../extension';
 import { isPlainText, nearestHighlight, rgbOf, transformPastedHTML } from '../rules';
 import clipboard from './clipboard.json';
-
-// jsdom has no ClipboardEvent; ProseMirror's pasteHTML makes one.
-if (typeof ClipboardEvent === 'undefined') {
-  (globalThis as { ClipboardEvent?: unknown }).ClipboardEvent = class extends Event {
-    clipboardData: DataTransfer | null;
-    constructor(type: string, init: EventInit & { clipboardData?: DataTransfer | null } = {}) {
-      super(type, init);
-      this.clipboardData = init.clipboardData ?? null;
-    }
-  };
-}
+import '../../../test-utils/clipboardEvent';
 
 let editor: Editor;
 afterEach(() => editor?.destroy());
