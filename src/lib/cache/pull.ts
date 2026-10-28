@@ -34,6 +34,7 @@ export const PULL_TABLES: CachedTable[] = [
   'summaries',
   'media',
   'audio_chunks',
+  'documents',
 ];
 
 export const PAGE = 1000;

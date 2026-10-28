@@ -8,3 +8,4 @@
 import './note.service';
 import './session.service';
 import './source-file.service';
+import './document.service';

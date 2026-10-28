@@ -123,6 +123,12 @@ describe('mergeDocEdit', () => {
     expect(texts(r.doc)).toEqual(['Tema 1', 'Nuevo', 'Fin']);
   });
 
+  it('puts what was written on an empty tab after what the other device wrote there', () => {
+    const laptop = doc(p('l', 'Nota del laptop', 900));
+    const e = makeDocEdit({ id: 'x', device: 'iphone', base: doc(), next: doc(p('m1', 'Uno', 1000), p('m2', 'Dos', 1001)), now: 1000 })!;
+    expect(texts(mergeDocEdit(laptop, e).doc)).toEqual(['Nota del laptop', 'Uno', 'Dos']);
+  });
+
   it('moves a block the student moved', () => {
     const moved = doc(p('c', 'Fin', null, 'ai'), p('a', 'Tema 1', null, 'ai'), p('b', 'La conducta', null, 'ai'));
     const e = edit(moved);

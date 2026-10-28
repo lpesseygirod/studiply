@@ -52,6 +52,8 @@ export interface DocEdit {
   changes: Record<string, DocChange>;
   /** The block ids of the edited document, in order: where new and moved blocks go. */
   order: string[];
+  /** Written on an empty document (a tab both devices may have started): its blocks go after the server's. */
+  fromEmpty?: boolean;
 }
 
 export interface DocConflict {
@@ -158,7 +160,7 @@ export function makeDocEdit(params: {
   const afterIds = new Set(after.map(idOf));
   const order = after.map(idOf);
   const moved = movedIds(before.map(idOf), order);
-  const edit: DocEdit = { id: params.id, device: params.device, base: {}, changes: {}, order };
+  const edit: DocEdit = { id: params.id, device: params.device, base: {}, changes: {}, order, ...(before.length === 0 ? { fromEmpty: true } : {}) };
 
   const stamp = (block: Block | null, previous: Block | null | undefined) => {
     const own = params.restamp ? params.now : block ? timeOf(block) || params.now : params.now;
@@ -202,7 +204,7 @@ export function combineDocEdits(earlier: DocEdit, later: DocEdit): DocEdit {
       delete base[id];
     }
   }
-  return { id: earlier.id, device: later.device, base, changes, order: later.order };
+  return { id: earlier.id, device: later.device, base, changes, order: later.order, ...(earlier.fromEmpty ? { fromEmpty: true } : {}) };
 }
 
 function editWins(change: DocChange, server: Block): boolean {
@@ -226,7 +228,7 @@ export function mergeDocEdit(server: DocJSON, edit: DocEdit, options: { editAlwa
     const at = indexOf(id);
     if (at >= 0) result.splice(at, 1);
     const position = edit.order.indexOf(id);
-    let insertAt = 0;
+    let insertAt = edit.fromEmpty ? result.length : 0;
     for (let k = position - 1; k >= 0; k--) {
       const anchor = indexOf(edit.order[k]);
       if (anchor >= 0) {
@@ -293,8 +295,8 @@ export function mergeDocEdit(server: DocJSON, edit: DocEdit, options: { editAlwa
     versions.push({ side: 'other', blockIds: otherLost, content: { ...server, type: 'doc', content: serverBlocks, conflict: { blockIds: otherLost, side: 'other', device: null, editedAt } } });
   }
   if (thisLost.length > 0) {
-    // The document as this edit would have made it.
-    const mine = serverBlocks.map((b) => (thisLost.includes(idOf(b)) ? (edit.changes[idOf(b)].value as Block) : b));
+    // The document as this edit would have made it: the merge, with this edit's blocks where they lost.
+    const mine = result.map((b) => (thisLost.includes(idOf(b)) ? (edit.changes[idOf(b)].value as Block) : b));
     const editedAt = Math.max(...thisLost.map((id) => edit.changes[id].editedAt));
     versions.push({ side: 'this', blockIds: thisLost, content: { ...server, type: 'doc', content: mine, conflict: { blockIds: thisLost, side: 'this', device: edit.device, editedAt } } });
   }

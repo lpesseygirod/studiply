@@ -18,7 +18,7 @@ import type { SegmentRow } from '../cloudRows';
 
 export const cacheEnabled = true;
 
-export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks';
+export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents';
 
 /** The fields every cached row has. */
 export interface CacheableRow {
@@ -126,7 +126,7 @@ export function cacheUser(): string | null {
 
 /** The row a child belongs to, for loading one lecture's rows. */
 function parentOf(tbl: CachedTable, row: Record<string, unknown>): string | null {
-  const key = tbl === 'summaries' ? 'file_id' : tbl === 'media' || tbl === 'audio_chunks' ? 'lecture_id' : null;
+  const key = tbl === 'summaries' || tbl === 'documents' ? 'file_id' : tbl === 'media' || tbl === 'audio_chunks' ? 'lecture_id' : null;
   const value = key ? row[key] : null;
   return typeof value === 'string' ? value : null;
 }
