@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
-import { isEditable, SHORTCUTS, shortcutFor } from '../../lib/shortcuts';
+import { EDITOR_SHORTCUTS, isEditable, SHORTCUTS, shortcutFor } from '../../lib/shortcuts';
 import { undoLast } from '../../lib/undo';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { isDialogOpen, showAlert } from '../dialogs/dialogs';
@@ -102,7 +102,16 @@ function ShortcutsSheet({ visible, onClose }: { visible: boolean; onClose: () =>
               </Text>
             </View>
           ))}
-          <Text style={styles.note}>Shortcuts don&apos;t work while you type in a field.</Text>
+          <Text style={styles.note}>These don&apos;t work while you type in a field.</Text>
+          <Text style={styles.section} accessibilityRole="header">
+            In a document
+          </Text>
+          {EDITOR_SHORTCUTS.map((s) => (
+            <View key={s.keys} style={styles.row}>
+              <Text style={styles.keys}>{s.keys}</Text>
+              <Text style={styles.action}>{s.action}</Text>
+            </View>
+          ))}
         </Pressable>
       </Pressable>
     </Modal>
@@ -112,7 +121,7 @@ function ShortcutsSheet({ visible, onClose }: { visible: boolean; onClose: () =>
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     overlay: { flex: 1, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    sheet: { width: '100%', maxWidth: 440, backgroundColor: c.card, borderRadius: 16, padding: 20, gap: 4 },
+    sheet: { width: '100%', maxWidth: 480, maxHeight: '90%', overflow: 'scroll' as 'hidden', backgroundColor: c.card, borderRadius: 16, padding: 20, gap: 4 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
     title: { fontSize: Typography.size.lg, fontWeight: Typography.weight.bold, color: c.text.primary },
     row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 36 },
@@ -133,4 +142,5 @@ const makeStyles = (c: ThemeColors) =>
     action: { flex: 1, fontSize: Typography.size.base, color: c.text.primary },
     soon: { color: c.text.secondary },
     note: { marginTop: 10, fontSize: Typography.size.sm, color: c.text.secondary },
+    section: { marginTop: 14, marginBottom: 2, fontSize: Typography.size.base, fontWeight: Typography.weight.bold, color: c.text.primary },
   });

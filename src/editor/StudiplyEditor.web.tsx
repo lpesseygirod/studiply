@@ -1,13 +1,13 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 
 import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import { useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
+import { FormatToolbar } from './FormatToolbar.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 
@@ -16,27 +16,6 @@ const SCOPE = 'studiply-editor';
 const CSS = `${editorCss(`.${SCOPE}`)}
 .${SCOPE} .ProseMirror { padding: 0 0 120px; min-height: 240px; outline: none; }
 `;
-
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Tool = { label: string; icon: IconName; name?: string; attrs?: Record<string, unknown>; run: (e: Editor) => void } | 'gap';
-
-/** Today's basic tools in the mockup's toolbar card; the full toolbar (styles, font, size, colours…) is step 4.4. */
-const TOOLS: Tool[] = [
-  { label: 'Undo', icon: 'undo', run: (e) => e.chain().focus().undo().run() },
-  { label: 'Redo', icon: 'redo', run: (e) => e.chain().focus().redo().run() },
-  'gap',
-  { label: 'Heading 1', icon: 'format-header-1', name: 'heading', attrs: { level: 1 }, run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run() },
-  { label: 'Heading 2', icon: 'format-header-2', name: 'heading', attrs: { level: 2 }, run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },
-  'gap',
-  { label: 'Bold', icon: 'format-bold', name: 'bold', run: (e) => e.chain().focus().toggleBold().run() },
-  { label: 'Italic', icon: 'format-italic', name: 'italic', run: (e) => e.chain().focus().toggleItalic().run() },
-  { label: 'Underline', icon: 'format-underline', name: 'underline', run: (e) => e.chain().focus().toggleUnderline().run() },
-  { label: 'Strikethrough', icon: 'format-strikethrough-variant', name: 'strike', run: (e) => e.chain().focus().toggleStrike().run() },
-  'gap',
-  { label: 'Bulleted list', icon: 'format-list-bulleted', name: 'bulletList', run: (e) => e.chain().focus().toggleBulletList().run() },
-  { label: 'Numbered list', icon: 'format-list-numbered', name: 'orderedList', run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { label: 'Checklist', icon: 'format-list-checks', name: 'taskList', run: (e) => e.chain().focus().toggleTaskList().run() },
-];
 
 /**
  * The laptop editor: Tiptap directly in the page (real browser paste and
@@ -50,7 +29,6 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
   const narrow = useWindowDimensions().width < 600;
   const extensions = useMemo(() => studiplyExtensions(), []);
   const lastChip = useRef<number | null>(null);
@@ -109,26 +87,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   return (
     <View style={styles.container}>
       <style>{CSS}</style>
-      {editable && (
-        <View style={styles.toolbar} accessibilityRole="toolbar">
-          {TOOLS.map((tool, i) => {
-            if (tool === 'gap') return <View key={`gap-${i}`} style={styles.gap} />;
-            const active = !!tool.name && editor.isActive(tool.name, tool.attrs);
-            return (
-              <Pressable
-                key={tool.label}
-                onPress={() => tool.run(editor)}
-                style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, active && styles.toolActive]}
-                accessibilityRole="button"
-                accessibilityLabel={tool.label}
-                accessibilityState={{ selected: active }}
-              >
-                <MaterialCommunityIcons name={tool.icon} size={20} color={active ? c.accentDark : c.text.primary} />
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      {editable && <FormatToolbar editor={editor} />}
       <ScrollView style={styles.page} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
         {header}
         <EditorContent editor={editor} className={SCOPE} />
@@ -142,21 +101,6 @@ export default StudiplyEditor;
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, width: '100%', maxWidth: Layout.documentMaxWidth, alignSelf: 'center', gap: 12 },
-    // The toolbar follows the app's appearance; the page stays white (editorCss).
-    toolbar: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: 2,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: Layout.cardRadius.laptop,
-      backgroundColor: c.card,
-    },
-    gap: { width: 1, height: 20, marginHorizontal: 6, backgroundColor: c.border },
-    tool: { width: 34, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    toolHover: { backgroundColor: c.cardMuted },
-    toolActive: { backgroundColor: c.accentLight },
     page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },
     pageContentNarrow: { paddingHorizontal: 20, paddingTop: 20 },

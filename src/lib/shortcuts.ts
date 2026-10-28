@@ -71,6 +71,21 @@ export const SHORTCUTS: { keys: string; action: string; soon?: boolean }[] = [
   { keys: 'Esc', action: 'Close a menu, dialog or this sheet' },
 ];
 
+/** In a document (step 4.4), as in Google Docs; they work while typing in the text. */
+export const EDITOR_SHORTCUTS: { keys: string; action: string }[] = [
+  { keys: '⌘ B  ⌘ I  ⌘ U', action: 'Bold, italic, underline' },
+  { keys: '⌘ ⇧ X', action: 'Strikethrough' },
+  { keys: '⌘ ⌥ 0 · 1 · 2 · 3', action: 'Normal text, Heading 1, Heading 2, Subheading' },
+  { keys: '⌘ ⇧ 7 · 8 · 9', action: 'Numbered, bulleted, checklist' },
+  { keys: '⌘ ⇧ L · E · R · J', action: 'Align left, center, right, justify' },
+  { keys: '⌘ ]  ⌘ [', action: 'Increase, decrease indent (Tab, ⇧Tab too)' },
+  { keys: '⌘ ⇧ .  ⌘ ⇧ ,', action: 'Bigger, smaller text' },
+  { keys: '⌘ ↵', action: 'Page break' },
+  { keys: '⌘ \\', action: 'Clear formatting' },
+  { keys: '⌘ ⇧ V', action: 'Paste without formatting' },
+  { keys: '⌘ Z  ⌘ ⇧ Z', action: 'Undo, redo in the text' },
+];
+
 /** Whether a DOM element takes typed text. */
 export function isEditable(el: unknown): boolean {
   const node = el as { tagName?: string; isContentEditable?: boolean; type?: string } | null;
