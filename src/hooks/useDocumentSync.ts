@@ -7,13 +7,14 @@ import { formatSaved } from '../utils/shelf';
 import type { StudiplyEditorHandle } from '../editor/types';
 import { useLibraryUpdates } from '../lib/cache';
 import { isOffline } from '../lib/connectivity';
-import { onSyncEvent, pendingSyncFor, syncEnabled } from '../lib/sync';
+import { onSyncEvent, syncEnabled } from '../lib/sync';
 import {
   documentStamp,
   openDocument,
   saveDocument,
   saveVersion,
   takeDocumentConflicts,
+  waitingEdits,
   type DocTab,
 } from '../services/document.service';
 
@@ -92,8 +93,8 @@ export function useDocumentSync(params: {
     const key = `${fileId}:${tab}`;
     const unsubscribe = onSyncEvent((e) => {
       if (e.type !== 'done' || e.op.key !== key) return;
-      void pendingSyncFor(key).then(async (waiting) => {
-        if (waiting.length > 0) return;
+      void waitingEdits(fileId, tab).then(async (waiting) => {
+        if (waiting > 0) return;
         const lost = await takeDocumentConflicts(fileId, tab);
         await s.refresh({ synced: true, lost });
       });

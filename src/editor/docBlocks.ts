@@ -166,16 +166,21 @@ export function makeDocEdit(params: {
     const own = params.restamp ? params.now : block ? timeOf(block) || params.now : params.now;
     return Math.max(own, previous ? timeOf(previous) + 1 : 0);
   };
+  // Restoring: the saved blocks carry the new time too, not only this merge,
+  // so the next merge on any device sees the restore as the newest edit.
+  const dated = (block: Block, at: number): Block => (params.restamp ? { ...block, attrs: { ...block.attrs, editedAt: at } } : block);
 
   for (const block of after) {
     const id = idOf(block);
     const previous = beforeById.get(id);
     if (!previous) {
+      const at = stamp(block, null);
       edit.base[id] = null;
-      edit.changes[id] = { value: block, editedAt: stamp(block, null) };
+      edit.changes[id] = { value: dated(block, at), editedAt: at };
     } else if (!sameBlock(previous, block) || (params.restamp && timeOf(previous) !== timeOf(block))) {
+      const at = stamp(block, previous);
       edit.base[id] = previous;
-      edit.changes[id] = { value: block, editedAt: stamp(block, previous), ...(moved.has(id) ? { moved: true } : {}) };
+      edit.changes[id] = { value: dated(block, at), editedAt: at, ...(moved.has(id) ? { moved: true } : {}) };
     } else if (moved.has(id)) {
       edit.base[id] = previous;
       edit.changes[id] = { value: block, editedAt: stamp(block, previous), moved: true };
@@ -189,6 +194,14 @@ export function makeDocEdit(params: {
     }
   }
   return Object.keys(edit.changes).length > 0 ? edit : null;
+}
+
+/**
+ * Every top-level block dated `now` (a restored version is a new edit: it
+ * must win over anything written before it, on every device).
+ */
+export function stampBlocks(doc: DocJSON, now: number): DocJSON {
+  return { ...doc, content: (doc.content ?? []).map((b) => ({ ...b, attrs: { ...b.attrs, editedAt: now } })) };
 }
 
 /** Two waiting edits of the same document as one: the first base, the newest blocks and order. */

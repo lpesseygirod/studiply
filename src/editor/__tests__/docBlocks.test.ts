@@ -1,4 +1,4 @@
-import { combineDocEdits, makeDocEdit, mergeDocEdit, rebase, sameDoc, type Block } from '../docBlocks';
+import { combineDocEdits, makeDocEdit, mergeDocEdit, rebase, sameDoc, stampBlocks, type Block } from '../docBlocks';
 import type { DocJSON } from '../types';
 
 const p = (id: string, text: string, editedAt: number | null = null, origin = 'student'): Block => ({
@@ -179,5 +179,32 @@ describe('rebase', () => {
   it('is null when the editor already shows the merged document', () => {
     const sent = doc(p('a', 'Tema 1', null, 'ai'), p('b', 'Uno', 900));
     expect(rebase(sent, sent, sent)).toBeNull();
+  });
+});
+
+describe('restoring a version', () => {
+  it('stores the restored blocks with the new time, so a restore wins on every device', () => {
+    // The laptop restores at 9000 an old version whose blocks were written at 100.
+    const server = doc(p('a', 'Versión nueva', 5000), p('b', 'Otra línea', 5100));
+    const old = doc(p('a', 'Versión vieja', 100));
+    const restore = makeDocEdit({ id: 'r', device: 'laptop', base: server, next: old, now: 9000, restamp: true })!;
+    const restored = mergeDocEdit(server, restore).doc;
+    expect(texts(restored)).toEqual(['Versión vieja']);
+    expect(restored.content?.[0].attrs?.editedAt).toBe(9000);
+
+    // The iPhone wrote block a at 6000 (before the restore) and sends it after: the restore stays.
+    const iphone = makeDocEdit({ id: 'i', device: 'iphone', base: server, next: doc(p('a', 'Escrito en el iPhone antes', 6000), p('b', 'Otra línea', 5100)), now: 6000 })!;
+    const after = mergeDocEdit(restored, iphone);
+    expect(texts(after.doc)).toEqual(['Versión vieja']);
+    expect(after.versions.map((v) => v.side)).toEqual(['this']);
+    expect(texts(after.versions[0].content)).toContain('Escrito en el iPhone antes');
+
+    // Written after the restore, it wins as any newer edit does.
+    const later = makeDocEdit({ id: 'j', device: 'iphone', base: restored, next: doc(p('a', 'Escrito después', 9500)), now: 9500 })!;
+    expect(texts(mergeDocEdit(restored, later).doc)).toEqual(['Escrito después']);
+  });
+
+  it('stampBlocks dates every block', () => {
+    expect(stampBlocks(doc(p('a', 'x', 1), p('b', 'y', null)), 42).content?.map((b) => b.attrs?.editedAt)).toEqual([42, 42]);
   });
 });

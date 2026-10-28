@@ -16,7 +16,7 @@
  *   leaving, at most every 5 minutes for the app going to the background.
  */
 
-import { rebase, sameDoc } from './docBlocks';
+import { rebase, sameDoc, stampBlocks } from './docBlocks';
 import { withBlockIds } from './schema/blockMeta';
 import type { DocJSON } from './types';
 
@@ -231,7 +231,8 @@ export class DocumentSession {
     await this.flush();
     const current = await this.editor.getJSON();
     await this.api.saveVersion(current, 'restore');
-    const restored = withBlockIds(doc);
+    // Dated now: on every device it beats what was written before the restore.
+    const restored = stampBlocks(withBlockIds(doc), this.now());
     this.editor.loadDoc(restored);
     this.set({ status: 'saving' });
     const saved = await this.api.save(this.base, restored, { restamp: true });

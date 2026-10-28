@@ -66,6 +66,7 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Marks: Important, Confused, Exam with 1–10 slider and note | Large buttons at the bottom, slider in a small sheet, haptic tap on save | Buttons in the strip, inline slider panel | 5 | v1 |
 | Live notes stamped with the recording time | Notes editor above the mark buttons | My notes tab | 5 | v1 |
 | Photo of the board or slide | Camera button, stamped with the time | File picker or webcam | 5 | v1 |
+| Record from inside any document (a blank document becomes a lecture; what I wrote stays as My notes) | Record button in the document header | Record button above the page | 5 | v1 |
 | Marks without unlocking the phone | Lock Screen / Dynamic Island Live Activity with timer and mark buttons | — | 5 | Later (needs native code) |
 | Start recording fast | Action Button or Siri Shortcut | Cmd+R | 5 | Later (iPhone) |
 | Reminder to check recording is allowed in class | First recording | First recording | 10 | v1 |
@@ -461,7 +462,15 @@ Step 5.6: Photo board: camera on iPhone, file picker or webcam on the laptop; ea
 
 **Check:** take two photos during a test recording; they appear at the right times.
 
-**Step 5.7 — A real lecture**
+**Step 5.7 — Record inside a document**
+
+```markdown
+Step 5.7: add a Record button inside every document (iPhone: in the document header; laptop: in the row above the page). In a lecture it starts recording into that lecture (its My notes tab stays the notes editor). In a blank document it turns the document into a lecture with the three tabs (My notes, Summary, Transcript): what I already wrote stays as My notes, with its formatting and version history, and the new lines get timestamps from the recording. Nothing I wrote may be lost or moved elsewhere; if the recording is cancelled before anything was saved, the document stays a blank document. Add tests for turning a document into a lecture (its notes kept, offline on the iPhone too).
+```
+
+**Check:** in a blank document with a few lines, tap Record, take notes for a minute and stop: it is now a lecture, My notes holds the old lines plus the new timestamped ones, and the transcript appears in its tab.
+
+**Step 5.8 — A real lecture**
 
 No prompt: record a full real class with notes, marks and photos. Then tell Claude Code everything that went wrong or felt slow, and ask it to fix those issues one by one before merging.
 

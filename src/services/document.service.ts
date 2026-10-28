@@ -82,7 +82,19 @@ export async function openDocument(fileId: string, tab: DocTab): Promise<OpenedD
       const { data, error } = await supabase.from('documents').select('*').eq('file_id', fileId).eq('tab', tab).maybeSingle();
       if (error) throw serviceError(error, 'Could not open the document.');
       if (data) remember('documents', [data]);
-      const local = await localDocument(fileId, tab).catch(() => null);
+      let local = await localDocument(fileId, tab).catch(() => null);
+      // iPhone: nothing of this tab waits to be sent, so the server's copy is
+      // the one, even if this copy was left marked unsynced (before step 4.3's
+      // fix a queued session version kept it so, and the other device's
+      // changes, a restore included, never showed).
+      if (data && syncEnabled && (await waitingEdits(fileId, tab)) === 0) {
+        await markClean('documents', data.id, data).catch(() => {});
+        if (local && local.id !== data.id) {
+          await markClean('documents', local.id).catch(() => {});
+          await dropRows('documents', [local.id]).catch(() => {});
+          local = null;
+        }
+      }
       // Written on this iPhone and not sent yet (also before its row exists on the server).
       if (local && (!data || local.id !== data.id)) {
         const [overlaid] = await withLocalChanges('documents', [local]);
@@ -543,10 +555,20 @@ export async function getVersion(id: string): Promise<DocJSON> {
 // The queued steps (iPhone)
 // -------------------------------------------------------------------
 
-/** The tab as the server has it now: replaces this iPhone's copy unless more is waiting. */
-async function refreshSyncedDocument(row: DocumentRow, localId: string, key: string): Promise<void> {
+/** Edits of the tab still waiting to be sent (the running one included). Versions waiting don't count. */
+export async function waitingEdits(fileId: string, tab: DocTab): Promise<number> {
+  return (await pendingSyncFor(editKey(fileId, tab))).filter((op) => op.kind === 'document_edit').length;
+}
+
+/**
+ * The tab as the server has it now: replaces this iPhone's copy unless
+ * another edit is waiting. (A session version queued behind the edit must
+ * not keep the copy "unsynced": the iPhone would then show its own copy
+ * instead of the server's for good, and never see the other device.)
+ */
+async function refreshSyncedDocument(row: DocumentRow, localId: string, fileId: string, tab: DocTab): Promise<void> {
   // The running operation itself is still listed.
-  if ((await pendingSyncFor(key)).length > 1) return;
+  if ((await waitingEdits(fileId, tab)) > 1) return;
   if (row.id === localId) {
     await markClean('documents', localId, row);
   } else {
@@ -575,7 +597,7 @@ registerSyncHandler<DocumentEditPayload>('document_edit', {
   run: async ({ fileId, tab, localId, edit }) => {
     await ensureDocumentOnServer(fileId);
     const { row, conflicts } = await applyDocEdit(fileId, tab, edit, localId);
-    await refreshSyncedDocument(row, localId, editKey(fileId, tab));
+    await refreshSyncedDocument(row, localId, fileId, tab);
     const lost = lostBlocks(conflicts);
     if (lost.length > 0) await setMeta(conflictKey(fileId, tab), JSON.stringify(lost));
     notifyLibraryUpdated();

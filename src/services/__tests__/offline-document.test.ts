@@ -6,8 +6,9 @@
 // rows (test-utils/fakeTables), the iPhone's cache an in-memory copy.
 
 import { resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';
-import { createDocument, openDocument, renameDocument, saveDocument, saveVersion, takeDocumentConflicts } from '../document.service';
-import type { Block } from '../../editor/docBlocks';
+import { applyDocEdit, createDocument, documentStamp, openDocument, renameDocument, saveDocument, saveVersion, takeDocumentConflicts } from '../document.service';
+import { makeDocEdit, type Block } from '../../editor/docBlocks';
+import { DocumentSession } from '../../editor/documentSession';
 import type { DocJSON } from '../../editor/types';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/fakeTables').module);
@@ -23,8 +24,10 @@ jest.mock('../../lib/cache', () => {
   const rows: Record<string, Map<string, { data: Record<string, unknown>; dirty: boolean }>> = {};
   const meta = new Map<string, string>();
   const table = (tbl: string) => (rows[tbl] ??= new Map());
+  const state = { online: false };
   return {
     rows,
+    state,
     cacheUser: () => 'user-1',
     saveLocalRow: async (tbl: string, row: Record<string, unknown>) => void table(tbl).set(row.id as string, { data: row, dirty: true }),
     markClean: async (tbl: string, id: string, row?: Record<string, unknown>) => {
@@ -36,8 +39,13 @@ jest.mock('../../lib/cache', () => {
     readRow: async (tbl: string, id: string) => table(tbl).get(id)?.data ?? null,
     readRows: async (tbl: string, parent?: string) =>
       [...table(tbl).values()].map((e) => e.data).filter((r) => parent === undefined || r.file_id === parent),
-    readThrough: async (_remote: unknown, local: () => Promise<unknown>) => local(),
-    withLocalChanges: async (_tbl: string, list: unknown[]) => list,
+    readThrough: async (remote: () => Promise<unknown>, local: () => Promise<unknown>) => (state.online ? remote() : local()),
+    // As lib/cache: an unsynced (dirty) copy here replaces the server's row.
+    withLocalChanges: async (tbl: string, list: Record<string, unknown>[]) =>
+      list.map((r) => {
+        const entry = table(tbl).get(r.id as string);
+        return entry?.dirty ? entry.data : r;
+      }),
     getMeta: async (key: string) => meta.get(key) ?? null,
     setMeta: async (key: string, value: string) => void meta.set(key, value),
     deleteMeta: async (key: string) => void meta.delete(key),
@@ -72,7 +80,11 @@ const sync = jest.requireMock('../../lib/sync') as {
   handlers: Record<string, { run: (p: unknown) => Promise<void> }>;
   ops: { kind: string; key: string; payload: unknown }[];
 };
-const cache = jest.requireMock('../../lib/cache') as { rows: Record<string, Map<string, { data: Record<string, unknown>; dirty: boolean }>> };
+const cache = jest.requireMock('../../lib/cache') as {
+  rows: Record<string, Map<string, { data: Record<string, unknown>; dirty: boolean }>>;
+  state: { online: boolean };
+};
+const connectivity = jest.requireMock('../../lib/connectivity') as { isOffline: jest.Mock };
 
 /** Back online: the queue sends every op in order; each leaves once it ran. */
 async function sendAll(betweenOps?: (kind: string) => void) {
@@ -93,6 +105,8 @@ const texts = (d: unknown) => ((d as DocJSON).content ?? []).map((b) => (b.conte
 
 beforeEach(() => {
   resetTables();
+  cache.state.online = false;
+  connectivity.isOffline.mockReturnValue(true);
   sync.ops.length = 0;
   for (const key of Object.keys(cache.rows)) delete cache.rows[key];
 });
@@ -174,5 +188,72 @@ describe('a document written offline on the iPhone', () => {
     const versions = rowsOf('document_versions');
     expect(versions).toHaveLength(1);
     expect(versions[0]).toMatchObject({ reason: 'session_end', document_id: rowsOf('documents')[0].id });
+  });
+});
+
+describe('a version restored on the laptop while the iPhone has the document open', () => {
+  /** The iPhone's editor: what the student sees. */
+  const phoneEditor = () => {
+    const e = { doc: { type: 'doc', content: [] } as DocJSON, getJSON: async () => e.doc, loadDoc: (d: DocJSON) => void (e.doc = d), applyBlocks: (d: DocJSON) => void (e.doc = d) };
+    return e;
+  };
+  const phoneSession = (editor: ReturnType<typeof phoneEditor>, fileId: string) =>
+    new DocumentSession(
+      editor,
+      {
+        open: () => openDocument(fileId, 'notes'),
+        save: (base, next, o) => saveDocument({ fileId, tab: 'notes', base, next, restamp: o?.restamp }),
+        stamp: () => documentStamp(fileId, 'notes'),
+        saveVersion: (content, reason) => saveVersion(fileId, 'notes', content, reason),
+        isOffline: () => false,
+      },
+      () => {},
+    );
+
+  it('shows the restored text within a check, and the iPhone does not save its old text back', async () => {
+    // The document, written on the laptop at first.
+    const FILE = 'doc-r';
+    serverWrite('files', { id: FILE, kind: 'document', title: 'Apuntes' });
+    const v1: DocJSON = { type: 'doc', content: [p('a', 'Primera versión', 1000)] };
+    serverWrite('documents', { id: 'row-r', file_id: FILE, tab: 'notes', content: v1 });
+    cache.rows.files = new Map([[FILE, { data: { id: FILE, kind: 'document', title: 'Apuntes' }, dirty: false }]]);
+
+    // The iPhone opens it online, writes, and goes to the background (a session version queued behind the edit).
+    cache.state.online = true;
+    connectivity.isOffline.mockReturnValue(false);
+    const editor = phoneEditor();
+    const phone = phoneSession(editor, FILE);
+    await phone.start();
+    editor.doc = { type: 'doc', content: [p('a', 'Primera versión, editada en el iPhone', 2000)] };
+    phone.changed();
+    await phone.end('background');
+    expect(sync.ops.map((o) => o.kind)).toEqual(['document_edit', 'save_version']);
+    await sendAll();
+    // The version queued behind the edit no longer leaves the iPhone's copy "unsynced".
+    expect(cache.rows.documents.get('row-r')?.dirty).toBe(false);
+
+    // The laptop restores the first version (as its version history does: a new edit, dated now).
+    const server = rowsOf('documents')[0].content as DocJSON;
+    const restore = makeDocEdit({ id: 'restore', device: 'laptop', base: server, next: v1, now: Date.now(), restamp: true })!;
+    await applyDocEdit(FILE, 'notes', restore);
+    expect(texts(rowsOf('documents')[0].content)).toEqual(['Primera versión']);
+
+    // The iPhone's next check (every 5 s) brings it in, and nothing is sent back.
+    await phone.poll();
+    expect(texts(editor.doc)).toEqual(['Primera versión']);
+    await phone.flush();
+    expect(sync.ops).toEqual([]);
+    expect(texts(rowsOf('documents')[0].content)).toEqual(['Primera versión']);
+    phone.stop();
+  });
+
+  it('repairs an iPhone copy left marked unsynced (before this fix) when the document opens', async () => {
+    const FILE = 'doc-s';
+    serverWrite('documents', { id: 'row-s', file_id: FILE, tab: 'notes', content: { type: 'doc', content: [p('a', 'Restaurado en el laptop', 9000)] } });
+    cache.rows.documents = new Map([['row-s', { data: { id: 'row-s', file_id: FILE, tab: 'notes', content: { type: 'doc', content: [p('a', 'Copia vieja del iPhone', 2000)] } }, dirty: true }]]);
+    cache.state.online = true;
+    // Nothing of this tab waits in the queue: the server's copy is the one.
+    expect(texts((await openDocument(FILE, 'notes')).content)).toEqual(['Restaurado en el laptop']);
+    expect(cache.rows.documents.get('row-s')?.dirty).toBe(false);
   });
 });
