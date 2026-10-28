@@ -4,13 +4,14 @@ import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 
 import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
-import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import { useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
-import { editorCss } from './editorCss';
+import { editorCss, PAGE_COLORS } from './editorCss';
 import { selectedChipMs } from './schema/timestampChip';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 
 const SCOPE = 'studiply-editor';
+const CSS = editorCss(`.${SCOPE}`);
 
 type Tool = { label: string; name: string; attrs?: Record<string, unknown>; run: (e: Editor) => void };
 
@@ -36,7 +37,6 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   { initialContent, onReady, onChipPress, onPaste, onTyping },
   ref,
 ) {
-  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const extensions = useMemo(() => studiplyExtensions(), []);
   const keyAt = useRef(0);
@@ -93,15 +93,14 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       getText: async () => editor.getText(),
       setContent: (doc) => editor.commands.setContent(doc),
       insertTimestampChip: (ms) => editor.chain().focus().insertTimestampChip(ms).run(),
+      blur: () => editor.commands.blur(),
     }),
     [editor],
   );
 
-  const css = useMemo(() => editorCss(colors, `.${SCOPE}`), [colors]);
-
   return (
     <View style={styles.container}>
-      <style>{css}</style>
+      <style>{CSS}</style>
       <View style={styles.toolbar} accessibilityRole="toolbar">
         {TOOLS.map((tool) => {
           const active = !!tool.name && editor.isActive(tool.name, tool.attrs);
@@ -142,5 +141,6 @@ const makeStyles = (c: ThemeColors) =>
     toolActive: { backgroundColor: c.accentLight },
     toolText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.primary },
     toolTextActive: { color: c.accentDark },
-    page: { flex: 1, overflow: 'scroll' as 'hidden' },
+    // The page stays white in dark mode (editorCss); the toolbar follows the app.
+    page: { flex: 1, overflow: 'scroll' as 'hidden', backgroundColor: PAGE_COLORS.card },
   });

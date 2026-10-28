@@ -13,6 +13,8 @@ export type StudiplyEditorHandle = {
   getText: () => Promise<string>;
   setContent: (doc: DocJSON) => void;
   insertTimestampChip: (ms: number) => void;
+  /** Leaves the editor; on the iPhone this closes the keyboard. */
+  blur: () => void;
 };
 
 export type StudiplyEditorProps = {

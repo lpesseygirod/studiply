@@ -12,6 +12,9 @@
 //     table (BUILD-PLAN's check). These samples are approximations of what
 //     those apps put on the clipboard; Lea's real paste is the real check;
 //   - 20 pages: load time in both editors, typing time on the laptop;
+//   - the iPhone editor: a tap keeps the keyboard, dragging the page closes
+//     it (touch events); a tap above the editor closes it on the spike screen;
+//   - dark mode: the app turns dark, the document page stays white;
 //   - Delete spike document removes the row.
 // Prints the paste reports and timings for PROGRESS. Screenshots: spike-*.png.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -219,6 +222,60 @@ try {
     await waitEditor();
     const t = await setContent(pages);
     notes.push(`iPhone editor in desktop Chrome: 20 pages in ${Math.round(t)} ms (a phone is slower; Lea times it on the iPhone)`);
+  });
+
+  await step('iPhone editor: a tap keeps the keyboard, dragging the page closes it', async () => {
+    await b.nav(IPHONE);
+    await waitEditor();
+    await setContent(pages);
+    await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    const touch = async (type, y) => b.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x: 200, y }] });
+    try {
+      await b.evaluate(`${EDITOR}.commands.focus('start')`);
+      await touch('touchStart', 300);
+      await touch('touchEnd');
+      expect(await b.evaluate(`${EDITOR}.isFocused`), 'a tap closed the keyboard');
+      await touch('touchStart', 300);
+      await touch('touchMove', 306);
+      await touch('touchCancel'); // a long press that became a text selection
+      expect(await b.evaluate(`${EDITOR}.isFocused`), 'a cancelled touch closed the keyboard');
+      await touch('touchStart', 400);
+      for (const y of [390, 370, 340]) await touch('touchMove', y);
+      await touch('touchEnd');
+      expect(!(await b.evaluate(`${EDITOR}.isFocused`)), 'dragging the page left the keyboard open');
+    } finally {
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    }
+  });
+
+  await step('spike screen: a tap above the editor leaves it', async () => {
+    await openSpike();
+    await b.clickSelector('.studiply-editor .ProseMirror');
+    expect(await b.evaluate(`${EDITOR}.isFocused`), 'the editor did not take the focus');
+    await b.click('Write something, insert a chip, then Save.');
+    await b.sleep(200);
+    expect(!(await b.evaluate(`${EDITOR}.isFocused`)), 'still in the editor');
+  });
+
+  await step('dark mode: the app turns dark, the document page stays white', async () => {
+    await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    try {
+      await openSpike();
+      await b.click('Load');
+      await b.waitText('identical to the saved JSON ✓', { timeout: 10000 });
+      const look = await b.evaluate(`(() => {
+        const pm = getComputedStyle(document.querySelector('.studiply-editor .ProseMirror'));
+        const title = [...document.querySelectorAll('div')].find((d) => d.textContent === 'Editor spike');
+        return { page: pm.backgroundColor, text: pm.color, title: title && getComputedStyle(title).color };
+      })()`);
+      const light = (rgb) => rgb.match(/\d+/g).slice(0, 3).reduce((a, n) => a + Number(n), 0) > 600;
+      expect(look.page === 'rgb(255, 255, 255)', `page ${look.page}`);
+      expect(!light(look.text), `text ${look.text}`);
+      expect(look.title && light(look.title), `the app did not turn dark (title ${look.title})`);
+      await b.shot('spike-dark');
+    } finally {
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+    }
   });
 
   await step('iPhone width (390 px): the spike screen', async () => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { EditorContent } from '@tiptap/react';
 import { useTenTap } from '@10play/tentap-editor/src/web/useTenTap.tsx';
 import { boot } from '@10play/tentap-editor/src/web/runtime.ts';
@@ -12,11 +12,46 @@ declare global {
   }
 }
 
+/** How far a finger must drag the page before the keyboard closes. */
+const DRAG_TO_CLOSE_PX = 12;
+
 /** TenTap's editor with Studiply's bridges: the same schema as the laptop's. */
 export default function Editor() {
   const editor = useTenTap({ bridges: studiplyBridges });
   const { dynamicHeight } = boot().requireConfig();
   window.studiplyEditor = editor;
+
+  // Dragging the page (a scroll) closes the keyboard, as in Notes. Only a
+  // finger that moved counts: a tap places the caret, and iOS's own scroll to
+  // the caret sends no touches. A long press that turns into a text selection
+  // is cancelled by iOS (touchcancel), so it doesn't close it either.
+  useEffect(() => {
+    if (!editor) return;
+    let startY: number | null = null;
+    const start = (e: TouchEvent) => {
+      startY = e.touches.length === 1 ? e.touches[0].clientY : null;
+    };
+    const move = (e: TouchEvent) => {
+      if (startY === null || !editor.isFocused) return;
+      if (Math.abs(e.touches[0].clientY - startY) > DRAG_TO_CLOSE_PX) {
+        startY = null;
+        editor.commands.blur();
+      }
+    };
+    const end = () => {
+      startY = null;
+    };
+    document.addEventListener('touchstart', start, { passive: true });
+    document.addEventListener('touchmove', move, { passive: true });
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', end);
+    return () => {
+      document.removeEventListener('touchstart', start);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', end);
+      document.removeEventListener('touchcancel', end);
+    };
+  }, [editor]);
 
   return <EditorContent editor={editor} className={dynamicHeight ? 'tentap-root dynamic-height' : 'tentap-root'} />;
 }

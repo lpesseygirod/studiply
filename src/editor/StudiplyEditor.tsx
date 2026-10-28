@@ -1,46 +1,62 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   darkEditorTheme,
   defaultEditorTheme,
+  EditorKeyboardAvoidingView,
   RichText,
   Toolbar,
   useBridgeState,
   useEditorBridge,
+  useKeyboard,
   type EditorBridge,
+  type EditorTheme,
 } from '@10play/tentap-editor';
 
 import { editorHtml } from '../../editor-web/build/editorHtml';
-import { useTheme } from '../theme/ThemeProvider';
+import type { ThemeColors } from '../constants/colors';
+import { Typography } from '../constants/typography';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyBridges } from './bridges';
 import type { PasteReportState } from './bridges/pasteReport';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
-import { editorCss } from './editorCss';
+import { editorCss, PAGE_COLORS } from './editorCss';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 
 type Bridge = EditorBridge & TimestampChipInstance;
 type State = ReturnType<typeof useBridgeState> & Partial<TimestampChipState & PasteReportState>;
 
 const CSS_TAG = 'studiply';
+const CSS = editorCss();
+
+// The page is always white (editorCss); the toolbar follows the app.
+const PAGE = [defaultEditorTheme.webview, { backgroundColor: PAGE_COLORS.card }];
+const LIGHT_THEME: EditorTheme = { ...defaultEditorTheme, webview: PAGE };
+const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
 
 /**
  * The iPhone editor (step 4.2): TenTap's WebView running editor-web's bundle
  * (Studiply's bridges, so the schema is the laptop's), with TenTap's toolbar
- * above the keyboard. Needs the development build (react-native-webview).
+ * and a Done button on the keyboard. Needs the development build
+ * (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
   { initialContent, onReady, onChipPress, onPaste },
   ref,
 ) {
-  const { colors, scheme } = useTheme();
+  const { scheme } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const editor = useEditorBridge({
     bridgeExtensions: studiplyBridges,
     customSource: editorHtml,
     initialContent,
     avoidIosKeyboard: true,
-    theme: scheme === 'dark' ? darkEditorTheme : defaultEditorTheme,
+    theme: scheme === 'dark' ? DARK_THEME : LIGHT_THEME,
   }) as Bridge;
   const state = useBridgeState(editor) as State;
+  const { isKeyboardUp } = useKeyboard();
+  // Toolbar's own rule for showing itself; Done shows with it.
+  const typing = isKeyboardUp && state.isFocused;
 
   useImperativeHandle(
     ref,
@@ -49,14 +65,14 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       getText: () => editor.getText(),
       setContent: (doc) => editor.setContent(doc),
       insertTimestampChip: (ms) => editor.insertTimestampChip(ms),
+      blur: () => editor.blur(),
     }),
     [editor],
   );
 
-  // The document's look follows the app's appearance.
   useEffect(() => {
-    if (state.isReady) editor.injectCSS(editorCss(colors), CSS_TAG);
-  }, [state.isReady, colors, editor]);
+    if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
+  }, [state.isReady, editor]);
 
   const readyOnce = useRef(false);
   useEffect(() => {
@@ -82,19 +98,48 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     }
   }, [state.lastPaste, onPaste]);
 
+  // EditorKeyboardAvoidingView measures itself in the window, so the toolbar
+  // sits on the keyboard wherever the editor is on the screen (React Native's
+  // KeyboardAvoidingView measures against its parent and left it under the
+  // keyboard on the spike screen).
   return (
-    <View style={styles.container}>
-      <RichText editor={editor} />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.toolbar}>
-        <Toolbar editor={editor} />
-      </KeyboardAvoidingView>
-    </View>
+    <EditorKeyboardAvoidingView style={styles.container}>
+      <View style={styles.container}>
+        <RichText editor={editor} />
+      </View>
+      <View style={styles.bar}>
+        <View style={styles.container}>
+          <Toolbar editor={editor} />
+        </View>
+        {typing && (
+          <Pressable
+            onPress={() => editor.blur()}
+            style={[styles.done, { backgroundColor: StyleSheet.flatten(editor.theme.toolbar.toolbarBody).backgroundColor }]}
+            accessibilityRole="button"
+            accessibilityLabel="Hide keyboard"
+          >
+            <Text style={styles.doneText}>Done</Text>
+          </Pressable>
+        )}
+      </View>
+    </EditorKeyboardAvoidingView>
   );
 });
 
 export default StudiplyEditor;
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  toolbar: { position: 'absolute', width: '100%', bottom: 0 },
-});
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1 },
+    bar: { flexDirection: 'row' },
+    // As tall as TenTap's toolbar (44), so the caret stays above both.
+    done: {
+      height: 44,
+      paddingHorizontal: 14,
+      justifyContent: 'center',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    doneText: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.accentDark },
+  });

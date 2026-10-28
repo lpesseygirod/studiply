@@ -6,6 +6,7 @@ import { Redirect, useRouter } from 'expo-router';
 
 import StudiplyEditor from '../../../src/editor/StudiplyEditor';
 import type { StudiplyEditorHandle } from '../../../src/editor/types';
+import { PAGE_COLORS } from '../../../src/editor/editorCss';
 import { chipLabel } from '../../../src/editor/schema/timestampChip';
 import { pasteLosses, pasteReportLine, type PasteReport } from '../../../src/editor/pasteReport';
 import { chipCount, sameDocument, twentyPages, wordCount } from '../../../src/editor/spikeSample';
@@ -45,7 +46,11 @@ function EditorSpike() {
   const [typing, setTyping] = useState<{ last: number; slowest: number } | null>(null);
   const [json, setJson] = useState<string | null>(null);
 
+  // A tap outside the editor closes the keyboard (Insert chip keeps it).
+  const closeKeyboard = () => editor.current?.blur();
+
   const run = useCallback(async (label: string, task: () => Promise<string>) => {
+    editor.current?.blur();
     setBusy(true);
     try {
       setStatus(await task());
@@ -96,13 +101,15 @@ function EditorSpike() {
     });
 
   const toggleJson = async () => {
+    closeKeyboard();
     if (json !== null) return setJson(null);
     const doc = await editor.current?.getJSON();
     const text = JSON.stringify(doc, null, 1) ?? '';
     setJson(text.length > 20000 ? `${text.slice(0, 20000)}\n… (${kb(doc)} in all)` : text);
   };
 
-  const remove = () =>
+  const remove = () => {
+    closeKeyboard();
     showAlert('Delete the spike document?', `"${SPIKE_TITLE}" is deleted for good on every device.`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -111,6 +118,7 @@ function EditorSpike() {
         onPress: () => run('Delete', async () => ((await deleteSpikeDocument()) ? 'Spike document deleted.' : 'There was no spike document.')),
       },
     ]);
+  };
 
   const onTyping = useCallback((t: number) => {
     setTyping((prev) => ({ last: Math.round(t), slowest: Math.max(prev?.slowest ?? 0, Math.round(t)) }));
@@ -127,44 +135,47 @@ function EditorSpike() {
 
   return (
     <View style={[styles.container, { paddingTop: wide ? 16 : insets.top + 4 }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings/development'))} accessibilityRole="button" style={styles.back}>
-          <Ionicons name="chevron-back" size={20} color={c.accentDark} />
-          <Text style={styles.backText}>Development</Text>
-        </Pressable>
-        <Text style={styles.title}>Editor spike</Text>
-      </View>
-
-      <View style={styles.buttons}>
-        {buttons.map((b) => (
-          <Pressable
-            key={b.label}
-            onPress={b.onPress}
-            disabled={!ready || busy}
-            style={[styles.button, (!ready || busy) && styles.buttonDisabled]}
-            accessibilityRole="button"
-            accessibilityLabel={b.label}
-          >
-            <Ionicons name={b.icon} size={15} color={c.accentDark} />
-            <Text style={styles.buttonText}>{b.label}</Text>
+      {/* Everything above the editor: a tap on its empty space closes the keyboard (buttons answer their own taps). */}
+      <View onStartShouldSetResponder={() => true} onResponderRelease={closeKeyboard} style={styles.above}>
+        <View style={styles.header}>
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/settings/development'))} accessibilityRole="button" style={styles.back}>
+            <Ionicons name="chevron-back" size={20} color={c.accentDark} />
+            <Text style={styles.backText}>Development</Text>
           </Pressable>
-        ))}
+          <Text style={styles.title}>Editor spike</Text>
+        </View>
+
+        <View style={styles.buttons}>
+          {buttons.map((b) => (
+            <Pressable
+              key={b.label}
+              onPress={b.onPress}
+              disabled={!ready || busy}
+              style={[styles.button, (!ready || busy) && styles.buttonDisabled]}
+              accessibilityRole="button"
+              accessibilityLabel={b.label}
+            >
+              <Ionicons name={b.icon} size={15} color={c.accentDark} />
+              <Text style={styles.buttonText}>{b.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.status} accessibilityLiveRegion="polite">{ready ? status : 'Starting the editor…'}</Text>
+        {paste && (
+          <Text style={styles.status}>
+            Paste — {pasteReportLine(paste)}
+            {pasteLosses(paste).length > 0 ? ` · lost: ${pasteLosses(paste).join(', ')}` : ' · nothing lost'}
+          </Text>
+        )}
+        {typing && <Text style={styles.status}>Typing: last {typing.last} ms · slowest {typing.slowest} ms (key press to update)</Text>}
+
+        {json !== null && (
+          <ScrollView style={styles.json}>
+            <Text selectable style={styles.jsonText}>{json}</Text>
+          </ScrollView>
+        )}
       </View>
-
-      <Text style={styles.status} accessibilityLiveRegion="polite">{ready ? status : 'Starting the editor…'}</Text>
-      {paste && (
-        <Text style={styles.status}>
-          Paste — {pasteReportLine(paste)}
-          {pasteLosses(paste).length > 0 ? ` · lost: ${pasteLosses(paste).join(', ')}` : ' · nothing lost'}
-        </Text>
-      )}
-      {typing && <Text style={styles.status}>Typing: last {typing.last} ms · slowest {typing.slowest} ms (key press to update)</Text>}
-
-      {json !== null && (
-        <ScrollView style={styles.json}>
-          <Text selectable style={styles.jsonText}>{json}</Text>
-        </ScrollView>
-      )}
 
       <View style={[styles.editor, { marginBottom: wide ? 16 : 0 }]}>
         <StudiplyEditor
@@ -182,6 +193,7 @@ function EditorSpike() {
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: c.cardMuted, paddingHorizontal: 12, gap: 6 },
+    above: { gap: 6 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     back: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
     backText: { color: c.accentDark, fontSize: Typography.size.base },
@@ -203,5 +215,6 @@ const makeStyles = (c: ThemeColors) =>
     status: { fontSize: Typography.size.sm, color: c.text.secondary },
     json: { maxHeight: 180, backgroundColor: c.card, borderRadius: 8, padding: 8 },
     jsonText: { fontSize: Typography.size.xs, color: c.text.primary, fontFamily: 'Menlo' },
-    editor: { flex: 1, backgroundColor: c.card, borderRadius: 12, overflow: 'hidden' },
+    // The document page is white in both appearances (editorCss).
+    editor: { flex: 1, backgroundColor: PAGE_COLORS.card, borderRadius: 12, overflow: 'hidden' },
   });

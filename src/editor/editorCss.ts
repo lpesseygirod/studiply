@@ -1,16 +1,22 @@
-import type { ThemeColors } from '../constants/colors';
+import { LightColors } from '../constants/colors';
 import { CHIP_CLASS } from './schema/timestampChip';
 
+/** The document page's colours: always the light palette (see `editorCss`). */
+export const PAGE_COLORS = LightColors;
+
 /**
- * The document's look, from the app palette (light or dark), for both
- * editors: injected into the iPhone's WebView, and a <style> on the laptop
- * scoped under `scope`. Step 4.4 replaces this with the designed styles.
+ * The document's look for both editors: injected into the iPhone's WebView,
+ * and a <style> on the laptop scoped under `scope`. The page is always white
+ * with dark text, like Google Docs, in light and dark mode alike (pasted
+ * text keeps colours chosen for white paper); only the app around it follows
+ * the appearance. Step 4.4 replaces this with the designed styles.
  */
-export function editorCss(c: ThemeColors, scope = ''): string {
+export function editorCss(scope = ''): string {
+  const c = PAGE_COLORS;
   const pm = `${scope} .ProseMirror`.trim();
-  const page = scope ? '' : `body { background: ${c.card}; }\n`;
+  const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
-${pm} { color: ${c.text.primary}; background: ${c.card}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
+${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
 ${pm} h1 { font-size: 1.75em; line-height: 1.25; margin: 0.8em 0 0.4em; }
 ${pm} h2 { font-size: 1.4em; line-height: 1.3; margin: 0.8em 0 0.4em; }
 ${pm} h3 { font-size: 1.15em; margin: 0.8em 0 0.3em; }
