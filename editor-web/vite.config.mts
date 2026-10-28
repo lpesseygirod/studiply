@@ -24,6 +24,18 @@ const wrapForTheApp: Plugin = {
   },
 };
 
+// KaTeX's styles (formulas, step 4.5) name each font three times (woff2,
+// woff, ttf); the page is one file with everything inlined, and the
+// iPhone's WebView reads woff2, so the other two are left out.
+const katexWoff2Only: Plugin = {
+  name: 'studiply-katex-woff2-only',
+  enforce: 'pre',
+  transform(code, id) {
+    if (!/katex[\\/].*\.css$/.test(id)) return null;
+    return code.replace(/,\s*url\([^)]*\.(?:woff|ttf)\)\s*format\("(?:woff|truetype)"\)/g, '');
+  },
+};
+
 export default defineConfig({
   root,
   base: './',
@@ -37,5 +49,5 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tiptap/core', '@tiptap/pm', '@tiptap/react'],
   },
-  plugins: [react(), viteSingleFile(), wrapForTheApp],
+  plugins: [katexWoff2Only, react(), viteSingleFile(), wrapForTheApp],
 });

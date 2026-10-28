@@ -9,6 +9,7 @@ import { useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
+import { FormulaPopover } from './FormulaPopover.web';
 import { LinkBubble } from './LinkBubble.web';
 import { setPhotoResolver } from './media/photoSource';
 import { addPhotoFiles, pickPhotoFiles } from './photos.web';
@@ -125,6 +126,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         </ScrollView>
         {editable && <LinkBubble editor={editor} page={page} />}
         {editable && <TableMenus editor={editor} />}
+        {editable && <FormulaPopover editor={editor} />}
       </View>
     </View>
   );

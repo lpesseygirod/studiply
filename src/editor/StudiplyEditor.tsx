@@ -28,6 +28,7 @@ import { cleanUrl, type FormatCommand, type TableAction } from './format';
 import { promptText, showActionSheet, showAlert } from '../components/dialogs/dialogs';
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
 import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
+import { FormulaSheet, type FormulaDraft } from './iphone/FormulaSheet';
 import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
@@ -79,6 +80,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const [insertSize, setInsertSize] = useState<TableSize | null>(null);
   const [tableView, setTableView] = useState<TableView>('list');
   const [resize, setResize] = useState<TableSize | null>(null);
+  // The formula sheet (step 4.5); `placed`: the formula is in the text (and selected there).
+  const [formula, setFormula] = useState<FormulaDraft | null>(null);
+  const formulaPlaced = useRef(false);
   // The toolbar shows while typing, and over the Aa / colour panels.
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
@@ -147,8 +151,27 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     }
     if (ids.length) editor.insertPhotos(ids);
   };
+  const openFormula = (current: { latex: string; display: boolean } | null) => {
+    setPanel(undefined);
+    formulaPlaced.current = !!current;
+    setFormula(current ? { ...current, existing: true } : { latex: '', display: false, existing: false });
+  };
+  const changeFormula = (latex: string, display: boolean) => {
+    setFormula((f) => f && { ...f, latex, display });
+    // Nothing goes in until there is something to show; then the text is the preview.
+    if (!latex.trim() && !formulaPlaced.current) return;
+    formulaPlaced.current = true;
+    run({ type: 'formula', action: 'set', latex, display });
+  };
+  const closeFormula = (action: 'done' | 'remove') => {
+    setFormula(null);
+    if (formulaPlaced.current) run({ type: 'formula', action });
+    formulaPlaced.current = false;
+    editor.focus();
+  };
   const panelActions: PanelActionsValue = {
     addLink: () => void addLink(),
+    addFormula: () => openFormula(null),
     addPhotos: fileId ? (from) => void addPhotos(from) : null,
     askNumber,
     insertSize,
@@ -204,6 +227,22 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // Only a new press opens anything; the format state changes all the time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
+
+  // Tapping a formula (in the WebView) opens the sheet on it.
+  const formulaTap = state.format?.formulaRequest?.id ?? null;
+  const seenFormulaTap = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    // The first state seen may carry an old tap (the screen came back): not a new one.
+    if (seenFormulaTap.current === undefined || formulaTap === seenFormulaTap.current) {
+      seenFormulaTap.current = formulaTap;
+      return;
+    }
+    seenFormulaTap.current = formulaTap;
+    const f = state.format?.formula;
+    if (f) openFormula(f);
+    // Only a new tap opens it; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formulaTap]);
 
   useImperativeHandle(
     ref,
@@ -282,6 +321,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       <PanelActions.Provider value={panelActions}>
         <CustomKeyboard editor={editor} keyboards={PANELS} activeKeyboardID={panel} setActiveKeyboardID={setPanel} rootBackground={colors.cardMuted} />
       </PanelActions.Provider>
+      <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} />
     </EditorKeyboardAvoidingView>
   );
 });

@@ -3,6 +3,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { selectedPhoto } from '../schema/photo';
+import { formulaRequest, selectedFormula, type FormulaRequest } from '../schema/formula';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
@@ -78,6 +79,10 @@ export interface FormatState {
   tableRequest: TableBarRequest | null;
   /** A selected photo and its width in % of the page (null: its own size); null when none is selected. */
   photo: { width: number | null } | null;
+  /** The selected formula (its LaTeX, display or inline); null when none is selected. */
+  formula: { latex: string; display: boolean } | null;
+  /** The last click or tap on a formula (the iPhone opens its sheet on a new one). */
+  formulaRequest: FormulaRequest | null;
 }
 
 export type FormatCommand =
@@ -104,7 +109,14 @@ export type FormatCommand =
   /** Tables (step 4.5). `rows` / `cols` for insert and resize (clamped to MAX_TABLE). */
   | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null }
   /** The selected photo's width in % of the page (step 4.5); null: its own size. */
-  | { type: 'photoWidth'; width: number | null };
+  | { type: 'photoWidth'; width: number | null }
+  /**
+   * Formulas (step 4.5): put one in, or change the selected one (it stays
+   * selected while its editor is open); `remove` deletes it; `done` closes
+   * it (an empty one goes) and puts the cursor after it.
+   */
+  | { type: 'formula'; action: 'set'; latex: string; display: boolean }
+  | { type: 'formula'; action: 'remove' | 'done' };
 
 export type TableAction =
   | 'insert'
@@ -128,7 +140,9 @@ function blockOf(editor: Editor) {
   const { $from, from, to } = editor.state.selection;
   if ($from.parent.isTextblock) return $from.parent;
   let found: typeof $from.parent | null = null;
-  editor.state.doc.nodesBetween(from, Math.max(to, from + 1), (node) => {
+  const size = editor.state.doc.content.size;
+  // Not past the end (a cursor after the last block).
+  editor.state.doc.nodesBetween(Math.min(from, size), Math.min(size, Math.max(to, from + 1)), (node) => {
     if (!found && node.isTextblock) found = node;
     return !found;
   });
@@ -171,7 +185,14 @@ export function formatState(editor: Editor): FormatState {
     link: (editor.getAttributes('link').href as string | undefined) ?? null,
     ...tableState(editor),
     photo: selectedPhoto(editor),
+    formula: formulaOf(editor),
+    formulaRequest: formulaRequest(editor),
   };
+}
+
+function formulaOf(editor: Editor): FormatState['formula'] {
+  const f = selectedFormula(editor.state);
+  return f && { latex: f.latex, display: f.display };
 }
 
 /** Where the cursor is in a table, for the table bar, menus and panel. */
@@ -344,5 +365,11 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
     }
     case 'photoWidth':
       return chain().setPhotoWidth(cmd.width).run();
+    case 'formula':
+      // Not focusing the text: the student is typing in the formula's editor.
+      if (cmd.action === 'set') return editor.chain().setFormula({ latex: cmd.latex, display: cmd.display }).run();
+      if (cmd.action === 'remove') return chain().removeFormula().run();
+      if (!selectedFormula(editor.state)?.latex.trim()) return chain().removeFormula().run();
+      return chain().leaveFormula().run();
   }
 }

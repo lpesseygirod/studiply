@@ -69,6 +69,11 @@ ${handles} .grip:hover { background: ${c.accent}; opacity: 1; }
 ${handles} .plus { z-index: 1; display: flex; align-items: center; justify-content: center; background: transparent; }
 ${handles} .plus span { width: 16px; height: 16px; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; pointer-events: none; }
 ${handles} .plus:hover span { transform: scale(1.2); }
+${pm} [data-type='inline-math'], ${pm} [data-type='block-math'] { border-radius: 4px; }
+${pm}[contenteditable='true'] [data-type='inline-math'], ${pm}[contenteditable='true'] [data-type='block-math'] { cursor: pointer; }
+${pm} [data-type='block-math'] { margin: 0.2em 0 0.6em; overflow-x: auto; overflow-y: hidden; }
+${pm} .ProseMirror-selectednode[data-type='inline-math'], ${pm} .ProseMirror-selectednode[data-type='block-math'] { outline: 2px solid ${c.accent}; outline-offset: 2px; }
+${pm} .inline-math-error, ${pm} .block-math-error { color: ${c.error}; }
 ${photo} { margin: 0 0 0.6em; line-height: 0; }
 ${photo}-frame { position: relative; display: inline-block; max-width: 100%; vertical-align: top; border-radius: 4px; }
 ${photo}-frame img { display: block; max-width: 100%; height: auto; border-radius: 4px; }

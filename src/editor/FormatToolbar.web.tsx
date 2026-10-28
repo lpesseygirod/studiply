@@ -14,6 +14,7 @@ import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
+import { FORMULA_EVENT } from './schema/formula';
 import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
 import { TableGrid } from '../components/editor/TableGrid';
 import { TableSizeForm } from '../components/editor/TableSizeForm';
@@ -124,6 +125,11 @@ export function FormatToolbar({ editor, onImage }: { editor: Editor; /** Photos 
     // A tool that moved into the closed second row (⌘K for Link) opens under the toolbar.
     const anchor = (await anchorBelow({ current: refs.current[kind] ?? null })) ?? (await anchorBelow(toolbarRef));
     if (anchor) setMenu({ kind, anchor });
+  };
+  // ∑: the formula popover (FormulaPopover) opens under the toolbar, for a new formula or the selected one.
+  const openFormula = async () => {
+    const anchor = await anchorBelow(toolbarRef);
+    if (anchor) editor.view.dom.dispatchEvent(new CustomEvent(FORMULA_EVENT, { detail: anchor }));
   };
   const close = () => {
     setMenu(null);
@@ -311,7 +317,7 @@ export function FormatToolbar({ editor, onImage }: { editor: Editor; /** Photos 
     t('pageBreak', tool('Page break', 'format-page-break', { type: 'pageBreak' })),
     t('clear', tool('Clear formatting', 'format-clear', { type: 'clear' })),
     gap('g7'),
-    t('formula', plain('Formula', 'sigma', soon('Formulas'))),
+    t('formula', plain('Formula', 'sigma', () => void openFormula())),
     t('comment', plain('Comment', 'comment-plus-outline', soon('Comments'))),
     gap('g8'),
     t('strike', tool('Strikethrough', 'format-strikethrough-variant', { type: 'mark', mark: 'strike' }, { active: s.strike })),

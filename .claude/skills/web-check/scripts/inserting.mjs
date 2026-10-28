@@ -516,6 +516,67 @@ try {
     await openDoc();
   });
 
+  // ── Part B: formulas ──
+  const COMPOUND = 'A = P\\left(1 + \\frac{r}{n}\\right)^{nt}';
+  const INTEGRAL = '\\int_{a}^{b} f(x)\\,dx';
+  const LATEX = 'textarea[aria-label="Formula (LaTeX)"]';
+  const formulas = async () => {
+    const out = [];
+    const walk = (n) => {
+      if (n.type === 'inlineMath' || n.type === 'blockMath') out.push({ type: n.type, latex: n.attrs.latex });
+      (n.content ?? []).forEach(walk);
+    };
+    walk(await json());
+    return out;
+  };
+
+  await step('formulas: ∑, the compound-interest formula typed (in the text as it is typed, and previewed), Display, Done', async () => {
+    await lastLine();
+    await toolbarTool('Formula');
+    await b.waitText('Inline', { exact: true });
+    // Typed in two goes: the formula in the text follows (one formula, changed).
+    await b.type('A = P');
+    expect(JSON.stringify(await formulas()) === JSON.stringify([{ type: 'inlineMath', latex: 'A = P' }]), JSON.stringify(await formulas()));
+    await b.fill(LATEX, COMPOUND);
+    await b.sleep(300);
+    expect(JSON.stringify(await formulas()) === JSON.stringify([{ type: 'inlineMath', latex: COMPOUND }]), JSON.stringify(await formulas()));
+    expect(await b.evaluate(`!!document.querySelector('.studiply-formula-preview .katex')`), 'no preview');
+    expect(await b.evaluate(`!!document.querySelector('.ProseMirror [data-type="inline-math"] .katex')`), 'not drawn in the text');
+    await b.shot('ins-formula-1280');
+    await click('Display formula (its own line)');
+    expect((await formulas())[0]?.type === 'blockMath', JSON.stringify(await formulas()));
+    await click('Done with the formula');
+    expect(!(await has('Formula (LaTeX)')), 'the popover is still open');
+    // KaTeX's own fonts are loaded (not a fallback font); none failed.
+    const fonts = await b.evaluate(`document.fonts.ready.then(() => { const k = [...document.fonts].filter((f) => f.family.startsWith('KaTeX')); return k.some((f) => f.family === 'KaTeX_Main' && f.status === 'loaded') && !k.some((f) => f.status === 'error'); })`);
+    expect(fonts, 'KaTeX fonts not loaded');
+  });
+
+  await step('formulas: a click on one opens it with its LaTeX; Remove takes it out', async () => {
+    const at = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror [data-type="block-math"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await b.clickAt(at.x, at.y);
+    await b.sleep(300);
+    const value = await b.evaluate(`document.querySelector('${LATEX}')?.value`);
+    expect(value === COMPOUND, `the field has ${value}`);
+    await click('Remove formula');
+    expect((await formulas()).length === 0, JSON.stringify(await formulas()));
+  });
+
+  await step('formulas: the iPhone bundle draws them with KaTeX and its fonts', async () => {
+    await b.nav(IPHONE);
+    await waitEditor();
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Interés compuesto: ' }, { type: 'inlineMath', attrs: { latex: ${JSON.stringify(COMPOUND)} } }] }, { type: 'blockMath', attrs: { latex: ${JSON.stringify(INTEGRAL)} } }] })`);
+    await b.sleep(300);
+    expect(await b.evaluate(`document.querySelectorAll('.katex').length`) === 2, 'not drawn');
+    const fonts = await b.evaluate(`document.fonts.ready.then(() => [...document.fonts].some((f) => f.family.includes('KaTeX') && f.status === 'loaded'))`);
+    expect(fonts, 'KaTeX fonts not loaded in the iPhone bundle');
+    await b.resize(390, 844);
+    await b.sleep(300);
+    await b.shot('ins-formula-iphone-390');
+    await b.resize(1280, 900);
+    await openDoc();
+  });
+
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);

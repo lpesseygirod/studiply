@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BOOT_CONFIG_GLOBAL, buildBootConfig } from '@10play/tentap-editor/src/shared/bootConfig.ts';
 import { boot } from '@10play/tentap-editor/src/web/runtime.ts';
+import 'katex/dist/katex.min.css';
 
 import { studiplyBridges } from '../src/editor/bridges';
 import Editor from './Editor';

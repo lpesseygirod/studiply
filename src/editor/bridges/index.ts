@@ -5,6 +5,7 @@ import { ImageBridge } from '@10play/tentap-editor/src/bridges/image.ts';
 
 import { BlockMetaBridge } from './blockMeta';
 import { FormatBridge } from './format';
+import { MathBridge } from './math';
 import { PasteReportBridge } from './pasteReport';
 import { PhotoBridge } from './photo';
 import { SpacingBridge } from './spacing';
@@ -24,7 +25,7 @@ import { TimestampChipBridge } from './timestampChip';
  * of ProseMirror) are used, so tables and the chip share one ProseMirror.
  * Studiply's photos (step 4.5) take the place of TenTap's image.
  */
-export const studiplyBridges = [...TenTapStartKit.filter((b) => b !== ImageBridge), PhotoBridge, TimestampChipBridge, TableBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge];
+export const studiplyBridges = [...TenTapStartKit.filter((b) => b !== ImageBridge), PhotoBridge, TimestampChipBridge, TableBridge, MathBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge];
 
 /** The Tiptap extensions of `bridges`, configured as TenTap's WebView configures them. */
 export function extensionsOf(bridges: typeof studiplyBridges) {
@@ -36,4 +37,4 @@ export function studiplyExtensions() {
   return extensionsOf(studiplyBridges);
 }
 
-export { PhotoBridge, TimestampChipBridge, TableBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge };
+export { PhotoBridge, MathBridge, TimestampChipBridge, TableBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge };

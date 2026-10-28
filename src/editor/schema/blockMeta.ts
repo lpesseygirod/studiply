@@ -31,7 +31,7 @@ export type Origin = 'ai' | 'student' | 'media';
 export const ORIGINS: readonly Origin[] = ['ai', 'student', 'media'];
 
 /** Top-level block types of the schema (the doc's `block` group). */
-export const BLOCK_TYPES = ['paragraph', 'heading', 'image', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'table', 'title', 'pageBreak'];
+export const BLOCK_TYPES = ['paragraph', 'heading', 'image', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'table', 'title', 'pageBreak', 'blockMath'];
 
 /** Transaction meta: a change the student didn't type (load, remote, restore, generated). */
 export const SYSTEM_META = 'studiplySystem';

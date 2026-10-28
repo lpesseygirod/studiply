@@ -21,6 +21,8 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   tableCell: { colspan: 1, rowspan: 1 },
   tableHeader: { colspan: 1, rowspan: 1 },
   pageBreak: { origin: 'student' },
+  blockMath: { origin: 'student', latex: '' },
+  inlineMath: { latex: '' },
   timestampChip: { ms: 0 },
   link: { target: '_blank', rel: 'noopener noreferrer nofollow' },
 };

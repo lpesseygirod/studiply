@@ -22,7 +22,7 @@ import { SYSTEM_META } from './blockMeta';
  */
 
 /** Blocks the student can't type after or around without help. */
-const NEEDS_ROOM_AFTER = ['table', 'image', 'pageBreak'];
+const NEEDS_ROOM_AFTER = ['table', 'image', 'pageBreak', 'blockMath'];
 const TYPABLE = ['paragraph', 'heading', 'title', 'bulletList', 'orderedList', 'taskList', 'blockquote'];
 
 const key = new PluginKey('studiplyBlockSpacing');
