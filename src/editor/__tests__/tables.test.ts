@@ -9,6 +9,9 @@ import { CellSelection } from '@tiptap/pm/tables';
 
 import { studiplyExtensions } from '../bridges';
 import { formatState, runFormat, type TableAction } from '../format';
+import { textLostByResize } from '../table/resize';
+import { selectedTable } from '../table/selection';
+import { tableBarKey } from '../table/tableBar';
 import '../../test-utils/clipboardEvent';
 
 let editor: Editor;
@@ -103,6 +106,66 @@ describe('tables', () => {
     openWithTable();
     select((d) => new AllSelection(d));
     expect(formatState(editor).inTable).toBe(false);
+  });
+
+  it('inserts a table of a typed size, up to 50 × 20', () => {
+    editor = new Editor({ extensions: studiplyExtensions(), content: { type: 'doc', content: [{ type: 'paragraph' }] } });
+    editor.commands.focus('start');
+    act('insert', { rows: 6, cols: 4 });
+    expect(size()).toEqual([6, 4]);
+    editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] });
+    editor.commands.focus('start');
+    act('insert', { rows: 60, cols: 25 });
+    expect(size()).toEqual([50, 20]);
+  });
+
+  it('resizes a table: rows at the bottom, columns at the right, within the limit', () => {
+    openWithTable(2, 2);
+    editor.commands.insertContent('a1');
+    act('resize', { rows: 6, cols: 4 });
+    expect(size()).toEqual([6, 4]);
+    expect(formatState(editor)).toMatchObject({ tableRows: 6, tableCols: 4 });
+    act('resize', { rows: 1, cols: 1 });
+    expect(size()).toEqual([1, 1]);
+    // The first cell's text is still there.
+    expect(JSON.stringify(table())).toContain('a1');
+    act('resize', { rows: 99, cols: 99 });
+    expect(size()).toEqual([50, 20]);
+  });
+
+  it('counts the rows and columns with text a resize would remove (to ask first)', () => {
+    openWithTable(3, 3);
+    editor.commands.setTextSelection(cellPos(2, 0) + 2);
+    editor.commands.insertContent('c1');
+    editor.commands.setTextSelection(cellPos(0, 2) + 2);
+    editor.commands.insertContent('a3');
+    const t = selectedTable(editor.state)!.table;
+    expect(textLostByResize(t, 2, 3)).toEqual({ rows: 1, cols: 0 });
+    expect(textLostByResize(t, 3, 2)).toEqual({ rows: 0, cols: 1 });
+    expect(textLostByResize(t, 2, 2)).toEqual({ rows: 1, cols: 1 });
+    expect(textLostByResize(t, 4, 4)).toEqual({ rows: 0, cols: 0 });
+  });
+
+  it('merges selected cells and splits them again', () => {
+    openWithTable(2, 3);
+    expect(formatState(editor)).toMatchObject({ canMerge: false, canSplit: false });
+    select((d) => CellSelection.create(d, cellPos(0, 0), cellPos(0, 1)));
+    expect(formatState(editor).canMerge).toBe(true);
+    expect(act('merge')).toBe(true);
+    expect(table().content?.[0].content?.[0].attrs?.colspan).toBe(2);
+    expect(formatState(editor).canSplit).toBe(true);
+    expect(act('split')).toBe(true);
+    expect(table().content?.[0].content).toHaveLength(3);
+  });
+
+  it('carries the floating bar\'s last request in the state (the iPhone opens the menu)', () => {
+    openWithTable();
+    expect(formatState(editor).tableRequest).toBeNull();
+    editor.view.dispatch(editor.state.tr.setMeta(tableBarKey, { id: 1, button: 'rows' }));
+    expect(formatState(editor).tableRequest).toEqual({ id: 1, button: 'rows' });
+    // Other changes keep it, so a repeat press is told apart by its id.
+    editor.commands.insertContent('x');
+    expect(formatState(editor).tableRequest).toEqual({ id: 1, button: 'rows' });
   });
 
   it('turns the header row on and off', () => {

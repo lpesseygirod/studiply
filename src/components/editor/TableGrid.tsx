@@ -5,11 +5,12 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 
-const GRID = 8;
+const GRID = 10;
 
 /**
  * The laptop's table grid (step 4.5, as Google Docs): point at a cell to
- * choose rows × columns ("3 × 4" shows under it), click to insert.
+ * choose rows × columns ("3 × 4" shows under it), click to insert. Bigger
+ * tables are typed in below it (TableSizeForm).
  */
 export function TableGrid({ onPick }: { onPick: (rows: number, cols: number) => void }) {
   const styles = useThemedStyles(makeStyles);
@@ -46,7 +47,7 @@ const makeStyles = (c: ThemeColors) =>
     wrap: { padding: 12, gap: 8, alignItems: 'center' },
     grid: { gap: 3 },
     row: { flexDirection: 'row', gap: 3 },
-    cell: { width: 22, height: 22, borderRadius: 3, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
+    cell: { width: 20, height: 20, borderRadius: 3, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
     cellOn: { backgroundColor: c.accentLight, borderColor: c.accent },
     size: { fontSize: Typography.size.sm, color: c.text.secondary },
   });

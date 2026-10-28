@@ -2,6 +2,7 @@ import { LightColors } from '../constants/colors';
 import { CHIP_CLASS } from './schema/timestampChip';
 import { DEFAULT_LINE_SPACING } from './schema/blocks';
 import { DEFAULT_FONT_CSS, DEFAULT_SIZE } from './schema/fonts';
+import { TABLE_BAR_CLASS } from './table/tableBar';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -16,6 +17,7 @@ export const PAGE_COLORS = LightColors;
 export function editorCss(scope = ''): string {
   const c = PAGE_COLORS;
   const pm = `${scope} .ProseMirror`.trim();
+  const bar = `${scope} .${TABLE_BAR_CLASS}`.trim();
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
 ${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
@@ -49,5 +51,13 @@ ${pm}.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 ${pm} .${CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; background: ${c.status.info.bg}; color: ${c.status.info.text}; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${pm} .${CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; }
 ${pm} p.is-editor-empty:first-child::before { color: ${c.text.placeholder}; }
+${bar} { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; background: ${c.card}; border: 1px solid ${c.border}; box-shadow: 0 4px 14px ${c.scrim}; font-family: -apple-system, system-ui, sans-serif; }
+${bar} button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: ${c.text.primary}; font: 600 13px/1 -apple-system, system-ui, sans-serif; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+${bar} button:hover { background: ${c.cardMuted}; }
+${bar} button[aria-pressed='true'] { background: ${c.accentLight}; color: ${c.accentDark}; }
+${bar} button.danger { color: ${c.error}; }
+${bar} .${TABLE_BAR_CLASS}-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid ${c.border}; }
+${bar} .${TABLE_BAR_CLASS}-swatch.empty { background: ${c.card}; }
+@media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 `;
 }

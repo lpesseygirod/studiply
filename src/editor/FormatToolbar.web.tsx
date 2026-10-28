@@ -14,15 +14,16 @@ import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
-import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TableAction, type TextStyleKey } from './format';
+import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
 import { TableGrid } from '../components/editor/TableGrid';
+import { TableSizeForm } from '../components/editor/TableSizeForm';
 import { useToolbarExpanded } from '../lib/toolbarPrefs';
 import { LinkForm } from '../components/editor/LinkForm';
 import { LINE_SPACINGS } from './schema/blocks';
 import { cleanSize, FONTS } from './schema/fonts';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'tableMenu';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table';
 
 /** A toolbar item and the width it takes (for deciding what fits on the first row). */
 interface Item {
@@ -57,19 +58,6 @@ function trimGaps(items: Item[]): Item[] {
   return out;
 }
 
-const TABLE_ACTIONS: ({ action: TableAction; label: string; danger?: boolean } | '-')[] = [
-  { action: 'rowAbove', label: 'Insert row above' },
-  { action: 'rowBelow', label: 'Insert row below' },
-  { action: 'columnLeft', label: 'Insert column left' },
-  { action: 'columnRight', label: 'Insert column right' },
-  '-',
-  { action: 'headerRow', label: 'Header row' },
-  '-',
-  { action: 'deleteRow', label: 'Delete row', danger: true },
-  { action: 'deleteColumn', label: 'Delete column', danger: true },
-  { action: 'deleteTable', label: 'Delete table', danger: true },
-];
-
 const ALIGN_ICON: Record<Align, IconName> = {
   left: 'format-align-left',
   center: 'format-align-center',
@@ -91,7 +79,7 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
 /**
  * The laptop's formatting toolbar (steps 4.4, 4.5; docs/design desktop-01).
  * One row of the most-used tools (undo, redo · style · font · size · B I U ·
- * colours · lists · link, image, table, and the Table menu in a table) and
+ * colours · lists · link, image, table) and
  * ⌄ for a second row with the rest (align, line spacing, indent, page break,
  * clear formatting, formula, comment, strikethrough, checklist); open or
  * closed is remembered on this device, and what doesn't fit a narrow
@@ -105,7 +93,6 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const s = formatState(editor);
   const [menu, setMenu] = useState<{ kind: Menu; anchor: Anchor } | null>(null);
   const [spectrum, setSpectrum] = useState(false);
-  const [cellColour, setCellColour] = useState(false);
   const recent = useRecentColours();
   const [expanded, setExpanded] = useToolbarExpanded('laptop');
   const [width, setWidth] = useState(1200);
@@ -131,7 +118,6 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const run = (cmd: FormatCommand) => {
     setMenu(null);
     setSpectrum(false);
-    setCellColour(false);
     runFormat(editor, cmd);
   };
   const open = async (kind: Menu) => {
@@ -142,7 +128,6 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const close = () => {
     setMenu(null);
     setSpectrum(false);
-    setCellColour(false);
   };
 
   const tool = (label: string, icon: IconName, cmd: FormatCommand, { active = false, disabled = false } = {}) => (
@@ -315,7 +300,6 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
     t('link', iconButton('link', 'Link (⌘K)', 'link-variant', !!s.link)),
     t('image', plain('Image', 'image-outline', soon('Images'))),
     t('table', iconButton('table', 'Insert table', 'table-large-plus')),
-    ...(s.inTable ? [t('tableMenu', dropdown('tableMenu', 'Table menu', 'Table', 82), 88)] : []),
   ];
   const secondary: Item[] = [
     ...ALIGNS.map((a) => t(`align-${a.key}`, tool(`Align ${a.label.toLowerCase()} (${a.shortcut})`, ALIGN_ICON[a.key], { type: 'align', align: a.key }, { active: s.align === a.key }))),
@@ -389,49 +373,10 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
           onCancel={close}
         />
       </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'table' ? menu.anchor : null} onClose={close} width={228} label="Insert table">
+      <ToolbarPopover anchor={menu?.kind === 'table' ? menu.anchor : null} onClose={close} width={280} label="Insert table">
         <TableGrid onPick={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
-      </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'tableMenu' ? menu.anchor : null} onClose={close} width={cellColour ? 260 : 240} label="Table">
-        {cellColour ? (
-          <View style={styles.picker}>
-            {spectrum ? (
-              <SpectrumPicker
-                initial={s.cellColor}
-                showHex
-                onDone={(colour) => {
-                  recent.add(colour);
-                  run({ type: 'table', action: 'cellColor', color: colour });
-                }}
-                onCancel={() => setSpectrum(false)}
-                width={236}
-              />
-            ) : (
-              <ColorGrid
-                value={s.cellColor}
-                noneLabel="None"
-                recent={recent.recent}
-                onPick={(colour) => {
-                  if (colour) recent.add(colour);
-                  run({ type: 'table', action: 'cellColor', color: colour });
-                }}
-                onMore={() => setSpectrum(true)}
-                kind="Cell colour"
-              />
-            )}
-          </View>
-        ) : (
-          <>
-            {TABLE_ACTIONS.map((a, i) =>
-              a === '-' ? (
-                <View key={`divider-${i}`} style={styles.menuDivider} />
-              ) : (
-                row(a.action, <Text style={[styles.menuText, a.danger && { color: c.error }]}>{a.label}</Text>, () => run({ type: 'table', action: a.action }), a.action === 'headerRow' && s.headerRow)
-              ),
-            )}
-            {row('cellColor', <Text style={styles.menuText}>Cell colour…</Text>, () => setCellColour(true), false)}
-          </>
-        )}
+        <View style={styles.menuDivider} />
+        <TableSizeForm rows={3} cols={3} action="Insert" onSubmit={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'spacing' ? menu.anchor : null} onClose={close} width={170} label="Line spacing">
         {LINE_SPACINGS.map((v) =>

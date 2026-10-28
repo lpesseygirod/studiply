@@ -38,7 +38,7 @@ function Header({ title, close }: { title: string; close?: () => void }) {
   );
 }
 
-function Stepper({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+function Stepper({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (n: number) => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   return (
@@ -49,7 +49,7 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
           <MaterialCommunityIcons name="minus" size={22} color={c.text.primary} />
         </Pressable>
         <Text style={styles.count}>{value}</Text>
-        <Pressable onPress={() => onChange(Math.min(MAX_TABLE, value + 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`More ${label.toLowerCase()}`}>
+        <Pressable onPress={() => onChange(Math.min(max, value + 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`More ${label.toLowerCase()}`}>
           <MaterialCommunityIcons name="plus" size={22} color={c.text.primary} />
         </Pressable>
       </View>
@@ -75,8 +75,8 @@ function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
       <View style={styles.panel}>
         <Header title="Table" close={close} />
         <View style={styles.content}>
-          <Stepper label="Rows" value={table.rows} onChange={(rows) => setTable({ ...table, rows })} />
-          <Stepper label="Columns" value={table.cols} onChange={(cols) => setTable({ ...table, cols })} />
+          <Stepper label="Rows" value={table.rows} max={MAX_TABLE.rows} onChange={(rows) => setTable({ ...table, rows })} />
+          <Stepper label="Columns" value={table.cols} max={MAX_TABLE.cols} onChange={(cols) => setTable({ ...table, cols })} />
           <View style={styles.row}>
             <Pressable onPress={() => setTable(null)} style={styles.secondary} accessibilityRole="button">
               <Text style={styles.secondaryText}>Back</Text>

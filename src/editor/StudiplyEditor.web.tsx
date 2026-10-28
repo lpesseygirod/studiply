@@ -9,6 +9,7 @@ import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { LinkBubble } from './LinkBubble.web';
+import { TableMenus } from './TableMenus.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 
@@ -96,6 +97,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           <EditorContent editor={editor} className={SCOPE} />
         </ScrollView>
         {editable && <LinkBubble editor={editor} page={page} />}
+        {editable && <TableMenus editor={editor} />}
       </View>
     </View>
   );
