@@ -156,10 +156,15 @@ try {
     await b.press('Escape');
   });
 
-  await step('⌥N says new documents come with the editor', async () => {
+  await step('⌥N creates a new document and opens it (step 4.3)', async () => {
+    const from = await path();
     await b.chord({ code: 'KeyN', key: '˜', alt: true });
-    expect(await b.hasText('New documents come with the editor. Coming soon.', true), 'no note');
-    await b.press('Escape');
+    await b.sleep(1500);
+    expect((await path()).startsWith('/doc/'), await path());
+    expect(await b.hasText('Untitled document', false), 'not an untitled document');
+    // Back where it was, for the next shortcuts.
+    await b.nav(`${BASE}${from}`);
+    await b.sleep(2500);
   });
 
   await step('"/" opens Search with the field focused; typing "/" or ⌥R in the field just types', async () => {

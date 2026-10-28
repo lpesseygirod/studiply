@@ -1,7 +1,7 @@
 // new-menu.mjs — the "+ New" menu and the New course dialog (Lea's step 3.2
 // feedback): a small menu next to the button (not a full-width sheet) with
 // New course, New folder (greyed out outside a course), Upload, Record
-// lecture and New document (coming soon); New course as a small dialog with
+// lecture and New document (step 4.3); New course as a small dialog with
 // name and colour; "Course" instead of "Project" everywhere; at 1280 and
 // 390 px. Results checked in the database. Exit 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
@@ -59,13 +59,13 @@ try {
     await b.shot('new-menu-1280');
   });
 
-  await step('Outside a course, New folder and Upload are greyed out with a hint; New document is "Coming soon"', async () => {
+  await step('Outside a course, New folder and Upload are greyed out with a hint; New document works (My library)', async () => {
     const folder = await menuItem('New folder');
     expect(folder.disabled && folder.text.includes('Open a course or folder first'), JSON.stringify(folder));
     const upload = await menuItem('Upload document');
     expect(upload.disabled, JSON.stringify(upload));
     const doc = await menuItem('New document');
-    expect(doc.disabled && doc.text.includes('Coming soon'), JSON.stringify(doc));
+    expect(!doc.disabled, JSON.stringify(doc));
     await b.click('New folder', { exact: true });
     await b.sleep(300);
     expect(await b.evaluate(`!!document.querySelector('[role=menu]')`), 'a greyed-out item closed the menu');

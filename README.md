@@ -146,6 +146,21 @@ changing anything it imports (`src/editor/bridges`, `src/editor/schema`,
 
 The laptop's editor is Tiptap in the page with the same extensions.
 
+### Documents (step 4.3)
+
+A blank document is a `files` row of kind `document` with one `documents`
+row (tab `notes`); a lecture has up to three (`notes`, `summary`,
+`transcript`). The content is ProseMirror JSON whose top-level blocks carry
+`blockId`, `origin` (ai / student / media) and `editedAt`
+(`src/editor/schema/blockMeta.ts`). Saving sends a block edit that the
+server merges with the other device's (`src/editor/docBlocks.ts`, the step
+1.8 rule: the newer edit of a block wins, the other is kept in
+`document_versions`). The iPhone saves in its cache and queues the edit, so
+writing works offline; the open document checks for the other device's
+changes every 5 s (`src/editor/documentSession.ts`, `useDocumentSync`).
+A version is kept at the end of each editing session; versions can be
+named, restored, and old unnamed ones are thinned after 30 days.
+
 `node verify-setup.js` checks the environment and reports what's missing.
 
 ### Local Supabase, login and email

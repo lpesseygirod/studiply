@@ -115,6 +115,14 @@ node .claude/skills/web-check/scripts/trash.mjs
 node .claude/skills/web-check/scripts/search.mjs
 ```
 
+## Check documents (step 4.3)
+
+`scripts/documents.mjs`: New document in a folder (the New menu) opens with its title selected; the title and the text save themselves ("Saved ·", the `files` / `documents` rows, a block with origin student and its time); a block written by "another device" (service role) appears within a few seconds while the local text stays; leaving (inside the app: a page reload cuts the save short) keeps a session version; version history: name a version, restore an older text ("Before restore" kept); thinning keeps a named old version and a day's last edit; a lecture: tabs, the earlier-format notes card with Open notes (→ `/note/`), the Transcript tab made from the segments with chips (origin media); 390 px and dark mode (the page stays white).
+
+```bash
+node .claude/skills/web-check/scripts/documents.mjs
+```
+
 ## Run the AI flow (recording → transcript → notes → clarify)
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).

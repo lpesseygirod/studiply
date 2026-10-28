@@ -184,7 +184,7 @@ try {
     await b.press('Escape');
   });
 
-  await step('Greyed out with their hints: Copy on a lecture, Summarize, Make exam pack, New document', async () => {
+  await step('Greyed out with their hints: Copy on a lecture, Summarize, Make exam pack; New document works', async () => {
     await tileMenu('Lecture 1');
     const copy = await line('Copy');
     const summarize = await line('Summarize');
@@ -198,7 +198,7 @@ try {
     await b.press('Escape');
     await spaceMenu();
     const doc = await line('New document');
-    expect(doc.disabled && doc.hint === 'Coming soon', JSON.stringify(doc));
+    expect(!doc.disabled && !doc.hint, JSON.stringify(doc));
     await b.shot('menus34-space');
     await b.press('Escape');
   });
