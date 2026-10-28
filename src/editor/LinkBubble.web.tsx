@@ -1,0 +1,77 @@
+import React, { useEffect, useReducer } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { Editor } from '@tiptap/react';
+
+import type { ThemeColors } from '../constants/colors';
+import { Typography } from '../constants/typography';
+import { useThemedStyles } from '../theme/ThemeProvider';
+import { LINK_EVENT } from './bridges/format';
+import { runFormat } from './format';
+
+/**
+ * The laptop's link bubble (step 4.5): with the cursor on a link, a small
+ * bar under it shows the address with Open (a new tab) · Edit · Remove.
+ * Drawn over the page (`page`: the page's DOM element), following scrolling.
+ */
+export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement | null }) {
+  const styles = useThemedStyles(makeStyles);
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (!page) return;
+    page.addEventListener('scroll', redraw, true);
+    return () => page.removeEventListener('scroll', redraw, true);
+  }, [page]);
+
+  const href = editor.getAttributes('link').href as string | undefined;
+  if (!href || !editor.isFocused || !page) return null;
+  const at = editor.view.coordsAtPos(editor.state.selection.from);
+  const box = page.getBoundingClientRect();
+
+  return (
+    <View style={[styles.bubble, { left: Math.max(8, at.left - box.left - 20), top: at.bottom - box.top + 6 }]} accessibilityLabel="Link">
+      <Text style={styles.href} numberOfLines={1}>
+        {href.replace(/^mailto:/, '')}
+      </Text>
+      <Pressable
+        onPress={() => window.open(href, '_blank', 'noopener,noreferrer')}
+        style={styles.action}
+        accessibilityRole="link"
+        accessibilityLabel="Open link"
+      >
+        <Text style={styles.actionText}>Open</Text>
+      </Pressable>
+      <Pressable onPress={() => editor.view.dom.dispatchEvent(new CustomEvent(LINK_EVENT, { bubbles: true }))} style={styles.action} accessibilityRole="button" accessibilityLabel="Edit link">
+        <Text style={styles.actionText}>Edit</Text>
+      </Pressable>
+      <Pressable onPress={() => runFormat(editor, { type: 'link', href: null })} style={styles.action} accessibilityRole="button" accessibilityLabel="Remove link">
+        <Text style={styles.actionText}>Remove</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    bubble: {
+      position: 'absolute',
+      zIndex: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      maxWidth: 420,
+      paddingLeft: 12,
+      paddingRight: 4,
+      paddingVertical: 4,
+      borderRadius: 10,
+      backgroundColor: c.card,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      shadowColor: c.black,
+      shadowOpacity: 0.14,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    href: { flexShrink: 1, fontSize: Typography.size.sm, color: c.accentDark, marginRight: 6 },
+    action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6 },
+    actionText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.primary },
+  });

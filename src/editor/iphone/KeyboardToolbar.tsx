@@ -22,6 +22,8 @@ export function KeyboardToolbar({
   panel,
   onPanel,
   onDone,
+  onLink,
+  onOpenLink,
 }: {
   state: FormatState | undefined;
   run: (cmd: FormatCommand) => void;
@@ -29,6 +31,9 @@ export function KeyboardToolbar({
   panel: 'aa' | 'colors' | undefined;
   onPanel: (panel: 'aa' | 'colors') => void;
   onDone: () => void;
+  /** Add or edit a link (asks for the address). */
+  onLink: () => void;
+  onOpenLink: (href: string) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -52,6 +57,20 @@ export function KeyboardToolbar({
   return (
     <View style={styles.bar} onLayout={accessory.onLayout}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="always" contentContainerStyle={styles.items}>
+        {s?.link ? (
+          // On a link: what to do with it comes first.
+          <View style={styles.linkChips}>
+            {[
+              { label: 'Open', onPress: () => onOpenLink(s.link!) },
+              { label: 'Edit', onPress: onLink },
+              { label: 'Remove', onPress: () => run({ type: 'link', href: null }) },
+            ].map((a) => (
+              <Pressable key={a.label} onPress={a.onPress} style={styles.linkChip} accessibilityRole="button" accessibilityLabel={`${a.label} link`}>
+                <Text style={styles.linkChipText}>{a.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <Pressable
           onPress={() => onPanel('aa')}
           style={[styles.button, styles.aa, panel === 'aa' && styles.active]}
@@ -66,6 +85,7 @@ export function KeyboardToolbar({
         {button('Underline', 'format-underline', () => run({ type: 'mark', mark: 'underline' }), { active: s?.underline })}
         {button('Strikethrough', 'format-strikethrough-variant', () => run({ type: 'mark', mark: 'strike' }), { active: s?.strike })}
         {button('Text colour and highlight', 'palette-outline', () => onPanel('colors'), { active: panel === 'colors' })}
+        {button('Link', 'link-variant', onLink, { active: !!s?.link })}
         {button('Bulleted list', 'format-list-bulleted', () => run({ type: 'list', list: 'bullet' }), { active: s?.list === 'bullet' })}
         {button('Numbered list', 'format-list-numbered', () => run({ type: 'list', list: 'ordered' }), { active: s?.list === 'ordered' })}
         {button('Checklist', 'format-list-checks', () => run({ type: 'list', list: 'task' }), { active: s?.list === 'task' })}
@@ -97,6 +117,9 @@ const makeStyles = (c: ThemeColors) =>
     aaText: { fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
     active: { backgroundColor: c.accentLight },
     disabled: { opacity: 0.35 },
+    linkChips: { flexDirection: 'row', gap: 4, marginRight: 6, paddingRight: 6, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: c.border },
+    linkChip: { height: 34, paddingHorizontal: 12, borderRadius: 17, justifyContent: 'center', backgroundColor: c.accentLight },
+    linkChipText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.accentDark },
     done: {
       height: 48,
       paddingHorizontal: 14,

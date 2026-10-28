@@ -33,11 +33,15 @@ export const FormatShortcuts = Extension.create({
       'Mod-Shift-.': () => runFormat(this.editor, { type: 'sizeStep', direction: 1 }),
       'Mod-Shift-,': () => runFormat(this.editor, { type: 'sizeStep', direction: -1 }),
       'Mod-\\': () => runFormat(this.editor, { type: 'clear' }),
+      // ⌘K: the screen opens its link dialog (the laptop's toolbar listens).
+      'Mod-k': () => this.editor.view.dom.dispatchEvent(new CustomEvent(LINK_EVENT, { bubbles: true })),
     };
   },
 });
 
 export const FORMAT = 'studiply-format';
+/** The DOM event ⌘K fires on the editor. */
+export const LINK_EVENT = 'studiply-link';
 type FormatMessage = { type: typeof FORMAT; payload: FormatCommand };
 
 export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeInstance, FormatMessage>({

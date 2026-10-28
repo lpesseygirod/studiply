@@ -13,12 +13,14 @@ import { Layout } from '../constants/layout';
 import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
+import { LINK_EVENT } from './bridges/format';
 import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
+import { LinkForm } from '../components/editor/LinkForm';
 import { LINE_SPACINGS } from './schema/blocks';
 import { cleanSize, FONTS } from './schema/fonts';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link';
 
 const ALIGN_ICON: Record<Align, IconName> = {
   left: 'format-align-left',
@@ -56,6 +58,14 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const refs = useRef<Partial<Record<Menu, View | null>>>({});
   const [sizeText, setSizeText] = useState(String(s.size));
   const sizeFocused = useRef(false);
+
+  // ⌘K in the text, and Edit in the link bubble, open the link dialog.
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const onLink = () => void open('link');
+    dom.addEventListener(LINK_EVENT, onLink);
+    return () => dom.removeEventListener(LINK_EVENT, onLink);
+  });
 
   useEffect(() => {
     if (!sizeFocused.current) setSizeText(String(s.size));
@@ -213,6 +223,16 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
       {tool('Bulleted list', 'format-list-bulleted', { type: 'list', list: 'bullet' }, { active: s.list === 'bullet' })}
       {tool('Numbered list', 'format-list-numbered', { type: 'list', list: 'ordered' }, { active: s.list === 'ordered' })}
       {tool('Checklist', 'format-list-checks', { type: 'list', list: 'task' }, { active: s.list === 'task' })}
+      <View ref={(v) => void (refs.current.link = v)} collapsable={false}>
+        <Pressable
+          onPress={() => open('link')}
+          style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, !!s.link && styles.toolActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Link (⌘K)"
+        >
+          <MaterialCommunityIcons name="link-variant" size={20} color={s.link ? c.accentDark : c.text.primary} />
+        </Pressable>
+      </View>
       <View style={styles.gap} />
       {ALIGNS.map((a) => tool(`Align ${a.label.toLowerCase()} (${a.shortcut})`, ALIGN_ICON[a.key], { type: 'align', align: a.key }, { active: s.align === a.key }))}
       <View style={styles.gap} />
@@ -232,6 +252,15 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
         {FONTS.map((f) =>
           row(f.key, <Text style={[styles.menuText, f.css ? { fontFamily: f.css } : null]}>{f.label}</Text>, () => run({ type: 'font', font: f.key }), f.key === s.font),
         )}
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'link' ? menu.anchor : null} onClose={close} width={300} label="Link">
+        <LinkForm
+          current={s.link}
+          askText={editor.state.selection.empty && !s.link}
+          onApply={(href, text) => run({ type: 'link', href, text })}
+          onRemove={() => run({ type: 'link', href: null })}
+          onCancel={close}
+        />
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'spacing' ? menu.anchor : null} onClose={close} width={170} label="Line spacing">
         {LINE_SPACINGS.map((v) =>

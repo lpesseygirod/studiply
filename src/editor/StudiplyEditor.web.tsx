@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 
@@ -8,6 +8,7 @@ import { useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
+import { LinkBubble } from './LinkBubble.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 
@@ -30,6 +31,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
 ) {
   const styles = useThemedStyles(makeStyles);
   const narrow = useWindowDimensions().width < 600;
+  const [page, setPage] = useState<HTMLElement | null>(null);
   const extensions = useMemo(() => studiplyExtensions(), []);
   const lastChip = useRef<number | null>(null);
   const lastPaste = useRef(0);
@@ -88,10 +90,13 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     <View style={styles.container}>
       <style>{CSS}</style>
       {editable && <FormatToolbar editor={editor} />}
-      <ScrollView style={styles.page} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
-        {header}
-        <EditorContent editor={editor} className={SCOPE} />
-      </ScrollView>
+      <View style={styles.page} ref={(v) => setPage(v as unknown as HTMLElement | null)}>
+        <ScrollView style={styles.scroll} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
+          {header}
+          <EditorContent editor={editor} className={SCOPE} />
+        </ScrollView>
+        {editable && <LinkBubble editor={editor} page={page} />}
+      </View>
     </View>
   );
 });
@@ -101,7 +106,8 @@ export default StudiplyEditor;
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, width: '100%', maxWidth: Layout.documentMaxWidth, alignSelf: 'center', gap: 12 },
-    page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card },
+    page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card, overflow: 'hidden' },
+    scroll: { flex: 1 },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },
     pageContentNarrow: { paddingHorizontal: 20, paddingTop: 20 },
   });

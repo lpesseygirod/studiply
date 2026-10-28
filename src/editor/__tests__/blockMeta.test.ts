@@ -72,6 +72,15 @@ describe('the origin rule', () => {
   });
 });
 
+describe('marks for what is typed next', () => {
+  it('survive the plugin\'s own follow-up change', () => {
+    const state = stateOf(AI_DOC);
+    const bold = schema.marks.bold.create();
+    const next = apply(state, (tr) => tr.insertText('x', inside(state, 0)).setStoredMarks([bold]));
+    expect(next.storedMarks?.map((m) => m.type.name)).toEqual(['bold']);
+  });
+});
+
 describe('block ids', () => {
   it('gives the second half of a split block a new id', () => {
     const state = stateOf(AI_DOC);

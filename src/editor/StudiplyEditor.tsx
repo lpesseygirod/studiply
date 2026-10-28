@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import {
   darkEditorTheme,
   defaultEditorTheme,
@@ -22,7 +22,8 @@ import type { BlockMetaInstance } from './bridges/blockMeta';
 import type { FormatBridgeInstance, FormatBridgeState } from './bridges/format';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
 import { editorCss, PAGE_COLORS } from './editorCss';
-import type { FormatCommand } from './format';
+import { cleanUrl, type FormatCommand } from './format';
+import { promptText, showAlert } from '../components/dialogs/dialogs';
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
 import { KeyboardToolbar } from './iphone/KeyboardToolbar';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
@@ -72,6 +73,18 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const done = () => {
     setPanel(undefined);
     editor.blur();
+  };
+  const addLink = async () => {
+    const current = state.format?.link ?? null;
+    const value = await promptText(current ? 'Edit link' : 'Add link', {
+      defaultValue: current?.replace(/^mailto:/, '') ?? '',
+      placeholder: 'Address (e.g. uned.es)',
+      confirmLabel: 'Apply',
+    });
+    if (!value) return;
+    const href = cleanUrl(value);
+    if (!href) showAlert('Not a link', "That isn't an address a link can open.");
+    else run({ type: 'link', href });
   };
 
   useImperativeHandle(
@@ -144,6 +157,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           panel={panel === AA_PANEL ? 'aa' : panel === COLOR_PANEL ? 'colors' : undefined}
           onPanel={openPanel}
           onDone={done}
+          onLink={addLink}
+          onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
         />
       )}
       <CustomKeyboard editor={editor} keyboards={PANELS} activeKeyboardID={panel} setActiveKeyboardID={setPanel} rootBackground={colors.cardMuted} />

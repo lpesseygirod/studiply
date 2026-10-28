@@ -236,6 +236,9 @@ export function blockMetaPlugin(now: () => number): Plugin {
       const fix = blockMetaFix(oldState.doc, newState.doc, transactions, system, now());
       if (!fix) return null;
       const tr = applyFix(newState.tr, fix);
+      // Keep the marks set for what is typed next (⌘B before typing, leaving a
+      // link): a transaction that changes the document would otherwise drop them.
+      if (newState.storedMarks) tr.setStoredMarks(newState.storedMarks);
       return system ? tr.setMeta(SYSTEM_META, true).setMeta('addToHistory', false) : tr;
     },
   });

@@ -4,6 +4,8 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 
+export { cleanUrl } from './links';
+
 /**
  * The formatting tools (step 4.4) as one set of commands and one state, for
  * both devices: the laptop's toolbar calls them on its editor; the iPhone's
@@ -54,6 +56,8 @@ export interface FormatState {
   canRedo: boolean;
   canIndent: boolean;
   canOutdent: boolean;
+  /** The link the selection is on, if any. */
+  link: string | null;
 }
 
 export type FormatCommand =
@@ -74,7 +78,9 @@ export type FormatCommand =
   | { type: 'undo' }
   | { type: 'redo' }
   /** Paste without formatting (iPhone: the clipboard read natively). */
-  | { type: 'insertText'; text: string };
+  | { type: 'insertText'; text: string }
+  /** Links (step 4.5): href already cleaned (cleanUrl); null removes the link. `text` when nothing is selected. */
+  | { type: 'link'; href: string | null; text?: string };
 
 /** The first text block of the selection (with everything selected, the document's first). */
 function blockOf(editor: Editor) {
@@ -121,6 +127,7 @@ export function formatState(editor: Editor): FormatState {
     canRedo: can.redo(),
     canIndent: can.indent(),
     canOutdent: can.outdent(),
+    link: (editor.getAttributes('link').href as string | undefined) ?? null,
   };
 }
 
@@ -211,5 +218,16 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().redo().run();
     case 'insertText':
       return cmd.text ? chain().insertContent(plainParagraphs(cmd.text)).run() : false;
+    case 'link': {
+      if (!cmd.href) return chain().extendMarkRange('link').unsetLink().run();
+      const { empty } = editor.state.selection;
+      if (empty && !editor.isActive('link')) {
+        // Nothing selected: the text (or the address itself) goes in, linked.
+        const text = cmd.text?.trim() || cmd.href.replace(/^mailto:/, '');
+        // The cursor then leaves the link, so what is typed next isn't linked.
+        return chain().insertContent({ type: 'text', text, marks: [{ type: 'link', attrs: { href: cmd.href } }] }).unsetMark('link').run();
+      }
+      return chain().extendMarkRange('link').setLink({ href: cmd.href }).run();
+    }
   }
 }
