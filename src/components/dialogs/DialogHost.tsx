@@ -223,6 +223,9 @@ function Dialog({ request }: { request: DialogRequest }) {
           placeholder={request.placeholder}
           placeholderTextColor={c.text.placeholder}
           onSubmitEditing={() => submitPrompt(text)}
+          inputMode={request.keyboard === 'number-pad' ? 'numeric' : 'text'}
+          autoCapitalize={request.keyboard === 'ascii-capable' ? 'characters' : undefined}
+          autoCorrect={request.keyboard === 'ascii-capable' ? false : undefined}
           style={styles.input}
         />
         <View style={styles.buttonRow}>

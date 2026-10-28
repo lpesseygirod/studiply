@@ -16,8 +16,40 @@ import { MAX_TABLE, type FormatCommand, type TableAction } from '../format';
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 type Bridge = EditorBridge & FormatBridgeInstance;
 
-/** What the panels ask of the editor screen (asking for a link's address). */
-export const PanelActions = createContext<{ addLink: () => void }>({ addLink: () => {} });
+export interface TableSize {
+  rows: number;
+  cols: number;
+}
+/** What the table panel shows; the floating bar's Colour and Table size… open it on theirs. */
+export type TableView = 'list' | 'colour' | 'spectrum' | 'size';
+
+/**
+ * What the panels ask of the editor screen: a link's address, a typed
+ * number (the app's prompt with the number pad: the panels sit where the
+ * keyboard goes, so a field in them can't bring one up), and the panel
+ * state a prompt must not lose (kept on the screen, not in the panel).
+ */
+export interface PanelActionsValue {
+  addLink: () => void;
+  /** A number from 1 to `max`; a larger one comes back as `max`, `lowered`. Null when cancelled. */
+  askNumber: (title: string, value: number, max: number) => Promise<{ value: number; lowered: boolean } | null>;
+  insertSize: TableSize | null;
+  setInsertSize: (size: TableSize | null) => void;
+  tableView: TableView;
+  setTableView: (view: TableView) => void;
+  resize: TableSize | null;
+  setResize: (size: TableSize | null) => void;
+}
+export const PanelActions = createContext<PanelActionsValue>({
+  addLink: () => {},
+  askNumber: async () => null,
+  insertSize: null,
+  setInsertSize: () => {},
+  tableView: 'list',
+  setTableView: () => {},
+  resize: null,
+  setResize: () => {},
+});
 
 function useFormat(editor: EditorBridge | undefined) {
   const bridge = editor as Bridge;
@@ -38,21 +70,39 @@ function Header({ title, close }: { title: string; close?: () => void }) {
   );
 }
 
+/** − value + for rows or columns; tapping the number types it (the number pad). */
 function Stepper({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (n: number) => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
+  const { askNumber } = useContext(PanelActions);
+  const [lowered, setLowered] = useState(false);
+  const set = (n: number) => {
+    setLowered(false);
+    onChange(n);
+  };
+  const ask = async () => {
+    const typed = await askNumber(label, value, max);
+    if (!typed) return;
+    onChange(typed.value);
+    setLowered(typed.lowered);
+  };
   return (
-    <View style={styles.stepper}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.row}>
-        <Pressable onPress={() => onChange(Math.max(1, value - 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`Fewer ${label.toLowerCase()}`}>
-          <MaterialCommunityIcons name="minus" size={22} color={c.text.primary} />
-        </Pressable>
-        <Text style={styles.count}>{value}</Text>
-        <Pressable onPress={() => onChange(Math.min(max, value + 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`More ${label.toLowerCase()}`}>
-          <MaterialCommunityIcons name="plus" size={22} color={c.text.primary} />
-        </Pressable>
+    <View>
+      <View style={styles.stepper}>
+        <Text style={styles.label}>{label}</Text>
+        <View style={styles.row}>
+          <Pressable onPress={() => set(Math.max(1, value - 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`Fewer ${label.toLowerCase()}`}>
+            <MaterialCommunityIcons name="minus" size={22} color={c.text.primary} />
+          </Pressable>
+          <Pressable onPress={() => void ask()} style={styles.countBox} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Type a number`}>
+            <Text style={styles.count}>{value}</Text>
+          </Pressable>
+          <Pressable onPress={() => set(Math.min(max, value + 1))} style={[styles.iconButton, styles.box]} accessibilityRole="button" accessibilityLabel={`More ${label.toLowerCase()}`}>
+            <MaterialCommunityIcons name="plus" size={22} color={c.text.primary} />
+          </Pressable>
+        </View>
       </View>
+      {lowered && <Text style={styles.note}>Up to {max} {label.toLowerCase()}: lowered to {max}.</Text>}
     </View>
   );
 }
@@ -66,8 +116,7 @@ function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const { run } = useFormat(editor);
-  const { addLink } = useContext(PanelActions);
-  const [table, setTable] = useState<{ rows: number; cols: number } | null>(null);
+  const { addLink, insertSize: table, setInsertSize: setTable } = useContext(PanelActions);
   const soon = (what: string) => () => showAlert(what, 'Coming in the next update.');
 
   if (table) {
@@ -77,6 +126,7 @@ function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
         <View style={styles.content}>
           <Stepper label="Rows" value={table.rows} max={MAX_TABLE.rows} onChange={(rows) => setTable({ ...table, rows })} />
           <Stepper label="Columns" value={table.cols} max={MAX_TABLE.cols} onChange={(cols) => setTable({ ...table, cols })} />
+          <Text style={styles.note}>Tap a number to type it (up to {MAX_TABLE.rows} × {MAX_TABLE.cols}).</Text>
           <View style={styles.row}>
             <Pressable onPress={() => setTable(null)} style={styles.secondary} accessibilityRole="button">
               <Text style={styles.secondaryText}>Back</Text>
@@ -84,6 +134,7 @@ function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
             <Pressable
               onPress={() => {
                 run({ type: 'table', action: 'insert', rows: table.rows, cols: table.cols });
+                setTable(null);
                 close?.();
               }}
               style={styles.primary}
@@ -139,7 +190,9 @@ const TABLE_ROWS: { action: TableAction; label: string; icon: IconName; danger?:
 
 /**
  * The table the cursor is in (step 4.5), in place of the keyboard: rows and
- * columns, header row, cell colour (the colour picker), delete table.
+ * columns, header row, cell colour (the colour picker), merge and split,
+ * Table size… (rows × columns, typed or stepped), delete table. The
+ * floating bar's Colour and Table size… open it on those.
  */
 function TablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const styles = useThemedStyles(makeStyles);
@@ -147,60 +200,132 @@ function TablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const { width } = useWindowDimensions();
   const { s, run } = useFormat(editor);
   const recent = useRecentColours();
-  const [colours, setColours] = useState<'grid' | 'spectrum' | null>(null);
+  const { tableView: view, setTableView: setView, resize, setResize } = useContext(PanelActions);
   const size = Math.floor((width - 48 - 9 * 6) / 10);
   const pick = (colour: string | null) => {
     if (colour) recent.add(colour);
     run({ type: 'table', action: 'cellColor', color: colour });
-    setColours(null);
+    setView('list');
   };
+  const current = { rows: s?.tableRows || 1, cols: s?.tableCols || 1 };
+  const target = resize ?? current;
+  const applySize = () => {
+    const lostRows = (s?.filledRows ?? []).filter((r) => r >= target.rows).length;
+    const lostCols = (s?.filledCols ?? []).filter((k) => k >= target.cols).length;
+    const apply = () => {
+      run({ type: 'table', action: 'resize', rows: target.rows, cols: target.cols });
+      setResize(null);
+      setView('list');
+    };
+    if (!lostRows && !lostCols) return apply();
+    const parts = [lostRows && `${lostRows} ${lostRows === 1 ? 'row' : 'rows'}`, lostCols && `${lostCols} ${lostCols === 1 ? 'column' : 'columns'}`].filter(Boolean).join(' and ');
+    showAlert(`Delete ${parts} with text?`, `Making the table ${target.rows} × ${target.cols} removes ${parts} that have text in them.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: apply },
+    ]);
+  };
+
+  let body: React.ReactNode;
+  if (view === 'colour' || view === 'spectrum') {
+    body = (
+      <View style={styles.card}>
+        <View style={styles.cardInner}>
+          {view === 'spectrum' ? (
+            <SpectrumPicker initial={s?.cellColor ?? null} showHex={false} onDone={pick} onCancel={() => setView('colour')} width={width - 48} />
+          ) : (
+            <ColorGrid value={s?.cellColor ?? null} noneLabel="None" recent={recent.recent} onPick={pick} onMore={() => setView('spectrum')} size={size} kind="Cell colour" />
+          )}
+        </View>
+      </View>
+    );
+  } else if (view === 'size') {
+    body = (
+      <>
+        <Stepper label="Rows" value={target.rows} max={MAX_TABLE.rows} onChange={(rows) => setResize({ ...target, rows })} />
+        <Stepper label="Columns" value={target.cols} max={MAX_TABLE.cols} onChange={(cols) => setResize({ ...target, cols })} />
+        <Text style={styles.note}>Rows are added or removed at the bottom, columns at the right. Tap a number to type it.</Text>
+        <View style={styles.row}>
+          <Pressable
+            onPress={() => {
+              setResize(null);
+              setView('list');
+            }}
+            style={styles.secondary}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryText}>Back</Text>
+          </Pressable>
+          <Pressable onPress={applySize} style={styles.primary} accessibilityRole="button" accessibilityLabel={`Make the table ${target.rows} by ${target.cols}`}>
+            <Text style={styles.primaryText}>
+              Make it {target.rows} × {target.cols}
+            </Text>
+          </Pressable>
+        </View>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <View style={styles.grid}>
+          {TABLE_ROWS.map((a) => (
+            <Pressable key={a.action} onPress={() => run({ type: 'table', action: a.action })} style={styles.tile} accessibilityRole="button">
+              <MaterialCommunityIcons name={a.icon} size={26} color={a.danger ? c.error : c.text.primary} />
+              <Text style={[styles.tileText, a.danger && { color: c.error }]}>{a.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={styles.card}>
+          <Pressable onPress={() => run({ type: 'table', action: 'headerRow' })} style={styles.listRow} accessibilityRole="switch" accessibilityState={{ checked: !!s?.headerRow }}>
+            <Text style={styles.listText}>Header row</Text>
+            <MaterialCommunityIcons name={s?.headerRow ? 'toggle-switch' : 'toggle-switch-off-outline'} size={34} color={s?.headerRow ? c.accentDark : c.text.secondary} />
+          </Pressable>
+          <Pressable onPress={() => setView('colour')} style={[styles.listRow, styles.divider]} accessibilityRole="button">
+            <Text style={styles.listText}>Cell colour</Text>
+            <View style={[styles.cellSwatch, { backgroundColor: s?.cellColor ?? c.card }]} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setResize(current);
+              setView('size');
+            }}
+            style={[styles.listRow, styles.divider]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.listText}>Table size…</Text>
+            <Text style={styles.listValue}>
+              {current.rows} × {current.cols}
+            </Text>
+          </Pressable>
+          {s?.canMerge && (
+            <Pressable onPress={() => run({ type: 'table', action: 'merge' })} style={[styles.listRow, styles.divider]} accessibilityRole="button">
+              <Text style={styles.listText}>Merge cells</Text>
+            </Pressable>
+          )}
+          {s?.canSplit && (
+            <Pressable onPress={() => run({ type: 'table', action: 'split' })} style={[styles.listRow, styles.divider]} accessibilityRole="button">
+              <Text style={styles.listText}>Split cell</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={() => {
+              run({ type: 'table', action: 'deleteTable' });
+              close?.();
+            }}
+            style={[styles.listRow, styles.divider]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.listText, { color: c.error }]}>Delete table</Text>
+          </Pressable>
+        </View>
+      </>
+    );
+  }
 
   return (
     <View style={styles.panel}>
       <Header title="Table" close={close} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="always">
-        {colours ? (
-          <View style={styles.card}>
-            <View style={styles.cardInner}>
-              {colours === 'spectrum' ? (
-                <SpectrumPicker initial={s?.cellColor ?? null} showHex={false} onDone={pick} onCancel={() => setColours('grid')} width={width - 48} />
-              ) : (
-                <ColorGrid value={s?.cellColor ?? null} noneLabel="None" recent={recent.recent} onPick={pick} onMore={() => setColours('spectrum')} size={size} kind="Cell colour" />
-              )}
-            </View>
-          </View>
-        ) : (
-          <>
-            <View style={styles.grid}>
-              {TABLE_ROWS.map((a) => (
-                <Pressable key={a.action} onPress={() => run({ type: 'table', action: a.action })} style={styles.tile} accessibilityRole="button">
-                  <MaterialCommunityIcons name={a.icon} size={26} color={a.danger ? c.error : c.text.primary} />
-                  <Text style={[styles.tileText, a.danger && { color: c.error }]}>{a.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <View style={styles.card}>
-              <Pressable onPress={() => run({ type: 'table', action: 'headerRow' })} style={styles.listRow} accessibilityRole="switch" accessibilityState={{ checked: !!s?.headerRow }}>
-                <Text style={styles.listText}>Header row</Text>
-                <MaterialCommunityIcons name={s?.headerRow ? 'toggle-switch' : 'toggle-switch-off-outline'} size={34} color={s?.headerRow ? c.accentDark : c.text.secondary} />
-              </Pressable>
-              <Pressable onPress={() => setColours('grid')} style={[styles.listRow, styles.divider]} accessibilityRole="button">
-                <Text style={styles.listText}>Cell colour</Text>
-                <View style={[styles.cellSwatch, { backgroundColor: s?.cellColor ?? c.card }]} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  run({ type: 'table', action: 'deleteTable' });
-                  close?.();
-                }}
-                style={[styles.listRow, styles.divider]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.listText, { color: c.error }]}>Delete table</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
+        {body}
       </ScrollView>
     </View>
   );
@@ -225,7 +350,10 @@ const makeStyles = (c: ThemeColors) =>
     label: { fontSize: Typography.size.base, color: c.text.primary },
     iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
     box: { backgroundColor: c.card },
-    count: { minWidth: 36, textAlign: 'center', fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
+    countBox: { minWidth: 56, height: 44, marginHorizontal: 6, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
+    count: { textAlign: 'center', fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
+    note: { fontSize: Typography.size.sm, color: c.text.secondary, marginTop: 4 },
+    listValue: { fontSize: Typography.size.base, color: c.text.secondary },
     secondary: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card },
     secondaryText: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.text.primary },
     primary: { flex: 2, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.button.primary },

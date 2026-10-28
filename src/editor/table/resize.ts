@@ -51,6 +51,19 @@ function addColumnAtEnd(tr: Transaction, tablePos: number) {
   for (const end of ends.reverse()) tr.insert(end.pos, (end.header ? tableHeader : tableCell).createAndFill()!);
 }
 
+/** Which rows and which columns have text (for the iPhone, which asks before a resize removes any). */
+export function filledLines(table: PMNode): { rows: number[]; cols: number[] } {
+  const map = TableMap.get(table);
+  const rows = new Set<number>();
+  const cols = new Set<number>();
+  map.map.forEach((offset, i) => {
+    if ((table.nodeAt(offset)?.textContent ?? '').trim() === '') return;
+    rows.add(Math.floor(i / map.width));
+    cols.add(i % map.width);
+  });
+  return { rows: [...rows].sort((a, b) => a - b), cols: [...cols].sort((a, b) => a - b) };
+}
+
 /** How many of the rows and columns a resize would remove have text in them (to ask first). */
 export function textLostByResize(table: PMNode, rows: number, cols: number): { rows: number; cols: number } {
   const map = TableMap.get(table);

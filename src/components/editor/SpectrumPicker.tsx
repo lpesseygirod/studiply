@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View, type GestureResponderEven
 import { LinearGradient } from 'expo-linear-gradient';
 
 import type { ThemeColors } from '../../constants/colors';
+import { promptText, showAlert } from '../dialogs/dialogs';
 import { Typography } from '../../constants/typography';
 import { cleanHex, hexToHsv, hsvToHex, type HSV } from '../../editor/colors/palette';
 import { useThemedStyles } from '../../theme/ThemeProvider';
@@ -57,6 +58,19 @@ export function SpectrumPicker({
     onResponderTerminationRequest: () => false,
   });
 
+  const askHex = async () => {
+    const typed = await promptText('Colour code', {
+      message: 'Six (or three) digits from 0–9 and A–F, like 1A7F5A. The # is optional.',
+      defaultValue: colour.replace(/^#/, ''),
+      confirmLabel: 'Use',
+      keyboard: 'ascii-capable',
+    });
+    if (typed === null) return;
+    const clean = cleanHex(typed);
+    if (clean) onDone(clean);
+    else showAlert('Not a colour code', `"${typed}" isn't a colour code. Use 3 or 6 digits from 0–9 and A–F, like 1A7F5A.`);
+  };
+
   return (
     <View style={[styles.wrap, { width }]}>
       <View
@@ -97,7 +111,11 @@ export function SpectrumPicker({
             accessibilityLabel="Hex colour"
           />
         ) : (
-          <Text style={styles.hexText}>{colour}</Text>
+          // iPhone: the panel sits where the keyboard goes, so the code is typed in a prompt.
+          <Pressable onPress={() => void askHex()} style={styles.hexButton} accessibilityRole="button" accessibilityLabel={`Colour code ${colour}. Type a colour code`}>
+            <Text style={styles.hexText}>{colour}</Text>
+            <Text style={styles.hexAction}>Type code</Text>
+          </Pressable>
         )}
       </View>
       <View style={styles.row}>
@@ -136,7 +154,9 @@ const makeStyles = (c: ThemeColors) =>
       fontVariant: ['tabular-nums'],
       outlineStyle: 'none' as never,
     },
-    hexText: { flex: 1, fontSize: Typography.size.base, color: c.text.secondary, fontVariant: ['tabular-nums'] },
+    hexButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: c.border },
+    hexText: { fontSize: Typography.size.base, color: c.text.primary, fontVariant: ['tabular-nums'] },
+    hexAction: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.accentDark },
     secondary: { flex: 1, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border },
     secondaryText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.primary },
     primary: { flex: 1, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: c.button.primary },

@@ -2,7 +2,7 @@ import type { CommandProps, Editor, JSONContent } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
-import { clampCols, clampRows, resizeTable, tableSize } from '../table/resize';
+import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
@@ -68,6 +68,9 @@ export interface FormatState {
   /** The table's size, and whether the selected cells can be merged or the cell split. */
   tableRows: number;
   tableCols: number;
+  /** The rows and columns that have text (the iPhone asks before a resize removes any). */
+  filledRows: number[];
+  filledCols: number[];
   canMerge: boolean;
   canSplit: boolean;
   /** The last press on the floating table bar that asks for a menu (the iPhone opens it). */
@@ -166,21 +169,27 @@ export function formatState(editor: Editor): FormatState {
 }
 
 /** Where the cursor is in a table, for the table bar, menus and panel. */
-type TableState = Pick<FormatState, 'inTable' | 'headerRow' | 'cellColor' | 'tableRows' | 'tableCols' | 'canMerge' | 'canSplit' | 'tableRequest'>;
+type TableState = Pick<
+  FormatState,
+  'inTable' | 'headerRow' | 'cellColor' | 'tableRows' | 'tableCols' | 'filledRows' | 'filledCols' | 'canMerge' | 'canSplit' | 'tableRequest'
+>;
 
 function tableState(editor: Editor): TableState {
   const tableRequest = tableBarKey.getState(editor.state) ?? null;
   const found = selectedTable(editor.state);
-  if (!found) return { inTable: false, headerRow: false, cellColor: null, tableRows: 0, tableCols: 0, canMerge: false, canSplit: false, tableRequest };
+  if (!found) return { inTable: false, headerRow: false, cellColor: null, tableRows: 0, tableCols: 0, filledRows: [], filledCols: [], canMerge: false, canSplit: false, tableRequest };
   const firstRow = found.table.firstChild;
   const headerRow = !!firstRow && firstRow.childCount > 0 && Array.from({ length: firstRow.childCount }, (_, i) => firstRow.child(i)).every((c) => c.type.name === 'tableHeader');
   const { rows, cols } = tableSize(found.table);
+  const filled = filledLines(found.table);
   return {
     inTable: true,
     headerRow,
     cellColor: (found.cell?.attrs.backgroundColor as string | null) ?? null,
     tableRows: rows,
     tableCols: cols,
+    filledRows: filled.rows,
+    filledCols: filled.cols,
     canMerge: editor.can().mergeCells(),
     canSplit: editor.can().splitCell(),
     tableRequest,

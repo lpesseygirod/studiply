@@ -22,11 +22,11 @@ import type { BlockMetaInstance } from './bridges/blockMeta';
 import type { FormatBridgeInstance, FormatBridgeState } from './bridges/format';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
 import { editorCss, PAGE_COLORS } from './editorCss';
-import { cleanUrl, type FormatCommand } from './format';
-import { promptText, showAlert } from '../components/dialogs/dialogs';
+import { cleanUrl, type FormatCommand, type TableAction } from './format';
+import { promptText, showActionSheet, showAlert } from '../components/dialogs/dialogs';
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
 import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
-import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard } from './iphone/InsertPanels';
+import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 
 type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance;
@@ -68,10 +68,22 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const state = useBridgeState(editor) as State;
   const { isKeyboardUp } = useKeyboard();
   const [panel, setPanel] = useState<string | undefined>(undefined);
+  // The panels' state a prompt must not lose (step 4.5): kept here, not in the panel.
+  const [insertSize, setInsertSize] = useState<TableSize | null>(null);
+  const [tableView, setTableView] = useState<TableView>('list');
+  const [resize, setResize] = useState<TableSize | null>(null);
   // The toolbar shows while typing, and over the Aa / colour panels.
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
-  const openPanel = (which: Panel) => setPanel((open) => (open === PANEL_IDS[which] ? undefined : PANEL_IDS[which]));
+  const openPanel = (which: Panel) => {
+    // From the toolbar, + and Table start fresh (a prompt in them keeps their state meanwhile).
+    if (which === 'insert') setInsertSize(null);
+    if (which === 'table') {
+      setTableView('list');
+      setResize(null);
+    }
+    setPanel((open) => (open === PANEL_IDS[which] ? undefined : PANEL_IDS[which]));
+  };
   const done = () => {
     setPanel(undefined);
     editor.blur();
@@ -88,7 +100,70 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     if (!href) showAlert('Not a link', "That isn't an address a link can open.");
     else run({ type: 'link', href });
   };
-  const panelActions = { addLink: () => void addLink() };
+  const askNumber = async (title: string, value: number, max: number) => {
+    const typed = await promptText(title, { message: `A number from 1 to ${max}.`, defaultValue: String(value), confirmLabel: 'OK', keyboard: 'number-pad' });
+    // Back to the panel the prompt came from.
+    editor.focus();
+    const n = Number(typed?.replace(/\D/g, '') ?? '');
+    if (!n) return null;
+    return { value: Math.min(n, max), lowered: n > max };
+  };
+  const panelActions: PanelActionsValue = {
+    addLink: () => void addLink(),
+    askNumber,
+    insertSize,
+    setInsertSize,
+    tableView,
+    setTableView,
+    resize,
+    setResize,
+  };
+
+  // The floating table bar (in the WebView) asks for a menu: Rows and
+  // Columns as action sheets, Colour and Table size… in the table panel.
+  const request = state.format?.tableRequest ?? null;
+  const seenRequest = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    const id = request?.id ?? null;
+    // The first state seen may carry an old press (the screen came back): not a new one.
+    if (seenRequest.current === undefined || id === seenRequest.current) {
+      seenRequest.current = id;
+      return;
+    }
+    seenRequest.current = id;
+    const f = state.format;
+    if (!request || !f) return;
+    const act = (action: TableAction) => () => run({ type: 'table', action });
+    const openTable = (view: TableView) => {
+      setTableView(view);
+      if (view === 'size') setResize({ rows: f.tableRows || 1, cols: f.tableCols || 1 });
+      setPanel(TABLE_PANEL);
+    };
+    if (request.button === 'rows') {
+      showActionSheet('Rows', [
+        { text: 'Insert row above', onPress: act('rowAbove') },
+        { text: 'Insert row below', onPress: act('rowBelow') },
+        { text: 'Delete row', style: 'destructive', onPress: act('deleteRow') },
+      ]);
+    } else if (request.button === 'columns') {
+      showActionSheet('Columns', [
+        { text: 'Insert column left', onPress: act('columnLeft') },
+        { text: 'Insert column right', onPress: act('columnRight') },
+        { text: 'Delete column', style: 'destructive', onPress: act('deleteColumn') },
+      ]);
+    } else if (request.button === 'colour') {
+      openTable('colour');
+    } else {
+      showActionSheet('Table', [
+        { text: f.headerRow ? 'Turn off header row' : 'Header row', onPress: act('headerRow') },
+        ...(f.canMerge ? [{ text: 'Merge cells', onPress: act('merge') }] : []),
+        ...(f.canSplit ? [{ text: 'Split cell', onPress: act('split') }] : []),
+        { text: `Table size… (${f.tableRows} × ${f.tableCols})`, onPress: () => openTable('size') },
+      ]);
+    }
+    // Only a new press opens anything; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.id]);
 
   useImperativeHandle(
     ref,

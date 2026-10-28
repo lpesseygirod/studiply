@@ -77,8 +77,12 @@ export type DialogRequest =
       defaultValue: string;
       placeholder?: string;
       confirmLabel: string;
+      keyboard?: PromptKeyboard;
       resolve: (value: string | null) => void;
     };
+
+/** The keyboard a prompt asks for: numbers only (table sizes), or letters and numbers without autocorrect (colour codes). */
+export type PromptKeyboard = 'default' | 'number-pad' | 'ascii-capable';
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
@@ -169,7 +173,7 @@ export function showActionSheet(
 // -------------------------------------------------------------------
 export function promptText(
   title: string,
-  options: { message?: string; defaultValue?: string; placeholder?: string; confirmLabel?: string } = {},
+  options: { message?: string; defaultValue?: string; placeholder?: string; confirmLabel?: string; keyboard?: PromptKeyboard } = {},
 ): Promise<string | null> {
   const confirmLabel = options.confirmLabel ?? 'Save';
   return new Promise((resolve) => {
@@ -187,6 +191,7 @@ export function promptText(
         ],
         'plain-text',
         options.defaultValue ?? '',
+        options.keyboard ?? 'default',
       );
       return;
     }
@@ -197,6 +202,7 @@ export function promptText(
       defaultValue: options.defaultValue ?? '',
       placeholder: options.placeholder,
       confirmLabel,
+      keyboard: options.keyboard,
       resolve: done,
     });
   });

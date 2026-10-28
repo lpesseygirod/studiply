@@ -55,7 +55,6 @@ class TableBarView {
   private bar: HTMLDivElement;
   private swatch: HTMLSpanElement;
   private header: HTMLButtonElement;
-  private requests = 0;
   private refresh = () => this.update(this.view);
 
   constructor(
@@ -93,7 +92,8 @@ class TableBarView {
     if (key === 'delete') return void this.editor.chain().focus().deleteTable().run();
     const box = button.getBoundingClientRect();
     this.view.dom.dispatchEvent(new CustomEvent(TABLE_BAR_EVENT, { bubbles: true, detail: { button: key, x: box.left, y: box.bottom + 4 } }));
-    this.view.dispatch(this.view.state.tr.setMeta(tableBarKey, { id: ++this.requests, button: key }));
+    // A time, so a press after the editor reloaded is still new to the app.
+    this.view.dispatch(this.view.state.tr.setMeta(tableBarKey, { id: Date.now(), button: key }));
   }
 
   update(view: EditorView) {

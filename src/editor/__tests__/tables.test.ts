@@ -9,7 +9,7 @@ import { CellSelection } from '@tiptap/pm/tables';
 
 import { studiplyExtensions } from '../bridges';
 import { formatState, runFormat, type TableAction } from '../format';
-import { textLostByResize } from '../table/resize';
+import { filledLines, textLostByResize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey } from '../table/tableBar';
 import '../../test-utils/clipboardEvent';
@@ -144,6 +144,9 @@ describe('tables', () => {
     expect(textLostByResize(t, 3, 2)).toEqual({ rows: 0, cols: 1 });
     expect(textLostByResize(t, 2, 2)).toEqual({ rows: 1, cols: 1 });
     expect(textLostByResize(t, 4, 4)).toEqual({ rows: 0, cols: 0 });
+    // The iPhone's version of the same question: which rows and columns have text.
+    expect(filledLines(t)).toEqual({ rows: [0, 2], cols: [0, 2] });
+    expect(formatState(editor)).toMatchObject({ filledRows: [0, 2], filledCols: [0, 2] });
   });
 
   it('merges selected cells and splits them again', () => {
