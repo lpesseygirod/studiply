@@ -1,5 +1,7 @@
 import { LightColors } from '../constants/colors';
 import { CHIP_CLASS } from './schema/timestampChip';
+import { DEFAULT_LINE_SPACING } from './schema/blocks';
+import { DEFAULT_FONT_CSS, DEFAULT_SIZE } from './schema/fonts';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -16,10 +18,15 @@ export function editorCss(scope = ''): string {
   const pm = `${scope} .ProseMirror`.trim();
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
-${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
+${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
 ${pm} h1 { font-size: 1.75em; line-height: 1.25; margin: 0.8em 0 0.4em; }
 ${pm} h2 { font-size: 1.4em; line-height: 1.3; margin: 0.8em 0 0.4em; }
-${pm} h3 { font-size: 1.15em; margin: 0.8em 0 0.3em; }
+${pm} h3 { font-size: 1.15em; font-weight: 600; color: ${c.text.secondary}; margin: 0.8em 0 0.3em; }
+${pm} h4, ${pm} h5, ${pm} h6 { font-size: 1.05em; margin: 0.8em 0 0.3em; }
+${pm} .doc-title { font-size: 2.1em; font-weight: 700; line-height: 1.2; margin: 0.4em 0 0.3em; }
+${pm} .page-break { position: relative; margin: 1.4em 0; border-top: 1px dashed ${c.border}; text-align: center; height: 0; user-select: none; -webkit-user-select: none; }
+${pm} .page-break span { position: relative; top: -0.75em; padding: 0 8px; background: ${c.card}; font-size: 0.75em; color: ${c.text.secondary}; }
+${pm} .page-break.ProseMirror-selectednode { border-top-color: ${c.accent}; }
 ${pm} p { margin: 0 0 0.6em; }
 ${pm} ul, ${pm} ol { padding-left: 1.4em; margin: 0 0 0.6em; }
 ${pm} li p { margin: 0; }

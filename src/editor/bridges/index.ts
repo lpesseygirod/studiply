@@ -3,6 +3,7 @@ import { buildBridgeConfigs } from '@10play/tentap-editor/src/shared/bootConfig.
 import { resolveBridgeExtensions } from '@10play/tentap-editor/src/web/extensions.ts';
 
 import { BlockMetaBridge } from './blockMeta';
+import { FormatBridge } from './format';
 import { PasteReportBridge } from './pasteReport';
 import { TableBridge } from './table';
 import { TimestampChipBridge } from './timestampChip';
@@ -19,7 +20,7 @@ import { TimestampChipBridge } from './timestampChip';
  * TenTap's sources (not its prebuilt web bundle, which carries a second copy
  * of ProseMirror) are used, so tables and the chip share one ProseMirror.
  */
-export const studiplyBridges = [...TenTapStartKit, TimestampChipBridge, TableBridge, PasteReportBridge, BlockMetaBridge];
+export const studiplyBridges = [...TenTapStartKit, TimestampChipBridge, TableBridge, PasteReportBridge, FormatBridge, BlockMetaBridge];
 
 /** The Tiptap extensions of `bridges`, configured as TenTap's WebView configures them. */
 export function extensionsOf(bridges: typeof studiplyBridges) {
@@ -31,4 +32,4 @@ export function studiplyExtensions() {
   return extensionsOf(studiplyBridges);
 }
 
-export { TimestampChipBridge, TableBridge, PasteReportBridge, BlockMetaBridge };
+export { TimestampChipBridge, TableBridge, PasteReportBridge, FormatBridge, BlockMetaBridge };
