@@ -33,7 +33,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
 - [x] 4.1 — Development build on iPhone (EAS profiles, device registration) — tested by Lea on 27 Oct: installed, reloads on code changes, records with the screen locked
-- [ ] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — round trip passed on the iPhone 28 Oct; three iPhone problems fixed (no new build); report and recommendation in Decisions; ticked after Lea's retest
+- [x] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — passed on the iPhone 28 Oct after three fixes (no new build); report and recommendation in Decisions
 - [ ] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin)
 - [ ] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting)
 - [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments)
@@ -409,7 +409,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     - Round trip iPhone ↔ laptop: **identical, chips included, both directions** ✓.
     - Paste in Chrome from a real Google Docs page: **nothing lost** (50 headings, 124 list items, bold, italic, colour) ✓.
     - Paste on the iPhone: "Bold 7 → 7, nothing lost". A Google Docs paste on the iPhone isn't reported yet.
-    - 20 pages and the chip tap on the iPhone: not reported yet.
+    - 20 pages and the chip tap on the iPhone: not reported in the first test; both fine in the retest.
     - **Three problems, all in Studiply's code, fixed 28 Oct (`38e754a`; JavaScript only, no new build):**
       1. **No toolbar above the keyboard.** React Native's `KeyboardAvoidingView` measures itself against its parent, not the screen; the editor starts ~200 pt down the spike screen, so it lifted the toolbar too little and left it under the keyboard. Now TenTap 1.1's `EditorKeyboardAvoidingView`, which measures in the window, wraps the editor and the toolbar.
       2. **The keyboard never closed.** A **Done** button next to the toolbar (`blur()`, now on the editor handle of both devices); dragging the page closes it too (touch events in the WebView bundle: a finger that moved more than 12 px; a tap or a long press that turns into a selection keeps it); on the spike screen a tap above the editor, Save, Load, Show JSON and Delete close it (Insert chip keeps it). The real document screen (4.3) does the same.
@@ -419,22 +419,20 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
     | Area | iPhone (TenTap 1.1 in a WebView) | Laptop (Tiptap 3.32 in the page) |
     |---|---|---|
     | One schema, round trip | Identical both ways with chips (Lea) | Identical both ways (Lea, Chrome check) |
-    | Keyboard and toolbar | Toolbar was under the keyboard and the keyboard never closed; fixed, to retest | Browser keyboard and shortcuts (⌘B, ⌘Z) work |
-    | Performance, 20 pages (9,762 words, 50 chips) | Not timed on the phone yet; the same bundle in desktop Chrome loads it in 10 ms | 18–22 ms to load, 6–8 ms key press to update |
+    | Keyboard and toolbar | Toolbar was under the keyboard and the keyboard never closed; fixed, retest passed | Browser keyboard and shortcuts (⌘B, ⌘Z) work |
+    | Performance, 20 pages (9,762 words, 50 chips) | Smooth scrolling and typing on the phone (retest; not timed); the same bundle in desktop Chrome loads it in 10 ms | 18–22 ms to load, 6–8 ms key press to update |
     | Paste from Google Docs | Not tried on the iPhone yet; the same HTML gives the same JSON as on the laptop | Real page: nothing lost (50 headings, 124 list items) |
     | Paste from Word | Same JSON as the laptop for the same HTML | Sample only: lists become "·" paragraphs, highlights lost (4.4) |
-    | Dark mode | The page was unreadable; fixed: always white | Always white |
+    | Dark mode | The page was unreadable; fixed: always white (retest passed) | Always white |
     | Web compatibility | n/a | No iframe, no Metro changes; TenTap's web shim not used |
 
-  - **Recommendation: continue with TenTap 1.1 + Tiptap 3.32 into 4.3,** provided the retest below passes. BUILD-PLAN's check passed on its two points: a document from the iPhone opens identical in the browser with its chips, and a real Google Docs page pasted in Chrome kept its headings, bold and lists. The three iPhone problems were in how Studiply used TenTap (layout and theme), not limits of TenTap, and were fixed in JavaScript.
+  - **Retest (Lea, 28 Oct): passed.** The toolbar sits on top of the keyboard; Done and dragging the page close the keyboard; in dark mode the page is white; 20 pages scroll and take typing smoothly (no time noted); a chip tap reports its time. A Google Docs paste on the iPhone wasn't tried (optional).
+  - **Recommendation (taken): continue with TenTap 1.1 + Tiptap 3.32 into 4.3.** BUILD-PLAN's check passed on its two points: a document from the iPhone opens identical in the browser with its chips, and a real Google Docs page pasted in Chrome kept its headings, bold and lists. The three iPhone problems were in how Studiply used TenTap (layout and theme), not limits of TenTap, and were fixed in JavaScript.
     - **Risks to carry into 4.3/4.4:**
       - **TenTap's sources are imported by file path** (`@10play/tentap-editor/src/...`), which isn't a public API. TenTap is pinned to 1.1.0 exactly, and every upgrade needs `npm run editor:build` and the Chrome check.
       - **TenTap 1.1 is three weeks old.**
       - **Word's lists and highlights from both apps** need paste rules (4.4).
-      - **The phone's speed with 20 pages is still unknown.**
-    - **If the retest fails** (the toolbar or keyboard still misbehave, or 20 pages is slow on the phone), stop and compare alternatives before 4.3:
-      - our own toolbar over a plain `react-native-webview` running the same Tiptap bundle (drops TenTap, keeps the schema);
-      - a native editor (no shared schema).
+      - **The phone's speed was judged by feel, not timed;** 4.3 times a long document on the phone.
 
 ## Things Lea must do
 
@@ -473,13 +471,6 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   6. Only then, **Remove the old copy from this iPhone**.
 - ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **A new iPhone, or native changes (step 4.1).** Register the phone with `eas device:create`, then `npm run build:dev:ios` again and install from the QR code. A new native module, permission text or plugin in `app.json` also needs a new build; JavaScript changes don't.
-- **Step 4.2 — retest on the iPhone (no new build: the fixes are JavaScript).** `npm run start:local` (Docker on, `supabase start`), open the development build, and reload it fully (shake → Reload) so it takes the new code. Then Settings → Development → **Editor spike**:
-  1. **Toolbar.** Tap into the document: TenTap's toolbar (B, I, lists…) and **Done** sit right on top of the keyboard. Tap B, type, tap a list.
-  2. **Closing the keyboard.** Done closes it. Tap into the document again, then drag the page up or down: it closes. A plain tap in the text keeps it, and so does a long press to select a word. A tap on the status line above the editor closes it.
-  3. **Dark mode.** Settings → Appearance → Dark, then open the spike: the screen is dark, the document page white with dark text, chips readable.
-  4. **20 pages.** Load 20 pages and note the "in the editor in … ms" line. Scroll, then type at the end: is the cursor above the toolbar, and is typing smooth? Tap a chip: "Chip … tapped: would play from …".
-  5. **Optional: Google Docs on the iPhone.** Copy a page from the Docs app or Safari, paste it, and read the "Paste —" line.
-  Send the results (and anything odd); then I tick 4.2 or list the alternatives.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
