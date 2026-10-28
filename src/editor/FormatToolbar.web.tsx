@@ -15,7 +15,7 @@ import { LINE_SPACINGS } from './schema/blocks';
 import { cleanSize, FONTS } from './schema/fonts';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'align' | 'spacing';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing';
 
 const ALIGN_ICON: Record<Align, IconName> = {
   left: 'format-align-left',
@@ -38,7 +38,8 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
 /**
  * The laptop's formatting toolbar (step 4.4, docs/design desktop-01): undo,
  * redo · style · font · − size + · B I U S · text colour · highlight · lists
- * · align · line spacing · indent − + · page break · clear formatting. Shows
+ * · left, centre, right, justify (always visible) · line spacing · indent − + ·
+ * page break · clear formatting. Shows
  * what is active where the selection is (formatState) and runs the shared
  * commands (src/editor/format); the shortcuts are listed in the "?" sheet.
  */
@@ -109,7 +110,7 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
     </View>
   );
 
-  const iconMenu = (kind: 'align' | 'spacing', label: string, icon: IconName) => (
+  const iconMenu = (kind: 'spacing', label: string, icon: IconName) => (
     <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
       <Pressable
         onPress={() => open(kind)}
@@ -210,7 +211,8 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
       {tool('Numbered list', 'format-list-numbered', { type: 'list', list: 'ordered' }, { active: s.list === 'ordered' })}
       {tool('Checklist', 'format-list-checks', { type: 'list', list: 'task' }, { active: s.list === 'task' })}
       <View style={styles.gap} />
-      {iconMenu('align', 'Align', ALIGN_ICON[s.align])}
+      {ALIGNS.map((a) => tool(`Align ${a.label.toLowerCase()} (${a.shortcut})`, ALIGN_ICON[a.key], { type: 'align', align: a.key }, { active: s.align === a.key }))}
+      <View style={styles.gap} />
       {iconMenu('spacing', 'Line spacing', 'format-line-spacing')}
       {tool('Decrease indent', 'format-indent-decrease', { type: 'outdent' }, { disabled: !s.canOutdent })}
       {tool('Increase indent', 'format-indent-increase', { type: 'indent' }, { disabled: !s.canIndent })}
@@ -226,20 +228,6 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
       <ToolbarPopover anchor={menu?.kind === 'font' ? menu.anchor : null} onClose={close} width={200} label="Font">
         {FONTS.map((f) =>
           row(f.key, <Text style={[styles.menuText, f.css ? { fontFamily: f.css } : null]}>{f.label}</Text>, () => run({ type: 'font', font: f.key }), f.key === s.font),
-        )}
-      </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'align' ? menu.anchor : null} onClose={close} width={200} label="Align">
-        {ALIGNS.map((a) =>
-          row(
-            a.key,
-            <View style={styles.rowInner}>
-              <MaterialCommunityIcons name={ALIGN_ICON[a.key]} size={18} color={c.text.primary} />
-              <Text style={styles.menuText}>{a.label}</Text>
-            </View>,
-            () => run({ type: 'align', align: a.key }),
-            a.key === s.align,
-            a.shortcut,
-          ),
         )}
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'spacing' ? menu.anchor : null} onClose={close} width={170} label="Line spacing">

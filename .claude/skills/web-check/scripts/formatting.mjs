@@ -124,9 +124,10 @@ try {
     await click('Numbered list');
     expect((await first()).type === 'orderedList', (await first()).type);
     await click('Numbered list');
-    await click('Align');
-    await b.click('Center');
-    expect((await first()).attrs.textAlign === 'center', JSON.stringify((await first()).attrs));
+    for (const [label, value] of [['Align centre (⌘⇧E)', 'center'], ['Align right (⌘⇧R)', 'right'], ['Align justify (⌘⇧J)', 'justify'], ['Align centre (⌘⇧E)', 'center']]) {
+      await click(label);
+      expect((await first()).attrs.textAlign === value, `${label}: ${JSON.stringify((await first()).attrs)}`);
+    }
     await click('Line spacing');
     await b.click('Double');
     expect((await first()).attrs.lineSpacing === 2, JSON.stringify((await first()).attrs));
@@ -157,6 +158,14 @@ try {
     expect((await first()).attrs.indent === 1, `⌘] gave ${JSON.stringify((await first()).attrs)}`);
     await b.chord({ code: 'Digit8', key: '*', meta: true, shift: true, keyCode: 56 });
     expect((await first()).type === 'bulletList', `⌘⇧8 gave ${(await first()).type}`);
+  });
+
+  await step('⌘⇧L, ⌘⇧E (centre), ⌘⇧R, ⌘⇧J align the text', async () => {
+    await fresh();
+    for (const [code, key, kc, value] of [['KeyE', 'e', 69, 'center'], ['KeyR', 'r', 82, 'right'], ['KeyJ', 'j', 74, 'justify'], ['KeyE', 'e', 69, 'center'], ['KeyL', 'l', 76, undefined]]) {
+      await b.chord({ code, key, meta: true, shift: true, keyCode: kc });
+      expect((await first()).attrs.textAlign === value || (value === undefined && [null, 'left'].includes((await first()).attrs.textAlign)), `⌘⇧${key.toUpperCase()} gave ${JSON.stringify((await first()).attrs)}`);
+    }
   });
 
   await step('⌘⇧R, ⌘⇧J and ⌘⇧V do the editor\'s action, not Chrome\'s', async () => {

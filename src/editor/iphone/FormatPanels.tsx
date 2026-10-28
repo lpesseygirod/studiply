@@ -48,7 +48,8 @@ function PanelHeader({ title, close }: { title: string; close: () => void }) {
 /**
  * Aa (step 4.4, DESIGN: the iPhone's styles and size), in place of the
  * keyboard as in Google Docs: the selection stays where it is. Styles in
- * their own look · font · − size + · align · line spacing · indent − + ·
+ * their own look · align (left, centre, right, justify, labelled) · font ·
+ * − size + · line spacing · indent − + ·
  * Page break · Clear formatting · Paste without formatting.
  */
 function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
@@ -102,6 +103,26 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
           ))}
         </View>
 
+        <Text style={styles.label}>Align</Text>
+        <View style={styles.alignRow}>
+          {ALIGNS.map((a) => {
+            const active = s?.align === a.key;
+            return (
+              <Pressable
+                key={a.key}
+                onPress={() => run({ type: 'align', align: a.key })}
+                style={[styles.alignButton, active && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Align ${a.label.toLowerCase()}`}
+                accessibilityState={{ selected: active }}
+              >
+                <MaterialCommunityIcons name={ALIGN_ICON[a.key]} size={22} color={active ? c.accentDark : c.text.primary} />
+                <Text style={[styles.alignText, active && styles.chipTextActive]}>{a.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <Text style={styles.label}>Font</Text>
         <View style={styles.row}>{FONTS.map((f) => chip(f.key, f.label, () => run({ type: 'font', font: f.key }), s?.font === f.key))}</View>
 
@@ -113,9 +134,6 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
             {icon('Bigger', 'plus', () => run({ type: 'sizeStep', direction: 1 }))}
           </View>
         </View>
-
-        <Text style={styles.label}>Align</Text>
-        <View style={styles.row}>{ALIGNS.map((a) => icon(`Align ${a.label.toLowerCase()}`, ALIGN_ICON[a.key], () => run({ type: 'align', align: a.key }), { active: s?.align === a.key }))}</View>
 
         <Text style={styles.label}>Line spacing</Text>
         <View style={styles.row}>{LINE_SPACINGS.map((v) => chip(String(v), SPACING_LABEL[v], () => run({ type: 'lineSpacing', spacing: v }), s?.lineSpacing === v))}</View>
@@ -220,6 +238,9 @@ const makeStyles = (c: ThemeColors) =>
     size: { minWidth: 40, textAlign: 'center', fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
     actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 14 },
     actionText: { fontSize: Typography.size.base, color: c.text.primary },
+    alignRow: { flexDirection: 'row', gap: 8 },
+    alignButton: { flex: 1, minHeight: 56, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: c.card },
+    alignText: { fontSize: Typography.size.xs, color: c.text.primary },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 4 },
     swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.border },
     none: { alignItems: 'center', justifyContent: 'center', backgroundColor: c.card },

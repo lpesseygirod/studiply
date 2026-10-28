@@ -28,7 +28,7 @@ export const TEXT_STYLES: readonly { key: TextStyleKey; label: string; shortcut?
 
 export const ALIGNS: readonly { key: Align; label: string; shortcut: string }[] = [
   { key: 'left', label: 'Left', shortcut: '⌘⇧L' },
-  { key: 'center', label: 'Center', shortcut: '⌘⇧E' },
+  { key: 'center', label: 'Centre', shortcut: '⌘⇧E' },
   { key: 'right', label: 'Right', shortcut: '⌘⇧R' },
   { key: 'justify', label: 'Justify', shortcut: '⌘⇧J' },
 ];

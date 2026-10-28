@@ -35,7 +35,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 4.1 — Development build on iPhone (EAS profiles, device registration) — tested by Lea on 27 Oct: installed, reloads on code changes, records with the screen locked
 - [x] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — passed on the iPhone 28 Oct after three fixes (no new build); report and recommendation in Decisions
 - [x] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin) — passed Lea's iPhone test 28 Oct, after the restore fix (`c0287ac`)
-- [ ] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting) — built and checked in Chrome 28 Oct (6 commits, `5b2f9c6`…); waits for Lea's test
+- [x] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting) — passed Lea's test 28 Oct; alignment then made visible (four buttons on the laptop, a labelled row in Aa) and spelled "Centre"
 - [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments)
 - [ ] 4.6 — Studiply blocks (callouts, timestamp chips, mark chips)
 - [ ] 4.7 — Writing tools (find & replace, word count, heading outline, page setup)
@@ -456,6 +456,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Found by the check and fixed:** crossing the 1024 px layout width (a resized window) remounted the editor, so the page briefly showed the last saved text. The screen now keeps one tree for both layouts.
   - **iPhone:** our own keyboard toolbar, plus the Aa and colour panels in place of the keyboard (TenTap's CustomKeyboard, whose native module is already in the build). It is checked only by building the iOS bundle; Lea tests it on the phone. The fallback, if the custom keyboard misbehaves, is an ordinary bottom sheet.
   - **Chrome** (`formatting.mjs`, 10/10): every toolbar control and the shortcuts, read from the JSON; R/J/V; the three paste samples with nothing lost on both editors; the Psicobiología page rebuilt; 1280 / 390, light and dark. documents, flows, layout, look, item-menus, settings and search pass.
+  - **Lea's test (28 Oct): passed**, except that "Centre" alignment was hard to find. The menu said "Center" (the rest of the app says "colour"), and alignment sat in a dropdown on the laptop and in an icon-only row lower in Aa. It's now **Centre**, with four buttons always visible in the laptop toolbar and a labelled row right under the styles in Aa. ⌘⇧L/E/R/J are in the Chrome check.
   - **Page view and zoom (Lea's request, for 4.7):** in BUILD-PLAN 4.7 with the feasibility and the recommendation (a page view of our own that only changes the display, matching the export; Tiptap's paid "Pages" only as the last option).
 
 ## Things Lea must do
@@ -496,13 +497,6 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **A new iPhone, or native changes (step 4.1).** Register the phone with `eas device:create`, then `npm run build:dev:ios` again and install from the QR code. A new native module, permission text or plugin in `app.json` also needs a new build; JavaScript changes don't.
 - ~~**Step 4.3 — the named-versions migration on the remote project**~~ — done 28 Oct with Lea's OK: dry run showed only `20261026090800_document_version_names.sql`; pushed; `supabase migration list --linked` shows all 16 migrations on both sides.
-- **Step 4.4 — test the formatting (no new build).** `npm run start:local`, reload the app on the iPhone (shake → Reload) and the laptop page.
-  1. Rebuild your Psicobiología page on the iPhone with Aa (Title, Heading 1, Normal), B/U, the highlight, a list and indent; look at it on the laptop. Then the other way, with the laptop toolbar.
-  2. Copy a real page from Google Docs and one from Word (with headings, bold, underline, colour, highlight, a list and a table) and paste each on both devices: the same look, nothing lost.
-  3. Paste without formatting: ⌘⇧V on the laptop; Aa → Paste without formatting on the iPhone.
-  4. In Chrome on your Mac: ⌘⇧R aligns right (no reload), ⌘⇧J justifies (Downloads doesn't open), and ⌘⇧V pastes plain text.
-  5. Line spacing, indent − / +, a page break, and the four fonts (Rounded too) on both devices.
-  6. On the iPhone, the Aa and colour panels open in place of the keyboard and the keyboard button brings it back. Tell me if anything jumps or the keyboard misbehaves.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues

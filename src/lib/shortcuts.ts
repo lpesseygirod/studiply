@@ -77,7 +77,7 @@ export const EDITOR_SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '⌘ ⇧ X', action: 'Strikethrough' },
   { keys: '⌘ ⌥ 0 · 1 · 2 · 3', action: 'Normal text, Heading 1, Heading 2, Subheading' },
   { keys: '⌘ ⇧ 7 · 8 · 9', action: 'Numbered, bulleted, checklist' },
-  { keys: '⌘ ⇧ L · E · R · J', action: 'Align left, center, right, justify' },
+  { keys: '⌘ ⇧ L · E · R · J', action: 'Align left, centre, right, justify' },
   { keys: '⌘ ]  ⌘ [', action: 'Increase, decrease indent (Tab, ⇧Tab too)' },
   { keys: '⌘ ⇧ .  ⌘ ⇧ ,', action: 'Bigger, smaller text' },
   { keys: '⌘ ↵', action: 'Page break' },
