@@ -34,7 +34,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 ## Phase 4 — Editor like Google Docs (`phase-4-editor`)
 - [x] 4.1 — Development build on iPhone (EAS profiles, device registration) — tested by Lea on 27 Oct: installed, reloads on code changes, records with the screen locked
 - [x] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — passed on the iPhone 28 Oct after three fixes (no new build); report and recommendation in Decisions
-- [ ] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin) — built and checked in Chrome 28 Oct (8 commits, `9c6a85e`…); waits for Lea's iPhone test
+- [x] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin) — passed Lea's iPhone test 28 Oct, after the restore fix (`c0287ac`)
 - [ ] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting)
 - [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments)
 - [ ] 4.6 — Studiply blocks (callouts, timestamp chips, mark chips)
@@ -485,15 +485,6 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   6. Only then, **Remove the old copy from this iPhone**.
 - ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **A new iPhone, or native changes (step 4.1).** Register the phone with `eas device:create`, then `npm run build:dev:ios` again and install from the QR code. A new native module, permission text or plugin in `app.json` also needs a new build; JavaScript changes don't.
-- **Step 4.3 — test documents on the iPhone (no new build).** `npm run start:local` (Docker on, `supabase start`), reload the development build (shake → Reload); the laptop in Chrome with the same local account.
-  1. In a course folder: New (or long-press empty space) → **New document**; type a title, then write a few lines with bold and a list. "Saved · time" appears under the header.
-  2. Open the same document on the laptop: the text is there. Write a line on the laptop: it appears on the iPhone within about 5 s, without moving the iPhone's cursor.
-  3. iPhone: Settings → Development → **Simulate offline**. Write in the document ("Saved on this iPhone"), and create a second document. Turn Simulate offline off: within a few seconds both show on the laptop.
-  4. Write the same line on both devices while one is offline, then go online: the newer one stays; the other is in **… → Version history** as "Copy kept after a conflict".
-  5. … → **Version history**: open a version, **Name this version…**, then **Restore this version**; the text you had is kept as "Before restore".
-  6. Open a lecture: My notes · Summary · Transcript; Summary shows your earlier notes with **Open notes**; Transcript shows the lines with their times.
-  7. Dark mode: the app dims, the page stays white.
-- **Step 4.3 — retest the restore (after the fix of 28 Oct).** Reload the app on the iPhone (shake → Reload) and the laptop page. Open the same document on both. On the iPhone, write a line and switch to another app for a moment, then come back. On the laptop: … → Version history → an older version → Restore. Within about 5 s the iPhone shows the restored text without you touching it; leave the document on the iPhone and reopen it on the laptop: the restored text is still there. Then write a new line on the iPhone: it appears on the laptop, and the restored text stays.
 - **Step 4.3 — the named-versions migration on the remote project, later.** `20261026090800_document_version_names.sql` is applied locally only. Before using the app with `start:remote`, it goes to the remote project after a dry run and your OK (as for every migration).
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
