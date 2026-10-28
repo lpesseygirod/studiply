@@ -138,5 +138,8 @@ function builder(table: string) {
 }
 
 export const module = {
-  supabase: { from: (table: string) => builder(table) },
+  supabase: {
+    from: (table: string) => builder(table),
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'user-1' } } }, error: null }) },
+  },
 };

@@ -273,6 +273,25 @@ export const DocColors = {
     { key: 'purple', label: 'Purple', value: '#6D28D9' },
     { key: 'pink', label: 'Pink', value: '#B5176B' },
   ],
+  /**
+   * The colour picker's base colours (step 4.5, as Word's): each gets lighter
+   * and darker shades worked out by shadesOf (src/editor/colors).
+   */
+  palette: [
+    { key: 'grey', label: 'Grey', value: '#6B7280' },
+    { key: 'red', label: 'Red', value: '#DC2626' },
+    { key: 'orange', label: 'Orange', value: '#EA580C' },
+    { key: 'yellow', label: 'Yellow', value: '#EAB308' },
+    { key: 'green', label: 'Green', value: '#16A34A' },
+    { key: 'teal', label: 'Teal', value: '#0D9488' },
+    { key: 'blue', label: 'Blue', value: '#2563EB' },
+    { key: 'indigo', label: 'Indigo', value: '#4F46E5' },
+    { key: 'purple', label: 'Purple', value: '#9333EA' },
+    { key: 'pink', label: 'Pink', value: '#DB2777' },
+  ],
+  /** Text tinted to show it has a comment (step 4.5): not one of the highlights. */
+  comment: '#FDECC8',
+  commentResolved: '#F3F1EC',
   highlight: [
     { key: 'yellow', label: 'Yellow', value: '#FFF3A3' },
     { key: 'green', label: 'Green', value: '#D3F5DB' },
