@@ -82,6 +82,8 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Bullet, numbered and checklists, alignment | Keyboard toolbar | Toolbar | 4 | v1 |
 | Paste from Google Docs or Word keeps the formatting | Yes | Yes | 4 | v1 |
 | Links, images, tables, formulas (KaTeX), comments | “+” insert menu | Toolbar buttons | 4 | v1 |
+| Colour picker like Word's (shades, Recent colours synced across devices, More colours… spectrum, hex on the laptop) | Colour panel | Toolbar popovers | 4 | v1 |
+| Paste an image on the iPhone (the system paste into a document) | Paste | — | — | Later |
 | Select text → Ask Claude (explain simpler, example, go deeper, flashcard, rewrite) | Edit menu that pops up on selection | Floating menu on selection | 6 | v1 |
 | Tap a timestamp to replay the audio | Mini player at the bottom | Mini player | 4, 5 | v1 |
 | Autosave, offline editing, sync | Yes (writing offline, synced when back online) | Yes (online) | 4 | v1 |
@@ -379,6 +381,11 @@ Step 4.4: build the formatting tools from DESIGN.md. Laptop: full toolbar (undo/
 
 ```markdown
 Step 4.5: add links, images (from Photos, camera or files), tables, formulas with KaTeX (inline and display), and comments in the margin (laptop) or as a sheet (iPhone).
+Also (Lea):
+- **A colour picker like Word's** for text colour, highlight and table cells, on both devices: about 10 base colours with 5 lighter/darker shades below each, Recent colours (synced across devices), Automatic/None, and More colours… (a full spectrum, plus a hex field on the laptop).
+- **Tables:** rows and columns, a header row, cell colours.
+- **Photos:** from Photos and the camera on the iPhone, drag and paste on the laptop, resize.
+- **The laptop toolbar** on one row of the most-used tools with ⌄ for a second row (remembered per device; tools that don't fit move there). The iPhone keyboard toolbar likewise puts the most-used tools first, with a "more" row.
 ```
 
 **Check:** insert the formula for compound interest and a 3×3 table on the iPhone; both look right on the laptop.

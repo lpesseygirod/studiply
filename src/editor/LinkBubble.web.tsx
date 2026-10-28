@@ -1,4 +1,4 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useCallback, useEffect, useReducer } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Editor } from '@tiptap/react';
 
@@ -22,13 +22,20 @@ export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement
     return () => page.removeEventListener('scroll', redraw, true);
   }, [page]);
 
+  // Pressing the bubble must not take the focus from the text (the bubble
+  // would hide before the click lands).
+  const keepFocus = useCallback((node: unknown) => {
+    const el = node as HTMLElement | null;
+    el?.addEventListener('mousedown', (e) => e.preventDefault());
+  }, []);
+
   const href = editor.getAttributes('link').href as string | undefined;
   if (!href || !editor.isFocused || !page) return null;
   const at = editor.view.coordsAtPos(editor.state.selection.from);
   const box = page.getBoundingClientRect();
 
   return (
-    <View style={[styles.bubble, { left: Math.max(8, at.left - box.left - 20), top: at.bottom - box.top + 6 }]} accessibilityLabel="Link">
+    <View ref={keepFocus} style={[styles.bubble, { left: Math.max(8, at.left - box.left - 20), top: at.bottom - box.top + 6 }]} accessibilityLabel="Link">
       <Text style={styles.href} numberOfLines={1}>
         {href.replace(/^mailto:/, '')}
       </Text>

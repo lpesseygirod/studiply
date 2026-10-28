@@ -36,7 +36,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — passed on the iPhone 28 Oct after three fixes (no new build); report and recommendation in Decisions
 - [x] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin) — passed Lea's iPhone test 28 Oct, after the restore fix (`c0287ac`)
 - [x] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting) — passed Lea's test 28 Oct; alignment then made visible (four buttons on the laptop, a labelled row in Aa) and spelled "Centre"
-- [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments)
+- [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments) — checkpoint A (colour picker, links, tables, the one-row toolbar) built and checked in Chrome 28 Oct; waits for Lea's test A, then checkpoint B (photos, formulas, comments)
 - [ ] 4.6 — Studiply blocks (callouts, timestamp chips, mark chips)
 - [ ] 4.7 — Writing tools (find & replace, word count, heading outline, page setup)
 - [ ] 4.8 — Import and export (.docx import; PDF and .docx export)
@@ -458,6 +458,23 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Chrome** (`formatting.mjs`, 10/10): every toolbar control and the shortcuts, read from the JSON; R/J/V; the three paste samples with nothing lost on both editors; the Psicobiología page rebuilt; 1280 / 390, light and dark. documents, flows, layout, look, item-menus, settings and search pass.
   - **Lea's test (28 Oct): passed**, except that "Centre" alignment was hard to find. The menu said "Center" (the rest of the app says "colour"), and alignment sat in a dropdown on the laptop and in an icon-only row lower in Aa. It's now **Centre**, with four buttons always visible in the laptop toolbar and a labelled row right under the styles in Aa. ⌘⇧L/E/R/J are in the Chrome check.
   - **Page view and zoom (Lea's request, for 4.7):** in BUILD-PLAN 4.7 with the feasibility and the recommendation (a page view of our own that only changes the display, matching the export; Tiptap's paid "Pages" only as the last option).
+- **Step 4.5, checkpoint A (28 Oct): colour picker, links, tables, the one-row toolbar.**
+  - **Packages (Lea's OK):** `@tiptap/extension-mathematics` 3.32.0, `katex` 0.18.11, `@tiptap/extension-file-handler` 3.32.0, `@tiptap/extension-image` 3.32.0 (direct). One ProseMirror (all 3.32.0), and the npm audit count is unchanged. The last three are used in checkpoint B.
+  - **Recent colours, synced across devices (Lea):**
+    - Migration `20261026090900`: `profiles.preferences` jsonb (an object), local only so far.
+    - `preferences.service` keeps a copy on each device and merges with the account's list by time (union, newest first, 10), so neither device loses a colour. The iPhone queues the update when offline.
+  - **The colour picker:** the 10 base colours are in `DocColors.palette`; their shades are worked out by `shadesOf`, so the no-hard-coded-colour test stays meaningful. `ColorGrid` and `SpectrumPicker` are shared by the laptop popovers and the iPhone's colour and table panels.
+  - **Links:** `cleanUrl` allows only http, https, mailto and tel, and completes "uned.es" and email addresses. With nothing selected, a link inserts its text and the cursor then leaves the link.
+  - **Tables:** cells and headers have `backgroundColor` (a pasted cell's shading is kept as the cell's colour, not turned into a highlight); columns resize on the laptop; the `table` command covers insert, rows, columns, header row, cell colour and delete.
+  - **The toolbar (Lea's idea):**
+    - Laptop: one row plus ⌄ (remembered per device in `lib/toolbarPrefs`). Each tool's real width is measured once shown, and what doesn't fit moves into the second row: at 1280 px with the assistant panel open, highlight onwards go behind ⌄; at 1440, image and table; without the panel, everything fits.
+    - A tool hidden behind ⌄ still answers its shortcut: ⌘K opens the link dialog under the toolbar (found by the check).
+    - iPhone: most-used first, then a ⋯ row; the + panel and the table panel replace the keyboard.
+  - **Found and fixed along the way:**
+    - The block-meta plugin's follow-up transaction dropped the marks set for the next typed text (found by the link test).
+    - Pressing the link bubble blurred the text and hid the bubble before the click landed (found by the check).
+  - **Chrome:** `inserting.mjs` 7/7 (grid, shade, hex, Automatic; Recent colours on the account and from "another device"; ⌘K, completion, the bubble, an unsafe address refused; the second row remembered; tables; the iPhone bundle reads the same table; the narrow window). formatting.mjs (opens ⌄ first) and the other suites pass.
+  - **Not checkable here:** the iPhone toolbar, the + and table panels and the colour panel. The iOS bundle builds; Lea tests them.
 
 ## Things Lea must do
 
@@ -497,6 +514,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - ~~**Step 3.5 — the nightly clean-up and search on the remote project**~~ — done 26 Oct with Lea's OK: the 4 migrations pushed (the remote had 0 users and no old trash), `purge-trash` deployed with `--no-verify-jwt`, a new `CRON_SECRET` (generated in a shell variable, passed to `supabase secrets set` and to Vault through `<(…)`, never printed or saved; both copies have the same SHA-256) and `project_url` in Vault. `select private.run_trash_purge();` answered 200 (`{"ok":true,"objects":0,…}`); the job `purge-trash` runs daily at 03:15 UTC. To change the secret later, set both copies again (`supabase secrets set` and `vault.update_secret`).
 - **A new iPhone, or native changes (step 4.1).** Register the phone with `eas device:create`, then `npm run build:dev:ios` again and install from the QR code. A new native module, permission text or plugin in `app.json` also needs a new build; JavaScript changes don't.
 - ~~**Step 4.3 — the named-versions migration on the remote project**~~ — done 28 Oct with Lea's OK: dry run showed only `20261026090800_document_version_names.sql`; pushed; `supabase migration list --linked` shows all 16 migrations on both sides.
+- **Step 4.5 — test A (no new build).** `npm run start:local`, reload the app on the iPhone (shake → Reload) and the laptop page.
+  1. **Colours:** text colour, highlight and a table cell's colour from the grid (a shade), from Recent colours, and from More colours… (the spectrum; a hex on the laptop), on both devices. A colour picked on the laptop shows in Recent on the iPhone, and the other way.
+  2. **Links:** ⌘K on the laptop (try "uned.es"), the bubble's Open / Edit / Remove; on the iPhone the Link button, then Open / Edit / Remove on a link.
+  3. **Tables:** on the iPhone, + → Table 3 × 3, then add a row and a column, Header row, a cell colour. It looks right on the laptop; drag a column wider there; the Table menu there too.
+  4. **Toolbar:** the laptop's ⌄ row (open after a reload if you left it open); narrow the window and watch tools move into it. On the iPhone, ⋯ for the second row (remembered).
+- **Step 4.5 — the recent-colours migration on the remote project.** `20261026090900_profile_preferences.sql` is applied locally only. Before `start:remote`, it goes to the remote after a dry run and your OK.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues

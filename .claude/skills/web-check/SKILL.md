@@ -123,6 +123,22 @@ node .claude/skills/web-check/scripts/search.mjs
 node .claude/skills/web-check/scripts/documents.mjs
 ```
 
+## Check inserting (step 4.5)
+
+`scripts/inserting.mjs`, checkpoint A:
+- **Colour picker:** the grid (10 colours × 6), a shade, More colours… with a hex, Automatic.
+- **Recent colours:** saved to the account's `profiles.preferences`, and a colour written there by "another device" (the service role) shows after a reload.
+- **Links:** ⌘K, `uned.es` completed, the bubble (Open · Edit · Remove), `javascript:` refused.
+- **The toolbar:** the ⌄ row remembered after a reload; in a narrow window, tools move into it.
+- **Tables:** the size grid, the Table menu; the iPhone bundle reads the same table.
+- **Screenshots:** `ins-*.png`.
+
+Tools hidden behind ⌄ aren't in the page: open it (`More tools`) before clicking them.
+
+```bash
+node .claude/skills/web-check/scripts/inserting.mjs
+```
+
 ## Check formatting (step 4.4)
 
 `scripts/formatting.mjs`:

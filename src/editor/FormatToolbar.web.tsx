@@ -112,6 +112,7 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   // Each tool's real width once it has been shown (in either row); until then its estimate.
   const [measured, setMeasured] = useState<Record<string, number>>({});
   const refs = useRef<Partial<Record<Menu, View | null>>>({});
+  const toolbarRef = useRef<View>(null);
   const [sizeText, setSizeText] = useState(String(s.size));
   const sizeFocused = useRef(false);
 
@@ -134,7 +135,8 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
     runFormat(editor, cmd);
   };
   const open = async (kind: Menu) => {
-    const anchor = await anchorBelow({ current: refs.current[kind] ?? null });
+    // A tool that moved into the closed second row (⌘K for Link) opens under the toolbar.
+    const anchor = (await anchorBelow({ current: refs.current[kind] ?? null })) ?? (await anchorBelow(toolbarRef));
     if (anchor) setMenu({ kind, anchor });
   };
   const close = () => {
@@ -348,7 +350,7 @@ export function FormatToolbar({ editor }: { editor: Editor }) {
   const showSecond = expanded;
 
   return (
-    <View style={styles.toolbar} accessibilityRole="toolbar" onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View ref={toolbarRef} style={styles.toolbar} accessibilityRole="toolbar" onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       <View style={styles.row}>
         {trimGaps(fits).map(measuredItem)}
         <View style={styles.flex} />

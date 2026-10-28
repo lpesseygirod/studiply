@@ -150,6 +150,10 @@ The laptop's editor is Tiptap in the page with the same extensions.
 
 The formatting tools are one set of commands and one state (`src/editor/format`) for both devices. The laptop's toolbar (`FormatToolbar.web.tsx`) calls them directly. The iPhone's keyboard toolbar and its Aa and colour panels (`src/editor/iphone`, shown in place of the keyboard with TenTap's CustomKeyboard) send them through `FormatBridge`. Pasted Google Docs and Word HTML is rewritten into Studiply's styles by `src/editor/paste/rules.ts`.
 
+### Inserting and colours (step 4.5)
+
+The colour picker (`src/components/editor/ColorGrid.tsx`, `SpectrumPicker.tsx`) is shared by both devices. Its Recent colours sync through `profiles.preferences` (`preferences.service.ts`, merged by time). Links (`format/links.ts`, `cleanUrl`), tables (`bridges/table.ts`, the `table` command) and the iPhone's + and table panels (`src/editor/iphone/InsertPanels.tsx`) build on the same commands as the formatting tools.
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`
