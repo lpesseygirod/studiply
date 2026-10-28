@@ -21,6 +21,11 @@ import { useLayoutPrefs } from '../../src/lib/layoutPrefs';
 import { useUndoToast } from '../../src/hooks/useUndoToast';
 import { AppUndoProvider } from '../../src/hooks/useAppUndo';
 import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../../src/navigation/mainTabs';
+import { setCommentMarginRoom, useCommentMargin } from '../../src/components/shell/commentMargin';
+import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W } from '../../src/editor/schema/comments';
+
+/** The page, its column's padding and the comments margin beside it (step 4.5). */
+const COMMENT_MARGIN_ROOM = Layout.documentMaxWidth + 48 + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W;
 
 // The bar's own height, above the home indicator (React Navigation's default).
 const TAB_BAR_HEIGHT = 49;
@@ -95,6 +100,7 @@ export default function MainLayout() {
   // leave them (the course screen's title menu) show their Undo here.
   const { showUndo, toast } = useUndoToast();
   const isFullScreen = isFullScreenRoute(pathname);
+  const commentMargin = useCommentMargin();
 
   const showSidebar = wide && kind !== 'settings' && prefs.sidebarOpen;
   const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
@@ -115,12 +121,14 @@ export default function MainLayout() {
           {/* The recording strip goes here (Phase 5). */}
           <View style={styles.row}>
             {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
-            <View style={styles.center}>
+            <View style={styles.center} onLayout={(e) => setCommentMarginRoom(e.nativeEvent.layout.width >= COMMENT_MARGIN_ROOM)}>
               {wide && <GradientFill />}
               <View
                 style={[
                   styles.centerColumn,
                   wide && kind !== 'library' && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
+                  // A document showing its comments margin (step 4.5).
+                  wide && kind === 'document' && commentMargin.shown && commentMargin.room && styles.centerColumnWithComments,
                 ]}
               >
                 <Tabs
@@ -185,6 +193,7 @@ const makeStyles = (c: ThemeColors) =>
   centerColumn: { flex: 1, width: '100%', alignSelf: 'center' },
   // Documents and settings: a centered column on the gradient (the page is 820 px).
   centerColumnNarrow: { maxWidth: Layout.documentMaxWidth + 48 },
+  centerColumnWithComments: { maxWidth: COMMENT_MARGIN_ROOM },
   // Settings: the section menu beside the page (docs/design desktop-05).
   centerColumnSettings: { maxWidth: Layout.settingsMaxWidth + 48 },
   tabBar: {

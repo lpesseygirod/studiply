@@ -2,6 +2,11 @@ import type React from 'react';
 import type { JSONContent } from '@tiptap/core';
 
 import type { PasteReport } from './pasteReport';
+import type { FormatCommand } from './format';
+import type { CommentInfo } from './schema/comments';
+
+/** What the screen can do with a comment (the document menu's Comments). */
+export type CommentCommand = Extract<FormatCommand, { type: 'comment' }>;
 
 /** A document as ProseMirror JSON (what `documents.content` holds). */
 export type DocJSON = JSONContent & { type: 'doc' };
@@ -17,6 +22,10 @@ export type StudiplyEditorHandle = {
   /** Takes `doc` changing only the blocks that differ, keeping the cursor (another device's changes). */
   applyBlocks: (doc: DocJSON) => void;
   insertTimestampChip: (ms: number) => void;
+  /** Every comment in the document (step 4.5). */
+  comments: () => Promise<CommentInfo[]>;
+  /** Selects, edits, resolves or deletes a comment. */
+  comment: (cmd: CommentCommand) => void;
   focus: () => void;
   /** Leaves the editor; on the iPhone this closes the keyboard. */
   blur: () => void;
@@ -30,6 +39,10 @@ export type StudiplyEditorProps = {
   editable?: boolean;
   /** At the top of the page (title and meta line); on the iPhone hidden while typing. */
   header?: React.ReactNode;
+  /** Laptop: the screen has room for a comments margin beside the page. */
+  commentRoom?: boolean;
+  /** Laptop: the margin is shown (or hidden); the screen widens the page's column for it. */
+  onCommentMargin?: (shown: boolean) => void;
   /** The editor can be read and written. */
   onReady?: () => void;
   /** The student changed the document (read it with getJSON). */

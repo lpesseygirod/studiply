@@ -577,6 +577,85 @@ try {
     await openDoc();
   });
 
+  // ── Part B: comments ──
+  const TEXT = 'La conducta humana es compleja';
+  const commentMarks = async () => {
+    const out = [];
+    const walk = (n) => {
+      for (const m of n.marks ?? []) if (m.type === 'comment') out.push({ ...m.attrs, text: m.attrs.text, words: n.text });
+      (n.content ?? []).forEach(walk);
+    };
+    walk(await json());
+    return out;
+  };
+  const wordsBox = (word) => b.evaluate(`(() => { const s = [...document.querySelectorAll('.ProseMirror .studiply-comment')].find((e) => e.textContent.includes(${JSON.stringify(word)})); if (!s) return null; const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top }; })()`);
+  const selectWord = (word) => b.evaluate(`(() => { const e = ${EDITOR}; let at = -1; e.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes(${JSON.stringify(word)})) at = pos + n.text.indexOf(${JSON.stringify(word)}); }); e.commands.focus(); e.commands.setTextSelection({ from: at, to: at + ${word.length} }); })()`);
+
+  await step('comments: a wide window: Comment on the selected words; its card in the margin, level with them; Resolve', async () => {
+    await b.resize(1800, 900);
+    await b.sleep(800);
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: ${JSON.stringify(TEXT)} }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Segundo párrafo con más texto' }] }] })`);
+    await b.sleep(300);
+    await selectWord('conducta');
+    await toolbarTool('Comment (⌘⌥M)');
+    await b.fill('textarea[aria-label="Comment"]', '¿Qué autores?');
+    await click('Comment (⌘↩)');
+    await b.sleep(500);
+    const [mark] = await commentMarks();
+    expect(mark?.text === '¿Qué autores?' && mark.words === 'conducta' && mark.resolved === false, JSON.stringify(await commentMarks()));
+    const card = await b.evaluate(`(() => { const c = document.querySelector('[aria-label="Comment: ¿Qué autores?"]'); return c ? c.getBoundingClientRect().top : null; })()`);
+    const words = await wordsBox('conducta');
+    expect(card !== null && Math.abs(card - words.top) < 24, `card at ${card}, words at ${words?.top}`);
+    await b.shot('ins-comment-margin-1800');
+    await click('Resolve comment');
+    await b.sleep(300);
+    expect((await commentMarks())[0]?.resolved === true, 'not resolved');
+    expect(!(await has('Comment: ¿Qué autores?')), 'a resolved card still shows in the margin');
+  });
+
+  await step('comments: a narrow window: ⌘⌥M; a click on commented words opens the card; Edit, Delete', async () => {
+    await b.resize(1280, 900);
+    await b.sleep(800);
+    await selectWord('párrafo');
+    await b.chord({ code: 'KeyM', key: 'µ', alt: true, meta: true, keyCode: 77 });
+    await b.sleep(300);
+    await b.fill('textarea[aria-label="Comment"]', 'Revisar');
+    await click('Comment (⌘↩)');
+    await b.sleep(300);
+    expect((await commentMarks()).some((m) => m.text === 'Revisar' && m.words === 'párrafo'), JSON.stringify(await commentMarks()));
+    // Nothing selected: the cursor goes elsewhere, then a click on the words.
+    await b.evaluate(`${EDITOR}.commands.setTextSelection(1)`);
+    const w = await wordsBox('párrafo');
+    await b.clickAt(w.x, w.y);
+    await b.sleep(300);
+    expect(await has('Comment: Revisar'), 'no card after a click on the words');
+    await b.shot('ins-comment-popover-1280');
+    await click('Edit comment');
+    await b.fill('textarea[aria-label="Comment"]', 'Revisar la fuente');
+    await click('Save (⌘↩)');
+    await b.sleep(300);
+    expect((await commentMarks()).some((m) => m.text === 'Revisar la fuente'), JSON.stringify(await commentMarks()));
+    await click('Delete comment');
+    // The app's confirmation: its Delete (the card's own link says Delete too).
+    await b.waitText('Delete comment?', { exact: true });
+    await b.evaluate(`[...document.querySelectorAll('[role="button"], button')].filter((e) => e.textContent.trim() === 'Delete' && !e.getAttribute('aria-label')?.endsWith('comment')).at(-1).click()`);
+    await b.sleep(300);
+    expect(!(await commentMarks()).some((m) => m.words === 'párrafo'), JSON.stringify(await commentMarks()));
+  });
+
+  await step("comments: the document menu's Comments lists them (resolved too); pressing one selects its words", async () => {
+    await click('Document menu');
+    await b.click('Comments', { exact: true });
+    await b.sleep(400);
+    expect(await b.hasText('RESOLVED', true), 'no Resolved section');
+    await b.shot('ins-comments-sheet-1280');
+    await b.evaluate(`${EDITOR}.commands.setTextSelection(1)`);
+    await click('Comment: ¿Qué autores?');
+    await b.sleep(300);
+    const sel = await b.evaluate(`(() => { const s = ${EDITOR}.state.selection; return ${EDITOR}.state.doc.textBetween(s.from, s.to); })()`);
+    expect(sel === 'conducta', `selected "${sel}"`);
+  });
+
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);

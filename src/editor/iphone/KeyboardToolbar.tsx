@@ -8,6 +8,7 @@ import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatCommand, FormatState } from '../format';
 import { PHOTO_WIDTHS } from '../schema/photo';
+import type { CommentInfo } from '../schema/comments';
 import { useToolbarExpanded } from '../../lib/toolbarPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -29,6 +30,7 @@ export function KeyboardToolbar({
   onDone,
   onLink,
   onOpenLink,
+  onComment,
 }: {
   state: FormatState | undefined;
   run: (cmd: FormatCommand) => void;
@@ -39,6 +41,8 @@ export function KeyboardToolbar({
   /** Add or edit a link (asks for the address). */
   onLink: () => void;
   onOpenLink: (href: string) => void;
+  /** The cursor is in commented words: open that comment. */
+  onComment: (comment: CommentInfo) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -89,6 +93,14 @@ export function KeyboardToolbar({
                   <Text style={styles.linkChipText}>{a.label}</Text>
                 </Pressable>
               ))}
+            </View>
+          ) : null}
+          {s?.comment ? (
+            // In commented words: the comment comes first.
+            <View style={styles.linkChips}>
+              <Pressable onPress={() => onComment(s.comment!)} style={styles.linkChip} accessibilityRole="button" accessibilityLabel="Open the comment">
+                <Text style={styles.linkChipText}>{s.comment.resolved ? 'Comment (resolved)' : 'Comment'}</Text>
+              </Pressable>
             </View>
           ) : null}
           {s?.photo ? (

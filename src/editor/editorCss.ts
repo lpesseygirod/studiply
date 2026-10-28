@@ -1,10 +1,11 @@
-import { LightColors } from '../constants/colors';
+import { DocColors, LightColors } from '../constants/colors';
 import { CHIP_CLASS } from './schema/timestampChip';
 import { DEFAULT_LINE_SPACING } from './schema/blocks';
 import { DEFAULT_FONT_CSS, DEFAULT_SIZE } from './schema/fonts';
 import { TABLE_BAR_CLASS } from './table/tableBar';
 import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 import { PHOTO_CLASS } from './schema/photo';
+import { COMMENT_CLASS } from './schema/comments';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -74,6 +75,8 @@ ${pm}[contenteditable='true'] [data-type='inline-math'], ${pm}[contenteditable='
 ${pm} [data-type='block-math'] { margin: 0.2em 0 0.6em; overflow-x: auto; overflow-y: hidden; }
 ${pm} .ProseMirror-selectednode[data-type='inline-math'], ${pm} .ProseMirror-selectednode[data-type='block-math'] { outline: 2px solid ${c.accent}; outline-offset: 2px; }
 ${pm} .inline-math-error, ${pm} .block-math-error { color: ${c.error}; }
+${pm} .${COMMENT_CLASS} { background: ${DocColors.comment}; border-radius: 2px; }
+${pm} .${COMMENT_CLASS}.resolved { background: ${DocColors.commentResolved}; }
 ${photo} { margin: 0 0 0.6em; line-height: 0; }
 ${photo}-frame { position: relative; display: inline-block; max-width: 100%; vertical-align: top; border-radius: 4px; }
 ${photo}-frame img { display: block; max-width: 100%; height: auto; border-radius: 4px; }

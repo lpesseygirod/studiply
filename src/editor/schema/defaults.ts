@@ -25,4 +25,5 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   inlineMath: { latex: '' },
   timestampChip: { ms: 0 },
   link: { target: '_blank', rel: 'noopener noreferrer nofollow' },
+  comment: { text: '', createdAt: 0, resolved: false },
 };

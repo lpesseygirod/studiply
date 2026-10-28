@@ -4,6 +4,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { selectedPhoto } from '../schema/photo';
 import { formulaRequest, selectedFormula, type FormulaRequest } from '../schema/formula';
+import { canComment, commentsAt, listComments, type CommentInfo } from '../schema/comments';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
@@ -83,6 +84,12 @@ export interface FormatState {
   formula: { latex: string; display: boolean } | null;
   /** The last click or tap on a formula (the iPhone opens its sheet on a new one). */
   formulaRequest: FormulaRequest | null;
+  /** The comment on the text at the cursor (an open one first), if any. */
+  comment: CommentInfo | null;
+  /** Words are selected that a comment could be about. */
+  canComment: boolean;
+  /** Every comment, in the order of the text (the iPhone's Comments sheet). */
+  comments: CommentInfo[];
 }
 
 export type FormatCommand =
@@ -116,7 +123,12 @@ export type FormatCommand =
    * it (an empty one goes) and puts the cursor after it.
    */
   | { type: 'formula'; action: 'set'; latex: string; display: boolean }
-  | { type: 'formula'; action: 'remove' | 'done' };
+  | { type: 'formula'; action: 'remove' | 'done' }
+  /** Comments (step 4.5): on the selected words (`add`), or one by id. */
+  | { type: 'comment'; action: 'add'; id: string; text: string }
+  | { type: 'comment'; action: 'edit'; id: string; text: string }
+  | { type: 'comment'; action: 'resolve'; id: string; resolved: boolean }
+  | { type: 'comment'; action: 'delete' | 'select'; id: string };
 
 export type TableAction =
   | 'insert'
@@ -187,7 +199,14 @@ export function formatState(editor: Editor): FormatState {
     photo: selectedPhoto(editor),
     formula: formulaOf(editor),
     formulaRequest: formulaRequest(editor),
+    ...commentState(editor),
   };
+}
+
+function commentState(editor: Editor): Pick<FormatState, 'comment' | 'canComment' | 'comments'> {
+  const comments = listComments(editor.state.doc);
+  const [at] = commentsAt(editor.state);
+  return { comment: comments.find((c) => c.id === at) ?? null, canComment: canComment(editor.state), comments };
 }
 
 function formulaOf(editor: Editor): FormatState['formula'] {
@@ -371,5 +390,18 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       if (cmd.action === 'remove') return chain().removeFormula().run();
       if (!selectedFormula(editor.state)?.latex.trim()) return chain().removeFormula().run();
       return chain().leaveFormula().run();
+    case 'comment':
+      switch (cmd.action) {
+        case 'add':
+          return chain().addComment({ id: cmd.id, text: cmd.text }).run();
+        case 'edit':
+          return editor.chain().updateComment(cmd.id, { text: cmd.text }).run();
+        case 'resolve':
+          return editor.chain().updateComment(cmd.id, { resolved: cmd.resolved }).run();
+        case 'delete':
+          return editor.chain().deleteComment(cmd.id).run();
+        case 'select':
+          return chain().selectComment(cmd.id).run();
+      }
   }
 }

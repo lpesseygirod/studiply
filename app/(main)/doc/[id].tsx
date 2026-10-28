@@ -5,16 +5,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import StudiplyEditor from '../../../src/editor/StudiplyEditor';
-import type { StudiplyEditorHandle } from '../../../src/editor/types';
+import type { CommentCommand, StudiplyEditorHandle } from '../../../src/editor/types';
 import { PAGE_COLORS } from '../../../src/editor/editorCss';
 import { DocumentHeader } from '../../../src/components/editor/DocumentHeader';
 import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
 import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCard';
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
+import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
+import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
 import { anchorBelow, showAlert, type DialogButton } from '../../../src/components/dialogs/dialogs';
 import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { setCommentMarginShown, useCommentMargin } from '../../../src/components/shell/commentMargin';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
@@ -212,11 +215,28 @@ export default function DocumentScreen() {
   );
 
   const [historyOpen, setHistoryOpen] = useState(false);
+  // The document menu's Comments (step 4.5): every comment, read from the editor when opened.
+  const [comments, setComments] = useState<CommentInfo[] | null>(null);
+  // Laptop: a comments margin beside the page when the shell has room; the columns widen while it shows.
+  const margin = useCommentMargin();
+  const commentRoom = wide && margin.room;
+  useEffect(() => () => setCommentMarginShown(false), []);
+  const openComments = async () => setComments((await editorRef.current?.comments()) ?? []);
+  const onComment = (cmd: CommentCommand) => {
+    editorRef.current?.comment(cmd);
+    // The iPhone's list comes back with the editor's next state.
+    setTimeout(() => void editorRef.current?.comments().then((list) => setComments((open) => (open ? list : open))), 150);
+  };
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
     editorRef.current?.blur();
-    const extra: DialogButton[] = showEditor ? [{ text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) }] : [];
+    const extra: DialogButton[] = showEditor
+      ? [
+          { text: 'Comments', icon: 'chatbox-ellipses-outline', onPress: () => void openComments() },
+          { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
+        ]
+      : [];
     itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra });
   };
 
@@ -270,6 +290,8 @@ export default function DocumentScreen() {
         ref={editorRef}
         fileId={id}
         header={makeHeader(nativeEditor)}
+        commentRoom={commentRoom}
+        onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
       />
@@ -323,12 +345,21 @@ export default function DocumentScreen() {
     <View style={styles.container}>
       <GradientFill />
       {!wide && <ThemedStatusBar />}
-      <View style={wide ? styles.column : styles.container}>
+      <View style={wide ? [styles.column, margin.shown && commentRoom && styles.columnWithMargin] : styles.container}>
         {top}
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       </View>
       {toast}
       {itemMenu.modal}
+      <CommentsSheet
+        visible={comments !== null}
+        comments={comments ?? []}
+        onClose={() => setComments(null)}
+        onSelect={(id) => editorRef.current?.comment({ type: 'comment', action: 'select', id })}
+        onEdit={(id, text) => onComment({ type: 'comment', action: 'edit', id, text })}
+        onResolve={(id, resolved) => onComment({ type: 'comment', action: 'resolve', id, resolved })}
+        onDelete={(id) => onComment({ type: 'comment', action: 'delete', id })}
+      />
       {file && (
         <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
       )}
@@ -340,6 +371,7 @@ const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1 },
     column: { flex: 1, width: '100%', maxWidth: Layout.documentMaxWidth + 48, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, gap: 12 },
+    columnWithMargin: { maxWidth: Layout.documentMaxWidth + 48 + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 44 },
     hint: { flexShrink: 1, fontSize: Typography.size.sm, color: c.text.onGradient },
     spacer: { flex: 1 },

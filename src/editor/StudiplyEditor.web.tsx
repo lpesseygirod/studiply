@@ -10,6 +10,9 @@ import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { FormulaPopover } from './FormulaPopover.web';
+import { CommentMargin, CommentPopovers } from './Comments.web';
+import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
+import { runFormat } from './format';
 import { LinkBubble } from './LinkBubble.web';
 import { setPhotoResolver } from './media/photoSource';
 import { addPhotoFiles, pickPhotoFiles } from './photos.web';
@@ -36,11 +39,13 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
   const narrow = useWindowDimensions().width < 600;
+  // Comments (step 4.5): a margin beside the page when the screen has room for both.
+  const [activeComment, setActiveComment] = useState<string | null>(null);
   const [page, setPage] = useState<HTMLElement | null>(null);
   const photoFile = useRef(fileId);
   photoFile.current = fileId;
@@ -109,25 +114,42 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       loadDoc: (doc) => editor.commands.loadDoc(doc),
       applyBlocks: (doc) => editor.commands.applyBlocks(doc),
       insertTimestampChip: (ms) => editor.chain().focus().insertTimestampChip(ms).run(),
+      comments: async () => listComments(editor.state.doc),
+      comment: (cmd) => void runFormat(editor, cmd),
       focus: () => editor.commands.focus(),
       blur: () => editor.commands.blur(),
     }),
     [editor],
   );
 
+  const withMargin = editable && commentRoom && listComments(editor.state.doc).some((c) => !c.resolved || c.id === activeComment);
+  const marginShown = useRef(onCommentMargin);
+  marginShown.current = onCommentMargin;
+  useEffect(() => marginShown.current?.(withMargin), [withMargin]);
+
   return (
-    <View style={styles.container}>
-      <style>{CSS}</style>
-      {editable && <FormatToolbar editor={editor} onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined} />}
-      <View style={styles.page} ref={(v) => setPage(v as unknown as HTMLElement | null)}>
-        <ScrollView style={styles.scroll} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
-          {header}
-          <EditorContent editor={editor} className={SCOPE} />
-        </ScrollView>
-        {editable && <LinkBubble editor={editor} page={page} />}
-        {editable && <TableMenus editor={editor} />}
-        {editable && <FormulaPopover editor={editor} />}
-      </View>
+    <View style={[styles.container, withMargin && styles.containerWithMargin]}>
+        <style>{CSS}</style>
+        {editable && (
+          <FormatToolbar
+            editor={editor}
+            onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined}
+            onComment={() => editor.view.dom.dispatchEvent(new CustomEvent(COMMENT_EVENT, { bubbles: true }))}
+          />
+        )}
+        <View style={styles.row}>
+          <View style={styles.page} ref={(v) => setPage(v as unknown as HTMLElement | null)}>
+            <ScrollView style={styles.scroll} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
+              {header}
+              <EditorContent editor={editor} className={SCOPE} />
+            </ScrollView>
+            {editable && <LinkBubble editor={editor} page={page} />}
+            {editable && <TableMenus editor={editor} />}
+            {editable && <FormulaPopover editor={editor} />}
+            {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
+          </View>
+          {withMargin && <CommentMargin editor={editor} active={activeComment} onActive={setActiveComment} />}
+        </View>
     </View>
   );
 });
@@ -137,6 +159,8 @@ export default StudiplyEditor;
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1, width: '100%', maxWidth: Layout.documentMaxWidth, alignSelf: 'center', gap: 12 },
+    containerWithMargin: { maxWidth: Layout.documentMaxWidth + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W },
+    row: { flex: 1, flexDirection: 'row', gap: COMMENT_MARGIN_GAP },
     page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card, overflow: 'hidden' },
     scroll: { flex: 1 },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },

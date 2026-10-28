@@ -32,6 +32,8 @@ import { FormulaSheet, type FormulaDraft } from './iphone/FormulaSheet';
 import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
+import { newId } from '../lib/mappers';
+import type { CommentInfo } from './schema/comments';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
 
 type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance & PhotoBridgeInstance;
@@ -74,6 +76,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     theme: scheme === 'dark' ? DARK_THEME : LIGHT_THEME,
   }) as Bridge;
   const state = useBridgeState(editor) as State;
+  // The latest state, for the screen's calls (the comments list).
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const { isKeyboardUp } = useKeyboard();
   const [panel, setPanel] = useState<string | undefined>(undefined);
   // The panels' state a prompt must not lose (step 4.5): kept here, not in the panel.
@@ -169,9 +174,38 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     formulaPlaced.current = false;
     editor.focus();
   };
+  // Comments (step 4.5): + → Comment on the selected words, through the app's prompt.
+  const addComment = async () => {
+    setPanel(undefined);
+    if (!stateRef.current.format?.canComment) {
+      showAlert('Select some words first', 'Select the words the comment is about, then add it.');
+      return;
+    }
+    const text = await promptText('Add comment', { placeholder: 'Comment', confirmLabel: 'Comment' });
+    if (text?.trim()) run({ type: 'comment', action: 'add', id: newId(), text: text.trim() });
+  };
+  // The keyboard toolbar's Comment (the cursor in commented words): that comment's card, as a sheet.
+  const openComment = (c: CommentInfo) => {
+    showActionSheet(
+      `“${c.quote}”`,
+      [
+        {
+          text: 'Edit',
+          onPress: () =>
+            void promptText('Edit comment', { defaultValue: c.text, confirmLabel: 'Save' }).then((text) => {
+              if (text?.trim()) run({ type: 'comment', action: 'edit', id: c.id, text: text.trim() });
+            }),
+        },
+        { text: c.resolved ? 'Reopen' : 'Resolve', onPress: () => run({ type: 'comment', action: 'resolve', id: c.id, resolved: !c.resolved }) },
+        { text: 'Delete', style: 'destructive', onPress: () => run({ type: 'comment', action: 'delete', id: c.id }) },
+      ],
+      { message: c.text },
+    );
+  };
   const panelActions: PanelActionsValue = {
     addLink: () => void addLink(),
     addFormula: () => openFormula(null),
+    addComment: () => void addComment(),
     addPhotos: fileId ? (from) => void addPhotos(from) : null,
     askNumber,
     insertSize,
@@ -252,10 +286,12 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       loadDoc: (doc) => editor.loadDoc(doc),
       applyBlocks: (doc) => editor.applyBlocks(doc),
       insertTimestampChip: (ms) => editor.insertTimestampChip(ms),
+      comments: async () => stateRef.current.format?.comments ?? [],
+      comment: (cmd) => run(cmd),
       focus: () => editor.focus(),
       blur: () => editor.blur(),
     }),
-    [editor],
+    [editor, run],
   );
 
   useEffect(() => {
@@ -316,6 +352,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           onDone={done}
           onLink={addLink}
           onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
+          onComment={openComment}
         />
       )}
       <PanelActions.Provider value={panelActions}>

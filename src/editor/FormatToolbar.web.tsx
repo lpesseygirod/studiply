@@ -88,7 +88,17 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
  * what is active where the selection is (formatState) and runs the shared
  * commands (src/editor/format); the shortcuts are listed in the "?" sheet.
  */
-export function FormatToolbar({ editor, onImage }: { editor: Editor; /** Photos from the browser's file picker. */ onImage?: () => void }) {
+export function FormatToolbar({
+  editor,
+  onImage,
+  onComment,
+}: {
+  editor: Editor;
+  /** Photos from the browser's file picker. */
+  onImage?: () => void;
+  /** A comment on the selected words. */
+  onComment?: () => void;
+}) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const s = formatState(editor);
@@ -318,7 +328,7 @@ export function FormatToolbar({ editor, onImage }: { editor: Editor; /** Photos 
     t('clear', tool('Clear formatting', 'format-clear', { type: 'clear' })),
     gap('g7'),
     t('formula', plain('Formula', 'sigma', () => void openFormula())),
-    t('comment', plain('Comment', 'comment-plus-outline', soon('Comments'))),
+    t('comment', plain('Comment (⌘⌥M)', 'comment-plus-outline', onComment ?? soon('Comments'))),
     gap('g8'),
     t('strike', tool('Strikethrough', 'format-strikethrough-variant', { type: 'mark', mark: 'strike' }, { active: s.strike })),
     t('checklist', tool('Checklist', 'format-list-checks', { type: 'list', list: 'task' }, { active: s.list === 'task' })),
