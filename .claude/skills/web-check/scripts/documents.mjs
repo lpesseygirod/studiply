@@ -4,8 +4,9 @@
 //     files / documents rows;
 //   - another device writes another block (service role, as the iPhone's
 //     sync would): it appears within a few seconds and the local text stays;
-//   - leaving keeps a version of the session; restore brings an older text
-//     back and keeps "Before restore"; a named version survives thinning;
+//   - leaving keeps a version of the session; version history: name a
+//     version, restore an older text (the current one kept as "Before
+//     restore"); thinning keeps named versions and a day's last edit;
 //   - a lecture: three tabs; Summary shows the earlier-format notes with
 //     Open notes (→ /note/); Transcript is made from the segments, with chips;
 //   - screenshots at 1280 and 390, light and dark (doc-*.png).
@@ -104,6 +105,67 @@ try {
     await b.sleep(2000);
     const { data: versions } = await admin.from('document_versions').select('reason, content').eq('file_id', docId);
     expect(versions?.some((v) => v.reason === 'session_end' && texts(v.content).includes('La psicobiología estudia la conducta.')), JSON.stringify(versions?.map((v) => v.reason)));
+  });
+
+  await step('version history: name a version, restore an older text', async () => {
+    await b.nav(`${BASE}/doc/${docId}`);
+    await editorReady();
+    await b.sleep(2500);
+    await b.clickSelector('.studiply-editor .ProseMirror');
+    await b.evaluate(`${EDITOR}.commands.focus('end')`);
+    await b.type(' Texto nuevo B.');
+    await waitFor(async () => texts((await docRow(docId))?.content).join(' ').includes('Texto nuevo B.'), 'B saved', 8000);
+
+    await b.clickSelector('[aria-label="Document menu"]');
+    await b.click('Version history');
+    await b.waitText('Only named versions', { timeout: 10000 });
+    await b.waitText('Edited', { timeout: 10000 });
+    await b.click('Edited');
+    await b.waitText('Restore this version', { timeout: 10000 });
+    await b.sleep(1500);
+    await b.shot('doc-history-1280');
+
+    await b.click('Name this version…');
+    await b.waitText('Named versions are always kept.', { exact: false });
+    await b.fill('input[placeholder="e.g. Before the exam"]', 'Antes del examen');
+    await b.click('Save');
+    await b.waitText('Antes del examen', { timeout: 5000 });
+    const { data: named } = await admin.from('document_versions').select('name').eq('file_id', docId).eq('name', 'Antes del examen');
+    expect(named?.length === 1, 'the name is not saved');
+
+    await b.click('Restore this version');
+    await b.waitText('Restore this version?');
+    await b.click('Restore', { exact: true });
+    await waitFor(async () => !(await pageText()).includes('Texto nuevo B.'), 'the old text in the editor', 8000);
+    await waitFor(async () => !texts((await docRow(docId))?.content).join(' ').includes('Texto nuevo B.'), 'the old text saved', 8000);
+    const { data: before } = await admin.from('document_versions').select('content').eq('file_id', docId).eq('reason', 'restore');
+    expect(before?.some((v) => texts(v.content).join(' ').includes('Texto nuevo B.')), 'no "Before restore" version with B');
+    await b.shot('doc-restored-1280');
+  });
+
+  await step('thinning keeps named versions and the last edit of an old day', async () => {
+    const row = await docRow(docId);
+    const day = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10);
+    const old = [
+      { id: crypto.randomUUID(), at: `${day}T08:00:00Z`, name: 'Viejo con nombre' },
+      { id: crypto.randomUUID(), at: `${day}T09:00:00Z`, name: null },
+      { id: crypto.randomUUID(), at: `${day}T10:00:00Z`, name: null },
+    ];
+    const { error } = await admin.from('document_versions').insert(old.map((v) => ({
+      id: v.id, user_id: user.id, document_id: row.id, file_id: docId, reason: 'session_end', content: row.content, created_at: v.at, name: v.name,
+    })));
+    expect(!error, error?.message);
+    // An edit, then leaving: the session's version is saved and the history thinned.
+    await b.clickSelector('.studiply-editor .ProseMirror');
+    await b.evaluate(`${EDITOR}.commands.focus('end')`);
+    await b.type(' C.');
+    await waitFor(async () => texts((await docRow(docId))?.content).join(' ').includes(' C.'), 'C saved', 8000);
+    await b.click('Recent');
+    const left = await waitFor(async () => {
+      const { data } = await admin.from('document_versions').select('id').in('id', old.map((v) => v.id));
+      return data?.length === 2 ? data.map((v) => v.id) : null;
+    }, 'thinning', 8000);
+    expect(left.includes(old[0].id) && left.includes(old[2].id), `kept ${JSON.stringify(left)}`);
   });
 
   await step('a lecture: tabs, the earlier-format notes, the transcript with chips', async () => {

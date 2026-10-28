@@ -65,9 +65,9 @@ export function useDocumentSync(params: {
       port,
       {
         open: () => openDocument(fileId, tab),
-        save: (base, next) => saveDocument({ fileId, tab, base, next }),
+        save: (base, next, options) => saveDocument({ fileId, tab, base, next, restamp: options?.restamp }),
         stamp: () => documentStamp(fileId, tab),
-        saveVersion: (content) => saveVersion(fileId, tab, content, 'session_end'),
+        saveVersion: (content, reason) => saveVersion(fileId, tab, content, reason),
         isOffline: () => syncEnabled && isOffline(),
       },
       setState,
@@ -115,8 +115,12 @@ export function useDocumentSync(params: {
   const onChange = useCallback(() => session.current?.changed(), []);
   const flush = useCallback(() => session.current?.flush() ?? Promise.resolve(), []);
   const clearLost = useCallback(() => session.current?.clearLost(), []);
+  const restore = useCallback(async (doc: Parameters<DocumentSession['restore']>[0]) => {
+    if (!session.current) throw new Error('The document is not open.');
+    await session.current.restore(doc);
+  }, []);
 
-  return { state, onChange, flush, clearLost };
+  return { state, onChange, flush, clearLost, restore };
 }
 
 /** "Saved · 10:31", "Saving…", "Saved on this iPhone", … for the top bar and the iPhone header. */

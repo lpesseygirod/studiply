@@ -451,6 +451,7 @@ export async function saveVersion(fileId: string, tab: DocTab, content: DocJSON,
     return payload.id;
   }
   await insertVersion(payload, (error, message) => serviceError(error, message));
+  if (reason === 'session_end') await thinVersions(fileId, tab).catch(() => {});
   return payload.id;
 }
 
@@ -470,7 +471,7 @@ async function insertVersion(payload: SaveVersionPayload, fail: ErrorOf = syncEr
   if (insertError) throw fail(insertError, 'Could not save the version.');
 }
 
-export type VersionSummary = Pick<VersionRow, 'id' | 'reason' | 'created_at'>;
+export type VersionSummary = Pick<VersionRow, 'id' | 'reason' | 'created_at' | 'name'>;
 
 /** The tab's versions, newest first, without their content. Online only. */
 export async function listVersions(fileId: string, tab: DocTab): Promise<VersionSummary[]> {
@@ -479,11 +480,55 @@ export async function listVersions(fileId: string, tab: DocTab): Promise<Version
   if (!doc) return [];
   const { data, error: listError } = await supabase
     .from('document_versions')
-    .select('id, reason, created_at')
+    .select('id, reason, created_at, name')
     .eq('document_id', doc.id)
     .order('created_at', { ascending: false });
   if (listError) throw serviceError(listError, 'Could not load the version history.');
   return data;
+}
+
+export const MAX_VERSION_NAME = 100;
+
+/** Names a version ("Before the exam"), or removes its name (null). Online only. */
+export async function nameVersion(id: string, rawName: string | null): Promise<string | null> {
+  const name = rawName === null ? null : rawName.trim().replace(/\s+/g, ' ');
+  if (name !== null && !name) throw new Error('Enter a name.');
+  if (name !== null && name.length > MAX_VERSION_NAME) throw new Error(`Use at most ${MAX_VERSION_NAME} characters.`);
+  const { error } = await supabase.from('document_versions').update({ name }).eq('id', id);
+  if (error) throw serviceError(error, 'Could not name the version.');
+  return name;
+}
+
+/** Every version is kept for this long; after that, session versions are thinned. */
+export const KEEP_ALL_DAYS = 30;
+
+/**
+ * The versions to delete: past 30 days, the "Edited" (session-end) versions
+ * of a day are cut to its last one. Named, AI-generation, before-restore and
+ * conflict versions are never thinned. Pure, so it is tested.
+ */
+export function versionsToThin(versions: Pick<VersionRow, 'id' | 'reason' | 'created_at' | 'name'>[], now: Date): string[] {
+  const cutoff = now.getTime() - KEEP_ALL_DAYS * 24 * 60 * 60 * 1000;
+  const lastOfDay = new Map<string, { id: string; at: number }>();
+  const candidates: { id: string; day: string }[] = [];
+  for (const v of versions) {
+    const at = Date.parse(v.created_at);
+    if (v.reason !== 'session_end' || v.name || !(at < cutoff)) continue;
+    const day = new Date(at).toISOString().slice(0, 10);
+    candidates.push({ id: v.id, day });
+    const last = lastOfDay.get(day);
+    if (!last || at > last.at) lastOfDay.set(day, { id: v.id, at });
+  }
+  return candidates.filter((c) => lastOfDay.get(c.day)?.id !== c.id).map((c) => c.id);
+}
+
+/** Thins the tab's old versions (after a session version was saved). */
+export async function thinVersions(fileId: string, tab: DocTab, now = new Date()): Promise<number> {
+  const ids = versionsToThin(await listVersions(fileId, tab), now);
+  if (ids.length === 0) return 0;
+  const { error } = await supabase.from('document_versions').delete().in('id', ids);
+  if (error) throw serviceError(error, 'Could not tidy the version history.');
+  return ids.length;
 }
 
 /** One version's document. */
@@ -553,5 +598,6 @@ registerSyncHandler<SaveVersionPayload>('save_version', {
   run: async (payload) => {
     await ensureDocumentOnServer(payload.fileId);
     await insertVersion(payload);
+    if (payload.reason === 'session_end') await thinVersions(payload.fileId, payload.tab).catch(() => {});
   },
 });

@@ -33,6 +33,7 @@ function fakeServer(initial: DocJSON, options: { queued?: boolean } = {}) {
     updatedAt: 't0',
     saves: 0,
     versions: [] as DocJSON[],
+    reasons: [] as string[],
     offline: false,
     failNext: false,
     duringSave: null as null | (() => void),
@@ -44,7 +45,7 @@ function fakeServer(initial: DocJSON, options: { queued?: boolean } = {}) {
   };
   s.api = {
     open: async () => ({ content: s.doc, updatedAt: s.updatedAt }),
-    save: async (base, next) => {
+    save: async (base, next, opts) => {
       s.saves++;
       if (s.failNext) {
         s.failNext = false;
@@ -53,7 +54,7 @@ function fakeServer(initial: DocJSON, options: { queued?: boolean } = {}) {
       s.duringSave?.();
       s.duringSave = null;
       if (options.queued) return { content: next, updatedAt: null, queued: true, lost: [] };
-      const edit = makeDocEdit({ id: `e${s.saves}`, device: 'laptop', base, next, now: 5000 });
+      const edit = makeDocEdit({ id: `e${s.saves}`, device: 'laptop', base, next, now: 5000, restamp: opts?.restamp });
       if (edit) {
         const merged = mergeDocEdit(s.doc, edit);
         if (merged.changed) s.write(merged.doc);
@@ -62,7 +63,10 @@ function fakeServer(initial: DocJSON, options: { queued?: boolean } = {}) {
       return { content: s.doc, updatedAt: s.updatedAt, queued: false, lost: [] };
     },
     stamp: async () => s.updatedAt,
-    saveVersion: async (content) => void s.versions.push(content),
+    saveVersion: async (content, reason) => {
+      s.versions.push(content);
+      s.reasons.push(reason);
+    },
     isOffline: () => s.offline,
     now: () => Date.now(),
   };
@@ -222,5 +226,23 @@ describe('a version at the end of each session', () => {
     jest.setSystemTime(Date.now() + BACKGROUND_VERSION_GAP_MS);
     await s.end('background');
     expect(server.versions.map(texts)).toEqual([['Dos'], ['Tres']]);
+  });
+});
+
+describe('restoring a version', () => {
+  it('keeps the current text first, then brings the old one back as a new edit', async () => {
+    const server = fakeServer(doc(p('a', 'Versión nueva', 9000), p('n', 'Añadido después', 9100)));
+    const editor = fakeEditor();
+    const { s, last } = session(editor, server);
+    await s.start();
+    const old = doc({ ...p('a', 'Versión vieja', 100), attrs: { blockId: 'a', origin: 'ai', editedAt: 100 } });
+    await s.restore(old);
+    expect(server.reasons).toEqual(['restore']);
+    expect(texts(server.versions[0])).toEqual(['Versión nueva', 'Añadido después']);
+    // The old text wins over the newer blocks it replaces (dated now), keeping its origin.
+    expect(texts(server.doc)).toEqual(['Versión vieja']);
+    expect(server.doc.content?.[0].attrs?.origin).toBe('ai');
+    expect(texts(editor.doc)).toEqual(['Versión vieja']);
+    expect(last().status).toBe('saved');
   });
 });

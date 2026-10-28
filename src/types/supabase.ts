@@ -121,14 +121,14 @@ isOneToOne: false
                   ]
                 },"document_versions": {
                   Row: {
-                    "content": NonNullable<Json>,"created_at": string,"document_id": string | null,"file_id": string | null,"id": string,"reason": string,"summary_id": string | null,"user_id": string
+                    "content": NonNullable<Json>,"created_at": string,"document_id": string | null,"file_id": string | null,"id": string,"name": string | null,"reason": string,"summary_id": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "content": NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"reason": string,"summary_id"?: string | null,"user_id"?: string
+                    "content": NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"name"?: string | null,"reason": string,"summary_id"?: string | null,"user_id"?: string
                   }
                   Update: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"reason"?: string,"summary_id"?: string | null,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"document_id"?: string | null,"file_id"?: string | null,"id"?: string,"name"?: string | null,"reason"?: string,"summary_id"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {

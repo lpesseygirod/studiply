@@ -39,10 +39,14 @@ export interface EditorPort {
 
 export interface SessionApi {
   open: () => Promise<{ content: DocJSON; updatedAt: string | null }>;
-  save: (base: DocJSON, next: DocJSON) => Promise<{ content: DocJSON; updatedAt: string | null; queued: boolean; lost: string[] }>;
+  save: (
+    base: DocJSON,
+    next: DocJSON,
+    options?: { restamp?: boolean },
+  ) => Promise<{ content: DocJSON; updatedAt: string | null; queued: boolean; lost: string[] }>;
   /** The server copy's updated_at (online only). */
   stamp: () => Promise<string | null>;
-  saveVersion: (content: DocJSON) => Promise<unknown>;
+  saveVersion: (content: DocJSON, reason: 'session_end' | 'restore') => Promise<unknown>;
   /** Offline on the iPhone: saves stay here ("Saved on this iPhone"). */
   isOffline: () => boolean;
   now?: () => number;
@@ -212,10 +216,34 @@ export class DocumentSession {
     this.changedSinceVersion = false;
     this.lastVersionAt = this.now();
     try {
-      await this.api.saveVersion(this.base);
+      await this.api.saveVersion(this.base, 'session_end');
     } catch {
       this.changedSinceVersion = true;
     }
+  }
+
+  /**
+   * Brings back an older version: the current text is kept first ("Before
+   * restore"), then the old one is saved as a new edit, dated now so it wins
+   * over anything older. Its blocks keep their origin.
+   */
+  async restore(doc: DocJSON): Promise<void> {
+    await this.flush();
+    const current = await this.editor.getJSON();
+    await this.api.saveVersion(current, 'restore');
+    const restored = withBlockIds(doc);
+    this.editor.loadDoc(restored);
+    this.set({ status: 'saving' });
+    const saved = await this.api.save(this.base, restored, { restamp: true });
+    this.changedSinceVersion = true;
+    if (saved.queued) {
+      this.base = restored;
+      this.set({ status: this.api.isOffline() ? 'local' : 'saving', error: null });
+      return;
+    }
+    await this.take(restored, saved.content);
+    if (saved.updatedAt) this.stampSeen = saved.updatedAt;
+    this.set({ status: 'saved', savedAt: this.now(), error: null });
   }
 
   stop(): void {

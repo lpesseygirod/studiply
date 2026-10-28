@@ -3,7 +3,7 @@
 // between, and what loses a conflict is kept as a version, once.
 
 import { onNextUpdate, resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';
-import { applyDocEdit, createDocument, getVersion, listVersions, openDocument, renameDocument, saveDocument, saveVersion } from '../document.service';
+import { applyDocEdit, createDocument, getVersion, listVersions, nameVersion, openDocument, renameDocument, saveDocument, saveVersion, thinVersions, versionsToThin } from '../document.service';
 import { makeDocEdit, type Block } from '../../editor/docBlocks';
 import type { DocJSON } from '../../editor/types';
 
@@ -110,5 +110,52 @@ describe('versions', () => {
     expect(list.map((v) => v.reason)).toEqual(['ai_generation', 'session_end']);
     expect(texts(await getVersion(list[1].id))).toEqual(['Tema 1', 'La conducta']);
     expect(rowsOf('document_versions').every((v) => v.document_id === 'doc-notes')).toBe(true);
+  });
+});
+
+describe('naming and thinning versions', () => {
+  const NOW = new Date('2026-12-15T12:00:00Z');
+  const v = (id: string, created_at: string, reason = 'session_end', name: string | null = null) => ({ id, created_at, reason, name });
+
+  it('keeps everything from the last 30 days, then the last edit of each day', () => {
+    const versions = [
+      v('recent-1', '2026-12-10T09:00:00Z'),
+      v('recent-2', '2026-12-10T10:00:00Z'),
+      v('old-morning', '2026-10-20T09:00:00Z'),
+      v('old-noon', '2026-10-20T12:00:00Z'),
+      v('old-evening', '2026-10-20T19:00:00Z'),
+      v('old-other-day', '2026-10-21T09:00:00Z'),
+    ];
+    expect(versionsToThin(versions, NOW).sort()).toEqual(['old-morning', 'old-noon']);
+  });
+
+  it('never thins named, AI, before-restore or conflict versions', () => {
+    const versions = [
+      v('named', '2026-10-20T08:00:00Z', 'session_end', 'Antes del examen'),
+      v('ai', '2026-10-20T08:30:00Z', 'ai_generation'),
+      v('restore', '2026-10-20T09:00:00Z', 'restore'),
+      v('conflict', '2026-10-20T09:30:00Z', 'conflict'),
+      v('edit-1', '2026-10-20T10:00:00Z'),
+      v('edit-2', '2026-10-20T11:00:00Z'),
+    ];
+    expect(versionsToThin(versions, NOW)).toEqual(['edit-1']);
+  });
+
+  it('names a version, removes the name, and a named one survives thinning', async () => {
+    serverDoc(BASE);
+    for (const [id, at, name] of [['n1', '2026-10-20T08:00:00Z', null], ['n2', '2026-10-20T09:00:00Z', null], ['n3', '2026-10-20T10:00:00Z', null]] as const) {
+      serverWrite('document_versions', { id, document_id: 'doc-notes', file_id: FILE, reason: 'session_end', content: BASE, name });
+      rowsOf('document_versions').find((r) => r.id === id)!.created_at = at;
+    }
+    expect(await nameVersion('n1', '  Antes   del examen ')).toBe('Antes del examen');
+    await expect(nameVersion('n2', '   ')).rejects.toThrow('Enter a name.');
+    await expect(nameVersion('n2', 'x'.repeat(101))).rejects.toThrow('Use at most 100 characters.');
+
+    expect(await thinVersions(FILE, 'notes', NOW)).toBe(1);
+    expect(rowsOf('document_versions').map((r) => r.id).sort()).toEqual(['n1', 'n3']);
+    expect((await listVersions(FILE, 'notes')).find((x) => x.id === 'n1')?.name).toBe('Antes del examen');
+
+    await nameVersion('n1', null);
+    expect(rowsOf('document_versions').find((r) => r.id === 'n1')?.name).toBeNull();
   });
 });

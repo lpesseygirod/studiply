@@ -10,6 +10,7 @@ import { PAGE_COLORS } from '../../../src/editor/editorCss';
 import { DocumentHeader } from '../../../src/components/editor/DocumentHeader';
 import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
 import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCard';
+import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
 import { anchorBelow, showAlert, type DialogButton } from '../../../src/components/dialogs/dialogs';
@@ -210,11 +211,12 @@ export default function DocumentScreen() {
     [file, isLecture, courseName, session?.status],
   );
 
+  const [historyOpen, setHistoryOpen] = useState(false);
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
     editorRef.current?.blur();
-    const extra: DialogButton[] = [];
+    const extra: DialogButton[] = showEditor ? [{ text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) }] : [];
     itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra });
   };
 
@@ -300,6 +302,9 @@ export default function DocumentScreen() {
         </View>
         {toast}
         {itemMenu.modal}
+        {file && (
+          <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
+        )}
       </View>
     );
   }
@@ -330,6 +335,9 @@ export default function DocumentScreen() {
       <View style={[styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       {toast}
       {itemMenu.modal}
+      {file && (
+        <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
+      )}
     </View>
   );
 }
