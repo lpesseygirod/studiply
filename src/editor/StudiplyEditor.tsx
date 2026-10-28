@@ -19,11 +19,12 @@ import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyBridges } from './bridges';
 import type { PasteReportState } from './bridges/pasteReport';
+import type { BlockMetaInstance } from './bridges/blockMeta';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 
-type Bridge = EditorBridge & TimestampChipInstance;
+type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance;
 type State = ReturnType<typeof useBridgeState> & Partial<TimestampChipState & PasteReportState>;
 
 const CSS_TAG = 'studiply';
@@ -41,7 +42,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, onReady, onChipPress, onPaste },
+  { initialContent, editable = true, header, onReady, onChange, onChipPress, onPaste },
   ref,
 ) {
   const { scheme } = useTheme();
@@ -51,6 +52,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     customSource: editorHtml,
     initialContent,
     avoidIosKeyboard: true,
+    editable,
     theme: scheme === 'dark' ? DARK_THEME : LIGHT_THEME,
   }) as Bridge;
   const state = useBridgeState(editor) as State;
@@ -63,8 +65,10 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     () => ({
       getJSON: async () => (await editor.getJSON()) as DocJSON,
       getText: () => editor.getText(),
-      setContent: (doc) => editor.setContent(doc),
+      loadDoc: (doc) => editor.loadDoc(doc),
+      applyBlocks: (doc) => editor.applyBlocks(doc),
       insertTimestampChip: (ms) => editor.insertTimestampChip(ms),
+      focus: () => editor.focus(),
       blur: () => editor.blur(),
     }),
     [editor],
@@ -73,6 +77,16 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   useEffect(() => {
     if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
   }, [state.isReady, editor]);
+
+  useEffect(() => {
+    if (state.isReady) editor.setEditable(editable);
+  }, [state.isReady, editable, editor]);
+
+  // The WebView says when the student changed the document (not for
+  // loadDoc / applyBlocks, which don't emit an update).
+  const changed = useRef(onChange);
+  changed.current = onChange;
+  useEffect(() => editor._subscribeToContentUpdate(() => changed.current?.()), [editor]);
 
   const readyOnce = useRef(false);
   useEffect(() => {
@@ -104,6 +118,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   // keyboard on the spike screen).
   return (
     <EditorKeyboardAvoidingView style={styles.container}>
+      {/* The title and meta line make room for the text while typing. */}
+      {!typing && header}
       <View style={styles.container}>
         <RichText editor={editor} />
       </View>

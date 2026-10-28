@@ -84,7 +84,7 @@ function EditorSpike() {
       if (!saved) return 'Nothing saved yet: Save on one device first.';
       const fetched = ms(fetchStart);
       const start = performance.now();
-      editor.current!.setContent(saved.content);
+      editor.current!.loadDoc(saved.content);
       const back = await editor.current!.getJSON();
       const same = sameDocument(back, saved.content);
       const time = new Date(saved.updatedAt).toLocaleTimeString();
@@ -95,7 +95,7 @@ function EditorSpike() {
     run('Load 20 pages', async () => {
       const doc = twentyPages();
       const start = performance.now();
-      editor.current!.setContent(doc);
+      editor.current!.loadDoc(doc);
       await editor.current!.getJSON();
       return `20 pages: ${wordCount(doc).toLocaleString()} words, ${chipCount(doc)} chips, ${kb(doc)} · in the editor in ${ms(start)}`;
     });
