@@ -38,6 +38,14 @@ ${pm} table { border-collapse: collapse; width: 100%; margin: 0.6em 0; table-lay
 ${pm} td, ${pm} th { border: 1px solid ${c.border}; padding: 6px 8px; vertical-align: top; }
 ${pm} th { background: ${c.cardMuted}; font-weight: 600; text-align: left; }
 ${pm} td p, ${pm} th p { margin: 0; }
+${pm} td, ${pm} th { position: relative; }
+${pm} .selectedCell::after { content: ''; position: absolute; inset: 0; background: ${c.accentLight}; opacity: 0.55; pointer-events: none; }
+${pm} .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px; background: ${c.accent}; pointer-events: none; }
+${pm}.resize-cursor { cursor: col-resize; }
+${pm} .ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
+${pm} .ProseMirror-gapcursor::after { content: ''; display: block; position: absolute; top: -2px; width: 20px; border-top: 1.5px solid ${c.accentDark}; animation: studiply-gap-blink 1.1s steps(2, start) infinite; }
+${pm}.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+@keyframes studiply-gap-blink { to { visibility: hidden; } }
 ${pm} .${CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; background: ${c.status.info.bg}; color: ${c.status.info.text}; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${pm} .${CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; }
 ${pm} p.is-editor-empty:first-child::before { color: ${c.text.placeholder}; }

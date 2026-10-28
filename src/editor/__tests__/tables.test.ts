@@ -59,7 +59,7 @@ describe('tables', () => {
     });
     return at;
   };
-  /** Position just inside cell (row, col) of a table without merged cells. */
+  /** Position of cell (row, col), just before it, in a table without merged cells. */
   const cellPos = (row: number, col: number) => {
     const t = editor.state.doc.nodeAt(tablePos())!;
     let pos = tablePos() + 1;
@@ -72,7 +72,7 @@ describe('tables', () => {
   const gone = () => !(editor.getJSON().content ?? []).some((n) => n.type === 'table');
 
   it.each([
-    ['the cursor in a cell', () => editor.commands.setTextSelection(cellPos(1, 1) + 1)],
+    ['the cursor in a cell', () => editor.commands.setTextSelection(cellPos(1, 1) + 2)],
     ['cells selected', () => select((d) => CellSelection.create(d, cellPos(0, 0), cellPos(1, 1)))],
     ['a whole row selected', () => select((d) => CellSelection.rowSelection(d.resolve(cellPos(1, 0))))],
     ['a whole column selected', () => select((d) => CellSelection.colSelection(d.resolve(cellPos(0, 2))))],
