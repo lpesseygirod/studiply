@@ -102,8 +102,19 @@ describe('the document schema', () => {
     for (const schema of [laptopSchema, iphoneSchema()]) {
       const doc = PMNode.fromJSON(schema, sample);
       doc.check();
-      expect(doc.toJSON()).toEqual(sample);
+      // The first pass adds the default attributes (block ids, origin); after that, nothing changes.
+      const once = doc.toJSON();
+      expect(PMNode.fromJSON(schema, once).toJSON()).toEqual(once);
+      expect(JSON.stringify(once)).toContain('"ms":252000');
+      expect(doc.textContent).toContain('parentesco filogenético');
     }
+  });
+
+  it('gives every top-level block an id, an origin and an edit time', () => {
+    for (const name of ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'image', 'table']) {
+      expect(Object.keys(laptopSchema.nodes[name].spec.attrs ?? {})).toEqual(expect.arrayContaining(['blockId', 'origin', 'editedAt']));
+    }
+    expect(laptopSchema.nodes.paragraph.spec.attrs?.origin.default).toBe('student');
   });
 
   it('refuses a node it does not know', () => {
