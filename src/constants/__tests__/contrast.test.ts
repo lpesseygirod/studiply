@@ -1,6 +1,6 @@
 // Every text/background pair the screens use, in both palettes (step 2.3).
 import { contrast } from '../../theme/contrast';
-import { DarkColors, LightColors, type ThemeColors } from '../colors';
+import { DarkColors, DocColors, LightColors, type ThemeColors } from '../colors';
 
 const TEXT = 4.5;
 const ICON = 3;
@@ -58,6 +58,15 @@ describe.each([
 ])('%s palette', (_name, palette) => {
   it.each(pairs(palette))('%s ≥ required ratio', (_label, fg, bg, min) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(min);
+  });
+});
+
+describe('the document page (always white, step 4.4)', () => {
+  it.each(DocColors.text.map((t) => [t.label, t.value]))('%s text on the page ≥ 4.5', (_label, value) => {
+    expect(contrast(value, LightColors.card)).toBeGreaterThanOrEqual(TEXT);
+  });
+  it.each(DocColors.highlight.map((h) => [h.label, h.value]))('text on the %s highlight ≥ 4.5', (_label, value) => {
+    expect(contrast(LightColors.text.primary, value)).toBeGreaterThanOrEqual(TEXT);
   });
 });
 

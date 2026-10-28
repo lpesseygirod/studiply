@@ -4,6 +4,7 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { FontFamily, FontSize } from '@tiptap/extension-text-style';
 
 import { formatState, runFormat, type FormatCommand, type FormatState } from '../format';
+import { PasteRules } from '../paste/extension';
 import { PageBreak, ParagraphFormat, Title, TITLE } from '../schema/blocks';
 
 /**
@@ -43,6 +44,7 @@ export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeI
   tiptapExtension: ParagraphFormat,
   tiptapExtensionDeps: [
     FormatShortcuts,
+    PasteRules,
     Title,
     PageBreak,
     FontFamily,

@@ -257,4 +257,30 @@ export const DarkColors: ThemeColors = {
   courseColors: light.courseColors,
 };
 
+/**
+ * The document page's own colours (step 4.4): the text colours and
+ * highlights of the formatting tools. The page is always white (editorCss),
+ * so there is one set for both appearances; every text colour reads on
+ * white and black text reads on every highlight (contrast test).
+ */
+export const DocColors = {
+  text: [
+    { key: 'grey', label: 'Grey', value: '#5F6368' },
+    { key: 'red', label: 'Red', value: '#C5221F' },
+    { key: 'orange', label: 'Orange', value: '#B45309' },
+    { key: 'green', label: 'Green', value: '#137333' },
+    { key: 'blue', label: 'Blue', value: '#1A56B5' },
+    { key: 'purple', label: 'Purple', value: '#6D28D9' },
+    { key: 'pink', label: 'Pink', value: '#B5176B' },
+  ],
+  highlight: [
+    { key: 'yellow', label: 'Yellow', value: '#FFF3A3' },
+    { key: 'green', label: 'Green', value: '#D3F5DB' },
+    { key: 'blue', label: 'Blue', value: '#D6E8FF' },
+    { key: 'pink', label: 'Pink', value: '#FFDCEB' },
+    { key: 'purple', label: 'Purple', value: '#E9DDFF' },
+    { key: 'orange', label: 'Orange', value: '#FFE2C4' },
+  ],
+} as const;
+
 export const Colors = LightColors;
