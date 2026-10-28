@@ -3,6 +3,7 @@ import { CHIP_CLASS } from './schema/timestampChip';
 import { DEFAULT_LINE_SPACING } from './schema/blocks';
 import { DEFAULT_FONT_CSS, DEFAULT_SIZE } from './schema/fonts';
 import { TABLE_BAR_CLASS } from './table/tableBar';
+import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -18,6 +19,7 @@ export function editorCss(scope = ''): string {
   const c = PAGE_COLORS;
   const pm = `${scope} .ProseMirror`.trim();
   const bar = `${scope} .${TABLE_BAR_CLASS}`.trim();
+  const handles = `${scope} .${TABLE_HANDLES_CLASS}`.trim();
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
 ${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
@@ -58,6 +60,12 @@ ${bar} button[aria-pressed='true'] { background: ${c.accentLight}; color: ${c.ac
 ${bar} button.danger { color: ${c.error}; }
 ${bar} .${TABLE_BAR_CLASS}-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid ${c.border}; }
 ${bar} .${TABLE_BAR_CLASS}-swatch.empty { background: ${c.card}; }
+${handles} { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+${handles} button { position: absolute; pointer-events: auto; padding: 0; border: 0; cursor: pointer; }
+${handles} .grip { border-radius: 4px; background: ${c.border}; opacity: 0.7; }
+${handles} .grip:hover { background: ${c.accent}; opacity: 1; }
+${handles} .plus { z-index: 1; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; }
+${handles} .plus:hover { transform: scale(1.15); }
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 `;
 }

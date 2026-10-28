@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 
 import { selectedTable } from './selection';
+import { HANDLE_ROOM } from './tableHandles';
 
 /**
  * The floating table bar (step 4.5, Lea: "table editing should happen on the
@@ -119,10 +120,12 @@ class TableBarView {
     const box = parent.getBoundingClientRect();
     const table = tableDom.getBoundingClientRect();
     const height = this.bar.offsetHeight;
+    // The laptop's column handles sit between the table and the bar.
+    const gap = this.editor.extensionManager.extensions.some((e) => e.name === 'tableHandles') ? HANDLE_ROOM + GAP : GAP;
     // Above the table while the page shows room for it there (over the line
     // before, as Google Docs); at the very top of the page, below it.
-    const fitsAbove = table.top - height - GAP >= visibleTop(parent);
-    this.bar.style.top = `${fitsAbove ? table.top - box.top - height - GAP : table.bottom - box.top + GAP}px`;
+    const fitsAbove = table.top - height - gap >= visibleTop(parent);
+    this.bar.style.top = `${fitsAbove ? table.top - box.top - height - gap : table.bottom - box.top + GAP}px`;
     this.bar.style.left = `${Math.max(0, table.left - box.left)}px`;
   }
 

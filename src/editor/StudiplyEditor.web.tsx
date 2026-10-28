@@ -11,6 +11,7 @@ import { FormatToolbar } from './FormatToolbar.web';
 import { LinkBubble } from './LinkBubble.web';
 import { TableMenus } from './TableMenus.web';
 import { selectedChipMs } from './schema/timestampChip';
+import { TableHandles } from './table/tableHandles';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 
 const SCOPE = 'studiply-editor';
@@ -33,7 +34,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const styles = useThemedStyles(makeStyles);
   const narrow = useWindowDimensions().width < 600;
   const [page, setPage] = useState<HTMLElement | null>(null);
-  const extensions = useMemo(() => studiplyExtensions(), []);
+  // The laptop adds the table's hover handles (the iPhone has no hover).
+  const extensions = useMemo(() => [...studiplyExtensions(), TableHandles], []);
   const lastChip = useRef<number | null>(null);
   const lastPaste = useRef(0);
 
