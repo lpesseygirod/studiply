@@ -64,8 +64,9 @@ ${handles} { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 ${handles} button { position: absolute; pointer-events: auto; padding: 0; border: 0; cursor: pointer; }
 ${handles} .grip { border-radius: 4px; background: ${c.border}; opacity: 0.7; }
 ${handles} .grip:hover { background: ${c.accent}; opacity: 1; }
-${handles} .plus { z-index: 1; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; }
-${handles} .plus:hover { transform: scale(1.15); }
+${handles} .plus { z-index: 1; display: flex; align-items: center; justify-content: center; background: transparent; }
+${handles} .plus span { width: 16px; height: 16px; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; pointer-events: none; }
+${handles} .plus:hover span { transform: scale(1.2); }
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 @media (max-width: 480px) { ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;

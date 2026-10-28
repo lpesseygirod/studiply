@@ -26,7 +26,10 @@ import { admin, makeUser, dropUser } from './testuser.mjs';
 const BASE = process.env.WEB_CHECK_URL ?? 'http://localhost:8123';
 const results = [];
 let b;
+// WEB_CHECK_ONLY=<part of a step's name> runs only the matching steps.
+const ONLY = process.env.WEB_CHECK_ONLY;
 const step = async (name, fn) => {
+  if (ONLY && !name.includes(ONLY)) return;
   try {
     await fn();
     results.push(['PASS', name]);
@@ -252,6 +255,71 @@ try {
     await b.sleep(300);
     await b.click('Delete column');
     expect(JSON.stringify(await tableSize()) === '[3,2]', `size ${await tableSize()}`);
+  });
+
+  await step('hover "+" with the real mouse: from a cell to the "+", it stays, it is 24 px, a click inserts', async () => {
+    const cell = (text) => ({ type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] });
+    const row = (r) => ({ type: 'tableRow', content: ['a', 'b', 'c'].map((c) => cell(`${c}${r}`)) });
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Antes' }] }, { type: 'table', content: ${JSON.stringify([1, 2, 3].map(row))} }, { type: 'paragraph' }] })`);
+    await b.sleep(300);
+    const geo = () => b.evaluate(`(() => { const t = document.querySelector('.ProseMirror table').getBoundingClientRect(); const rows = [...document.querySelectorAll('.ProseMirror tr')].map((tr) => { const r = tr.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }); const cols = [...document.querySelectorAll('.ProseMirror tr:first-child > *')].map((td) => { const r = td.getBoundingClientRect(); return { left: r.left, right: r.right }; }); return { left: t.left, top: t.top, right: t.right, bottom: t.bottom, rows, cols }; })()`);
+    // What is under the pointer: the "+" (its label and size), or nothing.
+    const under = (p) => b.evaluate(`(() => { const el = document.elementFromPoint(${p.x}, ${p.y})?.closest('.studiply-table-handles button'); if (!el) return null; const r = el.getBoundingClientRect(); return { label: el.getAttribute('aria-label'), width: r.width, height: r.height }; })()`);
+    // A hand doesn't go straight: the path goes through `via` (off the line, further than the old 12 px).
+    const reach = async (from, via, to, label) => {
+      let seen = false;
+      let lost = null;
+      const watch = (offset) => async (i) => {
+        const there = await has(label);
+        if (there) seen = true;
+        else if (seen && lost === null) lost = offset + i;
+      };
+      await b.mouseMove(from, via, { steps: 8, midway: watch(0) });
+      await b.mouseMove(via, to, { steps: 8, midway: watch(8) });
+      expect(lost === null, `"${label}" disappeared at step ${lost} of the way to it`);
+      await b.sleep(450);
+      const hit = await under(to);
+      expect(hit?.label === label, `under the pointer: ${JSON.stringify(hit)}, not "${label}"`);
+      expect(hit.width >= 24 && hit.height >= 24, `"${label}" is ${hit.width} × ${hit.height}`);
+    };
+
+    // A row: from a1, near the line under it, drifting up, then to the "+" on that line (aiming low on it).
+    let g = await geo();
+    const a1 = { x: (g.cols[0].left + g.cols[0].right) / 2, y: g.rows[0].bottom - 8 };
+    const rowPlus = { x: g.left - 10, y: g.rows[0].bottom + 6 };
+    await b.mouseMove({ x: a1.x - 40, y: a1.y }, a1, { steps: 3 });
+    await reach(a1, { x: g.left + 12, y: g.rows[0].bottom - 20 }, rowPlus, 'Insert row 2');
+    await b.shot('ins-table-plus-row-1280');
+    await b.pressHere(rowPlus);
+    expect(JSON.stringify(await tableSize()) === '[4,3]', `row: size ${await tableSize()}`);
+    expect((await table()).content[1].content[0].content[0].content === undefined, 'the new row is not row 2');
+
+    // A column: from b1, near the line on its left, drifting right, then up to the "+" on that line.
+    g = await geo();
+    const b1 = { x: g.cols[1].left + 8, y: (g.rows[0].top + g.rows[0].bottom) / 2 };
+    const colPlus = { x: g.cols[0].right - 5, y: g.top - 10 };
+    await b.mouseMove(rowPlus, b1, { steps: 6 });
+    await reach(b1, { x: g.cols[1].left + 22, y: g.top + 4 }, colPlus, 'Insert column 2');
+    await b.shot('ins-table-plus-col-1280');
+    await b.pressHere(colPlus);
+    expect(JSON.stringify(await tableSize()) === '[4,4]', `column: size ${await tableSize()}`);
+
+    // The last row's "+" sits on the table's bottom edge: aiming at its lower half (below the table).
+    g = await geo();
+    const lastRow = g.rows.at(-1);
+    const endPlus = { x: g.left - 10, y: g.bottom + 7 };
+    await b.mouseMove(colPlus, { x: g.left + 30, y: lastRow.bottom - 6 }, { steps: 6 });
+    await reach({ x: g.left + 30, y: lastRow.bottom - 6 }, { x: g.left + 4, y: g.bottom + 2 }, endPlus, 'Add row at the end');
+    await b.pressHere(endPlus);
+    expect(JSON.stringify(await tableSize()) === '[5,4]', `end row: size ${await tableSize()}`);
+
+    // Leaving the table and its handles: they stay a moment, then go.
+    g = await geo();
+    await b.mouseMove(endPlus, { x: g.right + 220, y: g.bottom + 160 }, { steps: 2, pauseMs: 0 });
+    const soon = await b.evaluate(`document.querySelectorAll('.studiply-table-handles button').length`);
+    await b.sleep(600);
+    const later = await b.evaluate(`document.querySelectorAll('.studiply-table-handles button').length`);
+    expect(soon > 0 && later === 0, `handles right after leaving: ${soon}, 0.6 s later: ${later}`);
   });
 
   await step('a table at the very top: Enter in its first cell, or ↑, makes a line above', async () => {

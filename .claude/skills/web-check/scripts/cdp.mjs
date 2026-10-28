@@ -166,6 +166,26 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await sleep(400);
     },
     /**
+     * Moves the mouse (no button held) from one point to another in steps,
+     * as a hand does: hover effects along the way see every position.
+     * `midway(i, { x, y })` runs after each step.
+     */
+    async mouseMove(from, to, { steps = 15, pauseMs = 30, midway } = {}) {
+      for (let i = 0; i <= steps; i++) {
+        const x = from.x + ((to.x - from.x) * i) / steps;
+        const y = from.y + ((to.y - from.y) * i) / steps;
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        await sleep(pauseMs);
+        if (midway) await midway(i, { x, y });
+      }
+    },
+    /** Presses and releases where the mouse already is (no move first). */
+    async pressHere({ x, y }, { button = 'left' } = {}) {
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button, clickCount: 1, buttons: button === 'right' ? 2 : 1 });
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button, clickCount: 1 });
+      await sleep(350);
+    },
+    /**
      * The browser's own drag and drop (HTML5), through Chrome's drag
      * interception. With `files` (paths on disk) it drops files as if they
      * came from Finder; otherwise it drags the element at `from`.

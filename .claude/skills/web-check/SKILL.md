@@ -135,6 +135,7 @@ node .claude/skills/web-check/scripts/documents.mjs
   - the floating bar (rows, columns, colour, header, ⋯ → Table size…, 60 lowered to 50);
   - right-click in a cell: delete row, delete column; drag across cells, merge, split;
   - hover handles: "+" between rows, a column grip then delete column;
+  - the "+" with the real mouse (`mouseMove` in small steps, drifting off the line like a hand): from a cell to the row "+", the column "+" and the last row's "+" from below the table; it must not disappear on the way, be under the pointer and 24 px, and insert when pressed there; leaving the table, the handles stay a moment (300 ms) then go;
   - a table at the very top: Enter in its first cell, then ↑ (the gap cursor), make a line above;
   - two copies open (a second Chrome on port 9334): a table deleted on one is gone on the other and stays gone after the other types;
   - the iPhone bundle reads the same table and draws the bar (the check copies the editor's styles into that page, as the app injects them).
@@ -144,6 +145,7 @@ Tools hidden behind ⌄ aren't in the page: open it (`More tools`) before clicki
 
 ```bash
 node .claude/skills/web-check/scripts/inserting.mjs
+WEB_CHECK_ONLY='real mouse' node .claude/skills/web-check/scripts/inserting.mjs   # only the steps whose name contains this
 ```
 
 ## Check formatting (step 4.4)
@@ -195,7 +197,7 @@ try {
 }
 ```
 
-Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(url)`, `waitText(text, {exact, timeout, exclude})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth, exclude})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `chord({ code, key, alt, shift, meta, ctrl, text })`, `doubleClick(text, {exact, nth, exclude})`, `mouseDrag(from, to, { steps, midway })`, `htmlDrag(from, to, { files, midway })`, `onEvent(method, fn)` (keys with modifiers, e.g. ⌥R is `{ code: 'KeyR', key: '®', alt: true }`), `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
+Driver API: `launch({ micWav, width, height })`, `resize(width, height)`, `nav(url)`, `waitText(text, {exact, timeout, exclude})`, `hasText(text, exact)`, `click(text, {button: 'right', holdMs, exact, nth, exclude})`, `clickAt(x, y)`, `clickSelector(css)`, `fill(css, text)`, `type(text)`, `press('Enter' | 'Escape' | 'Tab')`, `chord({ code, key, alt, shift, meta, ctrl, text })`, `doubleClick(text, {exact, nth, exclude})`, `mouseDrag(from, to, { steps, midway })`, `mouseMove(from, to, { steps, pauseMs, midway })` (no button held: hover effects see every position), `pressHere({ x, y })` (a click without moving first), `htmlDrag(from, to, { files, midway })`, `onEvent(method, fn)` (keys with modifiers, e.g. ⌥R is `{ code: 'KeyR', key: '®', alt: true }`), `shot(name)`, `evaluate(js)`, `errors()`, `dialogs` (native browser dialogs seen), `signIn(base, email, password)`.
 
 Check results in the database with `admin` (service role, local only), not just on screen.
 

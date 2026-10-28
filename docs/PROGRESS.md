@@ -481,6 +481,9 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Not possible here:** a long-press menu in a cell on the iPhone (a long press in text selects words and shows the magnifier); the bar does that job.
   - **Chrome:** `inserting.mjs` 7/7 (grid, shade, hex, Automatic; Recent colours on the account and from "another device"; ⌘K, completion, the bubble, an unsafe address refused; the second row remembered; tables; the iPhone bundle reads the same table; the narrow window). formatting.mjs (opens ⌄ first) and the other suites pass.
   - **Not checkable here:** the iPhone toolbar, the + and table panels and the colour panel. The iOS bundle builds; Lea tests them.
+- **Step 4.5, table retest (28 Oct): all passed except the hover "+" on the laptop**, which disappeared before it could be clicked. The "+" showed only while the pointer was within 12 px of a boundary, and only above or left of the table's own edges, so a hand drifting on its way (or aiming at the lower half of the last row's "+") lost it; the buttons were also rebuilt on every mouse move.
+  - **Fix** (`table/tableHandles.ts`): the pointer is followed on the whole page; the handles stay while it is over the table or a margin around it (the grips' side plus 16 px), and go 300 ms after it leaves; a "+" stays at its boundary until the pointer nears another; the buttons are rebuilt only when what they show changes; the "+" is a 24 px target around its 16 px circle.
+  - **Chrome:** `inserting.mjs` gains a step with the real mouse moving in small steps from a cell, drifting off the line, to each "+" (a row, a column, the last row's from below the table): the "+" never disappears on the way, it is under the pointer and 24 px, and pressing there inserts; leaving the table, the handles are still there at once and gone 0.6 s later. It failed on the old code ("disappeared at step 3") and passes now: 13/13.
 
 ## Things Lea must do
 
@@ -528,7 +531,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Step 4.5 — table retest (no new build).** Reload the app on the iPhone and the laptop page.
   - **Laptop:**
     1. Right-click a cell: every item works (insert, delete row / column / table, Header row, Cell colour…, Merge and Split after dragging across cells, Table size…).
-    2. Hover over a table: the grips select a row or column (then Delete or colour it); the "+" between rows and between columns inserts one.
+    2. Hover over a table: the grips select a row or column (then Delete or colour it); the "+" between rows and between columns inserts one. *(Retest after the fix: move from a cell to the "+" loosely, it must stay; also the last row's "+" and the last column's.)*
     3. The bar above the table: Rows, Columns, Colour, Header, ⋯ and Delete.
     4. Insert table: type 6 × 4; Table size… to change it (try 60: lowered to 50; shrinking over text asks first).
     5. A table on the last line: click below it or press ↓, then type. A table at the very top: Enter at the start of its first cell, or ↑, then type above it.
