@@ -30,6 +30,7 @@
 import type { JSONContent } from '@tiptap/core';
 
 import { withBlockIds } from './schema/blockMeta';
+import { ATTR_DEFAULTS } from './schema/defaults';
 import type { DocJSON } from './types';
 
 export type Block = JSONContent;
@@ -79,14 +80,22 @@ export interface DocMergeResult {
 export const idOf = (block: Block): string => String(block.attrs?.blockId ?? '');
 const timeOf = (block: Block | null | undefined): number => (typeof block?.attrs?.editedAt === 'number' ? block.attrs.editedAt : 0);
 
-/** JSON with sorted keys, so blocks compare equal after a round trip through Postgres. */
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+/**
+ * JSON with sorted keys, so blocks compare equal after a round trip through
+ * Postgres; attributes at their schema default, and empty `attrs` / `marks`,
+ * are left out, so content written without them equals the editor's copy.
+ */
+function canonical(value: unknown, defaults?: Record<string, unknown>): string {
+  if (Array.isArray(value)) return `[${value.map((v) => canonical(v)).join(',')}]`;
   if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined && v !== null)
+    const node = value as Record<string, unknown>;
+    const own = typeof node.type === 'string' ? ATTR_DEFAULTS[node.type] : undefined;
+    const entries = Object.entries(node)
+      .filter(([k, v]) => v !== undefined && v !== null && !(defaults && k in defaults && defaults[k] === v))
+      .map(([k, v]) => [k, canonical(v, k === 'attrs' ? own : undefined)] as const)
+      .filter(([k, v]) => !((k === 'attrs' && v === '{}') || (k === 'marks' && v === '[]')))
       .sort(([a], [b]) => a.localeCompare(b));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${v}`).join(',')}}`;
   }
   return JSON.stringify(value ?? null);
 }

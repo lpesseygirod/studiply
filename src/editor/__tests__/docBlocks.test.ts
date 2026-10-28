@@ -180,6 +180,32 @@ describe('rebase', () => {
     const sent = doc(p('a', 'Tema 1', null, 'ai'), p('b', 'Uno', 900));
     expect(rebase(sent, sent, sent)).toBeNull();
   });
+
+  // Test A: content written without the schema's defaults (pasted before 4.5,
+  // the AI) made a copy open elsewhere take every table for "typed here" and
+  // put a table deleted on the other device back.
+  it('takes a table deleted elsewhere when the content was written without the defaults', () => {
+    const cell = (text: string, attrs: object = {}, paragraph: object = {}) => ({ type: 'tableCell', attrs, content: [{ type: 'paragraph', attrs: paragraph, content: [{ type: 'text', text }] }] });
+    const tableOf = (attrs: object) => ({ type: 'table', attrs: { blockId: 't', ...attrs }, content: [{ type: 'tableRow', content: [cell('a1', attrs), cell('a2', attrs)] }] });
+    const sent = doc(p('a', 'Antes'), tableOf({}));
+    // The editor's copy: the same table with every default filled in.
+    const editorCopy = doc(
+      { ...p('a', 'Antes'), attrs: { blockId: 'a', origin: 'student', editedAt: null, indent: 0, textAlign: null } },
+      {
+        type: 'table',
+        attrs: { blockId: 't', origin: 'student', editedAt: null },
+        content: [{ type: 'tableRow', content: [cell('a1', { colspan: 1, rowspan: 1, colwidth: null }, { indent: 0, origin: 'student' }), cell('a2', { colspan: 1, rowspan: 1 }, { indent: 0 })] }],
+      },
+    );
+    expect(sameDoc(sent, editorCopy)).toBe(true);
+    const deleted = doc(p('a', 'Antes'));
+    expect(rebase(sent, editorCopy, deleted)?.content?.map((b) => b.type)).toEqual(['paragraph']);
+  });
+
+  it('still tells a real attribute change from a default', () => {
+    expect(sameDoc(doc({ ...p('a', 'Uno'), attrs: { blockId: 'a', indent: 1 } }), doc(p('a', 'Uno')))).toBe(false);
+    expect(sameDoc(doc({ ...p('a', 'Uno'), attrs: { blockId: 'a', origin: 'ai' } }), doc(p('a', 'Uno')))).toBe(false);
+  });
 });
 
 describe('restoring a version', () => {

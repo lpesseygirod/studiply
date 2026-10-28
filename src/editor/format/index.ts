@@ -1,5 +1,7 @@
 import type { CommandProps, Editor, JSONContent } from '@tiptap/core';
-import type { Node as PMNode } from '@tiptap/pm/model';
+import type { Node as PMNode, ResolvedPos } from '@tiptap/pm/model';
+import { NodeSelection, type EditorState } from '@tiptap/pm/state';
+import { CellSelection } from '@tiptap/pm/tables';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
@@ -153,23 +155,37 @@ export function formatState(editor: Editor): FormatState {
   };
 }
 
-/** Where the cursor is in a table, for the table menu and panel. */
-function tableState(editor: Editor): Pick<FormatState, 'inTable' | 'headerRow' | 'cellColor'> {
-  if (!editor.isActive('table')) return { inTable: false, headerRow: false, cellColor: null };
-  const { $from } = editor.state.selection;
-  let table: PMNode | null = null;
-  let cell: PMNode | null = null;
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (!cell && (node.type.name === 'tableCell' || node.type.name === 'tableHeader')) cell = node;
-    if (node.type.name === 'table') {
-      table = node;
-      break;
+/**
+ * The table the selection is in: a cursor or text inside one table, cells
+ * selected in it, or the table itself selected. Not a selection that only
+ * passes through a table (select all), where the table commands can't act.
+ */
+export function selectedTable(state: EditorState): { table: PMNode; pos: number; cell: PMNode | null } | null {
+  const { selection } = state;
+  if (selection instanceof NodeSelection && selection.node.type.name === 'table') return { table: selection.node, pos: selection.from, cell: null };
+  const around = ($pos: ResolvedPos) => {
+    let cell: PMNode | null = null;
+    for (let d = $pos.depth; d > 0; d--) {
+      const node = $pos.node(d);
+      if (!cell && (node.type.name === 'tableCell' || node.type.name === 'tableHeader')) cell = node;
+      if (node.type.name === 'table') return { table: node, pos: $pos.before(d), cell };
     }
-  }
-  const firstRow = table?.firstChild;
+    return null;
+  };
+  const from = around(selection.$from);
+  const to = around(selection.$to);
+  if (!from || !to || from.pos !== to.pos) return null;
+  const cell = selection instanceof CellSelection ? selection.$anchorCell.nodeAfter : from.cell;
+  return { ...from, cell };
+}
+
+/** Where the cursor is in a table, for the table bar, menus and panel. */
+function tableState(editor: Editor): Pick<FormatState, 'inTable' | 'headerRow' | 'cellColor'> {
+  const found = selectedTable(editor.state);
+  if (!found) return { inTable: false, headerRow: false, cellColor: null };
+  const firstRow = found.table.firstChild;
   const headerRow = !!firstRow && firstRow.childCount > 0 && Array.from({ length: firstRow.childCount }, (_, i) => firstRow.child(i)).every((c) => c.type.name === 'tableHeader');
-  return { inTable: true, headerRow, cellColor: (cell?.attrs.backgroundColor as string | null) ?? null };
+  return { inTable: true, headerRow, cellColor: (found.cell?.attrs.backgroundColor as string | null) ?? null };
 }
 
 /** Plain text as paragraphs (one per line; empty lines kept). */
