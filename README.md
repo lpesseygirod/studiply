@@ -156,6 +156,11 @@ The colour picker (`src/components/editor/ColorGrid.tsx`, `SpectrumPicker.tsx`) 
 
 Tables are edited on the table itself: the floating bar (`src/editor/table/tableBar.ts`, drawn by both editors; it asks each device for its menus), the laptop's right-click menu and bar menus (`TableMenus.web.tsx`) and hover handles (`table/tableHandles.ts`), and Table size… (`table/resize.ts`, up to 50 × 20). `schema/blockSpacing.ts` keeps a line to type in after every table (with a fixed id, so two devices add the same one) and adds the gap cursor. Blocks compare without attributes at their schema default (`schema/defaults.ts`), so content written without them isn't taken for an edit.
 
+Photos, formulas and comments (step 4.5, checkpoint B):
+- **Photos** are Studiply's `image` node (`schema/photo.ts`) with `src` `media:<id>`: a `media` row and a JPEG in the photos bucket (`doc-photo.service.ts`; the iPhone queues `upload_doc_photo`). Each editor resolves `media:` through `src/editor/media/photoSource.ts`: the laptop from a signed link, the iPhone's WebView by asking native through `bridges/photo.ts` (the phone's copy as a data URI, kept in `lib/photoCache`). Laptop: `photos.web.ts` (Image button, drop, paste).
+- **Formulas** are Tiptap's `inlineMath` / `blockMath` (`bridges/math.ts`, KaTeX), edited with `schema/formula.ts`'s `setFormula`: `FormulaPopover.web.tsx` on the laptop, `iphone/FormulaSheet.tsx` on the iPhone, both around `components/editor/FormulaForm.tsx`. The WebView bundle inlines KaTeX's woff2 fonts (a Vite plugin in `editor-web/vite.config.mts`); the laptop declares the TTF ones from assets (`katexFonts.web.ts`).
+- **Comments** are a `comment` mark (`schema/comments.ts`), so they travel with their block. Laptop: `Comments.web.tsx` (composer, margin, popover); the shell makes room for the margin (`components/shell/commentMargin.ts`). Both: the document menu's list (`components/editor/CommentsSheet.tsx`).
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`

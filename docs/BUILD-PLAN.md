@@ -81,7 +81,7 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Bold, italic, underline, strikethrough, text color, highlight | Toolbar above the keyboard, scrolls sideways | Full toolbar | 4 | v1 |
 | Bullet, numbered and checklists, alignment | Keyboard toolbar | Toolbar | 4 | v1 |
 | Paste from Google Docs or Word keeps the formatting | Yes | Yes | 4 | v1 |
-| Links, images, tables, formulas (KaTeX), comments | “+” insert menu | Toolbar buttons | 4 | v1 |
+| Links, images, tables, formulas (KaTeX), comments | “+” insert menu; keyboard-toolbar buttons for a selected photo, a link or a comment; formula and comment sheets | Toolbar buttons; photos dropped or pasted; comments in a margin beside the page | 4 | v1 |
 | Colour picker like Word's (shades, Recent colours synced across devices, More colours… spectrum, hex on the laptop) | Colour panel | Toolbar popovers | 4 | v1 |
 | Paste an image on the iPhone (the system paste into a document) | Paste | — | — | Later |
 | Select text → Ask Claude (explain simpler, example, go deeper, flashcard, rewrite) | Edit menu that pops up on selection | Floating menu on selection | 6 | v1 |

@@ -139,6 +139,9 @@ node .claude/skills/web-check/scripts/documents.mjs
   - a table at the very top: Enter in its first cell, then ↑ (the gap cursor), make a line above;
   - two copies open (a second Chrome on port 9334): a table deleted on one is gone on the other and stays gone after the other types;
   - the iPhone bundle reads the same table and draws the bar (the check copies the editor's styles into that page, as the app injects them).
+- **Part B (checkpoint B), photos:** the Image button through Chrome's file chooser (`chooseFiles`), then the `media` row, the Storage object and, after a reload, the picture from its signed link; a PNG dropped on the page (`htmlDrag` with files; it must not split the line it lands on) and a pasted screenshot (a `ClipboardEvent` with a `File`); a corner handle dragged (the width saved in %); the iPhone bundle's placeholder and its `photo-need` message (caught through a fake `ReactNativeWebView`). The test PNG is made by the script (`makePng`).
+- **Part B, formulas:** ∑, typing the compound-interest formula (one formula in the text, changed as it is typed), the preview, Display, Done, KaTeX's fonts loaded (none failed; KaTeX's own `@font-face` rules stay "unloaded" on the laptop because ours replace them); a click on a formula opens it, Remove; the iPhone bundle draws inline and display formulas with its fonts.
+- **Part B, comments:** at 1800 px (room for the margin with the assistant open) a comment's card sits level with its words, Resolve hides it; at 1280 ⌘⌥M, a click on the words opens the card, Edit, Delete (the app's confirmation); the document menu's Comments, with Resolved.
 - **Screenshots:** `ins-*.png`.
 
 Tools hidden behind ⌄ aren't in the page: open it (`More tools`) before clicking them. Seed documents through the editor (or with every default attribute): hand-written JSON without them behaves like content from outside, which is what the defaults fix is about.
