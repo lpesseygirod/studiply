@@ -130,10 +130,17 @@ node .claude/skills/web-check/scripts/documents.mjs
 - **Recent colours:** saved to the account's `profiles.preferences`, and a colour written there by "another device" (the service role) shows after a reload.
 - **Links:** ⌘K, `uned.es` completed, the bubble (Open · Edit · Remove), `javascript:` refused.
 - **The toolbar:** the ⌄ row remembered after a reload; in a narrow window, tools move into it.
-- **Tables:** the size grid, the Table menu; the iPhone bundle reads the same table.
+- **Tables (after test A), all with real clicks:**
+  - inserted on the last line with a typed size (6 × 4), then a click below it and typing;
+  - the floating bar (rows, columns, colour, header, ⋯ → Table size…, 60 lowered to 50);
+  - right-click in a cell: delete row, delete column; drag across cells, merge, split;
+  - hover handles: "+" between rows, a column grip then delete column;
+  - a table at the very top: Enter in its first cell, then ↑ (the gap cursor), make a line above;
+  - two copies open (a second Chrome on port 9334): a table deleted on one is gone on the other and stays gone after the other types;
+  - the iPhone bundle reads the same table and draws the bar (the check copies the editor's styles into that page, as the app injects them).
 - **Screenshots:** `ins-*.png`.
 
-Tools hidden behind ⌄ aren't in the page: open it (`More tools`) before clicking them.
+Tools hidden behind ⌄ aren't in the page: open it (`More tools`) before clicking them. Seed documents through the editor (or with every default attribute): hand-written JSON without them behaves like content from outside, which is what the defaults fix is about.
 
 ```bash
 node .claude/skills/web-check/scripts/inserting.mjs

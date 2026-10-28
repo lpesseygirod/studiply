@@ -72,7 +72,10 @@ class TableBarView {
     for (const b of BUTTONS) {
       const button = b.key === 'header' ? this.header : document.createElement('button');
       button.type = 'button';
-      button.textContent = b.text;
+      const text = document.createElement('span');
+      text.className = `${TABLE_BAR_CLASS}-text`;
+      text.textContent = b.text;
+      button.appendChild(text);
       button.setAttribute('aria-label', b.label);
       button.dataset.key = b.key;
       if (b.key === 'colour') button.prepend(this.swatch);
@@ -126,7 +129,9 @@ class TableBarView {
     // before, as Google Docs); at the very top of the page, below it.
     const fitsAbove = table.top - height - gap >= visibleTop(parent);
     this.bar.style.top = `${fitsAbove ? table.top - box.top - height - gap : table.bottom - box.top + GAP}px`;
-    this.bar.style.left = `${Math.max(0, table.left - box.left)}px`;
+    // Kept on the page (a phone is narrower than the bar's full width).
+    this.bar.style.maxWidth = `${box.width}px`;
+    this.bar.style.left = `${Math.max(0, Math.min(table.left - box.left, box.width - this.bar.offsetWidth))}px`;
   }
 
   destroy() {

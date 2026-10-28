@@ -154,6 +154,8 @@ The formatting tools are one set of commands and one state (`src/editor/format`)
 
 The colour picker (`src/components/editor/ColorGrid.tsx`, `SpectrumPicker.tsx`) is shared by both devices. Its Recent colours sync through `profiles.preferences` (`preferences.service.ts`, merged by time). Links (`format/links.ts`, `cleanUrl`), tables (`bridges/table.ts`, the `table` command) and the iPhone's + and table panels (`src/editor/iphone/InsertPanels.tsx`) build on the same commands as the formatting tools.
 
+Tables are edited on the table itself: the floating bar (`src/editor/table/tableBar.ts`, drawn by both editors; it asks each device for its menus), the laptop's right-click menu and bar menus (`TableMenus.web.tsx`) and hover handles (`table/tableHandles.ts`), and Table size… (`table/resize.ts`, up to 50 × 20). `schema/blockSpacing.ts` keeps a line to type in after every table (with a fixed id, so two devices add the same one) and adds the gap cursor. Blocks compare without attributes at their schema default (`schema/defaults.ts`), so content written without them isn't taken for an edit.
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`

@@ -53,7 +53,7 @@ ${pm}.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 ${pm} .${CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; background: ${c.status.info.bg}; color: ${c.status.info.text}; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${pm} .${CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; }
 ${pm} p.is-editor-empty:first-child::before { color: ${c.text.placeholder}; }
-${bar} { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; background: ${c.card}; border: 1px solid ${c.border}; box-shadow: 0 4px 14px ${c.scrim}; font-family: -apple-system, system-ui, sans-serif; }
+${bar} { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; box-sizing: border-box; overflow-x: auto; scrollbar-width: none; background: ${c.card}; border: 1px solid ${c.border}; box-shadow: 0 4px 14px ${c.scrim}; font-family: -apple-system, system-ui, sans-serif; }
 ${bar} button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: ${c.text.primary}; font: 600 13px/1 -apple-system, system-ui, sans-serif; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
 ${bar} button:hover { background: ${c.cardMuted}; }
 ${bar} button[aria-pressed='true'] { background: ${c.accentLight}; color: ${c.accentDark}; }
@@ -67,5 +67,6 @@ ${handles} .grip:hover { background: ${c.accent}; opacity: 1; }
 ${handles} .plus { z-index: 1; border-radius: 8px; background: ${c.accentDark}; color: ${c.accentOn}; font: 700 13px/16px -apple-system, system-ui, sans-serif; text-align: center; }
 ${handles} .plus:hover { transform: scale(1.15); }
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
+@media (max-width: 480px) { ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;
 }

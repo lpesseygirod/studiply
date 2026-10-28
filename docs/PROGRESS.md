@@ -36,7 +36,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [x] 4.2 — Spike: one editor, two platforms (TenTap + Tiptap, shared schema, timestamp chip) — passed on the iPhone 28 Oct after three fixes (no new build); report and recommendation in Decisions
 - [x] 4.3 — Documents that save themselves (lecture documents with 3 tabs + blank documents anywhere, ProseMirror JSON, autosave, offline writing on iPhone with sync, versions, block origin) — passed Lea's iPhone test 28 Oct, after the restore fix (`c0287ac`)
 - [x] 4.4 — Formatting toolbar (web full + iPhone keyboard toolbar; paste from Google Docs/Word keeps formatting) — passed Lea's test 28 Oct; alignment then made visible (four buttons on the laptop, a labelled row in Aa) and spelled "Centre"
-- [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments) — checkpoint A (colour picker, links, tables, the one-row toolbar) built and checked in Chrome 28 Oct; waits for Lea's test A, then checkpoint B (photos, formulas, comments)
+- [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments) — checkpoint A (colour picker, links, tables, the one-row toolbar) built 28 Oct; test A: colours, links and toolbar passed, tables reworked after it (editing on the table, delete and typing bugs); waits for Lea's table retest, then checkpoint B (photos, formulas, comments)
 - [ ] 4.6 — Studiply blocks (callouts, timestamp chips, mark chips)
 - [ ] 4.7 — Writing tools (find & replace, word count, heading outline, page setup)
 - [ ] 4.8 — Import and export (.docx import; PDF and .docx export)
@@ -473,6 +473,12 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   - **Found and fixed along the way:**
     - The block-meta plugin's follow-up transaction dropped the marks set for the next typed text (found by the link test).
     - Pressing the link bubble blurred the text and hid the bubble before the click landed (found by the check).
+- **Step 4.5, after test A (28 Oct): tables reworked.** Lea: colours, links and the toolbar passed; "Delete table doesn't work" (iPhone and web), "I can't type after a table at the end", editing should happen on the table itself, rows × columns typed, a hex field on the iPhone.
+  - **Why Delete table looked broken** (found in Chrome, two copies open): a copy of the document open elsewhere compared its editor's content with what it last received; content written without the schema's defaults (`colspan: 1`, `indent: 0`…, e.g. pasted before 4.5, the AI later) made every table look "typed here", so that copy refused the deletion and its next save brought the table back. Blocks now compare without default attributes (`schema/defaults.ts`, checked against the real schema by a test). Also: with select all, the table tools showed but couldn't act (now hidden); "Table ▾" was easy to miss behind ⌄ (now on the table).
+  - **Room to type** (`schema/blockSpacing.ts`): a paragraph after every table and at the end (a system change with a fixed id, `<table id>-after`, so two devices adding it make one block); the gap cursor; Enter at the start of a top table's first cell adds a line above.
+  - **On the table:** the floating bar (`table/tableBar.ts`, both editors), the laptop's right-click menu and bar menus (`TableMenus.web.tsx`), the laptop's hover handles (`table/tableHandles.ts`), merge and split, Table size… (`table/resize.ts`, up to 50 × 20, asks before removing text). "Table ▾" left the main toolbar.
+  - **iPhone:** the bar's menus as action sheets and the table panel; numbers typed on the number pad and colour codes with letters and numbers, through the app's prompt (the panels sit where the keyboard goes, so a field in them can't bring one up).
+  - **Not possible here:** a long-press menu in a cell on the iPhone (a long press in text selects words and shows the magnifier); the bar does that job.
   - **Chrome:** `inserting.mjs` 7/7 (grid, shade, hex, Automatic; Recent colours on the account and from "another device"; ⌘K, completion, the bubble, an unsafe address refused; the second row remembered; tables; the iPhone bundle reads the same table; the narrow window). formatting.mjs (opens ⌄ first) and the other suites pass.
   - **Not checkable here:** the iPhone toolbar, the + and table panels and the colour panel. The iOS bundle builds; Lea tests them.
 
@@ -517,9 +523,22 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Step 4.5 — test A (no new build).** `npm run start:local`, reload the app on the iPhone (shake → Reload) and the laptop page.
   1. **Colours:** text colour, highlight and a table cell's colour from the grid (a shade), from Recent colours, and from More colours… (the spectrum; a hex on the laptop), on both devices. A colour picked on the laptop shows in Recent on the iPhone, and the other way.
   2. **Links:** ⌘K on the laptop (try "uned.es"), the bubble's Open / Edit / Remove; on the iPhone the Link button, then Open / Edit / Remove on a link.
-  3. **Tables:** on the iPhone, + → Table 3 × 3, then add a row and a column, Header row, a cell colour. It looks right on the laptop; drag a column wider there; the Table menu there too.
+  3. **Tables:** on the iPhone, + → Table 3 × 3, then add a row and a column, Header row, a cell colour. It looks right on the laptop; drag a column wider there. *(Passed except tables; see the table retest.)*
   4. **Toolbar:** the laptop's ⌄ row (open after a reload if you left it open); narrow the window and watch tools move into it. On the iPhone, ⋯ for the second row (remembered).
-- **Step 4.5 — the recent-colours migration on the remote project.** `20261026090900_profile_preferences.sql` is applied locally only. Before `start:remote`, it goes to the remote after a dry run and your OK.
+- **Step 4.5 — table retest (no new build).** Reload the app on the iPhone and the laptop page.
+  - **Laptop:**
+    1. Right-click a cell: every item works (insert, delete row / column / table, Header row, Cell colour…, Merge and Split after dragging across cells, Table size…).
+    2. Hover over a table: the grips select a row or column (then Delete or colour it); the "+" between rows and between columns inserts one.
+    3. The bar above the table: Rows, Columns, Colour, Header, ⋯ and Delete.
+    4. Insert table: type 6 × 4; Table size… to change it (try 60: lowered to 50; shrinking over text asks first).
+    5. A table on the last line: click below it or press ↓, then type. A table at the very top: Enter at the start of its first cell, or ↑, then type above it.
+  - **iPhone:**
+    1. Tap in a table: the bar shows above it. Rows, Columns and ⋯ open sheets; Colour opens the colour panel; Delete removes the table (Undo brings it back).
+    2. + → Table: tap a number and type 6 × 4.
+    3. More colours…: Type code, then `1a7f5a` (with or without #).
+    4. Typing after a table, and above one at the top, as on the laptop.
+    5. Delete a table on the laptop while the iPhone has the document open: it goes on both and stays gone.
+- **Step 4.5 — the recent-colours migration on the remote project.** `20261026090900_profile_preferences.sql` is applied locally only; the dry run shows only it, and Lea said OK to push (28 Oct). The push was blocked by Claude Code's safety check, so Lea runs it: `supabase db push --linked`, then `supabase migration list --linked`.
 - **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch.
 
 ## Known issues
