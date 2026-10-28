@@ -25,14 +25,16 @@ import { editorCss, PAGE_COLORS } from './editorCss';
 import { cleanUrl, type FormatCommand } from './format';
 import { promptText, showAlert } from '../components/dialogs/dialogs';
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
-import { KeyboardToolbar } from './iphone/KeyboardToolbar';
+import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
+import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 
 type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance;
 type State = ReturnType<typeof useBridgeState> & Partial<TimestampChipState & PasteReportState & FormatBridgeState>;
 
-const PANELS = [AaKeyboard, ColorKeyboard];
-const PANEL_IDS = { aa: AA_PANEL, colors: COLOR_PANEL } as const;
+const PANELS = [AaKeyboard, ColorKeyboard, InsertKeyboard, TableKeyboard];
+const PANEL_IDS: Record<Panel, string> = { aa: AA_PANEL, colors: COLOR_PANEL, insert: INSERT_PANEL, table: TABLE_PANEL };
+const panelOf = (id: string | undefined) => (Object.keys(PANEL_IDS) as Panel[]).find((k) => PANEL_IDS[k] === id);
 
 const CSS_TAG = 'studiply';
 const CSS = editorCss();
@@ -69,7 +71,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   // The toolbar shows while typing, and over the Aa / colour panels.
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
-  const openPanel = (which: 'aa' | 'colors') => setPanel((open) => (open === PANEL_IDS[which] ? undefined : PANEL_IDS[which]));
+  const openPanel = (which: Panel) => setPanel((open) => (open === PANEL_IDS[which] ? undefined : PANEL_IDS[which]));
   const done = () => {
     setPanel(undefined);
     editor.blur();
@@ -86,6 +88,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     if (!href) showAlert('Not a link', "That isn't an address a link can open.");
     else run({ type: 'link', href });
   };
+  const panelActions = { addLink: () => void addLink() };
 
   useImperativeHandle(
     ref,
@@ -154,14 +157,16 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         <KeyboardToolbar
           state={state.format}
           run={run}
-          panel={panel === AA_PANEL ? 'aa' : panel === COLOR_PANEL ? 'colors' : undefined}
+          panel={panelOf(panel)}
           onPanel={openPanel}
           onDone={done}
           onLink={addLink}
           onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
         />
       )}
-      <CustomKeyboard editor={editor} keyboards={PANELS} activeKeyboardID={panel} setActiveKeyboardID={setPanel} rootBackground={colors.cardMuted} />
+      <PanelActions.Provider value={panelActions}>
+        <CustomKeyboard editor={editor} keyboards={PANELS} activeKeyboardID={panel} setActiveKeyboardID={setPanel} rootBackground={colors.cardMuted} />
+      </PanelActions.Provider>
     </EditorKeyboardAvoidingView>
   );
 });
