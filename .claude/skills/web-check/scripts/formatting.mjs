@@ -83,6 +83,8 @@ try {
   await waitEditor();
   await b.sleep(2500);
   await b.clickSelector('.studiply-editor .ProseMirror');
+  // The second row (align, spacing, indent, strikethrough, checklist…; step 4.5).
+  await click('More tools');
 
   await step('toolbar: text style, font, size', async () => {
     await fresh();
