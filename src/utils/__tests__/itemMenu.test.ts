@@ -23,6 +23,10 @@ describe('itemActions', () => {
     expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'export', 'delete']);
     expect(inFolder('pdf')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete']);
     expect(inFolder('image')).toEqual(inFolder('pdf'));
+    // Documents (step 4.3): as a PDF, without Copy for now.
+    expect(inFolder('document')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete']);
+    expect(itemNoun('document')).toBe('Document');
+    expect(movableItem(item({ type: 'document', folderId: 'f' }))).toMatchObject({ type: 'file', folderId: 'f' });
   });
 
   it('Move out only for an item inside a folder', () => {

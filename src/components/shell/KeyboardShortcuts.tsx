@@ -10,6 +10,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { isDialogOpen, showAlert } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
 import { recordHref, registerShellCommand, runShellCommand, useShell } from './ShellContext';
+import { newDocumentIn } from '../../utils/newDocument';
 
 /**
  * The web app's keyboard shortcuts (src/lib/shortcuts.ts) and the sheet
@@ -59,7 +60,7 @@ export function KeyboardShortcuts() {
           if (!runShellCommand('newFolder')) showAlert('New folder', 'Open a course to make a folder in it.');
           break;
         case 'newDocument':
-          showAlert('New document', 'New documents come with the editor. Coming soon.');
+          void newDocumentIn(router, { courseId: location?.courseId ?? null, folderId: location?.folderId ?? null });
           break;
         case 'focusSearch':
           if (!runShellCommand('focusSearch')) router.navigate('/search');

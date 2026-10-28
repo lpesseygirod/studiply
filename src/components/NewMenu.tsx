@@ -6,6 +6,7 @@ import { notifyLibraryUpdated } from '../lib/cache';
 import { NewCourseDialog } from './NewCourseDialog';
 import { showActionSheet, type Anchor, type DialogButton } from './dialogs/dialogs';
 import { hasShellCommand, recordHref, runShellCommand, useShell } from './shell/ShellContext';
+import { newDocumentIn } from '../utils/newDocument';
 
 /**
  * The "+ New" menu (Lea, like Google Drive's New): a small menu next to the
@@ -33,7 +34,7 @@ export function useNewMenu() {
         folder: () => runShellCommand('newFolder'),
         upload: () => runShellCommand('upload'),
         record: () => router.navigate(recordHref(location)),
-        document: () => {},
+        document: () => void newDocumentIn(router, { courseId: location?.courseId ?? null, folderId: location?.folderId ?? null }),
       };
       const buttons: DialogButton[] = newMenuItems({
         folder: hasShellCommand('newFolder'),

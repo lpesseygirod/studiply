@@ -69,6 +69,7 @@ import { getClip, setClip } from '../../../src/lib/clipboard';
 import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { newDocumentIn } from '../../../src/utils/newDocument';
 import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
 import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
 import { getCourseContents, markOpened } from '../../../src/services/shelf.service';
@@ -314,7 +315,7 @@ export default function ProjectDetailScreen() {
 
   const handleSessionPress = (session: Session) => {
     if (session.status === 'completed') {
-      router.push(`/note/${session.id}`);
+      router.push({ pathname: '/doc/[id]', params: { id: session.id, tab: 'summary' } });
     } else {
       router.push({
         pathname: '/record/post-session',
@@ -629,9 +630,13 @@ export default function ProjectDetailScreen() {
       showAlert('Waiting to upload', 'This file opens once it has been uploaded.');
       return;
     }
+    if (item.type === 'document') {
+      router.push(`/doc/${item.id}`);
+      return;
+    }
     const file = libraryFiles.find(f => f.id === item.id);
     if (file) return openLibraryFile(file);
-    showAlert(item.title, 'This kind of file opens with the editor. Coming soon.');
+    showAlert(item.title, 'This kind of file opens in a later update.');
   }
 
   function entryMenu(item: ShelfItem, anchor?: Anchor) {
@@ -671,7 +676,7 @@ export default function ProjectDetailScreen() {
     const paste = pasteLabel(clip && { mode: clip.mode, title: clip.item.title });
     const run: Record<SpaceAction, () => void> = {
       newFolder: startNewFolder,
-      newDocument: () => {},
+      newDocument: () => void newDocumentIn(router, { courseId: id ?? null, folderId: currentFolderId }),
       record: recordHere,
       upload: chooseUpload,
       takePhoto: handleTakePhoto,
@@ -679,7 +684,6 @@ export default function ProjectDetailScreen() {
       sort: () => showSortMenu(libraryPrefs.sort, sort => setLibraryPrefs({ sort }), anchor),
     };
     const button = (action: SpaceAction): DialogButton => {
-      if (action === 'newDocument') return { text: SPACE_LABELS.newDocument, disabled: true, hint: 'Coming soon' };
       if (action === 'paste') return paste.hint ? { text: paste.text, disabled: true, hint: paste.hint } : { text: paste.text, onPress: run.paste };
       if (action === 'record') return { text: SPACE_LABELS.record, accessibilityLabel: 'Record lecture here', onPress: run.record };
       return { text: SPACE_LABELS[action], onPress: run[action] };

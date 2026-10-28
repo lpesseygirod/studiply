@@ -175,9 +175,10 @@ export function byStarred(a: ShelfItem, b: ShelfItem): number {
 }
 
 /**
- * The screen an item opens. A lecture opens its notes once they exist, and
- * post-session before that (as on Library). PDFs, images and the kinds
- * without a screen of their own yet open their course at their folder.
+ * The screen an item opens. A document opens in the editor; a lecture opens
+ * as a document on its Summary tab once processed, and post-session before
+ * that (as on Library). PDFs, images and the kinds without a screen of
+ * their own yet open their course at their folder.
  */
 export function openTarget(item: ShelfItem): Href {
   switch (item.type) {
@@ -190,6 +191,8 @@ export function openTarget(item: ShelfItem): Href {
     case 'lecture_photo':
     case 'lecture_pdf':
       return lectureTarget(item.lectureId ?? '', item.lectureTitle ?? '', item.status);
+    case 'document':
+      return `/doc/${item.id}`;
     default:
       return courseAt(item.courseId, item.folderId);
   }
@@ -197,7 +200,7 @@ export function openTarget(item: ShelfItem): Href {
 
 function lectureTarget(id: string, title: string, status: Session['status'] | undefined): Href {
   return status === 'completed'
-    ? `/note/${id}`
+    ? { pathname: '/doc/[id]', params: { id, tab: 'summary' } }
     : { pathname: '/record/post-session', params: { sessionId: id, title } };
 }
 

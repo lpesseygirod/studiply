@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { AppState, Platform } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import { DocumentSession, type SessionState } from '../editor/documentSession';
 import { formatSaved } from '../utils/shelf';
@@ -38,6 +39,19 @@ export function useDocumentSync(params: {
   const { fileId, tab, editor, editorReady } = params;
   const [state, setState] = useState<SessionState>(INITIAL);
   const session = useRef<DocumentSession | null>(null);
+  // Tab screens stay mounted when the student goes elsewhere: losing focus
+  // is leaving the document (a version; no checking for changes meanwhile).
+  const focused = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      void session.current?.refresh();
+      return () => {
+        focused.current = false;
+        void session.current?.end('leave');
+      };
+    }, []),
+  );
 
   useEffect(() => {
     if (!fileId || !editorReady) return;
@@ -61,7 +75,9 @@ export function useDocumentSync(params: {
     session.current = s;
     void s.start();
 
-    const poll = setInterval(() => void s.poll(), POLL_MS);
+    const poll = setInterval(() => {
+      if (focused.current) void s.poll();
+    }, POLL_MS);
 
     // The app (iPhone) or the browser tab (laptop) going away ends a session.
     const appState = AppState.addEventListener('change', (next) => {

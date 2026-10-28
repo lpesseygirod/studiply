@@ -23,7 +23,7 @@ export function newMenuItems(can: { folder: boolean; upload: boolean }): NewMenu
     { action: 'folder', text: 'New folder', icon: 'folder-outline', ...(!can.folder && { disabled: true, hint: needsCourse }) },
     { action: 'upload', text: 'Upload document', icon: 'cloud-upload-outline', ...(!can.upload && { disabled: true, hint: needsCourse }) },
     { action: 'record', text: 'Record', icon: 'mic-outline', accessibilityLabel: 'Record lecture' },
-    { action: 'document', text: 'New document', icon: 'create-outline', disabled: true, hint: 'Coming soon' },
+    { action: 'document', text: 'New document', icon: 'create-outline' },
   ];
 }
 

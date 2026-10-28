@@ -67,7 +67,8 @@ describe('openTarget', () => {
   it('opens each kind where it lives', () => {
     expect(openTarget(item({ type: 'course', id: 'math' }))).toBe('/project/math');
     expect(openTarget(item({ type: 'folder', id: 'f2' }))).toEqual({ pathname: '/project/[id]', params: { id: 'math', folder: 'f2' } });
-    expect(openTarget(item({ type: 'lecture', status: 'completed' }))).toBe('/note/x');
+    expect(openTarget(item({ type: 'lecture', status: 'completed' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'summary' } });
+    expect(openTarget(item({ type: 'document' }))).toBe('/doc/x');
     expect(openTarget(item({ type: 'lecture', status: 'draft' }))).toEqual({
       pathname: '/record/post-session',
       params: { sessionId: 'x', title: 'X' },
@@ -114,7 +115,7 @@ describe('photos and PDFs inside a lecture', () => {
   it('show with their lecture and open it', () => {
     const item = lectureMediaShelfItem({ ...photos[2], starred_at: T }, photos, lectureFile, { status: 'ready' } as LectureRow);
     expect(item).toMatchObject({ type: 'lecture_photo', title: 'Photo 2 · Clase 1', lectureId: 'l1', starredAt: T, courseId: 'math' });
-    expect(openTarget(item)).toBe('/note/l1');
+    expect(openTarget(item)).toEqual({ pathname: '/doc/[id]', params: { id: 'l1', tab: 'summary' } });
     const pdf = lectureMediaShelfItem(photos[1], photos, lectureFile, { status: 'transcribing' } as LectureRow);
     expect(pdf.type).toBe('lecture_pdf');
     expect(openTarget(pdf)).toEqual({ pathname: '/record/post-session', params: { sessionId: 'l1', title: 'Clase 1' } });

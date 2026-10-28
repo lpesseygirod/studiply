@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -65,7 +65,7 @@ export default function DocumentScreen() {
   const params = useLocalSearchParams<{ id: string; tab?: string; created?: string }>();
   const id = params.id;
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
+  const { colors: c, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const wide = useLayoutMode() === 'wide';
@@ -124,17 +124,32 @@ export default function DocumentScreen() {
     if (id) markOpened(id);
   }, [id]);
 
-  // A lecture's Summary and Transcript tabs: a document, or what's there instead.
-  const lectureStatus = session?.status;
+  // A new document opens with its title selected, once (not again after going back to it).
+  const created = params.created === '1';
   useEffect(() => {
-    if (!file || !id) return;
+    if (!created) return;
+    const t = setTimeout(() => router.setParams({ created: undefined }), 1500);
+    return () => clearTimeout(t);
+  }, [created, router]);
+
+  // A lecture's Summary and Transcript tabs: a document, or what's there
+  // instead. Worked out when the tab (or what it depends on) changes, not
+  // on every reload of the file (a rename must not remount the editor).
+  const lectureStatus = session?.status;
+  const kind = file?.kind;
+  const hasNote = !!note;
+  const shownTab = useRef<string | null>(null);
+  useEffect(() => {
+    if (!kind || !id) return;
     let live = true;
-    setTabState('loading');
+    const key = `${id}:${tab}`;
+    if (shownTab.current !== key) setTabState('loading');
+    shownTab.current = key;
     (async () => {
-      if (file.kind !== 'lecture' || tab === 'notes') return 'document' as const;
+      if (kind !== 'lecture' || tab === 'notes') return 'document' as const;
       const opened = await openDocument(id, tab).catch(() => null);
       if (opened?.id) return 'document' as const;
-      if (tab === 'summary') return note ? ('earlier' as const) : ('none' as const);
+      if (tab === 'summary') return hasNote ? ('earlier' as const) : ('none' as const);
       const transcript = await getTranscriptBySession(id).catch(() => null);
       const segments = Array.isArray(transcript?.segments) ? (transcript.segments as unknown as { start: number; text: string }[]) : [];
       if (segments.length === 0) return 'none' as const;
@@ -146,7 +161,7 @@ export default function DocumentScreen() {
     return () => {
       live = false;
     };
-  }, [file, id, tab, note, lectureStatus]);
+  }, [kind, id, tab, hasNote, lectureStatus]);
 
   // The editor, one per tab; its autosave starts once it is ready.
   const editorRef = useRef<StudiplyEditorHandle>(null);
@@ -204,9 +219,10 @@ export default function DocumentScreen() {
   };
 
   const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : 'Document'} · ${metaDate(file.created_at)}` : '';
-  const header = file ? (
-    <DocumentHeader title={file.title} meta={meta} onRename={rename} selectTitle={params.created === '1'} compact={!wide} />
-  ) : null;
+  // The iPhone's editor is a WebView under the header, so the header keeps its own margins there.
+  const nativeEditor = Platform.OS !== 'web';
+  const makeHeader = (inset: boolean) =>
+    file ? <DocumentHeader title={file.title} meta={meta} onRename={rename} selectTitle={created} compact={!wide} inset={inset} /> : null;
 
   const lostNotice =
     sync.state.lost.length > 0 ? (
@@ -221,7 +237,7 @@ export default function DocumentScreen() {
   // The page when the tab has no document: the header and what's there instead.
   const placeholder = (
     <ScrollView style={styles.page} contentContainerStyle={[styles.pageContent, !wide && styles.pageContentCompact]}>
-      {header}
+      {makeHeader(false)}
       {tabState === 'earlier' && note && (
         <EarlierNotesCard
           label="Notes in the earlier format"
@@ -245,12 +261,12 @@ export default function DocumentScreen() {
   const body = !file ? (
     <View style={styles.center}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
   ) : showEditor ? (
-    <View style={[styles.editorWrap, !wide && styles.pageCard]}>
+    <View style={[styles.editorWrap, !wide && nativeEditor && styles.pageCard]}>
       {lostNotice}
       <StudiplyEditor
         key={editorKey}
         ref={editorRef}
-        header={header}
+        header={makeHeader(nativeEditor)}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
       />
@@ -288,6 +304,9 @@ export default function DocumentScreen() {
     );
   }
 
+  // Accent purple as in the mockup; on the dimmed dark gradient, the strong text colour.
+  const backColor = scheme === 'dark' ? c.text.onGradientStrong : c.accentDark;
+
   return (
     <View style={styles.container}>
       <GradientFill />
@@ -296,13 +315,13 @@ export default function DocumentScreen() {
       <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
         <View style={styles.phoneHeader}>
           <Pressable onPress={leave} style={styles.back} accessibilityRole="button" accessibilityLabel={`Back to ${courseName ?? 'Library'}`}>
-            <Ionicons name="chevron-back" size={22} color={c.accentDark} />
-            <Text style={styles.backText} numberOfLines={1}>
+            <Ionicons name="chevron-back" size={22} color={backColor} />
+            <Text style={[styles.backText, { color: backColor }]} numberOfLines={1}>
               {courseName ?? 'Library'}
             </Text>
           </Pressable>
           <View ref={menuButton} collapsable={false}>
-            <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={c.accentDark} />
+            <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
           </View>
         </View>
         {status && <Text style={styles.status}>{status}</Text>}
@@ -326,7 +345,7 @@ const makeStyles = (c: ThemeColors) =>
     editorWrap: { flex: 1 },
     page: { flex: 1, borderRadius: Layout.cardRadius.laptop, backgroundColor: PAGE_COLORS.card },
     pageContent: { paddingHorizontal: 60, paddingTop: 44, paddingBottom: 60 },
-    pageContentCompact: { paddingHorizontal: 0, paddingTop: 0 },
+    pageContentCompact: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 24 },
     pageCard: { flex: 1, borderRadius: Layout.cardRadius.iphone, overflow: 'hidden', backgroundColor: PAGE_COLORS.card },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     errorText: { fontSize: Typography.size.base, color: c.text.onGradientStrong, textAlign: 'center' },
@@ -342,7 +361,7 @@ const makeStyles = (c: ThemeColors) =>
     phoneTop: { paddingHorizontal: 12, gap: 8, paddingBottom: 10 },
     phoneHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     back: { flexDirection: 'row', alignItems: 'center', minHeight: 44, flexShrink: 1, paddingRight: 8 },
-    backText: { fontSize: Typography.size.md, fontWeight: Typography.weight.medium, color: c.accentDark },
+    backText: { fontSize: Typography.size.md, fontWeight: Typography.weight.medium },
     status: { fontSize: Typography.size.xs, color: c.text.onGradient, marginTop: -6, marginLeft: 6 },
     phoneBody: { flex: 1, paddingHorizontal: 12 },
   });

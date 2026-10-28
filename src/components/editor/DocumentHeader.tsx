@@ -19,6 +19,7 @@ export function DocumentHeader({
   editable = true,
   selectTitle = false,
   compact = false,
+  inset = false,
 }: {
   title: string;
   meta: string;
@@ -27,8 +28,10 @@ export function DocumentHeader({
   editable?: boolean;
   /** A new document: the title field opens selected. */
   selectTitle?: boolean;
-  /** iPhone: smaller title and margins. */
+  /** iPhone width: a smaller title. */
   compact?: boolean;
+  /** Its own side margins (above the iPhone's WebView, which has its own). */
+  inset?: boolean;
 }) {
   const [draft, setDraft] = useState(title);
   const editing = useRef(false);
@@ -59,7 +62,7 @@ export function DocumentHeader({
   };
 
   return (
-    <View style={[styles.header, compact && styles.headerCompact]}>
+    <View style={[styles.header, compact && styles.headerCompact, inset && styles.headerInset]}>
       <LinearGradient colors={gradientStops(PAGE_COLORS)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.accent} />
       <TextInput
         ref={input}
@@ -86,7 +89,8 @@ export function DocumentHeader({
 
 const styles = StyleSheet.create({
   header: { marginBottom: 20 },
-  headerCompact: { paddingHorizontal: 20, paddingTop: 18, marginBottom: 4 },
+  headerCompact: { marginBottom: 12 },
+  headerInset: { paddingHorizontal: 20, paddingTop: 18, marginBottom: 4 },
   accent: { width: 56, height: 4, borderRadius: 2, marginBottom: 18 },
   title: {
     fontSize: Typography.size['3xl'],
