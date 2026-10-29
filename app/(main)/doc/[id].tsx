@@ -17,7 +17,7 @@ import { MiniPlayer, type PlayRequest } from '../../../src/components/editor/Min
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
-import { anchorBelow, showAlert, type DialogButton } from '../../../src/components/dialogs/dialogs';
+import { anchorBelow, promptText, showAlert, type DialogButton } from '../../../src/components/dialogs/dialogs';
 import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { setCommentMarginShown, useCommentMargin } from '../../../src/components/shell/commentMargin';
 import type { ThemeColors } from '../../../src/constants/colors';
@@ -33,11 +33,15 @@ import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache'
 import type { FileRow } from '../../../src/lib/cloudRows';
 import {
   ensureTranscriptDocument,
+  FIXED_TABS,
   getDocumentFile,
   openDocument,
   renameDocument,
+  takeKeptTabs,
   type DocTab,
+  type FixedTab,
 } from '../../../src/services/document.service';
+import { addTab, deleteTab, isAddedTab, listTabs, moveTab, renameTab, restoreTab, type TabInfo } from '../../../src/services/document-tabs.service';
 import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { getNoteBySession } from '../../../src/services/note.service';
 import { getProject } from '../../../src/services/project.service';
@@ -51,9 +55,11 @@ import type { Note, Session } from '../../../src/types/database';
 import { errorMessage } from '../../../src/utils/errors';
 import type { ShelfItem } from '../../../src/utils/shelf';
 
-const isTab = (v: unknown): v is DocTab => v === 'notes' || v === 'summary' || v === 'transcript';
+/** A tab id from a link (`?tab=`): a fixed tab or an added one (step 4.7b). */
+const isTab = (v: unknown): v is DocTab => typeof v === 'string' && ((FIXED_TABS as readonly string[]).includes(v) || isAddedTab(v));
+const isFixedTab = (v: DocTab): v is FixedTab => (FIXED_TABS as readonly string[]).includes(v);
 
-const HINTS: Record<DocTab, string> = {
+const HINTS: Record<FixedTab, string> = {
   notes: 'Your own notes for this lecture',
   summary: 'The summary is written into this tab',
   transcript: 'From the recording; correct anything it misheard',
@@ -101,6 +107,25 @@ export default function DocumentScreen() {
   const [tabState, setTabState] = useState<TabState>('loading');
   const isLecture = file?.kind === 'lecture';
 
+  // The document's tabs (step 4.7b): a lecture's three first, then added ones; a plain document's from "Tab 1".
+  const [tabs, setTabs] = useState<TabInfo[] | null>(null);
+  // Tabs deleted on another device that an edit here kept (shown once).
+  const [keptTabs, setKeptTabs] = useState<string[]>([]);
+  const loadTabs = useCallback(async () => {
+    if (!id || !file) return;
+    const list = await listTabs(id, file.kind === 'lecture').catch(() => null);
+    if (list) setTabs(list);
+    const kept = await takeKeptTabs(id).catch(() => []);
+    if (kept.length && list) setKeptTabs(kept.map((k) => list.find((t) => t.tab === k)?.title ?? 'A tab'));
+  }, [id, file]);
+  useEffect(() => {
+    void loadTabs();
+  }, [loadTabs]);
+  // The open tab was deleted (here or on another device): the first tab instead.
+  useEffect(() => {
+    if (tabs && tabs.length > 0 && !tabs.some((t) => t.tab === tab)) setTab(tabs[0].tab);
+  }, [tabs, tab]);
+
   const leave = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace(file?.course_id ? `/project/${file.course_id}` : '/library');
@@ -136,8 +161,11 @@ export default function DocumentScreen() {
   useEffect(() => {
     void load();
   }, [load]);
-  // A rename, a move or a synced change from another device.
-  useLibraryUpdates(() => void load());
+  // A rename, a move or a synced change from another device (tabs too).
+  useLibraryUpdates(() => {
+    void load();
+    void loadTabs();
+  });
 
   // Opening puts it at the top of Recent.
   useEffect(() => {
@@ -166,7 +194,8 @@ export default function DocumentScreen() {
     if (shownTab.current !== key) setTabState('loading');
     shownTab.current = key;
     (async () => {
-      if (kind !== 'lecture' || tab === 'notes') return 'document' as const;
+      // A lecture's Summary and Transcript may have nothing yet; every other tab is a document.
+      if (kind !== 'lecture' || (tab !== 'summary' && tab !== 'transcript')) return 'document' as const;
       const opened = await openDocument(id, tab).catch(() => null);
       if (opened?.id) return 'document' as const;
       if (tab === 'summary') return hasNote ? ('earlier' as const) : ('none' as const);
@@ -205,6 +234,48 @@ export default function DocumentScreen() {
     },
     [file, isLecture],
   );
+
+  // Tabs (step 4.7b): add, rename, move, delete with Undo. The list is read again after each change.
+  const failed = (what: string) => (err: unknown) => showAlert(what, errorMessage(err, 'Please try again.'));
+  const askTabName = (title: string, current: string) => promptText(title, { defaultValue: current, confirmLabel: 'Save', placeholder: 'Tab name' });
+  const onAddTab = async () => {
+    if (!file) return;
+    try {
+      const added = await addTab(file.id, { isLecture });
+      await loadTabs();
+      setTab(added.tab);
+      // Its name, ready to type over (Enter keeps "Tab N").
+      const name = await askTabName('Name the tab', added.title);
+      if (name && name !== added.title) {
+        await renameTab(file.id, added.tab, name, isLecture);
+        await loadTabs();
+      }
+    } catch (err) {
+      failed('Could not add the tab')(err);
+    }
+  };
+  const onRenameTab = async (t: TabInfo) => {
+    if (!file) return;
+    const name = await askTabName('Rename tab', t.title);
+    if (!name || name === t.title) return;
+    await renameTab(file.id, t.tab, name, isLecture).then(loadTabs, failed('Could not rename the tab'));
+  };
+  const onMoveTab = async (t: TabInfo, toIndex: number) => {
+    if (!file) return;
+    await moveTab(file.id, t.tab, toIndex, isLecture).then(loadTabs, failed('Could not move the tab'));
+  };
+  const onDeleteTab = async (t: TabInfo) => {
+    if (!file) return;
+    try {
+      await deleteTab(file.id, t.tab, isLecture);
+      await loadTabs();
+      showUndo(`Deleted "${t.title}"`, () => {
+        void restoreTab(file.id, t.tab).then(loadTabs, failed('Could not bring the tab back'));
+      });
+    } catch (err) {
+      failed('Could not delete the tab')(err);
+    }
+  };
 
   // The laptop's top bar: where it is, its title, when it was saved.
   useShellScreen(
@@ -294,6 +365,26 @@ export default function DocumentScreen() {
       </Pressable>
     ) : null;
 
+  // A tab deleted on another device and edited here is kept (step 4.7b): said once.
+  const keptNames = [...keptTabs, ...(sync.state.kept ? [tabs?.find((t) => t.tab === tab)?.title ?? 'This tab'] : [])];
+  const keptNotice =
+    keptNames.length > 0 ? (
+      <Pressable
+        onPress={() => {
+          setKeptTabs([]);
+          sync.clearKept();
+        }}
+        style={styles.notice}
+        accessibilityRole="button"
+      >
+        <Text style={styles.noticeText}>
+          {keptNames.length === 1 ? `“${keptNames[0]}” was deleted on another device` : `${keptNames.length} tabs were deleted on another device`} and kept, because
+          {keptNames.length === 1 ? ' it was' : ' they were'} edited here.
+        </Text>
+        <Ionicons name="close" size={16} color={PAGE_COLORS.text.secondary} />
+      </Pressable>
+    ) : null;
+
   // The page when the tab has no document: the header and what's there instead.
   const placeholder = (
     <ScrollView style={styles.page} contentContainerStyle={[styles.pageContent, !wide && styles.pageContentCompact]}>
@@ -323,6 +414,7 @@ export default function DocumentScreen() {
   ) : showEditor ? (
     // Print layout: no white card; the pages sit on the gradient (step 4.5b).
     <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
+      {keptNotice}
       {lostNotice}
       <StudiplyEditor
         key={editorKey}
@@ -352,15 +444,27 @@ export default function DocumentScreen() {
   // Accent purple as in the mockup; on the dimmed dark gradient, the strong text colour.
   const backColor = scheme === 'dark' ? c.text.onGradientStrong : c.accentDark;
 
+  const tabRow = (compact: boolean) =>
+    tabs ? (
+      <DocumentTabs
+        tabs={tabs}
+        current={tab}
+        compact={compact}
+        onSelect={setTab}
+        onAdd={() => void onAddTab()}
+        onRename={(t) => void onRenameTab(t)}
+        onDelete={(t) => void onDeleteTab(t)}
+        onMove={(t, to) => void onMoveTab(t, to)}
+      />
+    ) : null;
+
   const top = wide ? (
     <View style={styles.topRow}>
-      {isLecture && (
-        <>
-          <DocumentTabs tab={tab} onChange={setTab} />
-          <Text style={styles.hint} numberOfLines={1}>
-            {HINTS[tab]}
-          </Text>
-        </>
+      {tabRow(false)}
+      {isLecture && isFixedTab(tab) && (
+        <Text style={styles.hint} numberOfLines={1}>
+          {HINTS[tab]}
+        </Text>
       )}
       <View style={styles.spacer} />
       <View ref={menuButton} collapsable={false}>
@@ -382,7 +486,7 @@ export default function DocumentScreen() {
         </View>
       </View>
       {status && <Text style={styles.status}>{status}</Text>}
-      {isLecture && <DocumentTabs tab={tab} onChange={setTab} fill />}
+      {tabRow(true)}
     </View>
   );
 
@@ -417,7 +521,14 @@ export default function DocumentScreen() {
         onSetDefault={saveDefaultPageSetup}
       />
       {file && (
-        <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
+        <VersionHistory
+          visible={historyOpen}
+          fileId={file.id}
+          tab={tab}
+          tabName={tabs && tabs.length > 1 ? tabs.find((t) => t.tab === tab)?.title : undefined}
+          onClose={() => setHistoryOpen(false)}
+          onRestore={sync.restore}
+        />
       )}
     </View>
   );

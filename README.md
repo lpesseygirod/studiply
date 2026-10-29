@@ -170,6 +170,10 @@ Formula cards (step 4.7c, `schema/formulaCard.ts`, also in `bridges/blocks.ts`) 
 
 Graphs (step 4.7d, `schema/graph.ts`, also in `bridges/blocks.ts`) keep their data in the block (`graph/data.ts`: limits, reading typed numbers, what is left out); the form is `components/editor/GraphForm.tsx` (laptop `GraphPopover.web.tsx`, iPhone `iphone/GraphSheet.tsx`), the command `{ type: 'graph', … }`. The drawing comes from `src/lib/charts` (a separate module); `graph/charts.ts` is the only file that talks to it.
 
+### Tabs (step 4.7b)
+
+Each tab of a document is a `documents` row: `tab` is `notes`, `summary`, `transcript` or `t-<uuid>` for an added tab, with `title`, `position`, `deleted_at` and `kind` (migration `20261029151900_document_tabs`). `src/services/document-tabs.service.ts` lists them (`listTabs`, `orderTabs`: a lecture's three first and fixed) and adds, renames, moves and deletes them; on the iPhone these queue as `create_tab` and `tab_meta` under the tab's key (`fileId:tab`), before its edits. Content, versions and conflict copies work per row as before (`document.service.ts`); page setup is written to every tab. An edit that reaches a deleted tab brings it back, and a delete that arrives after a newer edit is dropped (`takeKeptTabs` / the session's `kept` say so once). The row is `components/editor/DocumentTabs.tsx` on both devices.
+
 ### Names and the simplicity pass (before 4.6)
 
 Every editor tool's name and shortcut is in `src/editor/toolNames.ts`, read by the laptop's tooltips (`components/editor/ToolTip.web.tsx`), the iPhone toolbar's long-press names and captions, the menus and VoiceOver; the bars drawn inside the document name their buttons with `editor/barHint.ts`. Menus take headings (`section` on `DialogButton`, `PopoverHeading`). `app/dev/editor-preview.tsx` (development only) draws the iPhone's keyboard toolbar and Page setup sheet in a browser for screenshots.

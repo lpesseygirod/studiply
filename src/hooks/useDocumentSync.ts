@@ -149,12 +149,13 @@ export function useDocumentSync(params: {
   const onChange = useCallback(() => session.current?.changed(), []);
   const flush = useCallback(() => session.current?.flush() ?? Promise.resolve(), []);
   const clearLost = useCallback(() => session.current?.clearLost(), []);
+  const clearKept = useCallback(() => session.current?.clearKept(), []);
   const restore = useCallback(async (doc: Parameters<DocumentSession['restore']>[0]) => {
     if (!session.current) throw new Error('The document is not open.');
     await session.current.restore(doc);
   }, []);
 
-  return { state, onChange, flush, clearLost, restore, pageSetup, setPageSetup };
+  return { state, onChange, flush, clearLost, clearKept, restore, pageSetup, setPageSetup };
 }
 
 /** "Saved · 10:31", "Saving…", "Saved on this iPhone", … for the top bar and the iPhone header. */

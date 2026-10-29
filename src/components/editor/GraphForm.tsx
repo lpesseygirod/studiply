@@ -59,6 +59,8 @@ export function GraphForm({ value, onChange, onDone, onDelete }: { value: GraphD
             onPress={() => set({ kind: k.kind })}
             style={[styles.kind, value.kind === k.kind && styles.kindOn]}
             accessibilityRole="button"
+            // react-native-web 0.21 reads aria-selected, not accessibilityState.
+            aria-selected={value.kind === k.kind}
             accessibilityState={{ selected: value.kind === k.kind }}
             accessibilityLabel={`Graph type: ${k.name}`}
           >

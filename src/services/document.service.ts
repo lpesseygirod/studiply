@@ -42,8 +42,14 @@ import { cleanName } from '../utils/names';
  * the edit, so writing (and creating documents) works offline.
  */
 
-export type DocTab = 'notes' | 'summary' | 'transcript';
+/** A lecture's three tabs (also a plain document's first tab, `notes`). */
+export type FixedTab = 'notes' | 'summary' | 'transcript';
+export const FIXED_TABS: readonly FixedTab[] = ['notes', 'summary', 'transcript'];
+/** A tab's id (step 4.7b): one of the fixed tabs, or `t-<uuid>` for an added one (document-tabs.service). */
+export type DocTab = FixedTab | (string & {});
 export type DocumentRow = Tables<'documents'>;
+/** A new row's tab columns (step 4.7b): null is the default name, place, life and kind. */
+export const NO_TAB_META = { title: null, position: null, deleted_at: null, kind: null } as const;
 export type VersionRow = Tables<'document_versions'>;
 export type VersionReason = 'ai_generation' | 'session_end' | 'restore' | 'conflict';
 
@@ -74,7 +80,8 @@ function opened(fileId: string, tab: DocTab, row: DocumentRow | null | undefined
   return { fileId, tab, id: row?.id ?? null, content: row ? asDoc(row.content) : EMPTY, updatedAt: row?.updated_at ?? null, pageSetup: cleanPageSetup(row?.page_setup) };
 }
 
-async function localDocument(fileId: string, tab: DocTab): Promise<DocumentRow | null> {
+/** This iPhone's copy of a tab's row. */
+export async function localDocument(fileId: string, tab: DocTab): Promise<DocumentRow | null> {
   const rows = await readRows<DocumentRow>('documents', fileId);
   return rows.find((r) => r.tab === tab) ?? null;
 }
@@ -209,7 +216,7 @@ async function createDocumentOnDevice(payload: CreateDocumentPayload): Promise<s
     updated_at: at,
     changed_at: at,
   };
-  const document: DocumentRow = { ...payload.document, user_id: userId, created_at: at, updated_at: at };
+  const document: DocumentRow = { ...payload.document, ...NO_TAB_META, user_id: userId, created_at: at, updated_at: at };
   await saveLocalRow('files', file);
   await saveLocalRow('documents', document);
   await enqueue<CreateDocumentPayload>({ kind: 'create_document', key: file.id, payload });
@@ -266,6 +273,8 @@ export interface SavedDocument {
   queued: boolean;
   /** Blocks where another device's newer edit was kept (this one is in version history). */
   lost: string[];
+  /** The tab had been deleted on another device; this edit brought it back (step 4.7b). */
+  revived?: boolean;
 }
 
 /**
@@ -285,8 +294,8 @@ export async function saveDocument(params: {
   if (syncEnabled) return saveOnDevice(fileId, tab, next, edit);
 
   try {
-    const { row, conflicts } = await applyDocEdit(fileId, tab, edit);
-    return { content: asDoc(row.content), updatedAt: row.updated_at, queued: false, lost: lostBlocks(conflicts) };
+    const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit);
+    return { content: asDoc(row.content), updatedAt: row.updated_at, queued: false, lost: lostBlocks(conflicts), revived };
   } catch (err) {
     if (isNetworkError(err)) throw err;
     if (__DEV__) console.warn('[document] save failed', err);
@@ -298,6 +307,8 @@ export async function saveDocument(params: {
 // Page setup (after test D): per document, a setting beside the content.
 // The latest one wins (it is not text to merge). Writing it moves the row's
 // updated_at, so the other device's check every few seconds picks it up.
+// With tabs (step 4.7b) it is the document's: saved to every tab, and a new
+// tab copies it (document-tabs.service).
 // -------------------------------------------------------------------
 
 export interface PageSetupPayload {
@@ -307,9 +318,15 @@ export interface PageSetupPayload {
   setup: PageSetup;
 }
 
-/** Writes the tab's page setup, creating the row (empty) if nothing was written in the tab yet. */
+/**
+ * Writes the document's page setup to every tab it has, then to `tab`
+ * (creating that row, empty, if nothing was written in it yet), whose row
+ * comes back as it is now.
+ */
 async function writePageSetup(fileId: string, tab: DocTab, setup: PageSetup, newRowId: string, fail: ErrorOf): Promise<DocumentRow> {
   const page_setup = cleanPageSetup(setup) as unknown as Json;
+  const { error: allError } = await supabase.from('documents').update({ page_setup }).eq('file_id', fileId);
+  if (allError) throw fail(allError, 'Could not save the page setup.');
   const { data: updated, error } = await supabase.from('documents').update({ page_setup }).eq('file_id', fileId).eq('tab', tab).select('*');
   if (error) throw fail(error, 'Could not save the page setup.');
   if (updated.length === 1) return updated[0];
@@ -323,7 +340,11 @@ async function writePageSetup(fileId: string, tab: DocTab, setup: PageSetup, new
   return row;
 }
 
-/** Saves the tab's page setup: at once on the laptop; on the iPhone, here first and then sent. */
+/**
+ * Saves the document's page setup (shown from `tab`): at once on the laptop,
+ * to every tab; on the iPhone, in this tab's copy first, then sent, and the
+ * server writes it to every tab.
+ */
 export async function setPageSetup(fileId: string, tab: DocTab, setup: PageSetup): Promise<void> {
   const clean = cleanPageSetup(setup);
   if (syncEnabled) {
@@ -333,7 +354,7 @@ export async function setPageSetup(fileId: string, tab: DocTab, setup: PageSetup
     const existing = await localDocument(fileId, tab);
     const row: DocumentRow = existing
       ? { ...existing, page_setup: clean as unknown as Json, updated_at: at }
-      : { id: newId(), user_id: userId, file_id: fileId, tab, content: EMPTY as unknown as NonNullable<Json>, page_setup: clean as unknown as Json, created_at: at, updated_at: at };
+      : { id: newId(), user_id: userId, file_id: fileId, tab, content: EMPTY as unknown as NonNullable<Json>, page_setup: clean as unknown as Json, ...NO_TAB_META, created_at: at, updated_at: at };
     await saveLocalRow('documents', row);
     await enqueue<PageSetupPayload>({ kind: 'document_page_setup', key: editKey(fileId, tab), payload: { fileId, tab, localId: row.id, setup: clean } });
     return;
@@ -352,7 +373,8 @@ export interface DocumentEditPayload {
   edit: DocEdit;
 }
 
-const editKey = (fileId: string, tab: DocTab) => `${fileId}:${tab}`;
+/** The queue key of everything about one tab (its creation, edits, page setup, name and place), so they run in order. */
+export const editKey = (fileId: string, tab: DocTab) => `${fileId}:${tab}`;
 
 /** iPhone: saved in the cache at once (shows and survives offline), then queued. */
 async function saveOnDevice(fileId: string, tab: DocTab, next: DocJSON, edit: DocEdit): Promise<SavedDocument> {
@@ -362,7 +384,7 @@ async function saveOnDevice(fileId: string, tab: DocTab, next: DocJSON, edit: Do
   const existing = await localDocument(fileId, tab);
   const row: DocumentRow = existing
     ? { ...existing, content: next as unknown as NonNullable<Json>, updated_at: at }
-    : { id: newId(), user_id: userId, file_id: fileId, tab, content: next as unknown as NonNullable<Json>, page_setup: null, created_at: at, updated_at: at };
+    : { id: newId(), user_id: userId, file_id: fileId, tab, content: next as unknown as NonNullable<Json>, page_setup: null, ...NO_TAB_META, created_at: at, updated_at: at };
   await saveLocalRow('documents', row);
   await enqueue<DocumentEditPayload>({ kind: 'document_edit', key: editKey(fileId, tab), payload: { fileId, tab, localId: row.id, edit } });
   return { content: next, updatedAt: null, queued: true, lost: [] };
@@ -383,7 +405,7 @@ export async function applyDocEdit(
   tab: DocTab,
   edit: DocEdit,
   newRowId: string = newId(),
-): Promise<{ row: DocumentRow; conflicts: DocConflict[] }> {
+): Promise<{ row: DocumentRow; conflicts: DocConflict[]; revived: boolean }> {
   for (let attempt = 0; attempt < MERGE_ATTEMPTS; attempt++) {
     const { data: row, error } = await supabase.from('documents').select('*').eq('file_id', fileId).eq('tab', tab).maybeSingle();
     if (error) throw syncError(error, 'Could not save the document.');
@@ -399,16 +421,18 @@ export async function applyDocEdit(
 
     const merged = mergeDocEdit(asDoc(row.content), edit);
     await saveConflictVersions(row, edit, merged.versions);
-    if (!merged.changed) return { row, conflicts: merged.conflicts };
+    // A tab deleted on another device comes back when an edit reaches it: the edit is kept (step 4.7b).
+    const revived = !!row.deleted_at;
+    if (!merged.changed && !revived) return { row, conflicts: merged.conflicts, revived };
 
     const { data: saved, error: writeError } = await supabase
       .from('documents')
-      .update({ content: merged.doc as unknown as NonNullable<Json> })
+      .update({ content: merged.doc as unknown as NonNullable<Json>, ...(revived ? { deleted_at: null } : {}) })
       .eq('id', row.id)
       .eq('updated_at', row.updated_at)
       .select('*');
     if (writeError) throw syncError(writeError, 'Could not save the document.');
-    if (saved.length === 1) return { row: saved[0], conflicts: merged.conflicts };
+    if (saved.length === 1) return { row: saved[0], conflicts: merged.conflicts, revived };
     // Written by another device in between: read it again and merge.
   }
   throw new SyncBusyError();
@@ -457,6 +481,35 @@ export async function takeDocumentConflicts(fileId: string, tab: DocTab): Promis
   await deleteMeta(conflictKey(fileId, tab)).catch(() => {});
   try {
     return JSON.parse(raw) as string[];
+  } catch {
+    return [];
+  }
+}
+
+const keptKey = (fileId: string) => `${cacheUser()}:tabkept:${fileId}`;
+
+/**
+ * A tab deleted on one device and edited offline on another is kept (step
+ * 4.7b): remembered here so the document screen can say so, once.
+ */
+export async function noteKeptTab(fileId: string, tab: DocTab): Promise<void> {
+  const raw = await getMeta(keptKey(fileId)).catch(() => null);
+  let tabs: string[] = [];
+  try {
+    tabs = raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    tabs = [];
+  }
+  if (!tabs.includes(tab)) await setMeta(keptKey(fileId), JSON.stringify([...tabs, tab])).catch(() => {});
+}
+
+/** The tabs that came back because they were edited after being deleted on another device, once. */
+export async function takeKeptTabs(fileId: string): Promise<DocTab[]> {
+  const raw = await getMeta(keptKey(fileId)).catch(() => null);
+  if (!raw) return [];
+  await deleteMeta(keptKey(fileId)).catch(() => {});
+  try {
+    return JSON.parse(raw) as DocTab[];
   } catch {
     return [];
   }
@@ -654,10 +707,11 @@ registerSyncHandler<CreateDocumentPayload>('create_document', {
 registerSyncHandler<DocumentEditPayload>('document_edit', {
   run: async ({ fileId, tab, localId, edit }) => {
     await ensureDocumentOnServer(fileId);
-    const { row, conflicts } = await applyDocEdit(fileId, tab, edit, localId);
+    const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit, localId);
     await refreshSyncedDocument(row, localId, fileId, tab);
     const lost = lostBlocks(conflicts);
     if (lost.length > 0) await setMeta(conflictKey(fileId, tab), JSON.stringify(lost));
+    if (revived) await noteKeptTab(fileId, tab);
     notifyLibraryUpdated();
   },
   merge: (earlier, later) => ({ ...later, edit: combineDocEdits(earlier.edit, later.edit) }),

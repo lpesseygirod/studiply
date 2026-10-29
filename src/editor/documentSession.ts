@@ -28,6 +28,8 @@ export interface SessionState {
   savedAt: number | null;
   /** Blocks where another device's newer edit was kept; this device's is in version history. */
   lost: string[];
+  /** The tab had been deleted on another device; this device's edit kept it (step 4.7b). */
+  kept?: boolean;
   error: string | null;
 }
 
@@ -43,7 +45,7 @@ export interface SessionApi {
     base: DocJSON,
     next: DocJSON,
     options?: { restamp?: boolean },
-  ) => Promise<{ content: DocJSON; updatedAt: string | null; queued: boolean; lost: string[] }>;
+  ) => Promise<{ content: DocJSON; updatedAt: string | null; queued: boolean; lost: string[]; revived?: boolean }>;
   /** The server copy's updated_at (online only). */
   stamp: () => Promise<string | null>;
   saveVersion: (content: DocJSON, reason: 'session_end' | 'restore') => Promise<unknown>;
@@ -152,7 +154,7 @@ export class DocumentSession {
       }
       await this.take(sent, saved.content);
       if (saved.updatedAt) this.stampSeen = saved.updatedAt;
-      this.set({ status: 'saved', savedAt: this.now(), lost: saved.lost.length ? saved.lost : this.state.lost, error: null });
+      this.set({ status: 'saved', savedAt: this.now(), lost: saved.lost.length ? saved.lost : this.state.lost, kept: saved.revived || this.state.kept, error: null });
     } catch (err) {
       // Kept in the editor; tried again shortly.
       this.dirty = true;
@@ -203,6 +205,11 @@ export class DocumentSession {
   /** The student read the conflict notice. */
   clearLost(): void {
     this.set({ lost: [] });
+  }
+
+  /** The student read the "tab kept" notice. */
+  clearKept(): void {
+    this.set({ kept: false });
   }
 
   /**

@@ -9,5 +9,6 @@ import './note.service';
 import './session.service';
 import './source-file.service';
 import './document.service';
+import './document-tabs.service';
 import './preferences.service';
 import './doc-photo.service';

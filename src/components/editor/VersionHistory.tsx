@@ -50,12 +50,15 @@ export function VersionHistory({
   visible,
   fileId,
   tab,
+  tabName,
   onClose,
   onRestore,
 }: {
   visible: boolean;
   fileId: string;
   tab: DocTab;
+  /** The tab's name, said in the title when the document has more than one tab (step 4.7b). */
+  tabName?: string;
   onClose: () => void;
   /** Brings the version's text back into the open document. */
   onRestore: (doc: DocJSON) => Promise<void>;
@@ -163,7 +166,9 @@ export function VersionHistory({
   const list = (
     <View style={[styles.list, wide ? styles.listWide : styles.listFull]}>
       <View style={styles.listHeader}>
-        <Text style={styles.heading}>Version history</Text>
+        <Text style={styles.heading} numberOfLines={1}>
+          {tabName ? `Version history · ${tabName}` : 'Version history'}
+        </Text>
         <IconButton icon="close" label="Close version history" onPress={onClose} color={c.text.primary} />
       </View>
       <View style={styles.switchRow}>

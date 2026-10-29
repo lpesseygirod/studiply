@@ -50,6 +50,8 @@ export function FormulaForm({
       onPress={() => onChange(latex, value)}
       style={[styles.segment, display === value && styles.segmentOn]}
       accessibilityRole="button"
+      // react-native-web 0.21 reads aria-selected, not accessibilityState.
+      aria-selected={display === value}
       accessibilityState={{ selected: display === value }}
       accessibilityLabel={value ? 'Formula on its own line' : 'Formula in the text'}
     >

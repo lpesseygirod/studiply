@@ -153,14 +153,14 @@ isOneToOne: false
                   ]
                 },"documents": {
                   Row: {
-                    "content": NonNullable<Json>,"created_at": string,"file_id": string,"id": string,"page_setup": Json | null,"tab": string,"updated_at": string,"user_id": string
+                    "content": NonNullable<Json>,"created_at": string,"deleted_at": string | null,"file_id": string,"id": string,"kind": string | null,"page_setup": Json | null,"position": number | null,"tab": string,"title": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id": string,"id"?: string,"page_setup"?: Json | null,"tab": string,"updated_at"?: string,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"deleted_at"?: string | null,"file_id": string,"id"?: string,"kind"?: string | null,"page_setup"?: Json | null,"position"?: number | null,"tab": string,"title"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id"?: string,"id"?: string,"page_setup"?: Json | null,"tab"?: string,"updated_at"?: string,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"deleted_at"?: string | null,"file_id"?: string,"id"?: string,"kind"?: string | null,"page_setup"?: Json | null,"position"?: number | null,"tab"?: string,"title"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
