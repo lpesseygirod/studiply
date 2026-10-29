@@ -3,7 +3,8 @@
 // between, and what loses a conflict is kept as a version, once.
 
 import { onNextUpdate, resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';
-import { applyDocEdit, createDocument, getVersion, listVersions, nameVersion, openDocument, renameDocument, saveDocument, saveVersion, thinVersions, versionsToThin } from '../document.service';
+import { applyDocEdit, createDocument, getVersion, listVersions, nameVersion, openDocument, renameDocument, saveDocument, saveVersion, setPageSetup, thinVersions, versionsToThin } from '../document.service';
+import { DEFAULT_PAGE_SETUP, MARGIN_PRESETS, type PageSetup } from '../../editor/page/pageSetup';
 import { makeDocEdit, type Block } from '../../editor/docBlocks';
 import type { DocJSON } from '../../editor/types';
 
@@ -157,5 +158,34 @@ describe('naming and thinning versions', () => {
 
     await nameVersion('n1', null);
     expect(rowsOf('document_versions').find((r) => r.id === 'n1')?.name).toBeNull();
+  });
+});
+
+describe('page setup (after test D)', () => {
+  const LETTER: PageSetup = { size: 'letter', orientation: 'landscape', margins: MARGIN_PRESETS.narrow.margins, numbers: 'top-right', gap: 48 };
+
+  it('opens with the defaults; saved on the row beside the content, which stays as it is', async () => {
+    serverDoc(BASE);
+    expect((await openDocument(FILE, 'notes')).pageSetup).toEqual(DEFAULT_PAGE_SETUP);
+    await setPageSetup(FILE, 'notes', LETTER);
+    expect(rowsOf('documents')[0].page_setup).toEqual(LETTER);
+    expect(texts(rowsOf('documents')[0].content)).toEqual(['Tema 1', 'La conducta']);
+    expect((await openDocument(FILE, 'notes')).pageSetup).toEqual(LETTER);
+    // Text saved afterwards keeps it.
+    await saveDocument({ fileId: FILE, tab: 'notes', base: BASE, next: doc(p('a', 'Tema 1'), p('b', 'La conducta humana', 900)) });
+    expect(rowsOf('documents')[0].page_setup).toEqual(LETTER);
+  });
+
+  it('a tab nothing was written in gets its row (empty) with the setup', async () => {
+    serverWrite('files', { id: FILE, kind: 'lecture', title: 'Tema 1' });
+    await setPageSetup(FILE, 'summary', LETTER);
+    expect(rowsOf('documents')).toHaveLength(1);
+    expect(rowsOf('documents')[0]).toMatchObject({ file_id: FILE, tab: 'summary', page_setup: LETTER, content: { type: 'doc', content: [] } });
+  });
+
+  it("a new document takes the account's default (Set as default)", async () => {
+    serverWrite('profiles', { id: 'user-1', preferences: { pageSetup: LETTER } });
+    const id = await createDocument({ courseId: null, folderId: null });
+    expect((await openDocument(id, 'notes')).pageSetup).toEqual(LETTER);
   });
 });

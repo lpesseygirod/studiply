@@ -3,14 +3,16 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 
-import { A4, layoutPages, type PageGap, type PageLayout, type PageUnit } from './pageLayout';
+import { layoutPages, type PageGap, type PageLayout, type PageUnit } from './pageLayout';
+import { cleanPageSetup, DEFAULT_SHEET, sheetGeometry, type PageSetup, type SheetGeometry } from './pageSetup';
 
 /**
- * The page view (step 4.5b), on both devices: A4 pages with grey gaps
+ * The page view (step 4.5b), on both devices: pages with gaps
  * between them, like Word, and zoom. It only changes the display: the
  * document stays one pageless JSON (ids, merge, sync untouched).
  *
- * In Pages the editor is the sheet (A4 wide, the margins as padding).
+ * In Pages the editor is the sheet (as wide as the page setup's paper, its
+ * margins as padding; page setup, after test D, is per document).
  * After layout it measures the document with no gaps (pageLayout.ts has
  * the rules), then draws each gap as a widget where a page ends: blank
  * paper to the bottom margin, the page number, the grey gap, the next
@@ -30,11 +32,16 @@ import { A4, layoutPages, type PageGap, type PageLayout, type PageUnit } from '.
 
 export const PAGE_CLASS = 'studiply-pages';
 export const PAGE_GAP_CLASS = 'studiply-page-gap';
+export const PAGE_LAYER_CLASS = 'studiply-page-layer';
+/** On the editor once its pages are drawn (until then it stays one white sheet). */
+export const PAGES_DRAWN_CLASS = 'studiply-pages-drawn';
 const MEASURING_CLASS = 'studiply-page-measuring';
 const DEBOUNCE_MS = 120;
 /** The iPhone: room left and right of the sheet in Print layout. */
 const FIT_PADDING = 8;
 const LABEL_CLASS = 'studiply-page-label';
+/** The page number's line height (editorCss). */
+const NUMBER_LINE = 16;
 export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 2;
 
@@ -45,13 +52,14 @@ export interface PageViewState {
   fit: boolean;
   /** The screen's width for the sheet (`fit`). */
   factor: number;
+  /** The page from the document's page setup. */
+  sheet: SheetGeometry;
   layout: PageLayout | null;
   decorations: DecorationSet;
 }
-type Meta = { pages?: boolean; zoom?: number; fit?: boolean; factor?: number; layout?: PageLayout | null; gaps?: DrawnGap[] };
-/** A gap as drawn: where its band sits across the sheet (`inset`: the widget's left from the sheet's). */
+type Meta = { pages?: boolean; zoom?: number; fit?: boolean; factor?: number; sheet?: SheetGeometry; layout?: PageLayout | null; gaps?: DrawnGap[] };
+/** A gap as drawn. */
 interface DrawnGap extends PageGap {
-  inset: number;
   /** A table's columns, for a gap drawn as one of its rows (more would add columns to the table). */
   cols?: number;
 }
@@ -67,6 +75,8 @@ declare module '@tiptap/core' {
       setPageZoom: (zoom: number) => ReturnType;
       /** The iPhone's Print layout: the sheet fits the screen's width, the zoom multiplies it. */
       setPageFit: (fit: boolean) => ReturnType;
+      /** The document's page setup: paper, margins, page numbers, gap. */
+      setPageSetup: (setup: PageSetup) => ReturnType;
     };
   }
 }
@@ -78,11 +88,12 @@ export const pageViewOf = (state: EditorState): PageViewState | undefined => pag
 /** The CSS zoom the editor is shown at. */
 export const shownZoom = (s: PageViewState) => s.zoom * (s.fit && s.pages ? s.factor : 1);
 
-function gapWidget(g: DrawnGap, last: boolean, pageNumber: number) {
+/** A gap: blank space where a page ends (the pages behind it are the layer's). */
+function gapWidget(g: DrawnGap) {
   return () => {
     const row = g.place === 'row';
     const el = document.createElement(row ? 'tr' : g.place === 'inline' ? 'span' : 'div');
-    el.className = last ? `${PAGE_GAP_CLASS} ${PAGE_GAP_CLASS}-last` : PAGE_GAP_CLASS;
+    el.className = PAGE_GAP_CLASS;
     el.contentEditable = 'false';
     el.setAttribute('aria-hidden', 'true');
     const inner = row ? document.createElement('td') : el;
@@ -91,30 +102,51 @@ function gapWidget(g: DrawnGap, last: boolean, pageNumber: number) {
       el.appendChild(inner);
     }
     inner.style.height = `${Math.max(0, g.height)}px`;
-    const number = document.createElement('span');
-    number.className = `${PAGE_GAP_CLASS}-number`;
-    number.textContent = String(pageNumber);
-    number.style.left = `${-g.inset}px`;
-    number.style.width = `${A4.width}px`;
-    inner.appendChild(number);
-    if (!last) {
-      const band = document.createElement('span');
-      band.className = `${PAGE_GAP_CLASS}-band`;
-      band.style.left = `${-g.inset}px`;
-      band.style.width = `${A4.width}px`;
-      inner.appendChild(band);
-    }
     return el;
   };
 }
 
-function decorationsFor(doc: PMNode, gaps: DrawnGap[], layout: PageLayout): DecorationSet {
-  const decos = gaps.map((g) =>
-    Decoration.widget(g.at, gapWidget(g, false, g.page - 1), { side: -1, key: `gap-${g.page}-${g.at}-${Math.round(g.height)}-${g.place}`, ignoreSelection: true }),
-  );
-  // The rest of the last page, with its number.
+/**
+ * The white pages, behind the text: one sheet per page with its shadow and
+ * its number, so the gaps between them show what is behind the editor (the
+ * app's gradient).
+ */
+function pageLayer(pages: number, sheet: SheetGeometry) {
+  return () => {
+    const layer = document.createElement('div');
+    layer.className = PAGE_LAYER_CLASS;
+    layer.contentEditable = 'false';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.width = `${sheet.width}px`;
+    for (let i = 0; i < pages; i++) {
+      const page = document.createElement('div');
+      page.className = `${PAGE_LAYER_CLASS}-sheet`;
+      page.style.top = `${i * (sheet.height + sheet.gap)}px`;
+      page.style.height = `${sheet.height}px`;
+      if (sheet.numbers !== 'off') {
+        // In the middle of its margin; on the right, lined up with the text's right edge.
+        const number = document.createElement('span');
+        number.className = `${PAGE_LAYER_CLASS}-number`;
+        number.textContent = String(i + 1);
+        const top = sheet.numbers === 'top-right';
+        const margin = top ? sheet.marginTop : sheet.marginBottom;
+        number.style[top ? 'top' : 'bottom'] = `${Math.max(4, (margin - NUMBER_LINE) / 2)}px`;
+        if (sheet.numbers === 'bottom-center') Object.assign(number.style, { left: '0', right: '0', textAlign: 'center' });
+        else Object.assign(number.style, { right: `${Math.max(8, sheet.marginRight)}px`, textAlign: 'right' });
+        page.appendChild(number);
+      }
+      layer.appendChild(page);
+    }
+    return layer;
+  };
+}
+
+function decorationsFor(doc: PMNode, gaps: DrawnGap[], layout: PageLayout, sheet: SheetGeometry): DecorationSet {
+  const decos = gaps.map((g) => Decoration.widget(g.at, gapWidget(g), { side: -1, key: `gap-${g.page}-${g.at}-${Math.round(g.height)}-${g.place}`, ignoreSelection: true }));
+  decos.push(Decoration.widget(0, pageLayer(layout.pages, sheet), { side: -1, key: `pages-${layout.pages}-${JSON.stringify(sheet)}`, ignoreSelection: true }));
+  // The rest of the last page.
   decos.push(
-    Decoration.widget(doc.content.size, gapWidget({ unit: -1, at: doc.content.size, place: 'block', height: layout.tail, page: layout.pages + 1, inset: A4.margin }, true, layout.pages), {
+    Decoration.widget(doc.content.size, gapWidget({ unit: -1, at: doc.content.size, place: 'block', height: layout.tail, page: layout.pages + 1 }), {
       side: 1,
       key: `tail-${layout.pages}-${Math.round(layout.tail)}`,
       ignoreSelection: true,
@@ -163,7 +195,7 @@ function measure(view: EditorView): { units: PageUnit[]; scale: number; sheetLef
     if (!(outer instanceof Element)) return { start: unitTop, lead: 0 };
     const top = y(outer.getBoundingClientRect().top);
     let prev = outer.previousElementSibling;
-    while (prev && prev.classList.contains(PAGE_GAP_CLASS)) prev = prev.previousElementSibling;
+    while (prev && (prev.classList.contains(PAGE_GAP_CLASS) || prev.classList.contains(PAGE_LAYER_CLASS))) prev = prev.previousElementSibling;
     const start = prev ? y(prev.getBoundingClientRect().bottom) + marginBottom(prev) : top;
     return { start, lead: unitTop - top };
   };
@@ -322,7 +354,7 @@ class PageViewController {
     const s = pageViewOf(this.view.state);
     const room = this.view.dom.parentElement?.clientWidth ?? 0;
     if (!s?.fit || !room) return;
-    const factor = Math.round(((room - 2 * FIT_PADDING) / A4.width) * 1000) / 1000;
+    const factor = Math.round(((room - 2 * FIT_PADDING) / s.sheet.width) * 1000) / 1000;
     if (Math.abs(factor - s.factor) > 0.002) this.view.dispatch(this.view.state.tr.setMeta(pageViewKey, { factor } satisfies Meta).setMeta('addToHistory', false));
   }
 
@@ -344,7 +376,7 @@ class PageViewController {
     const s = pageViewOf(this.view.state);
     if (!s?.fit || !s.pages || !s.layout || s.layout.pages < 2) return;
     const top = (this.view.dom as HTMLElement).getBoundingClientRect().top;
-    const pitch = (A4.height + A4.gap) * shownZoom(s);
+    const pitch = (s.sheet.height + s.sheet.gap) * shownZoom(s);
     const page = Math.max(1, Math.min(s.layout.pages, Math.floor((window.innerHeight / 2 - top) / pitch) + 1));
     if (!this.label) {
       this.label = document.createElement('div');
@@ -376,7 +408,8 @@ class PageViewController {
     const before = pageViewOf(prev);
     if (!now) return;
     if (now.fit !== before?.fit || now.pages !== before?.pages) this.fitScreen();
-    if (now.pages !== before?.pages) this.schedule(0);
+    if (now.sheet !== before?.sheet) this.fitScreen();
+    if (now.pages !== before?.pages || now.sheet !== before?.sheet) this.schedule(0);
     else if (view.state.doc !== prev.doc && now.pages) this.schedule();
   }
 
@@ -395,20 +428,14 @@ class PageViewController {
       dom.classList.remove(MEASURING_CLASS);
       return;
     }
-    const layout = layoutPages(measured.units, undefined, measured.end);
+    const layout = layoutPages(measured.units, state.sheet, measured.end);
     const gaps: DrawnGap[] = [];
     for (const g of layout.gaps) {
       const u = measured.units[g.unit] as LineUnit;
       let at = g.at;
       if (at < 0) at = resolveLine(view, u) ?? -1;
       if (at < 0) continue;
-      const el = g.place === 'inline' ? null : (view.nodeDOM(at) as Element | null);
-      const left = el instanceof Element ? el.getBoundingClientRect().left : (u.screenLeft ?? measured.sheetLeft);
-      const sheetLeftCss = parseFloat(getComputedStyle(dom).paddingLeft) || 0;
-      // Inline gaps sit in the paragraph's content box: from its left edge.
-      const blockEl = u.blockPos !== undefined ? (view.nodeDOM(u.blockPos) as Element | null) : null;
-      const anchor = g.place === 'inline' && blockEl instanceof Element ? blockEl.getBoundingClientRect().left : left;
-      gaps.push({ ...g, at, inset: (anchor - measured.sheetLeft) / measured.scale || sheetLeftCss, cols: g.place === 'row' ? columnsAt(view.state.doc, at) : undefined });
+      gaps.push({ ...g, at, cols: g.place === 'row' ? columnsAt(view.state.doc, at) : undefined });
     }
     dom.classList.remove(MEASURING_CLASS);
     const same =
@@ -464,6 +491,12 @@ export const PageView = Extension.create<PageViewOptions>({
           if (dispatch) withMeta(tr, { zoom: clampZoom(zoom) });
           return true;
         },
+      setPageSetup:
+        (setup) =>
+        ({ tr, dispatch }) => {
+          if (dispatch) withMeta(tr, { sheet: sheetGeometry(cleanPageSetup(setup)) });
+          return true;
+        },
       setPageFit:
         (fit) =>
         ({ tr, dispatch }) => {
@@ -479,7 +512,7 @@ export const PageView = Extension.create<PageViewOptions>({
       new Plugin<PageViewState>({
         key: pageViewKey,
         state: {
-          init: () => ({ pages, zoom: clampZoom(zoom), fit: false, factor: 1, layout: null, decorations: DecorationSet.empty }),
+          init: () => ({ pages, zoom: clampZoom(zoom), fit: false, factor: 1, sheet: DEFAULT_SHEET, layout: null, decorations: DecorationSet.empty }),
           apply: (tr, value, _old, state) => {
             const meta = tr.getMeta(pageViewKey) as Meta | undefined;
             let next = value;
@@ -487,9 +520,11 @@ export const PageView = Extension.create<PageViewOptions>({
             if (meta?.zoom !== undefined) next = { ...next, zoom: meta.zoom };
             if (meta?.fit !== undefined) next = { ...next, fit: meta.fit };
             if (meta?.factor !== undefined) next = { ...next, factor: meta.factor };
+            // A new page setup: pages are measured again (until then the old gaps stay).
+            if (meta?.sheet && JSON.stringify(meta.sheet) !== JSON.stringify(next.sheet)) next = { ...next, sheet: meta.sheet };
             if (meta && 'layout' in meta) {
               const layout = meta.layout ?? null;
-              next = { ...next, layout, decorations: layout && next.pages ? decorationsFor(state.doc, meta.gaps ?? [], layout) : DecorationSet.empty };
+              next = { ...next, layout, decorations: layout && next.pages ? decorationsFor(state.doc, meta.gaps ?? [], layout, next.sheet) : DecorationSet.empty };
             } else if (tr.docChanged) {
               // Until the next measure, the gaps move with the text.
               next = { ...next, decorations: next.decorations.map(tr.mapping, tr.doc) };
@@ -504,9 +539,16 @@ export const PageView = Extension.create<PageViewOptions>({
             const s = pageViewOf(state);
             if (!s) return {};
             const attrs: Record<string, string> = {};
-            if (s.pages) attrs.class = PAGE_CLASS;
+            if (s.pages) attrs.class = s.layout ? `${PAGE_CLASS} ${PAGES_DRAWN_CLASS}` : PAGE_CLASS;
             const zoom = shownZoom(s);
-            if (zoom !== 1) attrs.style = `zoom: ${zoom}`;
+            const style: string[] = [];
+            // The sheet: the paper's width, at least one page tall, the margins as padding.
+            if (s.pages) {
+              const g = s.sheet;
+              style.push(`width: ${g.width}px`, `min-height: ${g.height}px`, `padding: ${g.marginTop}px ${g.marginRight}px ${g.marginBottom}px ${g.marginLeft}px`);
+            }
+            if (zoom !== 1) style.push(`zoom: ${zoom}`);
+            if (style.length) attrs.style = style.join('; ');
             return attrs;
           },
         },

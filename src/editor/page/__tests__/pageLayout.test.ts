@@ -3,7 +3,7 @@
 import { layoutPages, type PageGeometry, type PageUnit } from '../pageLayout';
 
 // A small page: 100 px of text a page, 20 px margins, 10 px between pages.
-const PAGE: PageGeometry = { height: 140, margin: 20, gap: 10 };
+const PAGE: PageGeometry = { height: 140, marginTop: 20, marginBottom: 20, gap: 10 };
 const PITCH = 150;
 
 /** Blocks of lines, 20 px a line, `space` px between blocks. */

@@ -12,6 +12,7 @@ import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
 import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCard';
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
+import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
@@ -26,6 +27,7 @@ import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useViewPrefs } from '../../../src/lib/viewPrefs';
+import { saveDefaultPageSetup } from '../../../src/services/preferences.service';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
 import type { FileRow } from '../../../src/lib/cloudRows';
 import {
@@ -230,6 +232,8 @@ export default function DocumentScreen() {
   };
   // iPhone (step 4.5b): Print layout and the zoom, kept on this phone (the laptop's are in its toolbar).
   const [phoneView, setPhoneView] = useViewPrefs('iphone');
+  // Page setup (after test D): saved on the document; both devices.
+  const [pageSetupOpen, setPageSetupOpen] = useState(false);
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -238,6 +242,7 @@ export default function DocumentScreen() {
       ? [
           { text: 'Comments', icon: 'chatbox-ellipses-outline', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
+          { text: 'Page setup…', icon: 'document-text-outline', onPress: () => setPageSetupOpen(true) },
           ...(Platform.OS !== 'web'
             ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]
             : []),
@@ -250,7 +255,18 @@ export default function DocumentScreen() {
   // The iPhone's editor is a WebView under the header, so the header keeps its own margins there.
   const nativeEditor = Platform.OS !== 'web';
   const makeHeader = (inset: boolean) =>
-    file ? <DocumentHeader title={file.title} meta={meta} onRename={rename} selectTitle={created} compact={!wide} inset={inset} /> : null;
+    file ? (
+      <DocumentHeader
+        title={file.title}
+        meta={meta}
+        onRename={rename}
+        selectTitle={created}
+        compact={!wide}
+        inset={inset}
+        // Pages (laptop) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b).
+        onGradient={wide ? margin.pages : nativeEditor && !!phoneView?.pages}
+      />
+    ) : null;
 
   const lostNotice =
     sync.state.lost.length > 0 ? (
@@ -289,7 +305,8 @@ export default function DocumentScreen() {
   const body = !file ? (
     <View style={styles.center}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
   ) : showEditor ? (
-    <View style={[styles.editorWrap, !wide && nativeEditor && styles.pageCard]}>
+    // Print layout: no white card; the pages sit on the gradient (step 4.5b).
+    <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
       {lostNotice}
       <StudiplyEditor
         key={editorKey}
@@ -301,6 +318,7 @@ export default function DocumentScreen() {
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
         view={nativeEditor ? phoneView : undefined}
+        pageSetup={sync.pageSetup}
         onZoom={(zoom) => setPhoneView({ zoom })}
       />
     </View>
@@ -353,8 +371,9 @@ export default function DocumentScreen() {
     <View style={styles.container}>
       <GradientFill />
       {!wide && <ThemedStatusBar />}
-      <View style={wide ? [styles.column, margin.shown && commentRoom && styles.columnWithMargin] : styles.container}>
-        {top}
+      {/* In Pages (step 4.5b) the page area has the whole pane; the tabs row keeps its column. */}
+      <View style={wide ? (margin.pages ? styles.columnPages : [styles.column, margin.shown && commentRoom && styles.columnWithMargin]) : styles.container}>
+        {wide && margin.pages ? <View style={styles.topRowPages}>{top}</View> : top}
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       </View>
       {toast}
@@ -368,6 +387,14 @@ export default function DocumentScreen() {
         onResolve={(id, resolved) => onComment({ type: 'comment', action: 'resolve', id, resolved })}
         onDelete={(id) => onComment({ type: 'comment', action: 'delete', id })}
       />
+      <PageSetupDialog
+        visible={pageSetupOpen}
+        setup={sync.pageSetup}
+        pageless={wide ? !margin.pages : !phoneView?.pages}
+        onClose={() => setPageSetupOpen(false)}
+        onApply={(setup) => void sync.setPageSetup(setup).catch((err) => showAlert('Could not save the page setup', errorMessage(err, 'Please try again.')))}
+        onSetDefault={saveDefaultPageSetup}
+      />
       {file && (
         <VersionHistory visible={historyOpen} fileId={file.id} tab={tab} onClose={() => setHistoryOpen(false)} onRestore={sync.restore} />
       )}
@@ -380,6 +407,8 @@ const makeStyles = (c: ThemeColors) =>
     container: { flex: 1 },
     column: { flex: 1, width: '100%', maxWidth: Layout.documentMaxWidth + 48, alignSelf: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, gap: 12 },
     columnWithMargin: { maxWidth: Layout.documentMaxWidth + 48 + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W },
+    columnPages: { flex: 1, width: '100%', paddingTop: 16, gap: 12 },
+    topRowPages: { width: '100%', maxWidth: Layout.documentMaxWidth + 48, alignSelf: 'center', paddingHorizontal: 24 },
     topRow: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 44 },
     hint: { flexShrink: 1, fontSize: Typography.size.sm, color: c.text.onGradient },
     spacer: { flex: 1 },

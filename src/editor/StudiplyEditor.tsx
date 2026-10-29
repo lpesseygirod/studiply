@@ -48,6 +48,7 @@ const panelOf = (id: string | undefined) => (Object.keys(PANEL_IDS) as Panel[]).
 
 const CSS_TAG = 'studiply';
 const CSS = editorCss();
+const CLEAR_WEBVIEW = [{ flex: 1 }, { backgroundColor: 'transparent' }];
 
 // The page is always white (editorCss); the toolbar follows the app.
 const PAGE = [defaultEditorTheme.webview, { backgroundColor: PAGE_COLORS.card }];
@@ -62,7 +63,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -328,15 +329,18 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   );
 
   useEffect(() => {
-    // The grey around the sheet in Print layout follows the app's appearance (step 4.5b).
-    if (state.isReady) editor.injectCSS(`${CSS}\n:root { --studiply-canvas: ${colors.cardMuted}; }`, CSS_TAG);
-  }, [state.isReady, editor, colors.cardMuted]);
+    if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
+  }, [state.isReady, editor]);
 
   // Print layout and zoom (step 4.5b): the sheet fits the screen's width, the zoom multiplies it.
   const viewZoom = typeof view?.zoom === 'number' ? view.zoom : 1;
   useEffect(() => {
     if (state.isReady && view) run({ type: 'view', fit: true, pages: view.pages, zoom: viewZoom });
   }, [state.isReady, view, viewZoom, run]);
+  // The document's page setup (after test D).
+  useEffect(() => {
+    if (state.isReady && pageSetup) run({ type: 'view', setup: pageSetup });
+  }, [state.isReady, pageSetup, run]);
   // A pinch in the WebView changes the zoom there: kept on this iPhone once it settles.
   const pinched = state.format?.view?.zoom;
   const zoomSaved = useRef(onZoom);
@@ -390,7 +394,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       {/* The title and meta line make room for the text while typing. */}
       {!typing && header}
       <View style={styles.container}>
-        <RichText editor={editor} />
+        {/* Print layout (step 4.5b): a transparent WebView, so the screen's gradient shows around and between the pages. */}
+        <RichText editor={editor} style={view?.pages ? CLEAR_WEBVIEW : undefined} />
       </View>
       {typing && editable && (
         <KeyboardToolbar

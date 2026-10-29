@@ -8,8 +8,7 @@ import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_SIZE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
-import { A4 } from './page/pageLayout';
-import { PAGE_CLASS, PAGE_GAP_CLASS } from './page/pageView';
+import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -28,6 +27,8 @@ export function editorCss(scope = ''): string {
   const handles = `${scope} .${TABLE_HANDLES_CLASS}`.trim();
   const photo = `${pm} .${PHOTO_CLASS}`;
   const sheet = `${pm}.${PAGE_CLASS}`;
+  // A page's soft shadow on the gradient (the page view, step 4.5b).
+  const PAGE_SHADOW = `0 1px 3px ${c.scrim}, 0 6px 24px ${c.scrim}`;
   const gap = `${pm} .${PAGE_GAP_CLASS}`;
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
@@ -115,18 +116,21 @@ ${photo}-handle[data-corner='se'] { right: -7px; bottom: -7px; cursor: nwse-resi
   ${photo}-handle[data-corner='sw'] { left: -12px; bottom: -12px; }
   ${photo}-handle[data-corner='se'] { right: -12px; bottom: -12px; }
 }
-/* The page view (step 4.5b): the editor is the A4 sheet; the gaps are widgets (page/pageView.ts). The grey is the device's own (--studiply-canvas). */
-${sheet} { width: ${A4.width}px; max-width: none; min-height: ${A4.height}px; box-sizing: border-box; padding: ${A4.margin}px; margin: 0 auto; box-shadow: 0 1px 3px ${c.scrim}, 0 0 0 1px ${c.border}; }
+/* The page view (step 4.5b): the editor is the A4 sheet, white until its pages are drawn; then it is
+   transparent and a layer behind the text draws each white page, so the gaps show what is behind (the
+   app's gradient). Gaps are widgets (page/pageView.ts). */
+${sheet} { max-width: none; box-sizing: border-box; margin: 0 auto; box-shadow: ${PAGE_SHADOW}; }
+${sheet}.${PAGES_DRAWN_CLASS} { background: transparent; box-shadow: none; position: relative; z-index: 0; }
 ${sheet} .page-break { height: 0; margin: 0; padding: 0; border: 0; overflow: hidden; }
+${pm} .${PAGE_LAYER_CLASS} { position: absolute; left: 0; top: 0; z-index: -1; pointer-events: none; user-select: none; -webkit-user-select: none; }
+${pm} .${PAGE_LAYER_CLASS}-sheet { position: absolute; left: 0; width: 100%; background: ${c.card}; box-shadow: ${PAGE_SHADOW}; }
+${pm} .${PAGE_LAYER_CLASS}-number { position: absolute; font: 11px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; }
 ${gap} { display: block; position: relative; margin: 0; padding: 0; border: 0; user-select: none; -webkit-user-select: none; pointer-events: none; }
 ${sheet} .${PAGE_GAP_CLASS} + * { margin-top: 0 !important; }
 ${pm} tr.${PAGE_GAP_CLASS} { display: table-row; }
 ${pm} tr.${PAGE_GAP_CLASS} > td { position: relative; padding: 0; border: 0 !important; background: transparent; }
-${gap}-band { position: absolute; bottom: ${A4.margin}px; height: ${A4.gap}px; background: var(--studiply-canvas, ${c.cardMuted}); box-shadow: inset 0 4px 4px -4px ${c.scrim}, inset 0 -4px 4px -4px ${c.scrim}; }
-${gap}-number { position: absolute; bottom: ${A4.margin + A4.gap + 40}px; text-align: center; font: 11px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; }
-${gap}-last > .${PAGE_GAP_CLASS}-number { bottom: ${-(A4.margin - 40)}px; }
 ${pm}.studiply-page-measuring .${PAGE_GAP_CLASS} { display: none !important; }
-${scope ? '' : `body:has(.ProseMirror.${PAGE_CLASS}) { background: var(--studiply-canvas, ${c.cardMuted}); }
+${scope ? '' : `html:has(.ProseMirror.${PAGE_CLASS}), body:has(.ProseMirror.${PAGE_CLASS}) { background: transparent; }
 .studiply-page-label { position: fixed; left: 12px; bottom: 12px; z-index: 20; padding: 4px 10px; border-radius: 12px; background: ${c.card}; border: 1px solid ${c.border}; font: 12px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; opacity: 0; transition: opacity 0.25s; pointer-events: none; }`}
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 @media (max-width: 480px) { ${bar} .${PHOTO_SIZE_CLASS} { display: none; } ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }

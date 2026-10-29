@@ -126,9 +126,9 @@ export default function MainLayout() {
               <View
                 style={[
                   styles.centerColumn,
-                  wide && kind !== 'library' && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
-                  // A document showing its comments margin (step 4.5).
-                  wide && kind === 'document' && commentMargin.shown && commentMargin.room && styles.centerColumnWithComments,
+                  wide && kind !== 'library' && !(kind === 'document' && commentMargin.pages) && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
+                  // A document showing its comments margin (step 4.5); in Pages it has the whole pane (step 4.5b).
+                  wide && kind === 'document' && !commentMargin.pages && commentMargin.shown && commentMargin.room && styles.centerColumnWithComments,
                 ]}
               >
                 <Tabs

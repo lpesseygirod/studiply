@@ -1,3 +1,5 @@
+import { DEFAULT_SHEET } from './pageSetup';
+
 /**
  * Where the pages break (step 4.5b): a pure function from the measured
  * pieces of a document to the gaps the page view inserts. The same rules
@@ -21,16 +23,13 @@
  */
 
 export interface PageGeometry {
-  /** The page's height (A4: 1123 px). */
+  /** The page's height (A4: 1122.5 px). */
   height: number;
-  /** Top and bottom margins. */
-  margin: number;
-  /** The grey space between two pages. */
+  marginTop: number;
+  marginBottom: number;
+  /** The space between two pages. */
   gap: number;
 }
-
-/** A4 at 96 px per inch, 2.54 cm margins, as in Google Docs (page setup comes in 4.7). */
-export const A4: PageGeometry & { width: number } = { width: 794, height: 1123, margin: 96, gap: 24 };
 
 export type UnitKind = 'line' | 'block' | 'row' | 'break';
 /** How the gap is drawn there: between blocks, inside a paragraph (at a line), or as a table row. */
@@ -77,8 +76,8 @@ export interface PageLayout {
 const EPS = 0.5;
 
 /** `end`: where the document's content ends (the last block's bottom margin included), if known. */
-export function layoutPages(units: PageUnit[], page: PageGeometry = A4, end?: number): PageLayout {
-  const text = page.height - 2 * page.margin;
+export function layoutPages(units: PageUnit[], page: PageGeometry = DEFAULT_SHEET, end?: number): PageLayout {
+  const text = page.height - page.marginTop - page.marginBottom;
   const pitch = page.height + page.gap;
   const gaps: PageGap[] = [];
   let shift = 0;

@@ -6,7 +6,8 @@
 // rows (test-utils/fakeTables), the iPhone's cache an in-memory copy.
 
 import { resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';
-import { applyDocEdit, createDocument, documentStamp, openDocument, renameDocument, saveDocument, saveVersion, takeDocumentConflicts } from '../document.service';
+import { applyDocEdit, createDocument, documentStamp, openDocument, renameDocument, saveDocument, saveVersion, setPageSetup, takeDocumentConflicts } from '../document.service';
+import { DEFAULT_PAGE_SETUP, MARGIN_PRESETS } from '../../editor/page/pageSetup';
 import { makeDocEdit, type Block } from '../../editor/docBlocks';
 import { DocumentSession } from '../../editor/documentSession';
 import type { DocJSON } from '../../editor/types';
@@ -255,5 +256,26 @@ describe('a version restored on the laptop while the iPhone has the document ope
     // Nothing of this tab waits in the queue: the server's copy is the one.
     expect(texts((await openDocument(FILE, 'notes')).content)).toEqual(['Restaurado en el laptop']);
     expect(cache.rows.documents.get('row-s')?.dirty).toBe(false);
+  });
+});
+
+describe('page setup on the iPhone (after test D)', () => {
+  it('kept here at once, queued, the latest one wins, then on the server beside the text', async () => {
+    const fileId = await createDocument({ courseId: null, folderId: null });
+    const blank = (await openDocument(fileId, 'notes')).content;
+    await saveDocument({ fileId, tab: 'notes', base: blank, next: { type: 'doc', content: [p('x', 'Apuntes', 1000)] } });
+    await setPageSetup(fileId, 'notes', { ...DEFAULT_PAGE_SETUP, size: 'letter' });
+    await setPageSetup(fileId, 'notes', { ...DEFAULT_PAGE_SETUP, size: 'letter', margins: MARGIN_PRESETS.wide.margins });
+    // Offline: on this iPhone already, one op for both.
+    expect((await openDocument(fileId, 'notes')).pageSetup).toMatchObject({ size: 'letter', margins: MARGIN_PRESETS.wide.margins });
+    expect(sync.ops.map((o) => o.kind)).toEqual(['create_document', 'document_edit', 'document_page_setup']);
+
+    await sendAll();
+    const [row] = rowsOf('documents');
+    expect(row.page_setup).toMatchObject({ size: 'letter', margins: MARGIN_PRESETS.wide.margins });
+    expect(texts(row.content)).toEqual(['Apuntes']);
+    const local = [...cache.rows.documents.values()];
+    expect(local).toHaveLength(1);
+    expect(local[0].dirty).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../ta
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
 import { pageViewOf } from '../page/pageView';
+import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 
 export { cleanUrl } from './links';
@@ -128,8 +129,11 @@ export type FormatCommand =
   /** The selected photo's layout (in line, wrapped, on lines of its own) and alignment; or delete it. */
   | { type: 'photoLayout'; wrap?: PhotoWrap; align?: PhotoAlign }
   | { type: 'photoDelete' }
-  /** Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print layout (the sheet fits the screen). */
-  | { type: 'view'; pages?: boolean; zoom?: number; fit?: boolean }
+  /**
+   * Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print
+   * layout (the sheet fits the screen); `setup`: the document's page setup.
+   */
+  | { type: 'view'; pages?: boolean; zoom?: number; fit?: boolean; setup?: PageSetup }
   /**
    * Formulas (step 4.5): put one in, or change the selected one (it stays
    * selected while its editor is open); `remove` deletes it; `done` closes
@@ -420,6 +424,7 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       if (cmd.fit !== undefined) c = c.setPageFit(cmd.fit);
       if (cmd.pages !== undefined) c = c.setPageView(cmd.pages);
       if (cmd.zoom !== undefined) c = c.setPageZoom(cmd.zoom);
+      if (cmd.setup) c = c.setPageSetup(cmd.setup);
       return c.run();
     }
     case 'photoDelete':

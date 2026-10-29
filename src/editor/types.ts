@@ -5,6 +5,7 @@ import type { PasteReport } from './pasteReport';
 import type { FormatCommand } from './format';
 import type { CommentInfo } from './schema/comments';
 import type { ViewPrefs } from '../lib/viewPrefs';
+import type { PageSetup } from './page/pageSetup';
 
 /** What the screen can do with a comment (the document menu's Comments). */
 export type CommentCommand = Extract<FormatCommand, { type: 'comment' }>;
@@ -59,4 +60,6 @@ export type StudiplyEditorProps = {
    */
   view?: ViewPrefs | null;
   onZoom?: (zoom: number) => void;
+  /** The document's page setup (after test D): paper, margins, page numbers, gap. */
+  pageSetup?: PageSetup;
 };

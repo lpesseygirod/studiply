@@ -5,13 +5,14 @@ import { FileHandler } from '@tiptap/extension-file-handler';
 
 import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
+import { useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { FormulaPopover } from './FormulaPopover.web';
 import { PhotoMenu } from './PhotoMenu.web';
 import { CommentMargin, CommentPopovers } from './Comments.web';
+import { setDocumentPages } from '../components/shell/commentMargin';
 import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
 import { runFormat } from './format';
 import { LinkBubble } from './LinkBubble.web';
@@ -20,7 +21,7 @@ import { addPhotoFiles, pickPhotoFiles } from './photos.web';
 import { TableMenus } from './TableMenus.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { TableHandles } from './table/tableHandles';
-import { A4 } from './page/pageLayout';
+import { DEFAULT_SHEET } from './page/pageSetup';
 import { pageViewOf } from './page/pageView';
 import { effectiveZoom, stepZoom, useViewPrefs } from '../lib/viewPrefs';
 import { Typography } from '../constants/typography';
@@ -46,7 +47,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -111,7 +112,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
 
   // Development: the Chrome checks read and drive both editors the same way
   // (the iPhone bundle sets the same global).
-  if (__DEV__) (window as unknown as { studiplyEditor?: Editor }).studiplyEditor = editor;
+  // The iPhone's injected CSS too (the bundle page in the checks has none).
+  if (__DEV__) Object.assign(window as unknown as { studiplyEditor?: Editor; studiplyEditorCss?: () => string }, { studiplyEditor: editor, studiplyEditorCss: () => editorCss() });
 
   useImperativeHandle(
     ref,
@@ -129,16 +131,35 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     [editor],
   );
 
-  // Pages and zoom (step 4.5b), kept on this laptop: the sheet on the app's grey, which the
-  // gaps between pages show too; Fit makes the sheet as wide as the column (at most 100 %).
-  const { colors } = useTheme();
+  const withMargin = editable && commentRoom && listComments(editor.state.doc).some((c) => !c.resolved || c.id === activeComment);
+  const marginShown = useRef(onCommentMargin);
+  marginShown.current = onCommentMargin;
+  useEffect(() => marginShown.current?.(withMargin), [withMargin]);
+
+  // Pages and zoom (step 4.5b), kept on this laptop. In Pages (after test D) the white pages sit on
+  // the app's gradient in the whole centre pane, which scrolls (no card, no box); Fit makes the
+  // sheet as wide as the pane allows (at most 100 %).
   const [viewPrefs, setViewPrefs] = useViewPrefs('laptop');
   const [room, setRoom] = useState(0);
   const pageView = pageViewOf(editor.state);
   const pages = !!pageView?.pages;
-  // The room for the sheet: the column less the grey edges and the scrollbar.
-  const sheetRoom = room - 2 * CANVAS_PADDING - SCROLLBAR_W;
-  const zoom = effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, A4.width);
+  // The document's page (page setup): its paper, margins and gap.
+  const sheet = pageView?.sheet ?? DEFAULT_SHEET;
+  useEffect(() => setDocumentPages(pages), [pages]);
+  useEffect(() => {
+    if (pageSetup) editor.commands.setPageSetup(pageSetup);
+  }, [editor, pageSetup]);
+  // On the gradient, the scrollbar has no track (after test D).
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    const node = (scrollRef.current as unknown as { getScrollableNode?: () => HTMLElement } | null)?.getScrollableNode?.();
+    if (node) node.style.scrollbarColor = pages ? `${PAGE_COLORS.scrim} transparent` : '';
+  }, [pages]);
+  useEffect(() => () => setDocumentPages(false), []);
+  // The room for the sheet: the pane less its edges, the scrollbar and the comments margin beside the sheet.
+  const marginRoom = withMargin ? COMMENT_MARGIN_GAP + COMMENT_MARGIN_W : 0;
+  const sheetRoom = room - 2 * CANVAS_PADDING - SCROLLBAR_W - marginRoom;
+  const zoom = effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, sheet.width);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   useEffect(() => {
@@ -147,9 +168,6 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   useEffect(() => {
     if (zoom !== pageViewOf(editor.state)?.zoom) editor.commands.setPageZoom(zoom);
   }, [editor, zoom]);
-  useEffect(() => {
-    page?.style.setProperty('--studiply-canvas', colors.cardMuted);
-  }, [page, colors.cardMuted]);
   // ⌘+ / ⌘− step the zoom and ⌘0 is 100 %, in place of the browser's zoom, while a document is open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -179,46 +197,52 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     const dom = editor.view.dom as HTMLElement;
     const box = page?.getBoundingClientRect();
     if (!box || !pages) return;
-    const pitch = (A4.height + A4.gap) * (pageViewOf(editor.state)?.zoom ?? zoom);
+    const pitch = (sheet.height + sheet.gap) * (pageViewOf(editor.state)?.zoom ?? zoom);
     const middle = box.top + box.height / 2 - dom.getBoundingClientRect().top;
     setPageNow(Math.max(1, Math.min(pageCount, Math.floor(middle / pitch) + 1)));
   };
   useEffect(followPage);
 
-  const withMargin = editable && commentRoom && listComments(editor.state.doc).some((c) => !c.resolved || c.id === activeComment);
-  const marginShown = useRef(onCommentMargin);
-  marginShown.current = onCommentMargin;
-  useEffect(() => marginShown.current?.(withMargin), [withMargin]);
+  const margin = withMargin && <CommentMargin editor={editor} active={activeComment} onActive={setActiveComment} />;
 
   return (
-    <View style={[styles.container, pages && styles.containerPages, withMargin && (pages ? styles.containerPagesWithMargin : styles.containerWithMargin)]}>
+    <View style={[styles.container, pages ? styles.containerPages : withMargin && styles.containerWithMargin]}>
         <style>{CSS}</style>
         {editable && (
-          <FormatToolbar
-            editor={editor}
-            onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined}
-            onComment={() => editor.view.dom.dispatchEvent(new CustomEvent(COMMENT_EVENT, { bubbles: true }))}
-            view={{ pages: viewPrefs?.pages ?? true, zoom: viewPrefs?.zoom ?? 'fit', shown: zoom, set: setViewPrefs }}
-          />
+          <View style={pages && styles.toolbarPages}>
+            <FormatToolbar
+              editor={editor}
+              onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined}
+              onComment={() => editor.view.dom.dispatchEvent(new CustomEvent(COMMENT_EVENT, { bubbles: true }))}
+              view={{ pages: viewPrefs?.pages ?? true, zoom: viewPrefs?.zoom ?? 'fit', shown: zoom, set: setViewPrefs }}
+            />
+          </View>
         )}
         <View style={styles.row}>
           <View
-            style={[styles.page, pages && styles.canvas]}
+            style={[styles.page, pages && styles.pageOnGradient]}
             ref={(v) => setPage(v as unknown as HTMLElement | null)}
             onLayout={(e) => setRoom(e.nativeEvent.layout.width)}
           >
             <ScrollView
               style={[styles.scroll, pages && styles.scrollBothWays]}
+              ref={scrollRef}
               onScroll={onScroll}
               scrollEventThrottle={100}
               contentContainerStyle={
                 pages
-                  ? [styles.canvasContent, A4.width * shownZoom > sheetRoom + 1 && { minWidth: A4.width * shownZoom + 2 * CANVAS_PADDING }]
+                  ? [styles.canvasContent, sheet.width * shownZoom > sheetRoom + 1 && { minWidth: sheet.width * shownZoom + marginRoom + 2 * CANVAS_PADDING }]
                   : [styles.pageContent, narrow && styles.pageContentNarrow]
               }
             >
-              {pages ? <View style={[styles.sheetHeader, { width: A4.width * shownZoom }]}>{header}</View> : header}
-              <EditorContent editor={editor} className={SCOPE} />
+              {/* One tree in both views, so switching keeps the editor where it is. In Pages the comments margin scrolls beside the sheet. */}
+              <View style={pages && styles.sheetRow}>
+                <View style={pages && { width: sheet.width * shownZoom }}>
+                  <View style={pages && styles.sheetHeader}>{header}</View>
+                  <EditorContent editor={editor} className={SCOPE} />
+                </View>
+                {pages && margin}
+              </View>
             </ScrollView>
             {pages && pageCount > 1 && (
               <View style={[styles.pageCount, !pageLabel && styles.pageCountHidden]} pointerEvents="none">
@@ -233,7 +257,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             {editable && <PhotoMenu editor={editor} />}
             {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
           </View>
-          {withMargin && <CommentMargin editor={editor} active={activeComment} onActive={setActiveComment} />}
+          {!pages && margin}
         </View>
     </View>
   );
@@ -250,14 +274,15 @@ const makeStyles = (c: ThemeColors) =>
     scroll: { flex: 1 },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },
     pageContentNarrow: { paddingHorizontal: 20, paddingTop: 20 },
-    // Pages: room for the A4 sheet and a grey edge around it.
-    containerPages: { maxWidth: Math.max(Layout.documentMaxWidth, A4.width + 2 * CANVAS_PADDING) },
-    containerPagesWithMargin: { maxWidth: Math.max(Layout.documentMaxWidth, A4.width + 2 * CANVAS_PADDING) + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W },
-    canvas: { backgroundColor: c.cardMuted },
-    // A sheet wider than the column (zoomed in) scrolls sideways too.
+    // Pages: the whole pane, on the gradient; the toolbar keeps the document's width.
+    containerPages: { maxWidth: '100%' },
+    toolbarPages: { width: '100%', maxWidth: Layout.documentMaxWidth + 2 * CANVAS_PADDING, alignSelf: 'center', paddingHorizontal: CANVAS_PADDING },
+    pageOnGradient: { backgroundColor: 'transparent', borderRadius: 0 },
+    // A sheet wider than the pane (zoomed in) scrolls sideways too.
     scrollBothWays: { overflowX: 'auto' } as object,
-    canvasContent: { padding: CANVAS_PADDING, paddingBottom: 48 },
-    sheetHeader: { maxWidth: '100%', alignSelf: 'center', paddingBottom: 12 },
+    canvasContent: { paddingHorizontal: CANVAS_PADDING, paddingTop: 4, paddingBottom: 48 },
+    sheetRow: { flexDirection: 'row', alignSelf: 'center', gap: COMMENT_MARGIN_GAP },
+    sheetHeader: { paddingBottom: 12 },
     pageCount: { position: 'absolute', left: 12, bottom: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
     pageCountHidden: { opacity: 0 },
     pageCountText: { fontSize: Typography.size.xs, color: c.text.secondary, fontVariant: ['tabular-nums'] },

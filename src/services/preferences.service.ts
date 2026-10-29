@@ -7,10 +7,12 @@ import { onBackOnline } from '../lib/connectivity';
 import { enqueue, registerSyncHandler, syncEnabled } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
 import type { Json } from '../types/supabase';
+import { cleanPageSetup, type PageSetup } from '../editor/page/pageSetup';
 
 /**
  * Preferences that follow the student across devices (step 4.5):
- * `profiles.preferences`. For now the colour picker's Recent colours.
+ * `profiles.preferences`: the colour picker's Recent colours, and the
+ * default page setup for new documents (after test D).
  *
  * Each device keeps a copy (AsyncStorage / localStorage), so the picker
  * opens at once and works offline. A colour picked is merged into the
@@ -153,3 +155,69 @@ export function useRecentColours(): { recent: string[]; add: (colour: string) =>
   }, []);
   return { recent: list.map((c) => c.colour), add };
 }
+
+// -------------------------------------------------------------------
+// The default page setup (after test D): Page setup's "Set as default",
+// for new documents (as in Google Docs; existing ones keep theirs). Kept on
+// this device too, so a new document offline gets it.
+// -------------------------------------------------------------------
+
+const pageSetupKey = (id: string) => `studiply.pageSetup.${id}`;
+
+interface DefaultPageSetupPayload {
+  userId: string;
+  setup: PageSetup;
+}
+
+async function pushDefaultPageSetup(id: string, setup: PageSetup, fail = serviceError): Promise<void> {
+  const { data, error } = await supabase.from('profiles').select('preferences').eq('id', id).maybeSingle();
+  if (error) throw fail(error, 'Could not save the default page setup.');
+  const preferences = (data?.preferences ?? {}) as Record<string, unknown>;
+  const { error: writeError } = await supabase
+    .from('profiles')
+    .update({ preferences: { ...preferences, pageSetup: setup } as unknown as NonNullable<Json> })
+    .eq('id', id);
+  if (writeError) throw fail(writeError, 'Could not save the default page setup.');
+}
+
+/** The account's default page setup (this device's copy offline); null when none was set. */
+export async function loadDefaultPageSetup(): Promise<PageSetup | null> {
+  const id = await userId();
+  if (!id) return null;
+  try {
+    const { data, error } = await supabase.from('profiles').select('preferences').eq('id', id).maybeSingle();
+    if (error) throw error;
+    const saved = (data?.preferences as { pageSetup?: unknown } | null)?.pageSetup;
+    if (saved) {
+      const setup = cleanPageSetup(saved);
+      await AsyncStorage.setItem(pageSetupKey(id), JSON.stringify(setup)).catch(() => {});
+      return setup;
+    }
+  } catch {
+    // Offline: this device's copy.
+  }
+  try {
+    const raw = await AsyncStorage.getItem(pageSetupKey(id));
+    return raw ? cleanPageSetup(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Page setup's "Set as default": kept here at once, then on the account (the iPhone queues it). */
+export async function saveDefaultPageSetup(setup: PageSetup): Promise<void> {
+  const id = await userId();
+  if (!id) return;
+  const clean = cleanPageSetup(setup);
+  await AsyncStorage.setItem(pageSetupKey(id), JSON.stringify(clean)).catch(() => {});
+  if (syncEnabled) {
+    await enqueue<DefaultPageSetupPayload>({ kind: 'default_page_setup', key: `${id}:pageSetup`, payload: { userId: id, setup: clean } });
+    return;
+  }
+  await pushDefaultPageSetup(id, clean);
+}
+
+registerSyncHandler<DefaultPageSetupPayload>('default_page_setup', {
+  run: ({ userId: id, setup }) => pushDefaultPageSetup(id, setup, syncError),
+  merge: (_earlier, later) => later,
+});

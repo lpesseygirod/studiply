@@ -153,14 +153,14 @@ isOneToOne: false
                   ]
                 },"documents": {
                   Row: {
-                    "content": NonNullable<Json>,"created_at": string,"file_id": string,"id": string,"tab": string,"updated_at": string,"user_id": string
+                    "content": NonNullable<Json>,"created_at": string,"file_id": string,"id": string,"page_setup": Json | null,"tab": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id": string,"id"?: string,"tab": string,"updated_at"?: string,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id": string,"id"?: string,"page_setup"?: Json | null,"tab": string,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id"?: string,"id"?: string,"tab"?: string,"updated_at"?: string,"user_id"?: string
+                    "content"?: NonNullable<Json>,"created_at"?: string,"file_id"?: string,"id"?: string,"page_setup"?: Json | null,"tab"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {

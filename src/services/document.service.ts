@@ -24,6 +24,8 @@ import { combineDocEdits, makeDocEdit, mergeDocEdit, type DocConflict, type DocC
 import { newBlockId } from '../editor/schema/blockMeta';
 import { transcriptDoc } from '../editor/transcriptDoc';
 import type { DocJSON } from '../editor/types';
+import { cleanPageSetup, type PageSetup } from '../editor/page/pageSetup';
+import { loadDefaultPageSetup } from './preferences.service';
 import type { Json, Tables } from '../types/supabase';
 import { cleanName } from '../utils/names';
 
@@ -61,13 +63,15 @@ export interface OpenedDocument {
   id: string | null;
   content: DocJSON;
   updatedAt: string | null;
+  /** Its page setup (after test D; the defaults when none was saved). */
+  pageSetup: PageSetup;
 }
 
 const asDoc = (content: unknown): DocJSON =>
   content && typeof content === 'object' && (content as { type?: unknown }).type === 'doc' ? (content as DocJSON) : EMPTY;
 
 function opened(fileId: string, tab: DocTab, row: DocumentRow | null | undefined): OpenedDocument {
-  return { fileId, tab, id: row?.id ?? null, content: row ? asDoc(row.content) : EMPTY, updatedAt: row?.updated_at ?? null };
+  return { fileId, tab, id: row?.id ?? null, content: row ? asDoc(row.content) : EMPTY, updatedAt: row?.updated_at ?? null, pageSetup: cleanPageSetup(row?.page_setup) };
 }
 
 async function localDocument(fileId: string, tab: DocTab): Promise<DocumentRow | null> {
@@ -158,15 +162,18 @@ export interface CreateDocumentParams {
 
 interface CreateDocumentPayload {
   file: Pick<FileRow, 'id' | 'title' | 'course_id' | 'folder_id'>;
-  document: Pick<DocumentRow, 'id' | 'file_id' | 'tab' | 'content'>;
+  document: Pick<DocumentRow, 'id' | 'file_id' | 'tab' | 'content' | 'page_setup'>;
 }
 
 /** A blank document ("Untitled document", one empty page); returns its file id. */
 export async function createDocument(params: CreateDocumentParams): Promise<string> {
   const payload: CreateDocumentPayload = {
     file: { id: newId(), title: cleanName(params.title ?? UNTITLED_DOCUMENT), course_id: params.courseId, folder_id: params.folderId },
-    document: { id: newId(), file_id: '', tab: 'notes', content: blankDoc() as unknown as NonNullable<Json> },
+    document: { id: newId(), file_id: '', tab: 'notes', content: blankDoc() as unknown as NonNullable<Json>, page_setup: null },
   };
+  // The account's default page setup (Page setup's "Set as default"), if there is one.
+  const setup = await loadDefaultPageSetup().catch(() => null);
+  if (setup) payload.document.page_setup = setup as unknown as Json;
   payload.document.file_id = payload.file.id;
 
   if (syncEnabled && isOffline()) return createDocumentOnDevice(payload);
@@ -224,7 +231,10 @@ async function createDocumentRows(payload: CreateDocumentPayload, fail: ErrorOf 
   if (error) throw fail(error, 'Could not create the document.');
   const { error: docError } = await supabase
     .from('documents')
-    .upsert({ id: document.id, file_id: document.file_id, tab: document.tab, content: document.content as NonNullable<Json> }, { onConflict: 'file_id,tab', ignoreDuplicates: true });
+    .upsert(
+      { id: document.id, file_id: document.file_id, tab: document.tab, content: document.content as NonNullable<Json>, page_setup: document.page_setup ?? null },
+      { onConflict: 'file_id,tab', ignoreDuplicates: true },
+    );
   if (docError) throw fail(docError, 'Could not create the document.');
 }
 
@@ -284,6 +294,54 @@ export async function saveDocument(params: {
   }
 }
 
+// -------------------------------------------------------------------
+// Page setup (after test D): per document, a setting beside the content.
+// The latest one wins (it is not text to merge). Writing it moves the row's
+// updated_at, so the other device's check every few seconds picks it up.
+// -------------------------------------------------------------------
+
+export interface PageSetupPayload {
+  fileId: string;
+  tab: DocTab;
+  localId: string;
+  setup: PageSetup;
+}
+
+/** Writes the tab's page setup, creating the row (empty) if nothing was written in the tab yet. */
+async function writePageSetup(fileId: string, tab: DocTab, setup: PageSetup, newRowId: string, fail: ErrorOf): Promise<DocumentRow> {
+  const page_setup = cleanPageSetup(setup) as unknown as Json;
+  const { data: updated, error } = await supabase.from('documents').update({ page_setup }).eq('file_id', fileId).eq('tab', tab).select('*');
+  if (error) throw fail(error, 'Could not save the page setup.');
+  if (updated.length === 1) return updated[0];
+  const { error: insertError } = await supabase
+    .from('documents')
+    .upsert({ id: newRowId, file_id: fileId, tab, content: EMPTY as unknown as NonNullable<Json>, page_setup }, { onConflict: 'file_id,tab', ignoreDuplicates: true });
+  if (insertError) throw fail(insertError, 'Could not save the page setup.');
+  // Created now, or by the other device in between: set it on whichever row is there.
+  const { data: row, error: againError } = await supabase.from('documents').update({ page_setup }).eq('file_id', fileId).eq('tab', tab).select('*').single();
+  if (againError) throw fail(againError, 'Could not save the page setup.');
+  return row;
+}
+
+/** Saves the tab's page setup: at once on the laptop; on the iPhone, here first and then sent. */
+export async function setPageSetup(fileId: string, tab: DocTab, setup: PageSetup): Promise<void> {
+  const clean = cleanPageSetup(setup);
+  if (syncEnabled) {
+    const userId = cacheUser();
+    if (!userId) throw new Error('Could not save the page setup.');
+    const at = new Date().toISOString();
+    const existing = await localDocument(fileId, tab);
+    const row: DocumentRow = existing
+      ? { ...existing, page_setup: clean as unknown as Json, updated_at: at }
+      : { id: newId(), user_id: userId, file_id: fileId, tab, content: EMPTY as unknown as NonNullable<Json>, page_setup: clean as unknown as Json, created_at: at, updated_at: at };
+    await saveLocalRow('documents', row);
+    await enqueue<PageSetupPayload>({ kind: 'document_page_setup', key: editKey(fileId, tab), payload: { fileId, tab, localId: row.id, setup: clean } });
+    return;
+  }
+  const row = await writePageSetup(fileId, tab, clean, newId(), (error, message) => serviceError(error, message));
+  remember('documents', [row]);
+}
+
 const lostBlocks = (conflicts: DocConflict[]) => conflicts.filter((c) => c.kept === 'other').map((c) => c.blockId);
 
 export interface DocumentEditPayload {
@@ -304,7 +362,7 @@ async function saveOnDevice(fileId: string, tab: DocTab, next: DocJSON, edit: Do
   const existing = await localDocument(fileId, tab);
   const row: DocumentRow = existing
     ? { ...existing, content: next as unknown as NonNullable<Json>, updated_at: at }
-    : { id: newId(), user_id: userId, file_id: fileId, tab, content: next as unknown as NonNullable<Json>, created_at: at, updated_at: at };
+    : { id: newId(), user_id: userId, file_id: fileId, tab, content: next as unknown as NonNullable<Json>, page_setup: null, created_at: at, updated_at: at };
   await saveLocalRow('documents', row);
   await enqueue<DocumentEditPayload>({ kind: 'document_edit', key: editKey(fileId, tab), payload: { fileId, tab, localId: row.id, edit } });
   return { content: next, updatedAt: null, queued: true, lost: [] };
@@ -555,9 +613,9 @@ export async function getVersion(id: string): Promise<DocJSON> {
 // The queued steps (iPhone)
 // -------------------------------------------------------------------
 
-/** Edits of the tab still waiting to be sent (the running one included). Versions waiting don't count. */
+/** Edits of the tab still waiting to be sent (the running one included), page setups too. Versions waiting don't count. */
 export async function waitingEdits(fileId: string, tab: DocTab): Promise<number> {
-  return (await pendingSyncFor(editKey(fileId, tab))).filter((op) => op.kind === 'document_edit').length;
+  return (await pendingSyncFor(editKey(fileId, tab))).filter((op) => op.kind === 'document_edit' || op.kind === 'document_page_setup').length;
 }
 
 /**
@@ -603,6 +661,17 @@ registerSyncHandler<DocumentEditPayload>('document_edit', {
     notifyLibraryUpdated();
   },
   merge: (earlier, later) => ({ ...later, edit: combineDocEdits(earlier.edit, later.edit) }),
+});
+
+registerSyncHandler<PageSetupPayload>('document_page_setup', {
+  run: async ({ fileId, tab, localId, setup }) => {
+    await ensureDocumentOnServer(fileId);
+    const row = await writePageSetup(fileId, tab, setup, localId, syncError);
+    await refreshSyncedDocument(row, localId, fileId, tab);
+    notifyLibraryUpdated();
+  },
+  // A setting, not text: the latest wins.
+  merge: (_earlier, later) => later,
 });
 
 registerSyncHandler<RenameDocumentPayload>('rename_document', {

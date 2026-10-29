@@ -13,10 +13,12 @@ import {
   openDocument,
   saveDocument,
   saveVersion,
+  setPageSetup as savePageSetup,
   takeDocumentConflicts,
   waitingEdits,
   type DocTab,
 } from '../services/document.service';
+import { DEFAULT_PAGE_SETUP, samePageSetup, type PageSetup } from '../editor/page/pageSetup';
 
 /** How often the open document asks whether the other device changed it. */
 export const POLL_MS = 5000;
@@ -39,6 +41,9 @@ export function useDocumentSync(params: {
 }) {
   const { fileId, tab, editor, editorReady } = params;
   const [state, setState] = useState<SessionState>(INITIAL);
+  // The tab's page setup (after test D): as each open or check reads it, except while this device's own is being saved.
+  const [pageSetup, setPageSetupState] = useState<PageSetup>(DEFAULT_PAGE_SETUP);
+  const savingSetup = useRef(0);
   const session = useRef<DocumentSession | null>(null);
   // Tab screens stay mounted when the student goes elsewhere: losing focus
   // is leaving the document (a version; no checking for changes meanwhile).
@@ -74,7 +79,11 @@ export function useDocumentSync(params: {
     const s = new DocumentSession(
       port,
       {
-        open: () => openDocument(fileId, tab),
+        open: async () => {
+          const opened = await openDocument(fileId, tab);
+          if (savingSetup.current === 0) setPageSetupState((current) => (samePageSetup(current, opened.pageSetup) ? current : opened.pageSetup));
+          return opened;
+        },
         save: (base, next, options) => saveDocument({ fileId, tab, base, next, restamp: options?.restamp }),
         stamp: () => documentStamp(fileId, tab),
         saveVersion: (content, reason) => saveVersion(fileId, tab, content, reason),
@@ -122,6 +131,21 @@ export function useDocumentSync(params: {
   // iPhone: a pull brought new rows (the app came back to the foreground).
   useLibraryUpdates(() => void session.current?.refresh());
 
+  /** Page setup changed (… → Page setup): shown at once, then saved (the iPhone queues it). */
+  const setPageSetup = useCallback(
+    async (setup: PageSetup) => {
+      if (!fileId) return;
+      setPageSetupState(setup);
+      savingSetup.current += 1;
+      try {
+        await savePageSetup(fileId, tab, setup);
+      } finally {
+        savingSetup.current -= 1;
+      }
+    },
+    [fileId, tab],
+  );
+
   const onChange = useCallback(() => session.current?.changed(), []);
   const flush = useCallback(() => session.current?.flush() ?? Promise.resolve(), []);
   const clearLost = useCallback(() => session.current?.clearLost(), []);
@@ -130,7 +154,7 @@ export function useDocumentSync(params: {
     await session.current.restore(doc);
   }, []);
 
-  return { state, onChange, flush, clearLost, restore };
+  return { state, onChange, flush, clearLost, restore, pageSetup, setPageSetup };
 }
 
 /** "Saved · 10:31", "Saving…", "Saved on this iPhone", … for the top bar and the iPhone header. */

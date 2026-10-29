@@ -35,3 +35,14 @@ it('zoom stays within 50–200 %; fit multiplies it only in Pages', () => {
   expect(shownZoom({ ...s, pages: true })).toBeCloseTo(0.47);
   expect(shownZoom({ ...s, pages: false })).toBe(1);
 });
+
+it("a page setup through the view command: the sheet's size and margins, and the document untouched", () => {
+  editor = new Editor({ extensions: studiplyExtensions(), content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hola' }] }] } });
+  const before = editor.getJSON();
+  runFormat(editor, { type: 'view', pages: true, setup: { size: 'letter', orientation: 'landscape', margins: { top: 1.27, bottom: 1.27, left: 2.54, right: 2.54 }, numbers: 'top-right', gap: 48 } });
+  expect(pageViewOf(editor.state)!.sheet).toEqual({ width: 1056, height: 816, marginTop: 48, marginBottom: 48, marginLeft: 96, marginRight: 96, gap: 48, numbers: 'top-right' });
+  const style = editor.view.dom.getAttribute('style') ?? '';
+  expect(style).toContain('width: 1056px');
+  expect(style).toContain('padding: 48px 96px 48px 96px');
+  expect(editor.getJSON()).toEqual(before);
+});
