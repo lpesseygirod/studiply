@@ -84,6 +84,7 @@ export const EDITOR_SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '⌘ \\', action: 'Clear formatting' },
   { keys: '⌘ ⇧ V', action: 'Paste without formatting' },
   { keys: '⌘ Z  ⌘ ⇧ Z', action: 'Undo, redo in the text' },
+  { keys: '⌘ +  ⌘ −  ⌘ 0', action: 'Zoom in, zoom out, 100 %' },
   // Typing shortcuts (after test C), on both devices.
   { keys: '-  1.  []', action: 'Then a space, at the start of a line: bulleted, numbered, checklist' },
   { keys: '#  ##  ###  >', action: 'Then a space, at the start of a line: Heading 1, Heading 2, Subheading, quote' },

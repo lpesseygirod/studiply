@@ -25,6 +25,7 @@ import { saveLabel, useDocumentSync } from '../../../src/hooks/useDocumentSync';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
+import { useViewPrefs } from '../../../src/lib/viewPrefs';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
 import type { FileRow } from '../../../src/lib/cloudRows';
 import {
@@ -227,6 +228,8 @@ export default function DocumentScreen() {
     // The iPhone's list comes back with the editor's next state.
     setTimeout(() => void editorRef.current?.comments().then((list) => setComments((open) => (open ? list : open))), 150);
   };
+  // iPhone (step 4.5b): Print layout and the zoom, kept on this phone (the laptop's are in its toolbar).
+  const [phoneView, setPhoneView] = useViewPrefs('iphone');
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -235,6 +238,9 @@ export default function DocumentScreen() {
       ? [
           { text: 'Comments', icon: 'chatbox-ellipses-outline', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
+          ...(Platform.OS !== 'web'
+            ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]
+            : []),
         ]
       : [];
     itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra });
@@ -294,6 +300,8 @@ export default function DocumentScreen() {
         onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
+        view={nativeEditor ? phoneView : undefined}
+        onZoom={(zoom) => setPhoneView({ zoom })}
       />
     </View>
   ) : tabState === 'loading' ? (

@@ -9,6 +9,7 @@ import { SelectionBar } from '../format/selectionBar';
 import { PasteRules } from '../paste/extension';
 import { PageBreak, ParagraphFormat, Title, TITLE } from '../schema/blocks';
 import { TypingShortcuts } from '../schema/typingShortcuts';
+import { PageView } from '../page/pageView';
 
 /**
  * Step 4.4's formatting in the shared schema: Title, page breaks, line
@@ -54,6 +55,8 @@ export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeI
     SelectionBar,
     // "- ", "1. ", "# ", "> ", "[] ", $…$, $$…$$, **bold**… as they're typed.
     TypingShortcuts,
+    // Pages and zoom (step 4.5b); each device sets them from its own preferences.
+    PageView,
     PasteRules,
     Title,
     PageBreak,

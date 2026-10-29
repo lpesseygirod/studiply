@@ -9,6 +9,7 @@ import { selectionBarKey, type SelectionBarRequest } from './selectionBar';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
+import { pageViewOf } from '../page/pageView';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 
 export { cleanUrl } from './links';
@@ -95,6 +96,8 @@ export interface FormatState {
   selectionRequest: SelectionBarRequest | null;
   /** Maths typed as text before the cursor, offered as a formula (its LaTeX); null when none. */
   mathSuggestion: { latex: string } | null;
+  /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
+  view: { pages: boolean; zoom: number; pageCount: number };
 }
 
 export type FormatCommand =
@@ -125,6 +128,8 @@ export type FormatCommand =
   /** The selected photo's layout (in line, wrapped, on lines of its own) and alignment; or delete it. */
   | { type: 'photoLayout'; wrap?: PhotoWrap; align?: PhotoAlign }
   | { type: 'photoDelete' }
+  /** Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print layout (the sheet fits the screen). */
+  | { type: 'view'; pages?: boolean; zoom?: number; fit?: boolean }
   /**
    * Formulas (step 4.5): put one in, or change the selected one (it stays
    * selected while its editor is open); `remove` deletes it; `done` closes
@@ -212,7 +217,13 @@ export function formatState(editor: Editor): FormatState {
     ...commentState(editor),
     selectionRequest: selectionBarKey.getState(editor.state) ?? null,
     mathSuggestion: mathSuggestionOf(editor),
+    view: viewOf(editor),
   };
+}
+
+function viewOf(editor: Editor): FormatState['view'] {
+  const v = pageViewOf(editor.state);
+  return { pages: !!v?.pages, zoom: v?.zoom ?? 1, pageCount: v?.layout?.pages ?? 1 };
 }
 
 function mathSuggestionOf(editor: Editor): FormatState['mathSuggestion'] {
@@ -403,6 +414,14 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().setPhotoWidth(cmd.width).run();
     case 'photoLayout':
       return chain().setPhotoLayout({ wrap: cmd.wrap, align: cmd.align }).run();
+    case 'view': {
+      // Not focusing the text: it only changes how the document is shown.
+      let c = editor.chain();
+      if (cmd.fit !== undefined) c = c.setPageFit(cmd.fit);
+      if (cmd.pages !== undefined) c = c.setPageView(cmd.pages);
+      if (cmd.zoom !== undefined) c = c.setPageZoom(cmd.zoom);
+      return c.run();
+    }
     case 'photoDelete':
       return editor.isActive('image') || editor.isActive('inlineImage') ? chain().deleteSelection().run() : false;
     case 'formula':

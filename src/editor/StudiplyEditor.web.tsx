@@ -1,11 +1,11 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import { FileHandler } from '@tiptap/extension-file-handler';
 
 import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { useThemedStyles } from '../theme/ThemeProvider';
+import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
@@ -20,6 +20,10 @@ import { addPhotoFiles, pickPhotoFiles } from './photos.web';
 import { TableMenus } from './TableMenus.web';
 import { selectedChipMs } from './schema/timestampChip';
 import { TableHandles } from './table/tableHandles';
+import { A4 } from './page/pageLayout';
+import { pageViewOf } from './page/pageView';
+import { effectiveZoom, stepZoom, useViewPrefs } from '../lib/viewPrefs';
+import { Typography } from '../constants/typography';
 import { EMPTY_DOC, type DocJSON, type StudiplyEditorHandle, type StudiplyEditorProps } from './types';
 import { editorPhotoSource } from '../services/doc-photo.service';
 
@@ -27,6 +31,8 @@ import { editorPhotoSource } from '../services/doc-photo.service';
 setPhotoResolver(editorPhotoSource);
 
 const SCOPE = 'studiply-editor';
+const CANVAS_PADDING = 24;
+const SCROLLBAR_W = 16;
 // The page card gives the margins on the laptop; the text keeps room below.
 const CSS = `${editorCss(`.${SCOPE}`)}
 .${SCOPE} .ProseMirror { padding: 0 0 120px; min-height: 240px; outline: none; }
@@ -123,27 +129,104 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     [editor],
   );
 
+  // Pages and zoom (step 4.5b), kept on this laptop: the sheet on the app's grey, which the
+  // gaps between pages show too; Fit makes the sheet as wide as the column (at most 100 %).
+  const { colors } = useTheme();
+  const [viewPrefs, setViewPrefs] = useViewPrefs('laptop');
+  const [room, setRoom] = useState(0);
+  const pageView = pageViewOf(editor.state);
+  const pages = !!pageView?.pages;
+  // The room for the sheet: the column less the grey edges and the scrollbar.
+  const sheetRoom = room - 2 * CANVAS_PADDING - SCROLLBAR_W;
+  const zoom = effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, A4.width);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    if (viewPrefs && viewPrefs.pages !== pageViewOf(editor.state)?.pages) editor.commands.setPageView(viewPrefs.pages);
+  }, [editor, viewPrefs]);
+  useEffect(() => {
+    if (zoom !== pageViewOf(editor.state)?.zoom) editor.commands.setPageZoom(zoom);
+  }, [editor, zoom]);
+  useEffect(() => {
+    page?.style.setProperty('--studiply-canvas', colors.cardMuted);
+  }, [page, colors.cardMuted]);
+  // ⌘+ / ⌘− step the zoom and ⌘0 is 100 %, in place of the browser's zoom, while a document is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const next = e.key === '+' || e.key === '=' ? stepZoom(zoomRef.current, 1) : e.key === '-' || e.key === '_' ? stepZoom(zoomRef.current, -1) : e.key === '0' ? 1 : null;
+      if (next === null) return;
+      e.preventDefault();
+      setViewPrefs({ zoom: next });
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [setViewPrefs]);
+  // "Page 3 of 12": the page in the middle of the view, shown while scrolling (as in Google Docs; it would cover the text).
+  const [pageNow, setPageNow] = useState(1);
+  const [pageLabel, setPageLabel] = useState(false);
+  const labelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onScroll = () => {
+    followPage();
+    setPageLabel(true);
+    if (labelTimer.current) clearTimeout(labelTimer.current);
+    labelTimer.current = setTimeout(() => setPageLabel(false), 1500);
+  };
+  useEffect(() => () => void (labelTimer.current && clearTimeout(labelTimer.current)), []);
+  const pageCount = pageView?.layout?.pages ?? 1;
+  const shownZoom = pageView?.zoom ?? zoom;
+  const followPage = () => {
+    const dom = editor.view.dom as HTMLElement;
+    const box = page?.getBoundingClientRect();
+    if (!box || !pages) return;
+    const pitch = (A4.height + A4.gap) * (pageViewOf(editor.state)?.zoom ?? zoom);
+    const middle = box.top + box.height / 2 - dom.getBoundingClientRect().top;
+    setPageNow(Math.max(1, Math.min(pageCount, Math.floor(middle / pitch) + 1)));
+  };
+  useEffect(followPage);
+
   const withMargin = editable && commentRoom && listComments(editor.state.doc).some((c) => !c.resolved || c.id === activeComment);
   const marginShown = useRef(onCommentMargin);
   marginShown.current = onCommentMargin;
   useEffect(() => marginShown.current?.(withMargin), [withMargin]);
 
   return (
-    <View style={[styles.container, withMargin && styles.containerWithMargin]}>
+    <View style={[styles.container, pages && styles.containerPages, withMargin && (pages ? styles.containerPagesWithMargin : styles.containerWithMargin)]}>
         <style>{CSS}</style>
         {editable && (
           <FormatToolbar
             editor={editor}
             onImage={fileId ? () => pickPhotoFiles(editor, fileId) : undefined}
             onComment={() => editor.view.dom.dispatchEvent(new CustomEvent(COMMENT_EVENT, { bubbles: true }))}
+            view={{ pages: viewPrefs?.pages ?? true, zoom: viewPrefs?.zoom ?? 'fit', shown: zoom, set: setViewPrefs }}
           />
         )}
         <View style={styles.row}>
-          <View style={styles.page} ref={(v) => setPage(v as unknown as HTMLElement | null)}>
-            <ScrollView style={styles.scroll} contentContainerStyle={[styles.pageContent, narrow && styles.pageContentNarrow]}>
-              {header}
+          <View
+            style={[styles.page, pages && styles.canvas]}
+            ref={(v) => setPage(v as unknown as HTMLElement | null)}
+            onLayout={(e) => setRoom(e.nativeEvent.layout.width)}
+          >
+            <ScrollView
+              style={[styles.scroll, pages && styles.scrollBothWays]}
+              onScroll={onScroll}
+              scrollEventThrottle={100}
+              contentContainerStyle={
+                pages
+                  ? [styles.canvasContent, A4.width * shownZoom > sheetRoom + 1 && { minWidth: A4.width * shownZoom + 2 * CANVAS_PADDING }]
+                  : [styles.pageContent, narrow && styles.pageContentNarrow]
+              }
+            >
+              {pages ? <View style={[styles.sheetHeader, { width: A4.width * shownZoom }]}>{header}</View> : header}
               <EditorContent editor={editor} className={SCOPE} />
             </ScrollView>
+            {pages && pageCount > 1 && (
+              <View style={[styles.pageCount, !pageLabel && styles.pageCountHidden]} pointerEvents="none">
+                <Text style={styles.pageCountText}>
+                  Page {pageNow} of {pageCount}
+                </Text>
+              </View>
+            )}
             {editable && <LinkBubble editor={editor} page={page} />}
             {editable && <TableMenus editor={editor} />}
             {editable && <FormulaPopover editor={editor} />}
@@ -167,4 +250,15 @@ const makeStyles = (c: ThemeColors) =>
     scroll: { flex: 1 },
     pageContent: { paddingHorizontal: 60, paddingTop: 44 },
     pageContentNarrow: { paddingHorizontal: 20, paddingTop: 20 },
+    // Pages: room for the A4 sheet and a grey edge around it.
+    containerPages: { maxWidth: Math.max(Layout.documentMaxWidth, A4.width + 2 * CANVAS_PADDING) },
+    containerPagesWithMargin: { maxWidth: Math.max(Layout.documentMaxWidth, A4.width + 2 * CANVAS_PADDING) + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W },
+    canvas: { backgroundColor: c.cardMuted },
+    // A sheet wider than the column (zoomed in) scrolls sideways too.
+    scrollBothWays: { overflowX: 'auto' } as object,
+    canvasContent: { padding: CANVAS_PADDING, paddingBottom: 48 },
+    sheetHeader: { maxWidth: '100%', alignSelf: 'center', paddingBottom: 12 },
+    pageCount: { position: 'absolute', left: 12, bottom: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
+    pageCountHidden: { opacity: 0 },
+    pageCountText: { fontSize: Typography.size.xs, color: c.text.secondary, fontVariant: ['tabular-nums'] },
   });

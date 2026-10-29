@@ -23,9 +23,10 @@ import { useToolbarExpanded } from '../lib/toolbarPrefs';
 import { LinkForm } from '../components/editor/LinkForm';
 import { LINE_SPACINGS } from './schema/blocks';
 import { cleanSize, FONTS } from './schema/fonts';
+import { ZOOM_STEPS, type ViewPrefs, type ZoomSetting } from '../lib/viewPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'zoom';
 
 /** A toolbar item and the width it takes (for deciding what fits on the first row). */
 interface Item {
@@ -52,6 +53,7 @@ const ALIGN_ICON: Record<Align, IconName> = {
   right: 'format-align-right',
   justify: 'format-align-justify',
 };
+const percent = (z: number) => `${Math.round(z * 100)} %`;
 const SPACING_LABEL: Record<number, string> = { 1: 'Single', 1.15: '1.15', 1.5: '1.5', 2: 'Double' };
 
 /** How each style looks in the style menu (on the menu's card, which follows the appearance). */
@@ -79,12 +81,15 @@ export function FormatToolbar({
   editor,
   onImage,
   onComment,
+  view,
 }: {
   editor: Editor;
   /** Photos from the browser's file picker. */
   onImage?: () => void;
   /** A comment on the selected words. */
   onComment?: () => void;
+  /** Pages or Pageless and the zoom (step 4.5b): the chosen ones, the zoom shown, and the setter. */
+  view?: ViewPrefs & { shown: number; set: (change: Partial<ViewPrefs>) => void };
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -303,6 +308,24 @@ export function FormatToolbar({
     t('link', iconButton('link', 'Link (⌘K)', 'link-variant', !!s.link)),
     t('image', plain('Image', 'image-outline', onImage ?? soon('Images'))),
     t('table', iconButton('table', 'Insert table', 'table-large-plus')),
+    ...(view
+      ? [
+          gap('g9'),
+          t('zoom', dropdown('zoom', 'Zoom', view.zoom === 'fit' ? 'Fit' : percent(view.zoom), 72), 78),
+          t(
+            'pages',
+            <Pressable
+              onPress={() => view.set({ pages: !view.pages })}
+              style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, view.pages && styles.toolActive]}
+              accessibilityRole="button"
+              accessibilityLabel={view.pages ? 'Pages (switch to Pageless)' : 'Pageless (switch to Pages)'}
+              accessibilityState={{ selected: view.pages }}
+            >
+              <MaterialCommunityIcons name={view.pages ? 'file-document-multiple-outline' : 'text-long'} size={20} color={view.pages ? c.accentDark : c.text.primary} />
+            </Pressable>,
+          ),
+        ]
+      : []),
   ];
   const secondary: Item[] = [
     ...ALIGNS.map((a) => t(`align-${a.key}`, tool(`Align ${a.label.toLowerCase()} (${a.shortcut})`, ALIGN_ICON[a.key], { type: 'align', align: a.key }, { active: s.align === a.key }))),
@@ -381,6 +404,25 @@ export function FormatToolbar({
         <View style={styles.menuDivider} />
         <TableSizeForm rows={3} cols={3} action="Insert" onSubmit={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
       </ToolbarPopover>
+      {view && (
+        <ToolbarPopover anchor={menu?.kind === 'zoom' ? menu.anchor : null} onClose={close} width={190} label="Zoom">
+          {(['fit', ...ZOOM_STEPS] as ZoomSetting[]).map((z) =>
+            row(
+              String(z),
+              <Text style={styles.menuText}>{z === 'fit' ? `Fit (${percent(view.shown)})` : percent(z)}</Text>,
+              () => {
+                close();
+                view.set({ zoom: z });
+              },
+              view.zoom === z,
+              z === 1 ? '⌘0' : undefined,
+            ),
+          )}
+          <View style={styles.menuDivider} />
+          {row('pages', <Text style={styles.menuText}>Pages</Text>, () => (close(), view.set({ pages: true })), view.pages)}
+          {row('pageless', <Text style={styles.menuText}>Pageless</Text>, () => (close(), view.set({ pages: false })), !view.pages)}
+        </ToolbarPopover>
+      )}
       <ToolbarPopover anchor={menu?.kind === 'spacing' ? menu.anchor : null} onClose={close} width={170} label="Line spacing">
         {LINE_SPACINGS.map((v) =>
           row(String(v), <Text style={styles.menuText}>{SPACING_LABEL[v]}</Text>, () => run({ type: 'lineSpacing', spacing: v }), v === s.lineSpacing),

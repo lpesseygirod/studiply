@@ -62,7 +62,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -328,8 +328,24 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   );
 
   useEffect(() => {
-    if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
-  }, [state.isReady, editor]);
+    // The grey around the sheet in Print layout follows the app's appearance (step 4.5b).
+    if (state.isReady) editor.injectCSS(`${CSS}\n:root { --studiply-canvas: ${colors.cardMuted}; }`, CSS_TAG);
+  }, [state.isReady, editor, colors.cardMuted]);
+
+  // Print layout and zoom (step 4.5b): the sheet fits the screen's width, the zoom multiplies it.
+  const viewZoom = typeof view?.zoom === 'number' ? view.zoom : 1;
+  useEffect(() => {
+    if (state.isReady && view) run({ type: 'view', fit: true, pages: view.pages, zoom: viewZoom });
+  }, [state.isReady, view, viewZoom, run]);
+  // A pinch in the WebView changes the zoom there: kept on this iPhone once it settles.
+  const pinched = state.format?.view?.zoom;
+  const zoomSaved = useRef(onZoom);
+  zoomSaved.current = onZoom;
+  useEffect(() => {
+    if (pinched === undefined || !view || pinched === viewZoom) return;
+    const timer = setTimeout(() => zoomSaved.current?.(pinched), 400);
+    return () => clearTimeout(timer);
+  }, [pinched, view, viewZoom]);
 
   useEffect(() => {
     if (state.isReady) editor.setEditable(editable);

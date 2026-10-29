@@ -3,6 +3,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { addColumn, addRow, CellSelection, TableMap, type TableRect } from '@tiptap/pm/tables';
 import type { EditorView } from '@tiptap/pm/view';
 
+import { PAGE_GAP_CLASS } from '../page/pageView';
+
 /**
  * The laptop's table handles (step 4.5, Lea: "small handles on hover"),
  * while the pointer is over a table or the margin around it (where the
@@ -134,7 +136,8 @@ class HandlesView {
     const node = tablePos >= 0 ? this.view.state.doc.nodeAt(tablePos) : null;
     if (!node) return null;
     const map = TableMap.get(node);
-    const domRows = Array.from(table.rows);
+    // Not a page gap drawn as a row (the page view, step 4.5b).
+    const domRows = Array.from(table.rows).filter((tr) => !tr.classList.contains(PAGE_GAP_CLASS));
     if (domRows.length !== map.height) return null;
     const rows = domRows.map((tr) => {
       const r = tr.getBoundingClientRect();
@@ -194,16 +197,19 @@ class HandlesView {
     // "+" at a boundary near the pointer; the last one stays while the pointer is between boundaries.
     const rowEdges = [g.rows[0].top, ...g.rows.map((r) => r.bottom)];
     const colEdges = [g.cols[0].left, ...g.cols.map((c) => c.right)];
+    // Near in the document's own size: zoomed out (Pages at Fit), rows are smaller on screen, and so is "near".
+    const dom = this.view.dom as HTMLElement;
+    const near = NEAR * (dom.offsetWidth ? Math.min(1, dom.getBoundingClientRect().width / dom.offsetWidth) : 1);
     const nearest = (edges: number[], at: number) => {
       let best = -1;
       edges.forEach((edge, i) => {
-        if (Math.abs(edge - at) <= NEAR && (best < 0 || Math.abs(edge - at) < Math.abs(edges[best] - at))) best = i;
+        if (Math.abs(edge - at) <= near && (best < 0 || Math.abs(edge - at) < Math.abs(edges[best] - at))) best = i;
       });
       return best;
     };
     const { x, y } = this.pointer;
-    const inRows = y >= g.box.top - NEAR && y <= g.box.bottom + NEAR && x <= g.box.right + NEAR;
-    const inCols = x >= g.box.left - NEAR && x <= g.box.right + NEAR && y <= g.box.bottom + NEAR;
+    const inRows = y >= g.box.top - near && y <= g.box.bottom + near && x <= g.box.right + near;
+    const inCols = x >= g.box.left - near && x <= g.box.right + near && y <= g.box.bottom + near;
     const r = inRows ? nearest(rowEdges, y) : -1;
     const c = inCols ? nearest(colEdges, x) : -1;
     if (r >= 0) this.plus.row = r;

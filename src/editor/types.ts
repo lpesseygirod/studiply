@@ -4,6 +4,7 @@ import type { JSONContent } from '@tiptap/core';
 import type { PasteReport } from './pasteReport';
 import type { FormatCommand } from './format';
 import type { CommentInfo } from './schema/comments';
+import type { ViewPrefs } from '../lib/viewPrefs';
 
 /** What the screen can do with a comment (the document menu's Comments). */
 export type CommentCommand = Extract<FormatCommand, { type: 'comment' }>;
@@ -51,4 +52,11 @@ export type StudiplyEditorProps = {
   onChipPress?: (ms: number) => void;
   /** After a paste with HTML: what it had and what the document kept. */
   onPaste?: (report: PasteReport) => void;
+  /**
+   * iPhone (step 4.5b): Print layout and the zoom, kept on the phone by the
+   * screen (its … menu switches Print layout); a pinch reports the new zoom.
+   * The laptop keeps its own, from its toolbar.
+   */
+  view?: ViewPrefs | null;
+  onZoom?: (zoom: number) => void;
 };

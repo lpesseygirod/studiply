@@ -8,6 +8,8 @@ import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_SIZE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
+import { A4 } from './page/pageLayout';
+import { PAGE_CLASS, PAGE_GAP_CLASS } from './page/pageView';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -25,6 +27,8 @@ export function editorCss(scope = ''): string {
   const bar = `${scope} .${TABLE_BAR_CLASS}`.trim();
   const handles = `${scope} .${TABLE_HANDLES_CLASS}`.trim();
   const photo = `${pm} .${PHOTO_CLASS}`;
+  const sheet = `${pm}.${PAGE_CLASS}`;
+  const gap = `${pm} .${PAGE_GAP_CLASS}`;
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
 ${pm} { display: flow-root; color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
@@ -111,6 +115,19 @@ ${photo}-handle[data-corner='se'] { right: -7px; bottom: -7px; cursor: nwse-resi
   ${photo}-handle[data-corner='sw'] { left: -12px; bottom: -12px; }
   ${photo}-handle[data-corner='se'] { right: -12px; bottom: -12px; }
 }
+/* The page view (step 4.5b): the editor is the A4 sheet; the gaps are widgets (page/pageView.ts). The grey is the device's own (--studiply-canvas). */
+${sheet} { width: ${A4.width}px; max-width: none; min-height: ${A4.height}px; box-sizing: border-box; padding: ${A4.margin}px; margin: 0 auto; box-shadow: 0 1px 3px ${c.scrim}, 0 0 0 1px ${c.border}; }
+${sheet} .page-break { height: 0; margin: 0; padding: 0; border: 0; overflow: hidden; }
+${gap} { display: block; position: relative; margin: 0; padding: 0; border: 0; user-select: none; -webkit-user-select: none; pointer-events: none; }
+${sheet} .${PAGE_GAP_CLASS} + * { margin-top: 0 !important; }
+${pm} tr.${PAGE_GAP_CLASS} { display: table-row; }
+${pm} tr.${PAGE_GAP_CLASS} > td { position: relative; padding: 0; border: 0 !important; background: transparent; }
+${gap}-band { position: absolute; bottom: ${A4.margin}px; height: ${A4.gap}px; background: var(--studiply-canvas, ${c.cardMuted}); box-shadow: inset 0 4px 4px -4px ${c.scrim}, inset 0 -4px 4px -4px ${c.scrim}; }
+${gap}-number { position: absolute; bottom: ${A4.margin + A4.gap + 40}px; text-align: center; font: 11px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; }
+${gap}-last > .${PAGE_GAP_CLASS}-number { bottom: ${-(A4.margin - 40)}px; }
+${pm}.studiply-page-measuring .${PAGE_GAP_CLASS} { display: none !important; }
+${scope ? '' : `body:has(.ProseMirror.${PAGE_CLASS}) { background: var(--studiply-canvas, ${c.cardMuted}); }
+.studiply-page-label { position: fixed; left: 12px; bottom: 12px; z-index: 20; padding: 4px 10px; border-radius: 12px; background: ${c.card}; border: 1px solid ${c.border}; font: 12px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; opacity: 0; transition: opacity 0.25s; pointer-events: none; }`}
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
 @media (max-width: 480px) { ${bar} .${PHOTO_SIZE_CLASS} { display: none; } ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;
