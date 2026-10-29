@@ -2,16 +2,18 @@
 /**
  * check-transcribe-local.mjs — end-to-end check of transcribe-chunk (step 1.5).
  *
- * Calls the real local Edge Function, which calls OpenAI (a few cents' fraction
- * per run):
+ * Calls the real local Edge Function, which calls the provider chosen by
+ * TRANSCRIBE_PROVIDER in supabase/functions/.env (whisper-1 when unset,
+ * Scribe v2 for `elevenlabs`; a few cents' fraction per run):
  *   1. makes a short sample lecture with macOS `say`: two known sentences
  *      with a 4-second pause between them;
  *   2. creates two throwaway users, A and B, and a lecture for A;
  *   3. checks login, consent, timestamps, the database rows, the cost log,
  *      that a repeat costs nothing, that B can't use A's audio or lecture,
  *      the daily limit, and withdrawing consent;
- *   4. checks the OpenAI key is only in the git-ignored functions .env;
- *   5. asks OpenAI once whether gpt-transcribe returns timestamps yet (info only);
+ *   4. checks the AI keys are only in the git-ignored functions .env;
+ *   5. asks OpenAI once whether gpt-transcribe returns timestamps yet (info
+ *      only; skipped without an OpenAI key);
  *   6. deletes the test files and both users, even when a check fails.
  *
  * Local only: refuses to run unless Supabase is on 127.0.0.1 / localhost.
@@ -67,15 +69,26 @@ const mmss = (ms) => {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(2).padStart(5, '0')}`;
 };
 
-/** The OpenAI key from the git-ignored functions .env, without printing it. */
-function openaiKey() {
+/** A value from the git-ignored functions .env, without printing it. */
+function envValue(name) {
   if (!existsSync(FUNCTIONS_ENV)) return null;
   // Same forms the Supabase CLI accepts: optional `export`, spaces around =, quotes.
   for (const line of readFileSync(FUNCTIONS_ENV, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:export\s+)?OPENAI_API_KEY\s*=\s*(.*?)\s*$/);
+    const match = line.match(new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=\\s*(.*?)\\s*$`));
     if (match) return match[1].replace(/^(['"])(.*)\1$/, '$2') || null;
   }
   return null;
+}
+
+// The provider the function uses, as in supabase/functions/_shared/transcript.ts
+const PROVIDER = (envValue('TRANSCRIBE_PROVIDER') ?? 'openai').trim().toLowerCase();
+const { model: MODEL, keyEnv: KEY_ENV } = {
+  openai: { model: 'whisper-1', keyEnv: 'OPENAI_API_KEY' },
+  elevenlabs: { model: 'scribe_v2', keyEnv: 'ELEVENLABS_API_KEY' },
+}[PROVIDER] ?? {};
+if (!MODEL) {
+  console.error(`TRANSCRIBE_PROVIDER in ${FUNCTIONS_ENV} is "${PROVIDER}"; use openai or elevenlabs.`);
+  process.exit(1);
 }
 
 /** Speaks text with an English voice into an AAC .m4a, like the recorder's files. */
@@ -155,14 +168,18 @@ try {
   check(!tracked, `${FUNCTIONS_ENV} is not in git`);
   let leaked = '';
   try {
-    leaked = execFileSync('git', ['grep', '-lE', '(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}'], { encoding: 'utf8' }).trim();
+    // OpenAI keys start sk-, ElevenLabs keys sk_ and hex
+    leaked = execFileSync('git', ['grep', '-lE', '(^|[^A-Za-z0-9])(sk-[A-Za-z0-9_-]{20,}|sk_[0-9a-f]{40,})'], {
+      encoding: 'utf8',
+    }).trim();
   } catch {
     leaked = ''; // git grep exits 1 when nothing matches
   }
-  check(!leaked, 'no tracked file contains an OpenAI key');
-  if (!openaiKey()) {
-    throw new Error(`No OPENAI_API_KEY in ${FUNCTIONS_ENV}. Add it, restart \`supabase functions serve\`, run again.`);
+  check(!leaked, 'no tracked file contains an OpenAI or ElevenLabs key');
+  if (!envValue(KEY_ENV)) {
+    throw new Error(`No ${KEY_ENV} in ${FUNCTIONS_ENV}. Add it, restart \`supabase functions serve\`, run again.`);
   }
+  console.log(`Transcribing with ${MODEL} (TRANSCRIBE_PROVIDER ${envValue('TRANSCRIBE_PROVIDER') ? PROVIDER : 'not set'})`);
 
   for (const email of emails) {
     const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -250,7 +267,8 @@ try {
   const usage = await usageRows(a.id);
   check(
     usage.length === 1 &&
-      usage[0].model === 'whisper-1' &&
+      usage[0].provider === PROVIDER &&
+      usage[0].model === MODEL &&
       usage[0].operation === 'transcription' &&
       usage[0].lecture_id === lectureId &&
       Number(usage[0].audio_seconds) > 5 &&
@@ -271,7 +289,7 @@ try {
     .select('id', { count: 'exact', head: true })
     .eq('lecture_id', lectureId);
   check(rowCount === segments.length, 'no duplicate segments');
-  check((await usageRows(a.id)).length === 1, 'no second OpenAI call (still one ai_usage row)');
+  check((await usageRows(a.id)).length === 1, 'no second provider call (still one ai_usage row)');
 
   console.log("\nUser B, A's audio and lecture");
   await b.client.from('ai_consent').insert({ scope: 'transcription', policy_version: POLICY_VERSION });
@@ -314,24 +332,26 @@ try {
     `after withdrawing: 403 consent_required (got ${afterWithdraw.status})`,
   );
 
-  console.log('\nInfo: does gpt-transcribe return timestamps yet?');
-  const form = new FormData();
-  form.append('file', new Blob([audio], { type: 'audio/mp4' }), 'sample.m4a');
-  form.append('model', 'gpt-transcribe');
-  form.append('response_format', 'verbose_json');
-  form.append('timestamp_granularities[]', 'segment');
-  const probe = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${openaiKey()}` },
-    body: form,
-  });
-  const probeBody = await probe.json().catch(() => ({}));
-  console.log(
-    probe.ok
-      ? `  ${Array.isArray(probeBody.segments) && probeBody.segments.length ? 'yes' : 'no'}: answered 200, ` +
-          `${probeBody.segments?.length ?? 0} segment(s), keys: ${Object.keys(probeBody).join(', ')}`
-      : `  no: answered ${probe.status} (${probeBody?.error?.message ?? 'no message'})`,
-  );
+  if (envValue('OPENAI_API_KEY')) {
+    console.log('\nInfo: does gpt-transcribe return timestamps yet?');
+    const form = new FormData();
+    form.append('file', new Blob([audio], { type: 'audio/mp4' }), 'sample.m4a');
+    form.append('model', 'gpt-transcribe');
+    form.append('response_format', 'verbose_json');
+    form.append('timestamp_granularities[]', 'segment');
+    const probe = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${envValue('OPENAI_API_KEY')}` },
+      body: form,
+    });
+    const probeBody = await probe.json().catch(() => ({}));
+    console.log(
+      probe.ok
+        ? `  ${Array.isArray(probeBody.segments) && probeBody.segments.length ? 'yes' : 'no'}: answered 200, ` +
+            `${probeBody.segments?.length ?? 0} segment(s), keys: ${Object.keys(probeBody).join(', ')}`
+        : `  no: answered ${probe.status} (${probeBody?.error?.message ?? 'no message'})`,
+    );
+  }
 } catch (err) {
   failures += 1;
   console.error(`✗ ${err.message}`);

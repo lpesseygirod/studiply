@@ -23,6 +23,7 @@
     "check:claude": "node scripts/check-claude-local.mjs",
     "check:purge": "node scripts/check-purge-local.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
+    "compare:transcribe": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/compare-transcribe.mjs",
     "check": "npm run typecheck && npm run typecheck:functions && npm run lint && npm run test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
