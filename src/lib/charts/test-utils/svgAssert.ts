@@ -58,6 +58,16 @@ export function texts(svg: string): string[] {
   );
 }
 
+/** Every <text> with its attributes and its lines (one per tspan). */
+export function textBlocks(svg: string): { attrs: Record<string, string>; lines: string[] }[] {
+  return [...svg.matchAll(/<text((?:\s+[\w:-]+="[^"]*")*)>(.*?)<\/text>/g)].map((m) => ({
+    attrs: Object.fromEntries([...m[1].matchAll(/([\w:-]+)="([^"]*)"/g)].map((a) => [a[1], decode(a[2])])),
+    lines: m[2].includes('<tspan')
+      ? [...m[2].matchAll(/<tspan[^>]*>(.*?)<\/tspan>/g)].map((t) => decode(t[1]))
+      : [decode(m[2])],
+  }));
+}
+
 export function descOf(svg: string): string {
   return decode(/<desc[^>]*>(.*?)<\/desc>/.exec(svg)?.[1] ?? '');
 }
