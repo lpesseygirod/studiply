@@ -146,9 +146,11 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Login with email or Apple, same library on all devices | Yes | Yes | 1 | v1 |
 | AI consent screen and withdrawal in Settings | Yes | Yes | 10 | v1 |
 | Delete account in the app | Yes | Yes | 10 | v1 |
+| Export my data | Share sheet | Download | 10 | v1 |
+| Legal pages (privacy, terms, refunds, cookies, legal notice), agreement and age 16 at sign-up | Links in Settings and sign-up | Pages on the web, linked | 10 | v1 |
 | Plan and payment for AI use | In-App Purchase | Same account, managed on iPhone | 10 | v1 |
 | Dark mode, Dynamic Type, VoiceOver | Yes | Dark mode, keyboard navigation | 2, 10 | v1 |
-| Share a summary with classmates | Read-only link or PDF | Read-only link or PDF | 8 | v1; live co-editing later |
+| Share a summary with classmates | Invited people only (no audio, transcript or slides) or PDF | Invited people only or PDF | 8, 10 | v1; live co-editing later |
 
 The iPhone screens are described in `docs/DESIGN.md` (section *iPhone*), so every prompt below builds both versions at once.
 
@@ -500,7 +502,7 @@ Step 4.9: convert all existing notes from the old format into the new document f
 
 **Check:** open three old notes and compare them with how they looked before. Merge the branch.
 
-**Later, after launch (not in Phase 4):** real-time co-editing (several people writing in the same document at once, with their cursors) and sharing a document with others to edit or comment. Phase 8 only adds read-only links and PDFs for summaries. Also later: an automatic table of contents, footnotes, and headers and footers (Lea, step 4.4).
+**Later, after launch (not in Phase 4):** real-time co-editing (several people writing in the same document at once, with their cursors) and sharing a document with others to edit or comment. Phase 8 only adds sharing a summary with invited people (read-only; no audio, transcripts or slides, 10.1b) and PDFs. Also later: an automatic table of contents, footnotes, and headers and footers (Lea, step 4.4).
 
 **Page view in 4.7: what is feasible (checked 28 Oct 2026, step 4.4).**
 - **Tiptap's own "Tiptap Pages"** is a paid Pro extension (needs a paid Tiptap plan and a private package registry; still marked alpha). It is the most complete option, with page formats, headers and footers, and Word export. But it would be the first paid dependency, and it would have to run inside the iPhone's WebView bundle too. Its exact 2026 terms weren't confirmed, so it isn't recommended unless the free routes fail.
@@ -614,7 +616,7 @@ Branch `phase-7-summary`. Everything here follows docs/SUMMARY-SPEC.md, mainly *
 You: pick 3 real recorded lectures of different types (Psicobiología, Corporate Finance, Calculus), each with your notes and some marks.
 
 ```markdown
-Step 7.1: save my 3 chosen lectures as test fixtures in tests/fixtures/lectures (transcript, notes, marks, assistant questions, media list, course settings). Remove anything personal I point out. These are the golden set for every later summary step.
+Step 7.1: save my 3 chosen lectures as test fixtures in tests/fixtures/lectures (transcript, notes, marks, assistant questions, media list, course settings), kept out of git (tests/fixtures/ in .gitignore; 10.1b). Remove anything personal I point out. These are the golden set for every later summary step.
 ```
 
 **Check:** the 3 fixture folders exist and contain everything listed.
@@ -759,10 +761,25 @@ Branch `phase-10-launch`. A rejection costs days, so go slowly here.
 **Step 10.1 — Apple's rules inside the app**
 
 ```markdown
-Step 10.1: add what App Review requires: Sign in with Apple next to email login; account deletion inside the app (Settings > Account) that deletes all my data and files in Supabase; an AI consent screen before anything is sent to an AI service, clearly naming OpenAI (transcription) and Anthropic (summaries and assistant) and what is sent (audio, transcripts, notes, photos), with explicit permission (App Review Guideline 5.1.2(i)); in Settings → AI & privacy the consent card from docs/design iphone-08-ai-privacy: "Use AI on my lectures", where the data goes, the date it was allowed, and a switch to withdraw it that is as easy as giving it (GDPR), after which nothing is sent to an AI service until the student allows it again; a reminder before the first recording to check recording is allowed in the class; clear microphone, camera, photo library and notification permission texts in app.json.
+Step 10.1: add what App Review requires: Sign in with Apple next to email login; account deletion inside the app (Settings > Account) that deletes all my data and files in Supabase; an AI consent screen before anything is sent to an AI service, clearly naming OpenAI (transcription; ElevenLabs once transcription moves there, see 10.1b) and Anthropic (summaries and assistant) and what is sent (audio, transcripts, notes, photos), with explicit permission (App Review Guideline 5.1.2(i)); in Settings → AI & privacy the consent card from docs/design iphone-08-ai-privacy: "Use AI on my lectures", where the data goes, the date it was allowed, and a switch to withdraw it that is as easy as giving it (GDPR), after which nothing is sent to an AI service until the student allows it again; a reminder before the first recording to check recording is allowed in the class; clear microphone, camera, photo library and notification permission texts in app.json.
 ```
 
 **Check:** create a test account, give consent, record, then delete the account; everything disappears from Supabase. Withdraw consent in Settings → AI & privacy, then try an AI action: it asks again and sends nothing before the answer.
+
+**Step 10.1b — Legal pages, privacy and accessibility before launch** (Lea, 29 Oct)
+
+```markdown
+Step 10.1b: everything the legal texts promise, working before launch, on both devices:
+- Legal pages: turn docs/legal into pages of the web version (/privacy, /terms, /refunds, /cookies, /legal), readable without signing in, linked from Settings (both devices) and from sign-up. The bracketed details in docs/legal/README.md are filled in first; the texts are reviewed by a lawyer or gestor.
+- Sign-up: a required "I agree to the Terms and Privacy Policy" checkbox, unticked, with both linked; the account can't be created without it, and the date (and the texts' version) is saved with the account. Minimum age 16, as in the texts: asked at sign-up (a date of birth or "I am 16 or older"), and under 16 can't sign up.
+- Your data: "Delete my account" (10.1) and "Export my data" (a download on the laptop, the share sheet on the iPhone: documents, notes, marks, transcripts, summaries and settings as files, plus the audio that is still kept) both working before launch, from Settings → Account / Your data, as the texts name them.
+- Accessibility: a label for every image and every button that is only an icon (VoiceOver and screen readers); colour contrast checked in light and dark (the token tests extended to every screen's colours); keyboard on the laptop: a sensible Tab order, a visible focus ring, Escape closes menus, popovers and dialogs.
+- Privacy by default: shared summaries are private (only invited people, by email; never the audio, the transcript or the slides; access can be taken back); audio auto-delete on by default (new lectures already delete their audio 3 days after transcription; the privacy policy says so); test fixtures (real lectures, 7.1) kept out of git (`tests/fixtures/` in .gitignore, kept on the Mac only).
+- A short data-breach plan in docs/legal: who checks what, how affected users are told, and notice to the AEPD (Agencia Española de Protección de Datos) within 72 hours (GDPR art. 33).
+- When transcription moves to ElevenLabs: the privacy policy (providers, transfers), the AI consent screen and the Settings → AI & privacy card must name ElevenLabs before the switch ships, and students who consented before are asked again.
+```
+
+**Check:** sign up on the web without ticking the box: refused; with it: the date is saved. Open each legal page signed out. Export my data and open the files; delete the account; nothing is left in Supabase. VoiceOver on the iPhone reads every button; Tab through the laptop's library and editor with a visible focus; Escape closes every menu. `git status` never shows a fixture.
 
 **Step 10.2 — Paying for AI**
 

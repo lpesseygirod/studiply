@@ -25,3 +25,6 @@ Drafts for the web pages and in-app links. Have them reviewed by a lawyer or ges
 - Settings paths named in the texts (Settings → AI & privacy, Your data, Storage & sync, Account) must exist.
 - Account deletion and data export must work before launch (Phase 10).
 - If you add analytics, crash reporting or marketing emails, update the privacy and cookie policies first.
+- When transcription moves to ElevenLabs: name it in the privacy policy (providers and transfers) and in the AI consent text before the switch ships (BUILD-PLAN 10.1b).
+- Audio auto-delete is on by default (3 days after transcription): the privacy policy's Recordings line should say so, not only that it can be chosen.
+- Still to write: the data-breach plan (72-hour notice to the AEPD), BUILD-PLAN 10.1b.
