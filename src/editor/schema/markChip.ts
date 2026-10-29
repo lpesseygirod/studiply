@@ -1,5 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
-import { NodeSelection, Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
+import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';
 
 import { cleanLevel } from './callout';
 
@@ -101,8 +101,14 @@ export const MarkChip = Node.create({
       insertMarkChip:
         ({ kind, level }) =>
         ({ state, tr, dispatch }) => {
-          const type = state.schema.nodes[MARK_CHIP];
-          if (dispatch) tr.replaceSelectionWith(type.create({ kind, level: cleanLevel(level) }), false);
+          const chip = state.schema.nodes[MARK_CHIP].create({ kind, level: cleanLevel(level) });
+          if (!dispatch) return true;
+          const { selection } = state;
+          // Selected words stay: the chip goes right after them (the selection bar's Mark ▸).
+          if (selection instanceof TextSelection && !selection.empty) {
+            tr.insert(selection.to, chip);
+            tr.setSelection(TextSelection.create(tr.doc, selection.to + chip.nodeSize));
+          } else tr.replaceSelectionWith(chip, false);
           return true;
         },
       updateMarkChip:

@@ -6,6 +6,9 @@
 //   - the iPhone bundle (at phone width): all seven kinds arrive with their
 //     labels and fills, and keep their kind, level and text after typing in each;
 //   - a click on a label: Change to; Remove callout (the text stays);
+//   - the selection bar: Mark ▸ and Time ▸ put their chip after the selected
+//     words, Callout ▸ puts the paragraph in a box with its text; on a phone
+//     the bar sits below the words with the three in a second row;
 //   - a lecture with a recording (two 5-second chunks of a tone in local
 //     Storage): a click on its 0:07 chip plays from 0:07 (in the second
 //     chunk); +10 s; a blank document says it has no recording.
@@ -239,6 +242,73 @@ try {
     await b.sleep(300);
     expect((await callouts()).length === 6, 'not removed');
     expect(JSON.stringify(await json()).includes('Texto addedContext'), 'its text went too');
+  });
+
+  await step('the selection bar: Callout ▸ keeps the text inside; Mark ▸ and Time ▸ go after the words; two rows below the words on a phone', async () => {
+    await b.evaluate(`(() => { const e = ${EDITOR}; e.chain().focus('end').insertContent({ type: 'paragraph', content: [{ type: 'text', text: 'Esto entra en el examen' }] }).run(); })()`);
+    await b.sleep(300);
+    const lastPara = `(() => { const ps = [...document.querySelectorAll('.ProseMirror > p')].filter((p) => p.textContent.includes('Esto entra')); return ps[ps.length - 1]; })()`;
+    // Words in the paragraph's text piece `n` (a chip splits the text, and its own label is text too).
+    const words = async (from, to, n = 0) => {
+      const w = await b.evaluate(`(() => { const p = ${lastPara}; const t = [...p.childNodes].filter((c) => c.nodeType === 3)[${n}]; const r = document.createRange(); r.setStart(t, ${from}); r.setEnd(t, ${to}); const box = r.getBoundingClientRect(); return { x1: box.left + 1, x2: box.right - 1, y: box.top + box.height / 2 }; })()`);
+      await b.mouseDrag({ x: w.x1, y: w.y }, { x: w.x2, y: w.y });
+      await b.sleep(400);
+    };
+    const shown = (label) => b.evaluate(`(() => { const e = document.querySelector('.studiply-selection-bar [aria-label="${label}"]'); return !!e && getComputedStyle(e.parentElement).display === 'flex' && getComputedStyle(e).display !== 'none'; })()`);
+    const lastJson = async () => (await json()).content.filter((n) => JSON.stringify(n).includes('Esto entra')).at(-1);
+    // Mark ▸: the chip after "Esto entra".
+    await words(0, 10);
+    expect(await shown('Mark after the selection'), 'no Mark ▸ on the bar');
+    expect(await shown('Bold selection') && await shown('Comment on the selection') && await shown('Link selection'), 'Comment, B or Link went');
+    await click('Mark after the selection');
+    await b.sleep(400);
+    await click('Mark: Exam');
+    await click('Level 9');
+    await click('Insert mark');
+    await b.sleep(300);
+    let para = await lastJson();
+    expect(JSON.stringify(para.content.map((n) => n.text ?? n.type)) === JSON.stringify(['Esto entra', 'markChip', ' en el examen']), JSON.stringify(para.content));
+    // Time ▸: the chip after "examen".
+    await words(1, 13, 1);
+    await click('Time after the selection');
+    await b.fill('input[placeholder="4:12"]', '18:30');
+    await b.press('Enter');
+    await b.sleep(400);
+    para = await lastJson();
+    expect(para.content.at(-1).type === 'timestampChip' && para.content.at(-1).attrs.ms === 1_110_000, JSON.stringify(para.content));
+    expect(JSON.stringify(para).includes(' en el examen'), 'the words went');
+    // Callout ▸: the paragraph into an Exam signal, its text inside.
+    await words(0, 4);
+    await click('Callout from the selection');
+    await b.sleep(400);
+    await click('Callout: Exam signal');
+    await b.sleep(300);
+    const box = await lastJson();
+    expect(box.type === 'callout' && box.attrs.kind === 'exam', JSON.stringify(box).slice(0, 200));
+    expect(JSON.stringify(box).includes('Esto entra') && JSON.stringify(box).includes('markChip') && JSON.stringify(box).includes('timestampChip'), 'the text did not stay inside');
+    await b.shot('blocks-selection-laptop');
+
+    // The iPhone bundle at a phone's width: below the words, the three in a second row.
+    const css = await b.evaluate('window.studiplyEditorCss()');
+    await b.resize(390, 844);
+    await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'any-pointer', value: 'coarse' }] });
+    try {
+      await b.nav(IPHONE);
+      await waitEditor();
+      await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); })()`);
+      await b.evaluate(`(() => { const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'La sinapsis es la unión funcional entre dos neuronas.' }] }] }); e.commands.focus(); e.commands.setTextSelection({ from: 1, to: 12 }); })()`);
+      await b.sleep(400);
+      const r = await b.evaluate(`(() => { const bar = document.querySelector('.studiply-selection-bar'); const q = (l) => bar.querySelector('[aria-label="' + l + '"]').getBoundingClientRect(); const s = window.getSelection().getRangeAt(0).getBoundingClientRect(); const box = bar.getBoundingClientRect(); return { below: box.top >= s.bottom, fits: box.right <= innerWidth && box.left >= 0, rows: q('Callout from the selection').top > q('Link selection').bottom - 1, sameRow: Math.abs(q('Mark after the selection').top - q('Callout from the selection').top) < 2, sideways: [...document.querySelectorAll('body *')].filter((e) => e.scrollWidth > e.clientWidth + 1 && ['auto', 'scroll'].includes(getComputedStyle(e).overflowX)).map((e) => e.className || e.tagName) }; })()`);
+      // The bar never makes the page scroll sideways (its row divider once did, by 2 px).
+      expect(r.below && r.fits && r.rows && r.sameRow && !r.sideways.length, JSON.stringify(r));
+      await b.shot('blocks-selection-iphone');
+    } finally {
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+      await b.resize(1280, 900);
+      await openDoc(blank.id);
+    }
   });
 
   await step('a lecture: its 0:07 chip plays from 0:07 (the second chunk); +10 s; a blank document has no recording', async () => {

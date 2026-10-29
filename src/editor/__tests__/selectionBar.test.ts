@@ -3,14 +3,15 @@
  */
 // The selection bar (after test B): for selected words only (not an empty
 // cursor, cells, a photo or a formula); its Comment and Link reach the
-// device (an event on the laptop, the format state on the iPhone).
+// device (an event on the laptop, the format state on the iPhone). After
+// 4.6: Callout ▸, Mark ▸ and Time ▸ after Link, the same way.
 import { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { CellSelection } from '@tiptap/pm/tables';
 
 import { studiplyExtensions } from '../bridges';
 import { formatState, runFormat } from '../format';
-import { selectionBarKey, showsSelectionBar } from '../format/selectionBar';
+import { SELECTION_BAR_CLASS, SELECTION_MENU_EVENT, selectionBarKey, showsSelectionBar } from '../format/selectionBar';
 
 let editor: Editor;
 afterEach(() => editor?.destroy());
@@ -71,5 +72,68 @@ describe('selection bar', () => {
     expect(formatState(editor).selectionRequest).toEqual({ id: 1, button: 'comment' });
     editor.view.dispatch(editor.state.tr.setMeta(selectionBarKey, { id: 2, button: 'link' }));
     expect(formatState(editor).selectionRequest).toEqual({ id: 2, button: 'link' });
+  });
+
+  describe('its buttons (shown in a page)', () => {
+    let host: HTMLElement;
+    const mount = (content: object[]) => {
+      host = document.createElement('div');
+      document.body.appendChild(host);
+      editor = new Editor({ element: host, extensions: studiplyExtensions(), content: { type: 'doc', content } });
+      // jsdom never focuses the editor; the bar only shows with the focus.
+      editor.view.hasFocus = () => true;
+      // Nor measures text; where the bar sits is checked in Chrome (inserting.mjs).
+      editor.view.coordsAtPos = () => ({ left: 0, right: 0, top: 0, bottom: 0 });
+    };
+    afterEach(() => host?.remove());
+    const bar = () => host.querySelector<HTMLElement>(`.${SELECTION_BAR_CLASS}`)!;
+    const button = (label: string) => bar().querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+    const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+
+    it('Comment, B, I, Highlight, Link, then Callout ▸, Mark ▸ and Time ▸ with a picture and a word', () => {
+      mount([p('La conducta humana')]);
+      editor.commands.setTextSelection({ from: 4, to: 12 });
+      expect(bar().style.display).toBe('flex');
+      expect([...bar().querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Comment on the selection',
+        'Bold selection',
+        'Italic selection',
+        'Highlight selection',
+        'Link selection',
+        'Callout from the selection',
+        'Mark after the selection',
+        'Time after the selection',
+      ]);
+      for (const [label, word] of [['Callout from the selection', 'Callout'], ['Mark after the selection', 'Mark'], ['Time after the selection', 'Time']]) {
+        expect(button(label).querySelector('svg')).not.toBeNull();
+        expect(button(label).textContent).toBe(`${word}▸`);
+      }
+    });
+
+    it('no Callout in a table (it would take the whole table)', () => {
+      mount([{ type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [p('Celda uno')] }] }] }, p('Fuera de la tabla')]);
+      let cell = -1;
+      editor.state.doc.descendants((n, pos) => {
+        if (n.type.name === 'text' && n.text === 'Celda uno') cell = pos;
+      });
+      editor.commands.setTextSelection({ from: cell, to: cell + 5 });
+      expect(button('Callout from the selection').style.display).toBe('none');
+      expect(button('Mark after the selection').style.display).toBe('');
+      const out = editor.state.doc.content.size - 8;
+      editor.commands.setTextSelection({ from: out, to: out + 4 });
+      expect(button('Callout from the selection').style.display).toBe('');
+    });
+
+    it('a press reaches the laptop (an event with where its menu opens) and the iPhone (the format state)', () => {
+      mount([p('La conducta humana')]);
+      editor.commands.setTextSelection({ from: 4, to: 12 });
+      const seen: string[] = [];
+      editor.view.dom.addEventListener(SELECTION_MENU_EVENT, (e) => seen.push((e as CustomEvent).detail.button));
+      for (const [label, name] of [['Callout from the selection', 'callout'], ['Mark after the selection', 'mark'], ['Time after the selection', 'time']]) {
+        button(label).click();
+        expect(formatState(editor).selectionRequest?.button).toBe(name);
+      }
+      expect(seen).toEqual(['callout', 'mark', 'time']);
+    });
   });
 });

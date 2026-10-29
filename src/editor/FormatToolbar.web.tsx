@@ -17,6 +17,7 @@ import { Typography } from '../constants/typography';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
+import { SELECTION_MENU_EVENT, type SelectionMenuDetail } from './format/selectionBar';
 import { FORMULA_EVENT } from './schema/formula';
 import { splitRow } from './toolbarFit';
 import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
@@ -118,6 +119,18 @@ export function FormatToolbar({
     const onLink = () => void open('link');
     dom.addEventListener(LINK_EVENT, onLink);
     return () => dom.removeEventListener(LINK_EVENT, onLink);
+  });
+
+  // The selection bar's Callout ▸ / Mark ▸ / Time ▸ (after 4.6): the same menus as Insert ▾, under the button.
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const onMenu = (e: Event) => {
+      const { button, x, y } = (e as CustomEvent<SelectionMenuDetail>).detail;
+      if (button === 'time') void askTimestamp();
+      else setMenu({ kind: button, anchor: { x, y } });
+    };
+    dom.addEventListener(SELECTION_MENU_EVENT, onMenu);
+    return () => dom.removeEventListener(SELECTION_MENU_EVENT, onMenu);
   });
 
   useEffect(() => {
@@ -433,8 +446,8 @@ export function FormatToolbar({
         {iconRow('timestamp', 'clock-outline', () => (close(), void askTimestamp()), false, 'Insert timestamp')}
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'callout' ? menu.anchor : null} onClose={close} width={250} label="Callout">
-        {heading('Callout')}
-        <CalloutKinds onPick={(kind) => run({ type: 'callout', action: 'set', kind })} />
+        {heading(s.callout ? 'Change to' : 'Callout')}
+        <CalloutKinds current={s.callout?.kind} onPick={(kind) => run({ type: 'callout', action: 'set', kind })} />
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'mark' ? menu.anchor : null} onClose={close} width={300} label="Mark">
         <View style={styles.picker}>

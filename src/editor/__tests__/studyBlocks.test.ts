@@ -127,6 +127,27 @@ describe('mark chips', () => {
   });
 });
 
+describe('from the selection bar: selected words stay', () => {
+  it('a mark goes right after the selection; one Undo takes it away', () => {
+    open([p('La sinapsis es la unión')]);
+    editor.commands.setTextSelection({ from: 4, to: 12 });
+    runFormat(editor, { type: 'markChip', action: 'insert', kind: 'exam', level: 9 });
+    const inline = blocks()[0].content ?? [];
+    expect(inline.map((n) => n.text ?? n.type)).toEqual(['La sinapsis', 'markChip', ' es la unión']);
+    expect(inline[1].attrs).toMatchObject({ kind: 'exam', level: 9 });
+    editor.commands.undo();
+    expect(blocks()[0].content?.map((n) => n.text)).toEqual(['La sinapsis es la unión']);
+  });
+
+  it('a time goes right after the selection, over two paragraphs too', () => {
+    open([p('Primera idea'), p('Segunda idea larga')]);
+    editor.commands.setTextSelection({ from: 3, to: 22 });
+    runFormat(editor, { type: 'timestamp', ms: 252_000 });
+    expect(blocks()[0].content?.map((n) => n.text ?? n.type)).toEqual(['Primera idea']);
+    expect(blocks()[1].content?.map((n) => n.text ?? n.type)).toEqual(['Segunda', 'timestampChip', ' idea larga']);
+  });
+});
+
 describe('a time typed by hand', () => {
   it.each([
     ['4:12', 252_000],

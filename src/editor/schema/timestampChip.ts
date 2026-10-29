@@ -1,4 +1,5 @@
 import { mergeAttributes, Node, type Editor } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 
 import { formatHitTime } from '../../utils/searchText';
 
@@ -78,8 +79,12 @@ export const TimestampChip = Node.create({
     return {
       insertTimestampChip:
         (ms) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { ms: chipMs(ms) } }),
+        ({ state, commands }) => {
+          const chip = { type: this.name, attrs: { ms: chipMs(ms) } };
+          const { selection } = state;
+          // Selected words stay: the chip goes right after them (the selection bar's Time ▸).
+          return selection instanceof TextSelection && !selection.empty ? commands.insertContentAt(selection.to, chip) : commands.insertContent(chip);
+        },
     };
   },
 });

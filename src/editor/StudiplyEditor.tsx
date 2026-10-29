@@ -282,7 +282,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
 
-  // The selection bar's Comment and Link (in the WebView): the iPhone's prompts.
+  // The selection bar's Comment, Link, Callout ▸, Mark ▸ and Time ▸ (in the WebView): the iPhone's prompts and sheets.
   const selectionPress = state.format?.selectionRequest?.id ?? null;
   const seenSelectionPress = useRef<number | null | undefined>(undefined);
   useEffect(() => {
@@ -295,6 +295,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     const button = state.format?.selectionRequest?.button;
     if (button === 'comment') void addComment();
     else if (button === 'link') void addLink();
+    else if (button === 'callout') pickCallout(state.format?.callout?.kind);
+    else if (button === 'mark') setMarkDraft({ kind: 'important', level: null, existing: false });
+    else if (button === 'time') void askTimestamp();
     // Only a new press asks; the format state changes all the time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionPress]);
