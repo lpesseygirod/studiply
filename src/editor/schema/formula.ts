@@ -4,7 +4,7 @@ import { NodeSelection, Plugin, PluginKey, Selection, type EditorState, type Tra
 import type { EditorView } from '@tiptap/pm/view';
 
 import { TABLE_BAR_CLASS } from '../table/tableBar';
-import { DOLLAR_MATH, mathCandidate } from './mathSuggest';
+import { mathCandidate } from './mathSuggest';
 
 /**
  * Formulas (step 4.5): Tiptap's `inlineMath` and `blockMath` (KaTeX), with
@@ -191,25 +191,8 @@ export const Formulas = Extension.create({
             return { suggestion: shown, dismissed };
           },
         },
+        // `$…$` and `$$…$$` as they're typed: typingShortcuts.ts.
         view: (view) => new MathChipView(view, editor),
-        props: {
-          // `$…$` becomes a formula as the closing `$` is typed, in one step (so Undo
-          // brings the text back). Not a Tiptap input rule: those insert the typed
-          // character first and give up when another plugin then changes the
-          // document, which the block plugin always does (it stamps the edit).
-          handleTextInput: (view, from, to, text) => {
-            if (text !== '$' || !view.editable) return false;
-            const $from = view.state.doc.resolve(from);
-            const type = view.state.schema.nodes[INLINE_MATH];
-            if (!type || !$from.parent.isTextblock || $from.parent.type.spec.code) return false;
-            const match = DOLLAR_MATH.exec($from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc') + '$');
-            const latex = match?.[1];
-            if (!latex || latex.includes('\ufffc')) return false;
-            const start = from - latex.length - 1;
-            view.dispatch(view.state.tr.replaceWith(start, to, type.create({ latex })));
-            return true;
-          },
-        },
       }),
       new Plugin<FormulaRequest | null>({
         key: formulaKey,

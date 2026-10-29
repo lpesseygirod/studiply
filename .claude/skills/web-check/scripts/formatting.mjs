@@ -1,5 +1,7 @@
 // formatting.mjs — the formatting tools (step 4.4), on the laptop:
 //   - every toolbar control, read back from the document JSON;
+//   - typing shortcuts ("- ", "1. ", "# ", $$…$$, **bold**…) typed key by
+//     key, and Backspace right after one;
 //   - Google Docs' shortcuts, among them ⌘⇧R, ⌘⇧J and ⌘⇧V, which do the
 //     editor's action and not Chrome's: the page isn't reloaded (a marker on
 //     the page survives) and the key or paste event was blocked from the
@@ -54,6 +56,19 @@ const waitEditor = async () => {
 /** Puts one paragraph with `text` in the editor and selects it all. */
 const fresh = async (text = 'La Psicobiología une Psicología y Biología.') => {
   await b.evaluate(`(() => { const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: ${JSON.stringify(text)} }] }] }); e.commands.focus(); e.commands.selectAll(); })()`);
+  await b.sleep(200);
+};
+/** An empty document, the cursor in it. */
+const empty = async () => {
+  await b.evaluate(`(() => { const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] }); e.commands.focus('end'); })()`);
+  await b.sleep(150);
+};
+/** Typed key by key, as the keyboard sends it (each character a key press with its text). */
+const keys = async (text) => {
+  for (const ch of text) {
+    await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: ch, text: ch, unmodifiedText: ch });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch });
+  }
   await b.sleep(200);
 };
 const marksOf = (node) => (node.content ?? []).flatMap((t) => t.marks ?? []);
@@ -160,6 +175,35 @@ try {
     expect((await first()).attrs.indent === 1, `⌘] gave ${JSON.stringify((await first()).attrs)}`);
     await b.chord({ code: 'Digit8', key: '*', meta: true, shift: true, keyCode: 56 });
     expect((await first()).type === 'bulletList', `⌘⇧8 gave ${(await first()).type}`);
+  });
+
+  await step('typing shortcuts with real keys: "- ", "1. ", "[] ", "# ", "> ", $$…$$, **bold**; Backspace takes one back', async () => {
+    for (const [typed, want] of [['- ', 'bulletList'], ['1. ', 'orderedList'], ['[] ', 'taskList'], ['# ', 'heading'], ['> ', 'blockquote']]) {
+      await empty();
+      await keys(`${typed}Tema`);
+      const node = await first();
+      expect(node.type === want, `"${typed}" gave ${node.type}`);
+      expect(JSON.stringify(node).includes('"text":"Tema"'), `"${typed}": the text after it is ${JSON.stringify(node)}`);
+    }
+    await empty();
+    await keys('$$x^2$$');
+    let doc = await json();
+    expect(doc.content[0].type === 'blockMath' && doc.content[0].attrs.latex === 'x^2', `$$x^2$$ gave ${JSON.stringify(doc.content[0])}`);
+    await keys('y');
+    doc = await json();
+    expect(doc.content[1]?.type === 'paragraph' && doc.content[1].content?.[0]?.text === 'y', `after the display formula: ${JSON.stringify(doc.content[1])}`);
+    await empty();
+    await keys('Es **muy** clave');
+    const runs = (await first()).content;
+    expect(runs.some((r) => r.text === 'muy' && r.marks?.[0]?.type === 'bold') && runs.every((r) => !r.text.includes('*')), `**muy** gave ${JSON.stringify(runs)}`);
+    await empty();
+    await keys('- ');
+    expect((await first()).type === 'bulletList', 'no list before Backspace');
+    await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 });
+    await b.sleep(200);
+    const back = await first();
+    expect(back.type === 'paragraph' && back.content?.[0]?.text === '- ', `Backspace right after gave ${JSON.stringify(back)}`);
   });
 
   await step('⌘⇧L, ⌘⇧E (centre), ⌘⇧R, ⌘⇧J align the text', async () => {

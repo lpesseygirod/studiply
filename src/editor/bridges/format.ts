@@ -8,6 +8,7 @@ import { LINK_EVENT } from '../format/links';
 import { SelectionBar } from '../format/selectionBar';
 import { PasteRules } from '../paste/extension';
 import { PageBreak, ParagraphFormat, Title, TITLE } from '../schema/blocks';
+import { TypingShortcuts } from '../schema/typingShortcuts';
 
 /**
  * Step 4.4's formatting in the shared schema: Title, page breaks, line
@@ -51,6 +52,8 @@ export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeI
     FormatShortcuts,
     // The bar over selected words (Comment, B, I, Highlight, Link), on both devices.
     SelectionBar,
+    // "- ", "1. ", "# ", "> ", "[] ", $…$, $$…$$, **bold**… as they're typed.
+    TypingShortcuts,
     PasteRules,
     Title,
     PageBreak,

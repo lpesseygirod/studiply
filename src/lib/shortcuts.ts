@@ -84,6 +84,12 @@ export const EDITOR_SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '⌘ \\', action: 'Clear formatting' },
   { keys: '⌘ ⇧ V', action: 'Paste without formatting' },
   { keys: '⌘ Z  ⌘ ⇧ Z', action: 'Undo, redo in the text' },
+  // Typing shortcuts (after test C), on both devices.
+  { keys: '-  1.  []', action: 'Then a space, at the start of a line: bulleted, numbered, checklist' },
+  { keys: '#  ##  ###  >', action: 'Then a space, at the start of a line: Heading 1, Heading 2, Subheading, quote' },
+  { keys: '$…$  $$…$$', action: 'A formula as you type; $$…$$ alone on a line is a display formula' },
+  { keys: '**…**  *…*  ~~…~~  ==…==', action: 'Bold, italic, strikethrough, highlight as you type' },
+  { keys: '⌫', action: 'Right after a typing shortcut: back to what you typed' },
 ];
 
 /** Whether a DOM element takes typed text. */
