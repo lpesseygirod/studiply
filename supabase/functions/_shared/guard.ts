@@ -85,7 +85,8 @@ export interface UsageRow {
   user_id: string;
   lecture_id: string | null;
   operation: 'transcription' | 'assistant' | 'summary';
-  provider: 'openai' | 'anthropic';
+  /** 'elevenlabs' needs the ai_usage.provider check widened by a migration first (docs/PROGRESS.md). */
+  provider: 'openai' | 'anthropic' | 'elevenlabs';
   model: string;
   tokens_input?: number;
   tokens_output?: number;

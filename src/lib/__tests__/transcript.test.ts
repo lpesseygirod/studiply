@@ -1,10 +1,16 @@
 import { CONSENT_POLICY_VERSION } from '../../../supabase/functions/_shared/policy';
 import {
   DAILY_LIMIT_SECONDS,
+  TRANSCRIBE_MODELS,
   costUsd,
+  fromScribe,
+  fromWhisper,
   languageCode,
   toSegments,
+  transcribeProvider,
   validateBody,
+  wordsToSegments,
+  type ScribeAnswer,
 } from '../../../supabase/functions/_shared/transcript';
 
 const USER = 'aaaaaaaa-0000-4000-8000-000000000000';
@@ -84,11 +90,145 @@ describe('toSegments', () => {
   });
 });
 
+/** Scribe's word list for a sentence: words with a space between, like ElevenLabs sends. */
+function words(...items: [text: string, start: number, end: number, logprob?: number][]): ScribeAnswer['words'] {
+  return items.flatMap(([text, start, end, logprob = 0], i) => [
+    ...(i ? [{ text: ' ', type: 'spacing' as const, start: items[i - 1][2], end: start }] : []),
+    { text, type: 'word' as const, start, end, logprob },
+  ]);
+}
+
+describe('wordsToSegments', () => {
+  it('makes one segment per sentence, shifted by the chunk start', () => {
+    const rows = wordsToSegments(
+      {
+        audio_duration_secs: 10,
+        words: words(['La', 0.1, 0.3], ['oferta', 0.35, 0.8], ['sube.', 0.85, 1.2], ['¿Por', 1.5, 1.7], ['qué?', 1.75, 2.1]),
+      },
+      60_000,
+    );
+    expect(rows).toEqual([
+      { start_ms: 60_100, end_ms: 61_200, text: 'La oferta sube.', confidence: 1 },
+      { start_ms: 61_500, end_ms: 62_100, text: '¿Por qué?', confidence: 1 },
+    ]);
+  });
+
+  it('ends a sentence at ! … and closing quotes too', () => {
+    const rows = wordsToSegments(
+      { words: words(['Look!', 0, 0.5], ['Well…', 0.6, 1], ['He', 1.1, 1.2], ['said', 1.2, 1.4], ['“stop.”', 1.4, 1.9], ['Then', 2, 2.2]) },
+      0,
+    );
+    expect(rows.map((r) => r.text)).toEqual(['Look!', 'Well…', 'He said “stop.”', 'Then']);
+  });
+
+  it('starts a new segment after a pause of a second or more', () => {
+    const rows = wordsToSegments({ words: words(['so', 0, 0.4], ['the', 0.5, 0.6], ['market', 1.6, 2]) }, 0);
+    expect(rows).toMatchObject([
+      { start_ms: 0, end_ms: 600, text: 'so the' },
+      { start_ms: 1600, end_ms: 2000, text: 'market' },
+    ]);
+  });
+
+  it('cuts a sentence that runs past 30 seconds', () => {
+    const long = Array.from({ length: 40 }, (_, i) => [`w${i}`, i, i + 0.9] as [string, number, number]);
+    const rows = wordsToSegments({ words: words(...long) }, 0);
+    expect(rows[0]).toMatchObject({ start_ms: 0, end_ms: 30_900 });
+    expect(rows[0].text.split(' ')).toHaveLength(31);
+    expect(rows[1]).toMatchObject({ start_ms: 31_000, end_ms: 39_900 });
+  });
+
+  it('leaves out sounds Scribe tags and averages the word probabilities', () => {
+    const rows = wordsToSegments(
+      {
+        words: [
+          { text: '(laughter)', type: 'audio_event', start: 0, end: 1 },
+          { text: ' ', type: 'spacing', start: 1, end: 1.1 },
+          { text: 'Yes', type: 'word', start: 1.1, end: 1.4, logprob: -0.2 },
+          { text: ' ', type: 'spacing', start: 1.4, end: 1.5 },
+          { text: 'indeed.', type: 'word', start: 1.5, end: 2, logprob: -0.6 },
+        ],
+      },
+      0,
+    );
+    expect(rows).toEqual([{ start_ms: 1100, end_ms: 2000, text: 'Yes indeed.', confidence: Math.exp(-0.4) }]);
+  });
+
+  it('keeps times inside the chunk and gives untimed words the time of the sentence before', () => {
+    const rows = wordsToSegments(
+      {
+        audio_duration_secs: 5,
+        words: [
+          { text: 'Done.', type: 'word', start: 4, end: 6.2 },
+          { text: ' ', type: 'spacing' },
+          { text: 'Uh.', type: 'word', start: null, end: null },
+        ],
+      },
+      1000,
+    );
+    expect(rows).toEqual([
+      { start_ms: 5000, end_ms: 6000, text: 'Done.', confidence: null },
+      { start_ms: 6000, end_ms: 6000, text: 'Uh.', confidence: null },
+    ]);
+  });
+
+  it('makes one segment for the whole chunk when there are no words, and none for silence', () => {
+    expect(wordsToSegments({ audio_duration_secs: 4, text: ' Hola. ' }, 30_000)).toEqual([
+      { start_ms: 30_000, end_ms: 34_000, text: 'Hola.', confidence: null },
+    ]);
+    expect(wordsToSegments({ audio_duration_secs: 4, text: '', words: [] }, 0)).toEqual([]);
+  });
+});
+
+describe('fromWhisper and fromScribe', () => {
+  it('turn either answer into the same shape', () => {
+    expect(fromWhisper({ duration: 9.876, language: 'spanish', segments: [{ start: 0, end: 1, text: 'Hola.' }] }, 0)).toEqual({
+      audioSeconds: 9.88,
+      language: 'es',
+      segments: [{ start_ms: 0, end_ms: 1000, text: 'Hola.', confidence: null }],
+    });
+    expect(
+      fromScribe({ audio_duration_secs: 9.876, language_code: 'spa', language_probability: 0.97, words: words(['Hola.', 0, 1]) }, 0),
+    ).toEqual({
+      audioSeconds: 9.88,
+      language: 'es',
+      segments: [{ start_ms: 0, end_ms: 1000, text: 'Hola.', confidence: 1 }],
+    });
+  });
+
+  it('takes the chunk length from the last word when ElevenLabs gives none', () => {
+    expect(fromScribe({ words: words(['Hi', 0, 0.5], ['there.', 0.6, 2.345]) }, 0).audioSeconds).toBe(2.35);
+  });
+
+  it('ignores a language Scribe isn’t sure of', () => {
+    expect(fromScribe({ language_code: 'eng', language_probability: 0.3, words: [] }, 0).language).toBeNull();
+    expect(fromScribe({ language_code: 'eng', language_probability: 0.5, words: [] }, 0).language).toBe('en');
+  });
+});
+
+describe('transcribeProvider', () => {
+  it('is whisper-1 unless the server asks for ElevenLabs', () => {
+    expect(transcribeProvider(undefined)).toBe('openai');
+    expect(transcribeProvider('')).toBe('openai');
+    expect(transcribeProvider('openai')).toBe('openai');
+    expect(transcribeProvider(' ElevenLabs ')).toBe('elevenlabs');
+  });
+
+  it('refuses a name it doesn’t know instead of falling back', () => {
+    expect(transcribeProvider('scribe')).toBeNull();
+  });
+});
+
 describe('costUsd', () => {
   it('charges whisper-1’s per-minute price, rounded to 6 decimals', () => {
     expect(costUsd(60)).toBe(0.006);
     expect(costUsd(30)).toBe(0.003);
     expect(costUsd(7.33)).toBe(0.000733);
+  });
+
+  it('charges Scribe v2’s $0.22 an hour', () => {
+    expect(costUsd(3600, 'elevenlabs')).toBe(0.22);
+    expect(costUsd(60, 'elevenlabs')).toBe(0.003667);
+    expect(costUsd(1200, 'openai')).toBe(0.12);
   });
 });
 
@@ -98,6 +238,14 @@ describe('languageCode', () => {
     expect(languageCode('Spanish')).toBe('es');
     expect(languageCode('catalan')).toBe('ca');
     expect(languageCode('fr')).toBe('fr');
+  });
+
+  it('turns ElevenLabs’ three-letter codes into the same ISO codes', () => {
+    expect(languageCode('spa')).toBe('es');
+    expect(languageCode('ENG')).toBe('en');
+    expect(languageCode('cmn')).toBe('zh');
+    expect(languageCode('yue')).toBe('yue');
+    expect(languageCode('xyz')).toBeNull();
   });
 
   it('returns null when nothing usable was detected', () => {
@@ -110,5 +258,7 @@ describe('constants', () => {
   it('match the decisions in docs/PROGRESS.md', () => {
     expect(DAILY_LIMIT_SECONDS).toBe(21_600);
     expect(CONSENT_POLICY_VERSION).toBe('dev-2026-10');
+    expect(TRANSCRIBE_MODELS.openai.model).toBe('whisper-1');
+    expect(TRANSCRIBE_MODELS.elevenlabs.model).toBe('scribe_v2');
   });
 });

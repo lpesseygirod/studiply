@@ -8,7 +8,13 @@
  *
  * In order: signed in → valid request → own lecture → transcription consent
  * → under the daily limit → (already done? answer from the database, no
- * second charge) → download → Whisper → log cost in ai_usage → save segments.
+ * second charge) → download → transcribe → log cost in ai_usage → save
+ * segments.
+ *
+ * TRANSCRIBE_PROVIDER picks who transcribes: unset or `openai` is
+ * whisper-1 (OPENAI_API_KEY), `elevenlabs` is Scribe v2
+ * (ELEVENLABS_API_KEY). Anything else, or a missing key, answers
+ * not_configured.
  *
  * Reads and writes the student's rows with a client acting as the student,
  * so RLS applies; only ai_usage, which students can't write, uses the
@@ -18,15 +24,18 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { hasConsent, logUsage, ownLecture, signedIn, usedToday } from '../_shared/guard.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
+import { deleteScribeTranscript, transcribeScribe } from '../_shared/elevenlabs.ts';
 import { transcribe } from '../_shared/openai.ts';
 import {
   DAILY_LIMIT_SECONDS,
   MAX_AUDIO_BYTES,
-  TRANSCRIBE_MODEL,
+  TRANSCRIBE_MODELS,
   costUsd,
-  languageCode,
-  toSegments,
+  fromScribe,
+  fromWhisper,
+  transcribeProvider,
   validateBody,
+  type Transcription,
 } from '../_shared/transcript.ts';
 
 const BUCKET = 'audio-chunks';
@@ -55,11 +64,13 @@ Deno.serve(async (req) => {
   if (!caller.ok) return caller.response;
   const { db, userId } = caller;
 
-  const openaiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openaiKey) {
-    log('not_configured', {});
+  const provider = transcribeProvider(Deno.env.get('TRANSCRIBE_PROVIDER'));
+  const apiKey = provider ? Deno.env.get(TRANSCRIBE_MODELS[provider].keyEnv) : undefined;
+  if (!provider || !apiKey) {
+    log('not_configured', { provider });
     return fail(500, 'not_configured', 'Transcription is not set up on the server yet.');
   }
+  const { model, name: providerName } = TRANSCRIBE_MODELS[provider];
 
   // 2. Valid request, audio in the user's own folder
   const body = await req.json().catch(() => null);
@@ -72,9 +83,9 @@ Deno.serve(async (req) => {
     const lecture = await ownLecture(db, lectureId);
     if (!lecture) return fail(404, 'lecture_not_found', 'That lecture was not found.');
 
-    // 4. Consent to send audio to OpenAI (Apple 5.1.2(i)), before anything leaves the server
+    // 4. Consent to send audio to the provider (Apple 5.1.2(i)), before anything leaves the server
     if (!(await hasConsent(db, 'transcription'))) {
-      return fail(403, 'consent_required', 'Allow transcription in Settings before Studiply sends audio to OpenAI.');
+      return fail(403, 'consent_required', `Allow transcription in Settings before Studiply sends audio to ${providerName}.`);
     }
 
     // 5. Daily limit over the last 24 hours
@@ -83,7 +94,7 @@ Deno.serve(async (req) => {
       return fail(429, 'daily_limit', 'You have reached today’s transcription limit. Try again tomorrow.');
     }
 
-    // 6. Already transcribed: answer from the database, no second OpenAI call
+    // 6. Already transcribed: answer from the database, no second provider call
     const { data: existing, error: existingError } = await db
       .from('audio_chunks')
       .select('id, status, storage_path, duration_ms')
@@ -101,26 +112,38 @@ Deno.serve(async (req) => {
     if (downloadError || !audio) return fail(404, 'audio_not_found', 'The audio for this chunk was not found.');
     if (audio.size > MAX_AUDIO_BYTES) return fail(413, 'audio_too_large', 'This audio chunk is larger than 25 MB.');
 
-    // 8. Whisper; no language yet means Whisper detects it
+    // 8. Transcribe; no language yet means the provider detects it
     const started = Date.now();
     const fileName = storagePath.split('/').pop()!;
-    const result = await transcribe(openaiKey, audio, fileName, lecture.language);
-    if (!result.ok) {
-      log('openai_failed', { lectureId, seq, status: result.status, code: result.code });
+    const failed = async (result: { status: number; code: string }) => {
+      log('provider_failed', { lectureId, seq, provider, status: result.status, code: result.code });
       if (existing) await db.from('audio_chunks').update({ status: 'failed' }).eq('id', existing.id);
       return fail(502, 'transcription_failed', 'Transcription failed. Please try again.');
+    };
+    let transcription: Transcription;
+    if (provider === 'elevenlabs') {
+      const result = await transcribeScribe(apiKey, audio, fileName, lecture.language);
+      if (!result.ok) return await failed(result);
+      transcription = fromScribe(result.answer, startMs);
+      // Studiply keeps the transcript; ElevenLabs' copy goes at once
+      const id = result.answer.transcription_id;
+      if (id && !(await deleteScribeTranscript(apiKey, id))) log('provider_copy_kept', { lectureId, seq, provider });
+    } else {
+      const result = await transcribe(apiKey, audio, fileName, lecture.language);
+      if (!result.ok) return await failed(result);
+      transcription = fromWhisper(result.answer, startMs);
     }
-    const audioSeconds = Math.round((result.verbose.duration ?? 0) * 100) / 100;
+    const { audioSeconds } = transcription;
 
     // 9. Log the cost first, so it is counted even if saving fails below
     await logUsage({
       user_id: userId,
       lecture_id: lectureId,
       operation: 'transcription',
-      provider: 'openai',
-      model: TRANSCRIBE_MODEL,
+      provider,
+      model,
       audio_seconds: audioSeconds,
-      cost_usd: costUsd(audioSeconds),
+      cost_usd: costUsd(audioSeconds, provider),
     });
 
     // 10. Save the chunk and replace its segments
@@ -143,7 +166,7 @@ Deno.serve(async (req) => {
 
     const { error: deleteError } = await db.from('transcript_segments').delete().eq('chunk_id', chunk.id);
     if (deleteError) throw deleteError;
-    const rows = toSegments(result.verbose, startMs).map((s) => ({ ...s, lecture_id: lectureId, chunk_id: chunk.id }));
+    const rows = transcription.segments.map((s) => ({ ...s, lecture_id: lectureId, chunk_id: chunk.id }));
     if (rows.length) {
       const { error: insertError } = await db.from('transcript_segments').insert(rows);
       if (insertError) throw insertError;
@@ -151,13 +174,13 @@ Deno.serve(async (req) => {
     const { error: statusError } = await db.from('audio_chunks').update({ status: 'transcribed' }).eq('id', chunk.id);
     if (statusError) throw statusError;
 
-    // A lecture without a language takes the one Whisper detected; a language the student set is never changed
-    const detected = languageCode(result.verbose.language);
+    // A lecture without a language takes the detected one; a language the student set is never changed
+    const detected = transcription.language;
     if (!lecture.language && detected) {
       await db.from('lectures').update({ language: detected }).eq('id', lectureId).is('language', null);
     }
 
-    log('transcribed', { lectureId, seq, audioSeconds, segments: rows.length, ms: Date.now() - started });
+    log('transcribed', { lectureId, seq, provider, audioSeconds, segments: rows.length, ms: Date.now() - started });
     return json({ chunkId: chunk.id, durationMs: chunk.duration_ms, segments: await storedSegments(db, chunk.id) });
   } catch (err) {
     // Database errors are plain objects with a message, not Error instances
