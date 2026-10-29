@@ -32,7 +32,7 @@ describe('the library', () => {
     expect(FORMULA_GROUPS).toContain(e.group);
   });
 
-  it('ids are unique; the three groups are all used', () => {
+  it('ids are unique; every group is used', () => {
     expect(new Set(FORMULA_LIBRARY.map((e) => e.id)).size).toBe(FORMULA_LIBRARY.length);
     expect(new Set(FORMULA_LIBRARY.map((e) => e.group))).toEqual(new Set(FORMULA_GROUPS));
   });
@@ -45,6 +45,16 @@ describe('the library', () => {
     ['prestamo', ['annuity']],
     ['valor actual', ['present-value', 'npv']],
     ['cost of capital', ['wacc', 'capm']],
+    ['desviacion', ['standard-deviation']],
+    ['varianza', ['sample-variance', 'covariance']],
+    ['intervalo de confianza', ['confidence-interval']],
+    ['PIB', ['gdp', 'gdp-deflator', 'gdp-growth', 'okun']],
+    ['IPC', ['inflation-rate']],
+    ['curva de phillips', ['phillips-curve']],
+    ['taylor', ['taylor-rule', 'taylor-series']],
+    ['regla de la cadena', ['chain-rule']],
+    ['barrow', ['fundamental-theorem']],
+    ['hopital', ['lhopital']],
     ['xyzzy', []],
   ])('"%s" finds %j', (query, ids) => {
     expect(searchFormulas(query).map((e) => e.id)).toEqual(ids);
