@@ -262,7 +262,8 @@ Topics often run over several sessions. From any summary, the student taps **Ext
 1. Studiply sends the existing summary's JSON plus the new lecture's transcript and media.
 2. Claude adds the new material as new sections, tagged with their lecture number, and updates the shared parts: takeaways rewritten for the whole unit, glossary merged without duplicates, timelines merged in date order, self-test refreshed to cover both.
 3. Contradictions or corrections the professor made (“last week I said X, actually…”) are shown as an update callout.
-4. The original single-lecture summaries stay untouched; the combined one is saved as a **Unit summary** (e.g. “Corporate Finance — Lectures 3–5: Time value of money”).
+4. **Nothing is repeated** (Lea, 29 Oct; the same when a new summary is added to an existing one): only what's new is added. When something new is about a part that's already there (the professor says it will be on the exam, gives another example of the same idea), it isn't added again: Studiply puts a **comment** on that existing text saying what was said, with the time in the recording (“Lecture 4 · 18:30: the professor said this will be on the exam”). Comments never change the text, so they also go on blocks the student edited.
+5. The original single-lecture summaries stay untouched; the combined one is saved as a **Unit summary** (e.g. “Corporate Finance — Lectures 3–5: Time value of money”).
 
 Two more options from the same menu: **Merge lectures** (pick several and combine at once) and **Exam pack** (a whole course or unit compressed to exam signals, formulas, key terms and self-test).
 

@@ -635,9 +635,15 @@ Step 7.8: here is my review of the 3 summaries: [paste your notes]. Fix the prom
 
 ```markdown
 Step 7.9: implement Extend with next lecture, Merge lectures and Exam pack as described in SUMMARY-SPEC.md: the existing summary JSON plus the new lecture go in; new sections tagged by lecture; takeaways, glossary, timelines and self-test merged; professor corrections shown as update callouts; result saved as a new Unit summary; originals untouched. Available from the document menu and the Library item menu. When the result isn't added to an existing summary, it goes into a new "New summary" tab (4.7b).
+
+Adding a new summary to an existing one (asked 29 Oct; also when I extend):
+- Don't repeat anything that's already in the summary: only what's new is added (new sections tagged by lecture; glossary terms, formulas and self-test questions that aren't there yet).
+- If something new is about a part that's already there (for example the professor says it will be on the exam), don't add it again: add a comment on that existing text saying what was said, with the time in the recording ("Lecture 4 · 18:30: the professor said this will be on the exam"). Comments never change my text, so this works on blocks I edited too; I can resolve or delete them.
+- Comments made this way say they come from Studiply and keep the lecture and the time (the comment mark gains `author` and `source {lectureId, ms}`), so later the time can play the recording.
+- The quality checks get a "no repeats" check: no added block says the same as an existing one; anything that would repeat becomes a comment or is left out.
 ```
 
-**Check:** extend Tema 1 with Tema 2 and make an exam pack of the course. Merge the branch.
+**Check:** extend Tema 1 with Tema 2 and make an exam pack of the course. Add Tema 2's summary to Tema 1's: nothing already in Tema 1 appears twice, and where the professor came back to a part (e.g. "this will be on the exam") there is a comment on it with the time instead of a copy. Merge the branch.
 
 ## Phase 8 — Visuals and PDF
 
