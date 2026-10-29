@@ -39,7 +39,11 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [ ] 4.5 — Inserting things (links, images, tables, KaTeX, comments) — checkpoint A (colour picker, links, tables, the one-row toolbar) built 28 Oct, passed after the table rework; checkpoint B (photos, formulas, comments) built 29 Oct; after test B, checkpoint C (photo layout, the selection bar, formulas as you type, iPhone photo handles and toolbar) built 29 Oct, passed; after test C, the iPhone toolbar without "+" and the typing shortcuts; then 4.5b (page view and zoom)
 - [ ] 4.5b — Page view and zoom (pulled forward from 4.7, Lea after test B) — built 29 Oct (checkpoint D, with the iPhone toolbar change and the typing shortcuts); after test D, checkpoint E (pages on the gradient, page setup per document, pulled forward from 4.7) built 29 Oct, passed (test E); a simplicity pass of the editor's look before 4.6, OK'd from screenshots on 29 Oct
 - [ ] 4.6 — Studiply blocks (callouts, timestamp chips, mark chips) — built 29 Oct; laptop screenshots OK'd; the iPhone check fixed (it had sent the document after Change to / Remove) and the Mark icon a flag; committed; then the selection bar's Callout ▸ / Mark ▸ / Time ▸ (built 29 Oct; screenshots OK'd by Lea, committed); then test G
-- [ ] 4.7 — Writing tools (find & replace, word count, heading outline, page setup)
+- [ ] 4.7c — Formula library (finance first; a formula card with a line for each letter) — next (Lea, 29 Oct: built before 4.7)
+- [ ] 4.7d — Graphs I build (bar, line, pie, scatter from a small data table)
+- [ ] 4.7e — Spreadsheet (a block first, a tab with 4.7b; the formula engine comes from the `sheets-engine` branch)
+- [ ] 4.7 — Writing tools (find & replace, word count, heading outline; page setup already built in 4.5b)
+- [ ] 4.7b — Tabs in every document (planned 29 Oct; Transcript stays editable)
 - [ ] 4.8 — Import and export (.docx import; PDF and .docx export)
 - [ ] 4.9 — Convert old notes (idempotent)
 

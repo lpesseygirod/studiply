@@ -88,6 +88,9 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Tap a timestamp to replay the audio | Mini player at the bottom | Mini player | 4, 5 | v1 |
 | Autosave, offline editing, sync | Yes (writing offline, synced when back online) | Yes (online) | 4 | v1 |
 | Version history and restore | Document menu | Document menu | 4 | v1 |
+| Formula library (finance first: PV, FV, annuity, NPV, IRR, EAR, WACC, CAPM…), with a line for each letter | Formula sheet → From the library | Insert ▾ → Formula ▸ From the library | 4 | v1 |
+| Graphs I build (bar, line, pie, scatter) from a small data table | Second row → Graph; data in a sheet | Insert ▾ → Graph; data under the graph | 4 | v1 |
+| Spreadsheet with Excel formulas (=A1+B2, SUM, IF, XLOOKUP, PMT, NPV, IRR…), autocomplete, help line, fill by dragging | Grid with a formula bar above the keyboard | Grid with a formula bar | 4 | v1 |
 | Find & replace | Document menu → Find | Cmd+F / Cmd+Shift+H | 4 | v1 |
 | Word count | Document menu | Document menu + status line | 4 | v1 |
 | Outline of the headings to jump around | Sheet from the document menu | Outline beside the page | 4 | v1 |
@@ -136,6 +139,7 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | Feature | iPhone | Laptop | Phase | When |
 | --- | --- | --- | --- | --- |
 | Quiz me (hide a section, answer its cue question) | Tap to reveal | Click to reveal | 9 | v1 |
+| Create a quiz (course and lectures, resources, past exams as the model, 10 sliders, question types, time limit, grading, wrong answers come back) | Review → New quiz (full-screen sheet) | Review → New quiz (centered panel) | 9 | v1 |
 | Flashcards and review screen | Swipe cards | Keyboard: space to flip | 9 | v1 |
 | Spaced review reminders (day 1, 3, 7, 21; exam date) | Push notifications | Review today count | 9 | v1 |
 | Course settings (subject, level, exam format, exam date, language, slider defaults) | Settings screen | Settings panel | 9 | v1 |
@@ -410,6 +414,48 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 
 **Check:** insert one of each block on the laptop; they look the same on the iPhone.
 
+**Order after 4.6 (Lea, 29 Oct):** 4.7c formula library → 4.7d graphs → 4.7e spreadsheet → 4.7 writing tools → 4.7b tabs → 4.8 import and export → 4.9.
+
+**Step 4.7c — Formula library** (Lea, 29 Oct; built first, see the order above)
+
+```markdown
+Step 4.7c: a library of ready-made formulas next to the Formula insert, on both devices: Insert ▾ → Formula ▸ From the library (iPhone: in the formula sheet), grouped (Time value of money · Valuation · Cost of capital) with a search box. Picking one inserts a formula card: the formula drawn properly with KaTeX (fractions, exponents, Σ) and under it one short line saying what each letter means. Everything stays editable after inserting (the formula in the formula editor, the line as text).
+First list (finance):
+- Present value: PV = FV / (1 + r)^n · Future value: FV = PV × (1 + r)^n
+- Annuity (present value): PV = C × [1 − (1 + r)^−n] / r
+- Perpetuity: PV = C / r · Growing perpetuity: PV = C / (r − g)
+- NPV = −C₀ + Σ Cₜ / (1 + r)^t · IRR: the r that makes NPV = 0
+- Effective annual rate: EAR = (1 + APR/m)^m − 1
+- WACC = E/V × r_e + D/V × r_d × (1 − T) · CAPM: r = r_f + β × (r_m − r_f)
+The list is data in one file (name, group, LaTeX, the line for each letter), so other subjects (statistics, economics) can be added later. The formula card is the block 8.2 uses for the summary's formula cards.
+```
+
+**Check:** search "annuity" on the laptop and insert it; insert NPV and WACC on the iPhone; edit one after inserting; they look the same on both devices and in the PDF.
+
+**Step 4.7d — Graphs I build** (Lea, 29 Oct; was 8.2b)
+
+```markdown
+Step 4.7d: a graph block I build myself in any document, on both devices: Insert ▾ → Graph (iPhone: the second row's Insert group). Pick the type (bar, line, pie, scatter), enter or edit the data in a small table (laptop: under the graph when it is selected; iPhone: a sheet), and the graph updates as I type. A title, axis labels and series names. Drawn as SVG by our own code in the style of SUMMARY-SPEC "Graphs and visuals" ( labels on the lines, solid/dashed/dotted so it prints in black and white, a text description for screen readers). The data lives in the block, so it syncs and merges like any block (origin student). PDF and Word export (4.8, 8.3) include it as a picture; 8.2 reuses this drawing for the summary's charts. Ask before adding any chart library (the plan is to draw them ourselves).
+```
+
+**Check:** make a bar chart of 5 values on the iPhone, change one value on the laptop: the bars change on both; switch it to line and pie; print it in black and white.
+
+**Step 4.7e — Spreadsheet** (Lea, 29 Oct; was 8.4; built before tabs)
+
+```markdown
+Step 4.7e: a spreadsheet in any document, on both devices: cells, rows and columns, and formulas that work like Excel. Built before tabs (4.7b), so it starts as a spreadsheet block (Insert ▾ → Spreadsheet; iPhone: the second row), drawn as a grid across the page width and moving whole to a new page in page view; with 4.7b, "+" → Spreadsheet adds one as a tab of its own.
+- Typing "=" in a cell starts a formula; clicking (tapping) other cells adds them (=A1+B2); ranges by dragging (A1:A10).
+- Autocomplete of functions while I type: Basic SUM, AVERAGE, MIN, MAX, COUNT, ROUND · Logic IF, AND, OR · Lookup VLOOKUP, XLOOKUP · Finance PV, FV, PMT, NPV, IRR, RATE, NPER. Under the formula, a short help line for the function being typed, with the current part in bold: PMT(**rate**, nper, pv).
+- Dragging a cell's corner copies its formula to the cells next to it, with the references moving as in Excel ($A$1 stays).
+- Laptop: a grid with a formula bar; iPhone: the grid with the formula bar above the keyboard and the cell references by tap.
+- Data: the block holds the cells (value or formula, bold), with its own id and origin like any block; between devices the cells merge one by one (two devices changing different cells both keep their change), so it works offline. Results are calculated on the device. Errors as in Excel (#DIV/0!, #REF!, #NAME?).
+- Export: PDF and Word (4.8) as a table of the values.
+- Not in the first version: .xlsx import and export, charts inside the sheet (a graph block can take its data from a sheet later), several sheets per tab, cell styles beyond bold, number formats (%, €, decimals) and column widths.
+The formula engine is built separately (Lea, 29 Oct: another Claude Code session, branch `sheets-engine`, worktree `../Studiply-sheets`, a standalone module with its own tests). This step does not write a formula engine: it plugs that module in (parsing, calculating, the function list and help lines, moving references when copying) and builds the grid, the editing and the syncing around it.
+```
+
+**Check:** a loan table on the laptop with PMT and a column filled by dragging the corner; open it on the iPhone, change the rate offline, go online: the laptop shows the new payments; =NPV and =IRR give the same results as Excel for the same numbers.
+
 **Step 4.7 — Writing tools**
 
 ```markdown
@@ -427,8 +473,8 @@ Start with a short spike comparing the page-view options (see the recommendation
 **Step 4.7b — Tabs in every document** (asked 29 Oct, before 4.8)
 
 ```markdown
-Step 4.7b: Google Docs–style tabs in every document, on both devices: "+" adds a tab, and I can rename, reorder (drag on the laptop; Move left / Move right in the long-press sheet on the iPhone for a first version) and delete tabs (with Undo; at least one stays). Lectures keep My notes, Summary and Transcript as fixed tabs (not renamed, moved or deleted), followed by any added tabs; plain documents start with one tab ("Tab 1") and can have more. The Transcript stays editable as since 4.3 (to correct misheard words) unless Lea decides it should be read-only (open question, 29 Oct). Laptop: a tab row above the toolbar; iPhone: a tab row that scrolls sideways, replacing the segmented control.
-- Data: each tab is a documents row; `tab` is its id (notes / summary / transcript as today, added tabs `t-<uuid>` made on the device), with `title`, `position` (moving a tab writes only its own position), `deleted_at` (soft delete) and `kind` (`summary` for a summary tab). `unique (file_id, tab)` stays; nothing in existing documents is rewritten.
+Step 4.7b: Google Docs–style tabs in every document, on both devices: "+" adds a tab, and I can rename, reorder (drag on the laptop; Move left / Move right in the long-press sheet on the iPhone for a first version) and delete tabs (with Undo; at least one stays). Lectures keep My notes, Summary and Transcript as fixed tabs (not renamed, moved or deleted), followed by any added tabs; plain documents start with one tab ("Tab 1") and can have more. The Transcript stays editable as since 4.3, to correct misheard words (Lea, 29 Oct). Laptop: a tab row above the toolbar; iPhone: a tab row that scrolls sideways, replacing the segmented control.
+- Data: each tab is a documents row; `tab` is its id (notes / summary / transcript as today, added tabs `t-<uuid>` made on the device), with `title`, `position` (moving a tab writes only its own position), `deleted_at` (soft delete) and `kind` (`summary` for a summary tab, `sheet` for a spreadsheet tab from 4.7e). `unique (file_id, tab)` stays; nothing in existing documents is rewritten.
 - Offline: `create_tab` and `tab_meta` queue ops per tab; edits merge per tab block by block as today; a tab deleted on one device and edited offline on another comes back with a notice.
 - Versions stay per tab (history, Restore, "Before restore"); page setup becomes the document's (saved to every tab; a new tab copies it).
 - A new summary that isn't added to the existing one goes into its own tab, "New summary" (`kind = summary`), after Summary and Transcript; the tab model supports it here, Phase 7 writes it.
@@ -660,7 +706,7 @@ Step 8.1: render the text-based summary modules from SUMMARY-SPEC.md as editor b
 **Step 8.2 — Formulas and graphs**
 
 ```markdown
-Step 8.2: render formula cards (KaTeX with the variable legend), function plots drawn exactly from the expression, model graph templates (supply-demand, IS-LM, normal curve, cost curves) where Claude only picks the template and shifts, data charts only from numbers in the transcript, and captured photos at their timestamp. Follow "Graphs and visuals": the takeaway as the title, labels directly on the curves, at most 3 series, dashed/dotted lines so they work in black and white, a text description for screen readers. Never AI-generated images.
+Step 8.2: render formula cards (KaTeX with the variable legend), function plots drawn exactly from the expression, model graph templates (supply-demand, IS-LM, normal curve, cost curves) where Claude only picks the template and shifts, data charts only from numbers in the transcript, and captured photos at their timestamp (formula cards are 4.7c's block; charts use 4.7d's drawing). Follow "Graphs and visuals": the takeaway as the title, labels directly on the curves, at most 3 series, dashed/dotted lines so they work in black and white, a text description for screen readers. Never AI-generated images.
 ```
 
 **Check:** the Calculus fixture shows a correct plot of a function from the lecture; the Finance fixture shows its formulas.
@@ -684,6 +730,19 @@ Step 9.1: Quiz me toggle on every summary section (hides the content, shows its 
 ```
 
 **Check:** review 10 cards on the iPhone; they show up as reviewed on the laptop.
+
+**Step 9.1b — Create a quiz** (Lea, 29 Oct; in Review, next to Quiz me)
+
+```markdown
+Step 9.1b: create a quiz from my material, on both devices: Review → New quiz (laptop: a centered panel; iPhone: a full-screen sheet, like the summarize panel in 7.3).
+- What it covers: pick the course, then the topic in it (one lecture, a few, or the whole course). Add resources for the quiz (files, slides, notes from the library or uploaded). Add example quizzes or past exams: the new quiz copies their format (the same question types, length and style of wording).
+- 10 sliders from 1 to 10, with labelled ends and the value shown, presets and "Save as course default" as for the summary sliders: Difficulty (how tricky) · Number of questions · Definitions · Calculations / exercises · Theory vs. practice · Exam focus (stick to what was flagged "will be on the exam": Exam marks and the professor's exam phrases) · My weak spots (parts I marked Confused or got wrong before) · Trap answers (how close the wrong options are to the right one) · Memory vs. understanding · Detail (big ideas only, or small details too). The numbers go through a small calculator like 7.2's (one module with unit tests): e.g. Number of questions 1 → 5 … 10 → 50, and where sliders pull against each other (Definitions, Calculations, Theory vs. practice) the calculator decides the mix, not the AI.
+- Choices: question types (multiple choice, true/false, short answer, fill in the blank, long answer, match pairs, put steps in order, calculation with a numeric answer, checked with a tolerance) · time limit (none, total minutes, or per question) · language (the course's, or another) · answers shown after each question or at the end · explanations with a link to the moment in the recording (a timestamp chip that plays it, 4.6) · hints on or off · grading (a score out of 10, or pass/fail with a threshold) · questions I get wrong come back in the next quiz (and go into spaced review, 9.2).
+- Rules: questions only from the chosen lectures and resources (an explanation that adds something is labelled Added context); every question keeps its source (lecture and time, or file and page); resources and past exams go to the AI only with consent, as audio does; long and short answers are graded by the AI against the model answer with a one-line reason, and I can change the grade.
+- Data: quizzes (settings, sources, questions), attempts (answers, score, time), wrong answers linked to their question; owner-only like every table. Taking a quiz works offline; making one needs a connection.
+```
+
+**Check:** a quiz from two Finance lectures with a past exam attached: question types and wording match the exam; with Exam focus 10 it only asks what was flagged; answer two wrong and they come back in the next quiz; tap an explanation's time and the recording plays from there.
 
 **Step 9.2 — Spaced review and course settings**
 
