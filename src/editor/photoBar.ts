@@ -18,6 +18,7 @@ import { TABLE_BAR_CLASS, visibleTop } from './table/tableBar';
  */
 
 export const PHOTO_BAR_CLASS = 'studiply-photo-bar';
+export const PHOTO_SIZE_CLASS = 'studiply-photo-bar-size';
 const GAP = 8;
 
 const line = (y: number, x1 = 2, x2 = 16) => `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}"/>`;
@@ -57,11 +58,12 @@ class PhotoBarView {
     this.bar.setAttribute('aria-label', 'Photo');
     this.bar.style.display = 'none';
     const info = () => selectedPhotoIn(this.view.state);
-    const add = (label: string, content: string, act: () => void, on: () => boolean = () => false, enabled?: () => boolean, html = true) => {
+    const add = (label: string, content: string, act: () => void, on: () => boolean = () => false, enabled?: () => boolean, html = true, cls = '') => {
       const el = document.createElement('button');
       el.type = 'button';
       el.setAttribute('aria-label', label);
       el.title = label;
+      if (cls) el.className = cls;
       if (html) el.innerHTML = content;
       else el.textContent = content;
       // Pressing the bar must not take the focus (or the keyboard) from the text.
@@ -71,17 +73,18 @@ class PhotoBarView {
       this.buttons.push({ el, on, enabled });
       return el;
     };
-    const divider = () => {
+    const divider = (cls = '') => {
       const d = document.createElement('span');
-      d.className = `${PHOTO_BAR_CLASS}-divider`;
+      d.className = `${PHOTO_BAR_CLASS}-divider ${cls}`.trim();
       this.bar.appendChild(d);
     };
     for (const l of LAYOUTS) add(l.label, l.icon, () => this.editor.chain().setPhotoLayout({ wrap: l.wrap }).run(), () => info()?.wrap === l.wrap);
     divider();
     for (const a of ALIGNS)
       add(a.label, a.icon, () => this.editor.chain().setPhotoLayout({ align: a.align }).run(), () => info()?.wrap === 'break' && info()?.align === a.align, () => info()?.wrap === 'break');
-    divider();
-    for (const sz of SIZES) add(sz.label, sz.text, () => this.editor.chain().setPhotoWidth(sz.width).run(), () => info()?.width === sz.width, undefined, false);
+    // On a phone the keyboard toolbar has the sizes; the bar leaves them out there (editorCss).
+    divider(PHOTO_SIZE_CLASS);
+    for (const sz of SIZES) add(sz.label, sz.text, () => this.editor.chain().setPhotoWidth(sz.width).run(), () => info()?.width === sz.width, undefined, false, PHOTO_SIZE_CLASS);
     divider();
     add('Delete photo', 'Delete', () => this.editor.chain().focus().deleteSelection().run(), undefined, undefined, false).classList.add('danger');
     view.dom.addEventListener('focus', this.refresh);

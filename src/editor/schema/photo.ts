@@ -22,7 +22,7 @@ import { mediaIdOf, providePhoto, watchPhoto, type PhotoSource } from '../media/
  *
  * The node view shows the picture once resolved ("Loading photo…", or why it
  * can't show); handles on the corners of a selected photo drag its width
- * (a mouse on the laptop, a finger on the iPhone). The iPhone also has
+ * (a mouse on the laptop, a finger on the iPhone, test B). The iPhone also has
  * Small / Medium / Large / Full width in the keyboard toolbar.
  */
 
@@ -174,16 +174,16 @@ class PhotoView implements NodeView {
     this.img.draggable = false;
     this.img.addEventListener('error', this.onError);
     this.frame.append(this.img, this.note);
-    // Handles need a mouse; on the iPhone the keyboard toolbar sets the size.
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches) {
-      for (const corner of ['nw', 'ne', 'sw', 'se']) {
-        const handle = document.createElement('span');
-        handle.className = `${PHOTO_CLASS}-handle`;
-        handle.dataset.corner = corner;
-        handle.setAttribute('aria-label', 'Resize photo');
-        handle.addEventListener('mousedown', (e) => this.startDrag(e, corner.endsWith('w') ? -1 : 1));
-        this.frame.appendChild(handle);
-      }
+    // Corner handles for a mouse (laptop) and a finger (iPhone: bigger, see editorCss).
+    for (const corner of ['nw', 'ne', 'sw', 'se']) {
+      const handle = document.createElement('span');
+      const sign = corner.endsWith('w') ? -1 : 1;
+      handle.className = `${PHOTO_CLASS}-handle`;
+      handle.dataset.corner = corner;
+      handle.setAttribute('aria-label', 'Resize photo');
+      handle.addEventListener('mousedown', (e) => this.startDrag(e, e.clientX, sign));
+      handle.addEventListener('touchstart', (e) => e.touches.length === 1 && this.startDrag(e, e.touches[0].clientX, sign), { passive: false });
+      this.frame.appendChild(handle);
     }
     this.dom.appendChild(this.frame);
     this.render(node);
@@ -245,20 +245,30 @@ class PhotoView implements NodeView {
     return (photoInfo(this.node).wrap === 'break' ? this.dom : this.dom.parentElement)?.clientWidth || 1;
   }
 
-  private startDrag(e: MouseEvent, sign: number) {
+  private startDrag(e: Event, clientX: number, sign: number) {
     if (!this.view.editable) return;
+    // Not a text selection, nor (a finger) a scroll of the page.
     e.preventDefault();
     e.stopPropagation();
-    this.drag = { startX: e.clientX, startWidth: this.sized().offsetWidth, page: this.pageWidth(), sign };
+    this.drag = { startX: clientX, startWidth: this.sized().offsetWidth, page: this.pageWidth(), sign };
     this.dom.classList.add('resizing');
     window.addEventListener('mousemove', this.onDrag);
     window.addEventListener('mouseup', this.endDrag);
+    window.addEventListener('touchmove', this.onDrag, { passive: false });
+    window.addEventListener('touchend', this.endDrag);
+    window.addEventListener('touchcancel', this.endDrag);
   }
 
-  private onDrag = (e: MouseEvent) => {
+  private onDrag = (e: MouseEvent | TouchEvent) => {
     const d = this.drag;
     if (!d) return;
-    const px = Math.max(MIN_WIDTH_PX, Math.min(d.page, d.startWidth + d.sign * (e.clientX - d.startX)));
+    let x: number;
+    if ('touches' in e) {
+      if (!e.touches.length) return;
+      e.preventDefault();
+      x = e.touches[0].clientX;
+    } else x = e.clientX;
+    const px = Math.max(MIN_WIDTH_PX, Math.min(d.page, d.startWidth + d.sign * (x - d.startX)));
     this.sized().style.width = `${px}px`;
   };
 
@@ -266,8 +276,7 @@ class PhotoView implements NodeView {
     const d = this.drag;
     this.drag = null;
     this.dom.classList.remove('resizing');
-    window.removeEventListener('mousemove', this.onDrag);
-    window.removeEventListener('mouseup', this.endDrag);
+    this.stopListening();
     const pos = this.getPos();
     if (!d || pos === undefined) return;
     const width = clampPct((this.sized().offsetWidth / d.page) * 100);
@@ -290,10 +299,17 @@ class PhotoView implements NodeView {
     return true;
   }
 
-  destroy() {
-    this.unwatch?.();
+  private stopListening() {
     window.removeEventListener('mousemove', this.onDrag);
     window.removeEventListener('mouseup', this.endDrag);
+    window.removeEventListener('touchmove', this.onDrag);
+    window.removeEventListener('touchend', this.endDrag);
+    window.removeEventListener('touchcancel', this.endDrag);
+  }
+
+  destroy() {
+    this.unwatch?.();
+    this.stopListening();
   }
 }
 

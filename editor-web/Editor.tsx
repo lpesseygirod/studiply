@@ -6,6 +6,7 @@ import { boot, sendMessage } from '@10play/tentap-editor/src/web/runtime.ts';
 import { studiplyBridges } from '../src/editor/bridges';
 import { PHOTO_NEED } from '../src/editor/bridges/photo';
 import { setPhotoResolver } from '../src/editor/media/photoSource';
+import { PHOTO_CLASS } from '../src/editor/schema/photo';
 
 declare global {
   interface Window {
@@ -38,7 +39,9 @@ export default function Editor() {
     if (!editor) return;
     let startY: number | null = null;
     const start = (e: TouchEvent) => {
-      startY = e.touches.length === 1 ? e.touches[0].clientY : null;
+      // Dragging a photo's corner handle resizes it; it isn't a scroll.
+      const onHandle = (e.target as Element | null)?.closest?.(`.${PHOTO_CLASS}-handle`);
+      startY = e.touches.length === 1 && !onHandle ? e.touches[0].clientY : null;
     };
     const move = (e: TouchEvent) => {
       if (startY === null || !editor.isFocused) return;

@@ -6,7 +6,7 @@ import { TABLE_BAR_CLASS } from './table/tableBar';
 import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
-import { PHOTO_BAR_CLASS } from './photoBar';
+import { PHOTO_BAR_CLASS, PHOTO_SIZE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
@@ -104,7 +104,14 @@ ${photo}-handle[data-corner='nw'] { left: -7px; top: -7px; cursor: nwse-resize; 
 ${photo}-handle[data-corner='ne'] { right: -7px; top: -7px; cursor: nesw-resize; }
 ${photo}-handle[data-corner='sw'] { left: -7px; bottom: -7px; cursor: nesw-resize; }
 ${photo}-handle[data-corner='se'] { right: -7px; bottom: -7px; cursor: nwse-resize; }
+@media (pointer: coarse) {
+  ${photo}-handle { width: 24px; height: 24px; border-radius: 12px; border-width: 3px; touch-action: none; }
+  ${photo}-handle[data-corner='nw'] { left: -12px; top: -12px; }
+  ${photo}-handle[data-corner='ne'] { right: -12px; top: -12px; }
+  ${photo}-handle[data-corner='sw'] { left: -12px; bottom: -12px; }
+  ${photo}-handle[data-corner='se'] { right: -12px; bottom: -12px; }
+}
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
-@media (max-width: 480px) { ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
+@media (max-width: 480px) { ${bar} .${PHOTO_SIZE_CLASS} { display: none; } ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;
 }

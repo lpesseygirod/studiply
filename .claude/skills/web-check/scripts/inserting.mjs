@@ -46,6 +46,8 @@ const src = readFileSync(join(repo, 'editor-web/build/editorHtml.js'), 'utf8');
 const iphoneFile = join(OUT, 'iphone-editor.html');
 writeFileSync(iphoneFile, JSON.parse(src.slice(src.indexOf('= ') + 2, src.lastIndexOf(';'))));
 const IPHONE = `file://${iphoneFile}?standalone`;
+// The editor's styles as the app injects them into the iPhone's WebView (filled in from the laptop page).
+let PAGE_CSS = '';
 
 const json = () => b.evaluate(`${EDITOR}.getJSON()`);
 const click = (label) => b.clickSelector(`[aria-label="${label}"]`);
@@ -110,6 +112,7 @@ const openDoc = async () => {
 try {
   await b.signIn(BASE, user.email, user.password);
   await openDoc();
+  PAGE_CSS = (await b.evaluate(`[...document.querySelectorAll('style')].map((s) => s.textContent).find((t) => t.includes('.studiply-editor .ProseMirror'))`)) ?? '';
 
   await step('colour picker: the grid, a shade, More colours… with a hex, Automatic', async () => {
     await fresh();
@@ -768,6 +771,37 @@ try {
     await b.sleep(300);
     const after = (await json()).content[0].content;
     expect(after.some((n) => n.type === 'inlineMath' && n.attrs.latex === '\\sqrt{x}'), JSON.stringify(after));
+  });
+
+  // ── Part C: a finger resizes a photo (iPhone bundle, touch) ──
+  await step('photo handles on a touch screen: a finger drags a corner; the width is saved; the keyboard stays', async () => {
+    await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'any-pointer', value: 'coarse' }] });
+    try {
+      await b.resize(390, 844);
+      await b.nav(IPHONE);
+      await waitEditor();
+      expect(PAGE_CSS, 'no editor styles from the laptop page');
+      await b.evaluate(`(() => { const c = document.createElement('canvas'); c.width = 600; c.height = 300; c.getContext('2d').fillRect(0, 0, 600, 300); const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Pizarra' }] }, { type: 'image', attrs: { src: c.toDataURL() } }, { type: 'paragraph' }] }); e.commands.focus(); e.commands.setNodeSelection(9); })()`);
+      // The app's styles, as it injects them.
+      await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(PAGE_CSS)} + '.studiply-editor .ProseMirror { padding: 16px 20px 160px; }'; document.head.appendChild(s); document.body.classList.add('studiply-editor'); })()`);
+      await b.sleep(300);
+      const h = await b.evaluate(`(() => { const r = document.querySelector('.studiply-photo-handle[data-corner="se"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; })()`);
+      expect(h.w >= 20, `handle ${h.w}px`);
+      await b.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: h.x, y: h.y }] });
+      for (let i = 1; i <= 8; i++) await b.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: h.x - i * 20, y: h.y + i * 3 }] });
+      await b.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await b.sleep(300);
+      const width = (await json()).content.find((n) => n.type === 'image').attrs.width;
+      expect(typeof width === 'number' && width < 90, `width ${width}`);
+      expect(await b.evaluate(`${EDITOR}.isFocused`), 'the drag closed the keyboard (the editor lost focus)');
+      await b.shot('ins-photo-touch-390');
+    } finally {
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+      await b.resize(1280, 900);
+      await openDoc();
+    }
   });
 
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
