@@ -3,6 +3,7 @@
  * Every function a formula can call, by its upper-case name.
  */
 
+import { FINANCE_FUNCTIONS } from './finance';
 import { LOGIC_FUNCTIONS } from './logic';
 import { LOOKUP_FUNCTIONS } from './lookup';
 import { MATH_FUNCTIONS } from './math';
@@ -14,4 +15,5 @@ export const FUNCTIONS: Readonly<Record<string, FunctionDef>> = {
   ...MATH_FUNCTIONS,
   ...LOGIC_FUNCTIONS,
   ...LOOKUP_FUNCTIONS,
+  ...FINANCE_FUNCTIONS,
 };

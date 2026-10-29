@@ -8,7 +8,7 @@
  * arguments therefore arrive as a Grid (see evaluate.ts).
  */
 
-import { Grid, isError, scalar, toBoolean, toNumber, type CellValue, type SheetError, type Value } from '../values';
+import { Grid, isError, scalar, toBoolean, toNumber, type SheetError, type Value } from '../values';
 
 /** One number from an argument; a left-out argument is 0. */
 export function numberArg(v: Value): number | SheetError {
@@ -50,9 +50,4 @@ export function collectNumbers(args: Value[]): number[] | SheetError {
     }
   }
   return out;
-}
-
-/** The first error among some values, if any. */
-export function firstError(...values: (CellValue | number | boolean | string)[]): SheetError | undefined {
-  return values.find(isError);
 }
