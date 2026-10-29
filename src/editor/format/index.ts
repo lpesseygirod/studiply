@@ -3,7 +3,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { selectedPhoto, type PhotoAlign, type PhotoInfo, type PhotoWrap } from '../schema/photo';
-import { formulaRequest, selectedFormula, type FormulaRequest } from '../schema/formula';
+import { formulaRequest, mathSuggestion, selectedFormula, type FormulaRequest } from '../schema/formula';
 import { canComment, commentsAt, listComments, type CommentInfo } from '../schema/comments';
 import { selectionBarKey, type SelectionBarRequest } from './selectionBar';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
@@ -93,6 +93,8 @@ export interface FormatState {
   comments: CommentInfo[];
   /** The last press on the selection bar's Comment or Link (the iPhone asks with its prompts). */
   selectionRequest: SelectionBarRequest | null;
+  /** Maths typed as text before the cursor, offered as a formula (its LaTeX); null when none. */
+  mathSuggestion: { latex: string } | null;
 }
 
 export type FormatCommand =
@@ -130,6 +132,8 @@ export type FormatCommand =
    */
   | { type: 'formula'; action: 'set'; latex: string; display: boolean }
   | { type: 'formula'; action: 'remove' | 'done' }
+  /** The "Make formula" suggestion: take it, or not this one. */
+  | { type: 'formula'; action: 'acceptSuggestion' | 'dismissSuggestion' }
   /** Comments (step 4.5): on the selected words (`add`), or one by id. */
   | { type: 'comment'; action: 'add'; id: string; text: string }
   | { type: 'comment'; action: 'edit'; id: string; text: string }
@@ -207,7 +211,13 @@ export function formatState(editor: Editor): FormatState {
     formulaRequest: formulaRequest(editor),
     ...commentState(editor),
     selectionRequest: selectionBarKey.getState(editor.state) ?? null,
+    mathSuggestion: mathSuggestionOf(editor),
   };
+}
+
+function mathSuggestionOf(editor: Editor): FormatState['mathSuggestion'] {
+  const s = mathSuggestion(editor.state);
+  return s && { latex: s.latex };
 }
 
 function commentState(editor: Editor): Pick<FormatState, 'comment' | 'canComment' | 'comments'> {
@@ -399,6 +409,8 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       // Not focusing the text: the student is typing in the formula's editor.
       if (cmd.action === 'set') return editor.chain().setFormula({ latex: cmd.latex, display: cmd.display }).run();
       if (cmd.action === 'remove') return chain().removeFormula().run();
+      if (cmd.action === 'acceptSuggestion') return chain().acceptMathSuggestion().run();
+      if (cmd.action === 'dismissSuggestion') return chain().dismissMathSuggestion().run();
       if (!selectedFormula(editor.state)?.latex.trim()) return chain().removeFormula().run();
       return chain().leaveFormula().run();
     case 'comment':

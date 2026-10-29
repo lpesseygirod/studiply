@@ -1,6 +1,10 @@
 import { Extension, type Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection, Plugin, PluginKey, Selection, type EditorState, type Transaction } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
+
+import { TABLE_BAR_CLASS } from '../table/tableBar';
+import { DOLLAR_MATH, mathCandidate } from './mathSuggest';
 
 /**
  * Formulas (step 4.5): Tiptap's `inlineMath` and `blockMath` (KaTeX), with
@@ -25,6 +29,36 @@ export interface FormulaRequest {
 }
 export const formulaKey = new PluginKey<FormulaRequest | null>('studiplyFormula');
 
+/** Maths typed as text just before the cursor, offered as a formula ("Make formula"). */
+export interface MathSuggestion {
+  from: number;
+  to: number;
+  latex: string;
+}
+interface SuggestState {
+  suggestion: MathSuggestion | null;
+  /** The one Escape dismissed (`from:latex`), not offered again. */
+  dismissed: string | null;
+}
+export const mathSuggestKey = new PluginKey<SuggestState>('studiplyMathSuggest');
+export const MATH_CHIP_CLASS = 'studiply-math-chip';
+
+/** The suggestion for the cursor in `state`, if any. */
+function suggestionIn(state: EditorState): MathSuggestion | null {
+  const { selection } = state;
+  if (!selection.empty) return null;
+  const { $from } = selection;
+  if (!$from.parent.isTextblock || $from.parent.type.spec.code) return null;
+  const text = $from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc');
+  const found = mathCandidate(text);
+  if (!found) return null;
+  const start = $from.start();
+  return { from: start + found.start, to: start + found.end, latex: found.latex };
+}
+
+/** The suggestion to show now (null when none, or the student dismissed it). */
+export const mathSuggestion = (state: EditorState): MathSuggestion | null => mathSuggestKey.getState(state)?.suggestion ?? null;
+
 /** Starters for the editor's buttons (Lea's list): what each puts in. */
 export const FORMULA_STARTERS: { label: string; latex: string }[] = [
   { label: 'Fraction', latex: '\\frac{a}{b}' },
@@ -43,6 +77,10 @@ declare module '@tiptap/core' {
       removeFormula: () => ReturnType;
       /** Puts the cursor just after the selected formula (done editing it). */
       leaveFormula: () => ReturnType;
+      /** Turns the suggested maths before the cursor into a formula. */
+      acceptMathSuggestion: () => ReturnType;
+      /** Not this one (Escape). */
+      dismissMathSuggestion: () => ReturnType;
     };
   }
 }
@@ -70,6 +108,15 @@ function selectInserted(tr: Transaction, near: number, node: PMNode) {
 
 export const Formulas = Extension.create({
   name: 'formulas',
+  // Tab takes a suggestion before lists and tables use it.
+  priority: 1000,
+
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => !!mathSuggestion(this.editor.state) && this.editor.commands.acceptMathSuggestion(),
+      Escape: () => !!mathSuggestion(this.editor.state) && this.editor.commands.dismissMathSuggestion(),
+    };
+  },
 
   addCommands() {
     return {
@@ -99,6 +146,23 @@ export const Formulas = Extension.create({
           if (dispatch) tr.delete(current.pos, current.pos + state.doc.nodeAt(current.pos)!.nodeSize);
           return true;
         },
+      acceptMathSuggestion:
+        () =>
+        ({ state, tr, dispatch }) => {
+          const s = mathSuggestion(state);
+          const type = state.schema.nodes[INLINE_MATH];
+          if (!s || !type) return false;
+          if (dispatch) tr.replaceWith(s.from, s.to, type.create({ latex: s.latex }));
+          return true;
+        },
+      dismissMathSuggestion:
+        () =>
+        ({ state, tr, dispatch }) => {
+          const s = mathSuggestion(state);
+          if (!s) return false;
+          if (dispatch) tr.setMeta(mathSuggestKey, { dismiss: `${s.from}:${s.latex}` });
+          return true;
+        },
       leaveFormula:
         () =>
         ({ state, tr, dispatch }) => {
@@ -113,7 +177,40 @@ export const Formulas = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const editor = this.editor;
     return [
+      new Plugin<SuggestState>({
+        key: mathSuggestKey,
+        state: {
+          init: (_config, state) => ({ suggestion: suggestionIn(state), dismissed: null }),
+          apply: (tr, value, _old, state) => {
+            const dismiss = (tr.getMeta(mathSuggestKey) as { dismiss?: string } | undefined)?.dismiss;
+            const dismissed = dismiss ?? value.dismissed;
+            const found = tr.docChanged || tr.selectionSet ? suggestionIn(state) : value.suggestion;
+            const shown = found && `${found.from}:${found.latex}` === dismissed ? null : found;
+            return { suggestion: shown, dismissed };
+          },
+        },
+        view: (view) => new MathChipView(view, editor),
+        props: {
+          // `$…$` becomes a formula as the closing `$` is typed, in one step (so Undo
+          // brings the text back). Not a Tiptap input rule: those insert the typed
+          // character first and give up when another plugin then changes the
+          // document, which the block plugin always does (it stamps the edit).
+          handleTextInput: (view, from, to, text) => {
+            if (text !== '$' || !view.editable) return false;
+            const $from = view.state.doc.resolve(from);
+            const type = view.state.schema.nodes[INLINE_MATH];
+            if (!type || !$from.parent.isTextblock || $from.parent.type.spec.code) return false;
+            const match = DOLLAR_MATH.exec($from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc') + '$');
+            const latex = match?.[1];
+            if (!latex || latex.includes('\ufffc')) return false;
+            const start = from - latex.length - 1;
+            view.dispatch(view.state.tr.replaceWith(start, to, type.create({ latex })));
+            return true;
+          },
+        },
+      }),
       new Plugin<FormulaRequest | null>({
         key: formulaKey,
         state: {
@@ -136,6 +233,51 @@ export const Formulas = Extension.create({
     ];
   },
 });
+
+/**
+ * The laptop's "Make formula" chip, by the cursor (a mouse: the iPhone shows
+ * it first in its keyboard toolbar instead). A click or Tab takes it.
+ */
+class MathChipView {
+  private chip = document.createElement('button');
+  private fine = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: fine)').matches;
+
+  constructor(
+    private view: EditorView,
+    private editor: Editor,
+  ) {
+    this.chip.type = 'button';
+    this.chip.className = `${TABLE_BAR_CLASS} ${MATH_CHIP_CLASS}`;
+    this.chip.style.display = 'none';
+    this.chip.addEventListener('mousedown', (e) => e.preventDefault());
+    this.chip.addEventListener('click', () => this.editor.chain().focus().acceptMathSuggestion().run());
+  }
+
+  update(view: EditorView) {
+    this.view = view;
+    const parent = view.dom.parentElement;
+    const s = this.fine && this.editor.isEditable && view.hasFocus() ? mathSuggestion(view.state) : null;
+    if (!parent || !s) {
+      this.chip.style.display = 'none';
+      return;
+    }
+    if (this.chip.parentElement !== parent) {
+      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+      parent.appendChild(this.chip);
+    }
+    this.chip.textContent = 'Make formula  ⇥';
+    this.chip.setAttribute('aria-label', `Make formula: ${s.latex} (Tab)`);
+    this.chip.style.display = 'flex';
+    const at = view.coordsAtPos(s.to);
+    const box = parent.getBoundingClientRect();
+    this.chip.style.top = `${at.bottom - box.top + 4}px`;
+    this.chip.style.left = `${Math.max(0, Math.min(at.left - box.left, box.width - this.chip.offsetWidth))}px`;
+  }
+
+  destroy() {
+    this.chip.remove();
+  }
+}
 
 /** The formula request in the editor state (the iPhone opens the sheet on a new one). */
 export const formulaRequest = (editor: Editor): FormulaRequest | null => formulaKey.getState(editor.state) ?? null;

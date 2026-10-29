@@ -7,6 +7,7 @@ import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS } from './photoBar';
+import { MATH_CHIP_CLASS } from './schema/formula';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -88,6 +89,7 @@ ${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame, ${photo}[data-wrap='right'] .$
 ${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='right'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='inline'] .${PHOTO_CLASS}-frame.sized { width: 100%; }
 ${bar} .${PHOTO_BAR_CLASS}-divider { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: ${c.border}; }
 ${bar} button:disabled { opacity: 0.35; cursor: default; }
+${`${scope} .${MATH_CHIP_CLASS}`.trim()} { padding: 6px 10px; gap: 6px; color: ${c.accentDark}; font: 600 13px/1 -apple-system, system-ui, sans-serif; cursor: pointer; white-space: pre; }
 ${bar} button:disabled:hover { background: transparent; }
 ${photo}-frame { position: relative; display: inline-block; max-width: 100%; vertical-align: top; border-radius: 4px; }
 ${photo}-frame img { display: block; max-width: 100%; height: auto; border-radius: 4px; }

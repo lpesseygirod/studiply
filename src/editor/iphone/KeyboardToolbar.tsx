@@ -98,6 +98,19 @@ export function KeyboardToolbar({
               ))}
             </View>
           ) : null}
+          {s?.mathSuggestion ? (
+            // Maths typed as text: offered as a formula (nothing changes unless pressed).
+            <View style={styles.linkChips}>
+              <Pressable
+                onPress={() => run({ type: 'formula', action: 'acceptSuggestion' })}
+                style={styles.linkChip}
+                accessibilityRole="button"
+                accessibilityLabel={`Make formula: ${s.mathSuggestion.latex}`}
+              >
+                <Text style={styles.linkChipText}>Make formula</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {s?.comment ? (
             // In commented words: the comment comes first.
             <View style={styles.linkChips}>

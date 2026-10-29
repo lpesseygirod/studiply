@@ -751,6 +751,25 @@ try {
     }
   });
 
+  // ── Part C: formulas as you type ──
+  await step('formulas as you type: $x^2$ converts; $5 and $10 stays text; sqrt(x) offers Make formula', async () => {
+    await b.evaluate(`(() => { const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] }); e.commands.focus('end'); })()`);
+    await b.sleep(200);
+    for (const ch of 'Área: $x^2$ y cuesta $5 and $10 ') await b.type(ch);
+    await b.sleep(300);
+    const first = (await json()).content[0].content;
+    expect(first.some((n) => n.type === 'inlineMath' && n.attrs.latex === 'x^2'), JSON.stringify(first));
+    expect(first.some((n) => n.type === 'text' && n.text.includes('$5 and $10')), JSON.stringify(first));
+    for (const ch of 'raíz sqrt(x) ') await b.type(ch);
+    await b.sleep(300);
+    expect(await b.evaluate(`getComputedStyle(document.querySelector('.studiply-math-chip')).display === 'flex'`), 'no Make formula chip');
+    await b.shot('ins-math-chip-1280');
+    await b.clickSelector('.studiply-math-chip');
+    await b.sleep(300);
+    const after = (await json()).content[0].content;
+    expect(after.some((n) => n.type === 'inlineMath' && n.attrs.latex === '\\sqrt{x}'), JSON.stringify(after));
+  });
+
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);
