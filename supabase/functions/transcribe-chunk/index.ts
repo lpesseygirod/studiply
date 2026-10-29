@@ -68,7 +68,8 @@ Deno.serve(async (req) => {
   const provider = transcribeProvider(Deno.env.get('TRANSCRIBE_PROVIDER'));
   const apiKey = provider ? Deno.env.get(TRANSCRIBE_MODELS[provider].keyEnv) : undefined;
   if (!provider || !apiKey) {
-    log('not_configured', { provider });
+    // The variable's name (never its value), so a missing secret is easy to spot in the serve output.
+    log('not_configured', { provider, missing: provider ? TRANSCRIBE_MODELS[provider].keyEnv : 'TRANSCRIBE_PROVIDER' });
     return fail(500, 'not_configured', 'Transcription is not set up on the server yet.');
   }
   const { model, name: providerName } = TRANSCRIBE_MODELS[provider];
