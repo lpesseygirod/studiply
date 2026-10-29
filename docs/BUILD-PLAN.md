@@ -424,10 +424,24 @@ Start with a short spike comparing the page-view options (see the recommendation
 
 **Check:** in a 10-page document, replace a word everywhere and undo it; the word count matches Google Docs for the same text; jump to a heading from the outline on both devices; switch to Letter with 2 cm margins and print a preview; in page view the page count and where each page ends match the PDF; zoom to 150 % and back with ⌘+ / ⌘− (it is remembered after a reload); pinch to zoom on the iPhone; Print layout on the iPhone shows the same pages.
 
+**Step 4.7b — Tabs in every document** (asked 29 Oct, before 4.8)
+
+```markdown
+Step 4.7b: Google Docs–style tabs in every document, on both devices: "+" adds a tab, and I can rename, reorder (drag on the laptop; Move left / Move right in the long-press sheet on the iPhone for a first version) and delete tabs (with Undo; at least one stays). Lectures keep My notes, Summary and Transcript as fixed tabs (not renamed, moved or deleted), followed by any added tabs; plain documents start with one tab ("Tab 1") and can have more. The Transcript stays editable as since 4.3 (to correct misheard words) unless Lea decides it should be read-only (open question, 29 Oct). Laptop: a tab row above the toolbar; iPhone: a tab row that scrolls sideways, replacing the segmented control.
+- Data: each tab is a documents row; `tab` is its id (notes / summary / transcript as today, added tabs `t-<uuid>` made on the device), with `title`, `position` (moving a tab writes only its own position), `deleted_at` (soft delete) and `kind` (`summary` for a summary tab). `unique (file_id, tab)` stays; nothing in existing documents is rewritten.
+- Offline: `create_tab` and `tab_meta` queue ops per tab; edits merge per tab block by block as today; a tab deleted on one device and edited offline on another comes back with a notice.
+- Versions stay per tab (history, Restore, "Before restore"); page setup becomes the document's (saved to every tab; a new tab copies it).
+- A new summary that isn't added to the existing one goes into its own tab, "New summary" (`kind = summary`), after Summary and Transcript; the tab model supports it here, Phase 7 writes it.
+- 4.8's export offers This tab or All tabs, with page numbers.
+- Not in the first version: nested tabs, tab icons, a list of deleted tabs, remembering the last open tab, search inside tabs; at most 30 tabs.
+```
+
+**Check:** add, rename, move and delete tabs on the laptop and see them on the iPhone; do the same offline on the iPhone, then go online; restore a version in one tab without touching another; a lecture's My notes, Summary and Transcript stay first and fixed.
+
 **Step 4.8 — Import and export**
 
 ```markdown
-Step 4.8: import a Word document (.docx) as a new document in the open course or folder (laptop: upload or drag from Finder; iPhone: the Files picker; importing from other apps' share sheet comes later with the share extension), keeping headings, formatting, lists, tables and images; and export any document as PDF (with its page setup) and as Word (.docx), on both devices (laptop: download; iPhone: share sheet). Both start a new page at every page break and number the pages (an option, on by default). Lecture summaries still get their designed PDF in Phase 8; this is the plain document export. Ask before adding any library for .docx.
+Step 4.8: import a Word document (.docx) as a new document in the open course or folder (laptop: upload or drag from Finder; iPhone: the Files picker; importing from other apps' share sheet comes later with the share extension), keeping headings, formatting, lists, tables and images; and export any document as PDF (with its page setup) and as Word (.docx), on both devices (laptop: download; iPhone: share sheet). Both start a new page at every page break and number the pages (an option, on by default). With tabs (4.7b), export asks This tab or All tabs (each tab from a new page with its name as a heading, page numbers through the whole file). Lecture summaries still get their designed PDF in Phase 8; this is the plain document export. Ask before adding any library for .docx.
 ```
 
 **Check:** import a real Word file from your courses and compare it with Word; export it again as .docx and PDF and open both on the Mac: page breaks start new pages and the pages are numbered.
@@ -602,7 +616,7 @@ Step 7.6: for lectures over 60 minutes, split the transcript by topic, generate 
 **Step 7.7 — Into the document**
 
 ```markdown
-Step 7.7: convert the JSON into editor blocks in the Summary tab using the Phase 4 custom blocks: header with "built from", the notes check line ("All your notes are in this summary · N of N lines and M of M marks used"), takeaways, sections with mark chips and timestamps, From your notes blocks keeping my formatting, You were confused here blocks, exam signals, Your questions during class, self-test with hidden answers, flashcards saved. Origin ai, my notes student. Save a version. Regenerating never overwrites blocks I edited. The green banner "Summary added to this document" appears with Extend with next lecture.
+Step 7.7: convert the JSON into editor blocks in the Summary tab using the Phase 4 custom blocks: header with "built from", the notes check line ("All your notes are in this summary · N of N lines and M of M marks used"), takeaways, sections with mark chips and timestamps, From your notes blocks keeping my formatting, You were confused here blocks, exam signals, Your questions during class, self-test with hidden answers, flashcards saved. Origin ai, my notes student. Save a version. Regenerating never overwrites blocks I edited. The green banner "Summary added to this document" appears with Extend with next lecture. A new summary that I haven't chosen to add to the existing summary goes into its own new tab, "New summary" ("New summary 2"…; 4.7b), after Summary and Transcript; the Summary tab is never touched by it.
 ```
 
 **Check:** generate a summary on the iPhone, edit two paragraphs on the laptop, regenerate: your two edits are still there.
@@ -620,7 +634,7 @@ Step 7.8: here is my review of the 3 summaries: [paste your notes]. Fix the prom
 **Step 7.9 — Extend, merge, exam pack**
 
 ```markdown
-Step 7.9: implement Extend with next lecture, Merge lectures and Exam pack as described in SUMMARY-SPEC.md: the existing summary JSON plus the new lecture go in; new sections tagged by lecture; takeaways, glossary, timelines and self-test merged; professor corrections shown as update callouts; result saved as a new Unit summary; originals untouched. Available from the document menu and the Library item menu.
+Step 7.9: implement Extend with next lecture, Merge lectures and Exam pack as described in SUMMARY-SPEC.md: the existing summary JSON plus the new lecture go in; new sections tagged by lecture; takeaways, glossary, timelines and self-test merged; professor corrections shown as update callouts; result saved as a new Unit summary; originals untouched. Available from the document menu and the Library item menu. When the result isn't added to an existing summary, it goes into a new "New summary" tab (4.7b).
 ```
 
 **Check:** extend Tema 1 with Tema 2 and make an exam pack of the course. Merge the branch.
