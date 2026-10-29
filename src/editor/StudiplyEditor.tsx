@@ -282,6 +282,23 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
 
+  // The selection bar's Comment and Link (in the WebView): the iPhone's prompts.
+  const selectionPress = state.format?.selectionRequest?.id ?? null;
+  const seenSelectionPress = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    // The first state seen may carry an old press (the screen came back): not a new one.
+    if (seenSelectionPress.current === undefined || selectionPress === seenSelectionPress.current) {
+      seenSelectionPress.current = selectionPress;
+      return;
+    }
+    seenSelectionPress.current = selectionPress;
+    const button = state.format?.selectionRequest?.button;
+    if (button === 'comment') void addComment();
+    else if (button === 'link') void addLink();
+    // Only a new press asks; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionPress]);
+
   // Tapping a formula (in the WebView) opens the sheet on it.
   const formulaTap = state.format?.formulaRequest?.id ?? null;
   const seenFormulaTap = useRef<number | null | undefined>(undefined);

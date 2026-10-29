@@ -707,6 +707,50 @@ try {
     expect((await photoAttrs()).type === 'image' && (await photoAttrs()).wrap === 'right', JSON.stringify(await photoAttrs()));
   });
 
+  // ── Part C: the selection bar ──
+  await step('selection bar: drag over words, the bar above them; B, Highlight; Comment and Link open their dialogs', async () => {
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Primera línea' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'La conducta humana es compleja' }] }] })`);
+    await b.sleep(300);
+    const word = await b.evaluate(`(() => { const p = document.querySelectorAll('.ProseMirror p')[1]; const t = p.firstChild; const r = document.createRange(); r.setStart(t, 3); r.setEnd(t, 11); const box = r.getBoundingClientRect(); return { x1: box.left + 1, x2: box.right - 1, y: box.top + box.height / 2, top: box.top }; })()`);
+    await b.mouseDrag({ x: word.x1, y: word.y }, { x: word.x2, y: word.y });
+    await b.sleep(300);
+    const bar = await b.evaluate(`(() => { const e = document.querySelector('.studiply-selection-bar'); if (!e || getComputedStyle(e).display !== 'flex') return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })()`);
+    expect(bar && bar.bottom <= word.top, `bar ${JSON.stringify(bar)}, words at ${word.top}`);
+    await b.shot('ins-selection-bar-1280');
+    await click('Bold');
+    await click('Highlight');
+    const marks = (await json()).content[1].content.find((t) => t.text === 'conducta')?.marks?.map((m) => m.type) ?? [];
+    expect(marks.includes('bold') && marks.includes('highlight'), JSON.stringify(marks));
+    await click('Comment on the selection');
+    await b.sleep(300);
+    expect(await has('Comment'), 'no comment composer');
+    await b.press('Escape');
+    await b.sleep(200);
+    await b.evaluate(`(() => { ${EDITOR}.commands.focus(); ${EDITOR}.commands.setTextSelection({ from: 19, to: 27 }); })()`);
+    await b.sleep(200);
+    await click('Link');
+    await b.sleep(300);
+    expect(await b.evaluate(`!!document.querySelector('input[aria-label="Link address"]')`), 'no link dialog');
+    await b.press('Escape');
+  });
+
+  await step('selection bar: on a touch screen (the iPhone bundle) it sits below the selection', async () => {
+    await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'any-pointer', value: 'coarse' }] });
+    try {
+      await b.nav(IPHONE);
+      await waitEditor();
+      await b.evaluate(`(() => { const e = ${EDITOR}; e.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'La conducta humana es compleja' }] }] }); e.commands.focus(); e.commands.setTextSelection({ from: 4, to: 12 }); })()`);
+      await b.sleep(300);
+      const r = await b.evaluate(`(() => { const e = document.querySelector('.studiply-selection-bar'); const s = window.getSelection().getRangeAt(0).getBoundingClientRect(); return e && getComputedStyle(e).display === 'flex' ? { bar: e.getBoundingClientRect().top, words: s.bottom } : null; })()`);
+      expect(r && r.bar >= r.words, JSON.stringify(r));
+    } finally {
+      await b.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+      await openDoc();
+    }
+  });
+
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);

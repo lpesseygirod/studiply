@@ -26,3 +26,6 @@ export function cleanUrl(raw: string): string | null {
   if (text.startsWith('//')) return `https:${text}`;
   return DOMAIN.test(text) ? `https://${text}` : null;
 }
+
+/** The DOM event ⌘K (and the selection bar's Link) fires on the editor: the laptop opens its link dialog. */
+export const LINK_EVENT = 'studiply-link';

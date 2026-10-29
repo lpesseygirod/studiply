@@ -4,6 +4,8 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { FontFamily, FontSize } from '@tiptap/extension-text-style';
 
 import { formatState, runFormat, type FormatCommand, type FormatState } from '../format';
+import { LINK_EVENT } from '../format/links';
+import { SelectionBar } from '../format/selectionBar';
 import { PasteRules } from '../paste/extension';
 import { PageBreak, ParagraphFormat, Title, TITLE } from '../schema/blocks';
 
@@ -40,14 +42,15 @@ export const FormatShortcuts = Extension.create({
 });
 
 export const FORMAT = 'studiply-format';
-/** The DOM event ⌘K fires on the editor. */
-export const LINK_EVENT = 'studiply-link';
+export { LINK_EVENT };
 type FormatMessage = { type: typeof FORMAT; payload: FormatCommand };
 
 export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeInstance, FormatMessage>({
   tiptapExtension: ParagraphFormat,
   tiptapExtensionDeps: [
     FormatShortcuts,
+    // The bar over selected words (Comment, B, I, Highlight, Link), on both devices.
+    SelectionBar,
     PasteRules,
     Title,
     PageBreak,

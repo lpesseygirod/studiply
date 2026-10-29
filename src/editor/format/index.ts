@@ -5,6 +5,7 @@ import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
 import { selectedPhoto, type PhotoAlign, type PhotoInfo, type PhotoWrap } from '../schema/photo';
 import { formulaRequest, selectedFormula, type FormulaRequest } from '../schema/formula';
 import { canComment, commentsAt, listComments, type CommentInfo } from '../schema/comments';
+import { selectionBarKey, type SelectionBarRequest } from './selectionBar';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
@@ -90,6 +91,8 @@ export interface FormatState {
   canComment: boolean;
   /** Every comment, in the order of the text (the iPhone's Comments sheet). */
   comments: CommentInfo[];
+  /** The last press on the selection bar's Comment or Link (the iPhone asks with its prompts). */
+  selectionRequest: SelectionBarRequest | null;
 }
 
 export type FormatCommand =
@@ -203,6 +206,7 @@ export function formatState(editor: Editor): FormatState {
     formula: formulaOf(editor),
     formulaRequest: formulaRequest(editor),
     ...commentState(editor),
+    selectionRequest: selectionBarKey.getState(editor.state) ?? null,
   };
 }
 
