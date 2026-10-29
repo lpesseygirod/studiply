@@ -42,6 +42,8 @@ import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/fol
 import { getNoteBySession } from '../../../src/services/note.service';
 import { getProject } from '../../../src/services/project.service';
 import { getSession, renameSession } from '../../../src/services/session.service';
+import { getUserSettings } from '../../../src/services/settings.service';
+import { useAuth } from '../../../src/hooks/useAuth';
 import { markOpened } from '../../../src/services/shelf.service';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
@@ -82,6 +84,16 @@ export default function DocumentScreen() {
   const [file, setFile] = useState<FileRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  // The document's language (step 4.7d: graphs write Spanish decimals with a comma): the lecture's, else the account's.
+  const { session: auth } = useAuth();
+  const userId = auth?.user.id;
+  const [accountLanguage, setAccountLanguage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    getUserSettings(userId)
+      .then((s) => setAccountLanguage(s?.default_language ?? null))
+      .catch(() => {});
+  }, [userId]);
   const [note, setNote] = useState<Note | null>(null);
   const [courseName, setCourseName] = useState<string | null>(null);
   const [chain, setChain] = useState<Breadcrumb[]>([]);
@@ -324,6 +336,7 @@ export default function DocumentScreen() {
         view={nativeEditor ? phoneView : undefined}
         pageSetup={sync.pageSetup}
         onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
+        language={session?.language && session.language !== 'auto' ? session.language : accountLanguage}
         footer={
           play ? <MiniPlayer lectureId={isLecture ? id : null} recording={lectureStatus === 'recording'} request={play} onClose={() => setPlay(null)} /> : null
         }

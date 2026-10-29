@@ -12,6 +12,8 @@ import { FormatToolbar } from './FormatToolbar.web';
 import { FormulaPopover } from './FormulaPopover.web';
 import { PhotoMenu } from './PhotoMenu.web';
 import { BlockMenus } from './BlockMenus.web';
+import { GraphPopover } from './GraphPopover.web';
+import { cleanLang, LANG_EVENT } from './schema/graph';
 import { CommentMargin, CommentPopovers } from './Comments.web';
 import { setDocumentPages } from '../components/shell/commentMargin';
 import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
@@ -48,7 +50,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -105,6 +107,15 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   });
 
   // The editor exists from the first render (immediatelyRender); ready once mounted.
+  // The page's language (step 4.7d): graphs write Spanish decimals with a comma; also the spellchecker's language.
+  useEffect(() => {
+    if (!editor) return;
+    const lang = cleanLang(language);
+    if (lang) editor.view.dom.setAttribute('lang', lang);
+    else editor.view.dom.removeAttribute('lang');
+    document.dispatchEvent(new Event(LANG_EVENT));
+  }, [editor, language]);
+
   useEffect(() => handlers.current.onReady?.(), []);
 
   useEffect(() => {
@@ -257,6 +268,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             {editable && <FormulaPopover editor={editor} />}
             {editable && <PhotoMenu editor={editor} />}
             {editable && <BlockMenus editor={editor} />}
+            {editable && <GraphPopover editor={editor} />}
             {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
           </View>
           {!pages && margin}

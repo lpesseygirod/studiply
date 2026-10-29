@@ -10,6 +10,7 @@ import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CL
 import { MATH_CHIP_CLASS } from './schema/formula';
 import { CALLOUT_CLASS } from './schema/callout';
 import { FORMULA_CARD_CLASS } from './schema/formulaCard';
+import { GRAPH_CLASS } from './schema/graph';
 import { SELECTION_BAR_CLASS } from './format/selectionBar';
 import { MARK_CHIP_CLASS } from './schema/markChip';
 import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
@@ -76,6 +77,11 @@ ${pm} .${FORMULA_CARD_CLASS}-title { margin-bottom: 2px; font: 700 11px/16px -ap
 ${pm} .${FORMULA_CARD_CLASS}-body > [data-type='block-math'] { margin: 0.3em 0 0.4em; }
 ${pm} .${FORMULA_CARD_CLASS}-body > p { margin: 0.15em 0 0; font-size: 0.85em; line-height: 1.5; color: ${DocColors.formulaCard.legend}; }
 @media (max-width: 480px) { ${pm} .${FORMULA_CARD_CLASS}-body > [data-type='block-math'] .katex { font-size: 1em; } }
+/* Graphs (step 4.7d): the charts module's drawing across the text width, whole on a page; selected like a photo. */
+${pm} .${GRAPH_CLASS} { margin: 0.4em 0 0.9em; padding: 4px 0; border-radius: 8px; cursor: pointer; break-inside: avoid; scroll-margin-top: 130px; }
+${pm} .${GRAPH_CLASS}-art svg { display: block; width: 100%; height: auto; }
+${pm} .${GRAPH_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; outline-offset: 2px; }
+
 ${Object.entries(DocColors.callout)
   .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)
   .join('\n')}

@@ -36,6 +36,8 @@ export interface InsertActions {
   callout: () => void;
   mark: () => void;
   timestamp: () => void;
+  /** A graph (step 4.7d): put one in and open its sheet. */
+  graph: () => void;
 }
 
 /**
@@ -120,6 +122,7 @@ export function KeyboardToolbar({
       : []),
     { key: 'table', group: 'insert', icon: 'table-large-plus', onPress: insert.table, active: panel === 'newTable', label: 'Insert table' },
     { key: 'formula', group: 'insert', icon: 'sigma', onPress: insert.formula, label: 'Insert formula' },
+    { key: 'graph', group: 'insert', icon: 'chart-bar', onPress: insert.graph, label: 'Insert graph' },
     { key: 'comment', group: 'insert', icon: 'comment-plus-outline', onPress: insert.comment, label: 'Add comment' },
     { key: 'callout', group: 'insert', icon: 'card-text-outline', onPress: insert.callout, label: 'Insert callout' },
     { key: 'mark', group: 'insert', icon: 'flag-outline', onPress: insert.mark, label: 'Insert mark' },

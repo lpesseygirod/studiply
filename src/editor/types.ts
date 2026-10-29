@@ -64,4 +64,6 @@ export type StudiplyEditorProps = {
   pageSetup?: PageSetup;
   /** Under the document (the mini player, step 4.6): under the pages on the laptop, above the keyboard toolbar on the iPhone. */
   footer?: React.ReactNode;
+  /** The document's language ('es', 'en'…): the lecture's, else the account's. Graphs write Spanish decimals with a comma (step 4.7d). */
+  language?: string | null;
 };

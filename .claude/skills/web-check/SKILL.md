@@ -172,7 +172,7 @@ node .claude/skills/web-check/scripts/formatting.mjs
 node .claude/skills/web-check/scripts/blocks.mjs
 ```
 
-`inserting.mjs` also checks the formula library (step 4.7c): Insert ▾ → Formula from the library, the search narrowing the list, four cards (title, KaTeX formula, legend symbols), a card's formula edited through the formula editor with its legend kept, and the iPhone bundle at 390 px. Screenshots `ins-formula-library-1280`, `ins-formula-cards-1280`, `ins-formula-cards-iphone-390`. The iPhone's formula sheet with its library: `/dev/editor-preview?show=formula`, then From the library.
+`inserting.mjs` also checks the formula library (step 4.7c): Insert ▾ → Formula from the library, the search narrowing the list, four cards (title, KaTeX formula, legend symbols), a card's formula edited through the formula editor with its legend kept, and the iPhone bundle at 390 px. Screenshots `ins-formula-library-1280`, `ins-formula-cards-1280`, `ins-formula-cards-iphone-390`. The iPhone's formula sheet with its library: `/dev/editor-preview?show=formula`, then From the library. It also checks graphs (step 4.7d): Insert ▾ → Graph, typing values and + Row in the form, Bar / Line / Pie / Scatter each redrawn (the charts module's SVG and its title), Done and a click reopening the form, the iPhone bundle at 390 px; screenshots `ins-graph-form-1280`, `ins-graph-iphone-390`. The iPhone's graph sheet: `/dev/editor-preview?show=graph`.
 
 ## After the simplicity pass (before 4.6)
 

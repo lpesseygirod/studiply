@@ -189,7 +189,7 @@ try {
   };
   const types = async () => (await json()).content.map((n) => n.type).join(',');
   // Image, table, formula and comment are in the Insert menu (the simplicity pass).
-  const IN_INSERT = { 'Insert table': 'Insert table', Image: 'Insert image', Formula: 'Insert formula', 'Formula from the library': 'Insert formula from the library', 'Comment (⌘⌥M)': 'Insert comment' };
+  const IN_INSERT = { 'Insert table': 'Insert table', Image: 'Insert image', Formula: 'Insert formula', 'Formula from the library': 'Insert formula from the library', Graph: 'Insert graph', 'Comment (⌘⌥M)': 'Insert comment' };
   const toolbarTool = async (label) => {
     if (IN_INSERT[label]) {
       if (!(await has('Insert'))) await click('More tools');
@@ -655,6 +655,74 @@ try {
     const phone = await b.evaluate(`[...document.querySelectorAll('.studiply-formula-card')].map((c) => [c.querySelector('.studiply-formula-card-title')?.textContent, !!c.querySelector('[data-type="block-math"] .katex')])`);
     expect(phone.length === 4 && phone.every((d) => d[1]), JSON.stringify(phone));
     await b.shot('ins-formula-cards-iphone-390');
+    await b.resize(1280, 900);
+    await openDoc();
+  });
+
+  // ── Step 4.7d: graphs ──
+  await step('graphs: Insert ▾ → Graph, its form under it; values typed, + Row; Line, Pie, Scatter; Done and a click reopens it; the iPhone bundle', async () => {
+    const graphJson = async () => {
+      let out = null;
+      const walk = (n) => {
+        if (n.type === 'graph') out = n;
+        (n.content ?? []).forEach(walk);
+      };
+      walk(await json());
+      return out;
+    };
+    // The charts module's SVG: its title and description are what a screen reader says.
+    const art = () => b.evaluate(`(() => { const svg = document.querySelector('.studiply-graph-art svg'); return svg ? { title: svg.querySelector('title')?.textContent ?? '', label: svg.querySelector('desc')?.textContent ?? '', filled: svg.querySelectorAll('path, rect, circle, polyline, line').length > 3 } : null; })()`);
+    await lastLine();
+    await toolbarTool('Graph');
+    await b.sleep(400);
+    expect(await has('Graph title'), 'the graph form did not open');
+    await b.fill('input[aria-label="Graph title"]', 'Ventas por trimestre');
+    for (const [i, v] of [[1, '12'], [2, '18,5'], [3, '9']]) await b.fill(`input[aria-label="Row ${i}, Series 1"]`, v);
+    await click('Add row');
+    await b.sleep(200);
+    await b.fill('input[aria-label="Row 4 label"]', 'T4');
+    await b.fill('input[aria-label="Row 4, Series 1"]', '21');
+    await b.sleep(300);
+    let g = await graphJson();
+    expect(g?.attrs.kind === 'bar' && g.attrs.title === 'Ventas por trimestre' && g.attrs.rows.length === 4 && g.attrs.rows[1][1] === '18,5', JSON.stringify(g?.attrs));
+    expect((await art())?.title === 'Ventas por trimestre' && (await art())?.filled, JSON.stringify(await art()));
+    await b.shot('ins-graph-form-1280');
+    let before = await b.evaluate(`document.querySelector('.studiply-graph-art').innerHTML`);
+    for (const kind of ['Line', 'Pie', 'Scatter']) {
+      await click(`Graph type: ${kind}`);
+      await b.sleep(300);
+      expect((await graphJson())?.attrs.kind === kind.toLowerCase(), `not ${kind}`);
+      const now = await b.evaluate(`document.querySelector('.studiply-graph-art').innerHTML`);
+      expect(now !== before && (await art())?.label, `${kind}: not redrawn ${JSON.stringify(await art())}`);
+      before = now;
+    }
+    // Scatter: the labels aren't numbers, so the form says the rows are left out.
+    expect(await b.evaluate(`document.body.innerText.includes('4 rows skipped: X must be a number.')`), 'no note about skipped rows');
+    await click('Graph type: Bar');
+    await click('Done with the graph');
+    await b.sleep(300);
+    expect(!(await has('Graph title')), 'the form is still open');
+    const at = await b.evaluate(`(() => { const r = document.querySelector('.studiply-graph').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await b.clickAt(at.x, at.y);
+    await b.sleep(400);
+    expect((await b.evaluate(`document.querySelector('input[aria-label="Graph title"]')?.value`)) === 'Ventas por trimestre', 'a click did not reopen the form with its data');
+    await click('Done with the graph');
+    g = await graphJson();
+    // The iPhone's editor draws the same graph.
+    const css = await b.evaluate('window.studiplyEditorCss()');
+    const doc = await json();
+    // Leave a plain page (saved) for the next steps: openDoc clicks the page's middle.
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })`);
+    await b.sleep(2000);
+    await b.resize(390, 844);
+    await b.nav(IPHONE);
+    await waitEditor();
+    await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); })()`);
+    await b.evaluate(`${EDITOR}.commands.setContent(${JSON.stringify(doc)})`);
+    await b.sleep(500);
+    const phone = await art();
+    expect(phone?.filled && phone.title === 'Ventas por trimestre', JSON.stringify(phone));
+    await b.shot('ins-graph-iphone-390');
     await b.resize(1280, 900);
     await openDoc();
   });

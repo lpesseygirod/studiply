@@ -145,6 +145,7 @@ Never use AI image generation for academic diagrams: it invents labels and gets 
 - Axes always labeled, with units. Takeaway as title, timestamp in the caption.
 - In the PDF: vector graphics (SVG), and lines also differ by style (solid, dashed, dotted) so they survive black-and-white printing.
 - Every visual gets an auto-generated text description for screen readers.
+- Graphs the student builds in a document (BUILD-PLAN 4.7d: bar, line, pie, scatter) use the same drawing; the rules on when a visual earns its place, and pie only with ≤ 3 slices, are for the summary's own graphs.
 
 ### Other elements worth adding
 

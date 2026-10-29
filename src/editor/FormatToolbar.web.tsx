@@ -19,6 +19,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
 import { SELECTION_MENU_EVENT, type SelectionMenuDetail } from './format/selectionBar';
+import { askGraphForm, selectedGraph } from './schema/graph';
 import { FORMULA_EVENT } from './schema/formula';
 import { splitRow } from './toolbarFit';
 import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
@@ -156,6 +157,12 @@ export function FormatToolbar({
   const close = () => {
     setMenu(null);
     setSpectrum(false);
+  };
+  // A graph (step 4.7d): an example to replace, its form open under it.
+  const insertGraph = () => {
+    if (!runFormat(editor, { type: 'graph', action: 'insert' })) return;
+    const g = selectedGraph(editor.state);
+    if (g) askGraphForm(editor.view, g.pos);
   };
   // A timestamp by hand (step 4.6): the time in the recording ("4:12").
   const askTimestamp = async () => {
@@ -440,6 +447,7 @@ export function FormatToolbar({
         {iconRow('table', 'table-large-plus', () => void open('table', 'insert'), false, 'Insert table')}
         {iconRow('formula', 'sigma', () => (close(), void openFormula()), false, 'Insert formula')}
         {iconRow('formulaLibrary', 'book-open-variant', () => void open('library', 'insert'), false, 'Insert formula from the library')}
+        {iconRow('graph', 'chart-bar', () => (close(), insertGraph()), false, 'Insert graph')}
         {iconRow('comment', 'comment-plus-outline', () => (close(), (onComment ?? soon('Comments'))()), false, 'Insert comment')}
         {iconRow('pageBreak', 'format-page-break', () => run({ type: 'pageBreak' }), false, 'Insert page break')}
         {heading('Study blocks')}

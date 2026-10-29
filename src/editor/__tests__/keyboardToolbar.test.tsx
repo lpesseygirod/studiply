@@ -41,7 +41,7 @@ async function render(state: Partial<FormatState> = {}, width = 330, withPhotos 
         onOpenLink={() => {}}
         onComment={() => {}}
         onPhotoLayout={() => {}}
-        insert={{ photos: withPhotos ? () => {} : null, table: () => {}, formula: () => {}, comment: () => {}, callout: () => {}, mark: () => {}, timestamp: () => {} }}
+        insert={{ photos: withPhotos ? () => {} : null, table: () => {}, formula: () => {}, comment: () => {}, callout: () => {}, mark: () => {}, timestamp: () => {}, graph: () => {} }}
       />,
     );
     await Promise.resolve();
@@ -68,11 +68,11 @@ describe('the iPhone keyboard toolbar', () => {
     // No "+" any more: what goes into the document is in the second row (Lea, after test C), with Undo and Redo last.
     expect(shown).not.toContain('Insert');
     const first = open.indexOf('Insert photo');
-    expect(open.slice(first, first + 5)).toEqual(['Insert photo', 'Take photo', 'Insert table', 'Insert formula', 'Add comment']);
-    expect(open.slice(first + 5, first + 10)).toEqual(['Insert callout', 'Insert mark', 'Insert timestamp', 'Undo', 'Redo']);
+    expect(open.slice(first, first + 6)).toEqual(['Insert photo', 'Take photo', 'Insert table', 'Insert formula', 'Insert graph', 'Add comment']);
+    expect(open.slice(first + 6, first + 11)).toEqual(['Insert callout', 'Insert mark', 'Insert timestamp', 'Undo', 'Redo']);
     // Each group has its title, each tool its name under it (the simplicity pass).
     const texts = r.root.findAll((n) => typeof (n as unknown as { type: unknown }).type === 'string' && typeof n.props.children === 'string').map((n) => n.props.children as string);
-    for (const t of ['Format', 'Paragraph', 'Insert', 'Edit', 'Strike', 'Checklist', 'Indent −', 'Indent +', 'Photo', 'Camera', 'Table', 'Formula', 'Comment', 'Undo', 'Redo']) expect(texts).toContain(t);
+    for (const t of ['Format', 'Paragraph', 'Insert', 'Edit', 'Strike', 'Checklist', 'Indent −', 'Indent +', 'Photo', 'Camera', 'Table', 'Formula', 'Graph', 'Comment', 'Undo', 'Redo']) expect(texts).toContain(t);
   });
 
   it('wide enough for the whole first row (an iPhone on its side): Link fits; the arrow is still there for the rest', async () => {

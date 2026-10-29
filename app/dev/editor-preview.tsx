@@ -9,6 +9,8 @@ import { DEFAULT_PAGE_SETUP } from '../../src/editor/page/pageSetup';
 import type { FormatState } from '../../src/editor/format';
 import { MarkSheet } from '../../src/editor/iphone/MarkSheet';
 import { FormulaSheet } from '../../src/editor/iphone/FormulaSheet';
+import { GraphSheet } from '../../src/editor/iphone/GraphSheet';
+import { NEW_GRAPH } from '../../src/editor/graph/data';
 
 /**
  * Development only: the iPhone's keyboard toolbar and Page setup sheet drawn
@@ -19,6 +21,7 @@ import { FormulaSheet } from '../../src/editor/iphone/FormulaSheet';
  *   /dev/editor-preview?show=pagesetup   the Page setup sheet
  *   /dev/editor-preview?show=mark        a mark chip's sheet
  *   /dev/editor-preview?show=formula     the formula sheet (From the library shows the library)
+ *   /dev/editor-preview?show=graph       a graph's sheet
  */
 const STATE = { canUndo: true, canRedo: true, canIndent: true, canOutdent: true, bold: true, list: null } as unknown as FormatState;
 
@@ -42,10 +45,11 @@ export default function EditorPreview() {
             onOpenLink={() => {}}
             onComment={() => {}}
             onPhotoLayout={() => {}}
-            insert={{ photos: () => {}, table: () => {}, formula: () => {}, comment: () => {}, callout: () => {}, mark: () => {}, timestamp: () => {} }}
+            insert={{ photos: () => {}, table: () => {}, formula: () => {}, comment: () => {}, callout: () => {}, mark: () => {}, timestamp: () => {}, graph: () => {} }}
           />
         )}
       </View>
+      {show === 'graph' && <GraphPreview />}
       {show === 'formula' && (
         <FormulaSheet draft={{ latex: '', display: false, existing: false }} onChange={() => {}} onDone={() => {}} onRemove={() => {}} onLibrary={() => {}} />
       )}
@@ -55,6 +59,12 @@ export default function EditorPreview() {
       )}
     </View>
   );
+}
+
+/** The graph sheet with an example it can change (as the editor would). */
+function GraphPreview() {
+  const [draft, setDraft] = useState({ ...NEW_GRAPH, title: 'Ventas por trimestre' });
+  return <GraphSheet draft={draft} onChange={setDraft} onDone={() => {}} onDelete={() => {}} />;
 }
 
 const styles = StyleSheet.create({

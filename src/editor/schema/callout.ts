@@ -97,8 +97,8 @@ declare module '@tiptap/core' {
   }
 }
 
-/** What a callout holds: text blocks, lists, formulas (and formula cards, 4.7c), photos, tables; not another callout, a title or a page break. */
-const INSIDE = '(paragraph | heading | bulletList | orderedList | taskList | blockquote | blockMath | formulaCard | image | table)+';
+/** What a callout holds: text blocks, lists, formulas (and formula cards, 4.7c), graphs (4.7d), photos, tables; not another callout, a title or a page break. */
+const INSIDE = '(paragraph | heading | bulletList | orderedList | taskList | blockquote | blockMath | formulaCard | graph | image | table)+';
 
 export const Callout = Node.create({
   name: CALLOUT,

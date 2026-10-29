@@ -13,6 +13,8 @@ import { pageViewOf } from '../page/pageView';
 import { photoBarKey, type PhotoBarRequest } from '../photoBar';
 import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '../schema/callout';
 import { formulaEntry } from '../formulas/library';
+import type { GraphData } from '../graph/data';
+import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/graph';
 import { markChipKey, selectedMarkChip, type MarkChipRequest, type MarkKind as ChipKind } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
@@ -109,6 +111,10 @@ export interface FormatState {
   /** The selected mark chip (step 4.6), and the last tap on one (the iPhone opens its menu). */
   markChip: { kind: ChipKind; level: number | null } | null;
   markChipRequest: MarkChipRequest | null;
+  /** The selected graph's data (step 4.7d), only while one is selected: the rest of the time nothing big crosses to the iPhone. */
+  graph: GraphData | null;
+  /** A click (tap) on a graph: its form (the iPhone's sheet). */
+  graphRequest: GraphRequest | null;
   /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
   view: { pages: boolean; zoom: number; pageCount: number };
 }
@@ -149,6 +155,10 @@ export type FormatCommand =
   | { type: 'markChip'; action: 'insert'; kind: ChipKind; level: number | null }
   | { type: 'markChip'; action: 'update'; kind?: ChipKind; level?: number | null }
   | { type: 'markChip'; action: 'delete' }
+  /** Graphs (step 4.7d): a new one (selected, its form asked for), the selected one's data, or delete it. */
+  | { type: 'graph'; action: 'insert' }
+  | { type: 'graph'; action: 'set'; graph: GraphData }
+  | { type: 'graph'; action: 'delete' }
   /** A timestamp chip (step 4.6), by hand. */
   | { type: 'timestamp'; ms: number }
   /**
@@ -250,6 +260,8 @@ export function formatState(editor: Editor): FormatState {
     calloutRequest: calloutKey.getState(editor.state) ?? null,
     markChip: markChipOf(editor),
     markChipRequest: markChipKey.getState(editor.state) ?? null,
+    graph: selectedGraph(editor.state)?.data ?? null,
+    graphRequest: graphRequestOf(editor.state),
     view: viewOf(editor),
   };
 }
@@ -461,6 +473,11 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       if (cmd.action === 'set') return chain().setCallout(cmd.kind, { level: cmd.level, ms: cmd.ms }).run();
       if (cmd.action === 'level') return chain().setCalloutLevel(cmd.level).run();
       return chain().removeCallout().run();
+    case 'graph':
+      // Not focusing the text: the student is typing in the graph's form.
+      if (cmd.action === 'insert') return chain().insertGraph().run();
+      if (cmd.action === 'set') return editor.chain().setGraph(cmd.graph).run();
+      return chain().deleteGraph().run();
     case 'markChip':
       if (cmd.action === 'insert') return chain().insertMarkChip({ kind: cmd.kind, level: cmd.level }).run();
       if (cmd.action === 'update') return chain().updateMarkChip({ kind: cmd.kind, level: cmd.level }).run();

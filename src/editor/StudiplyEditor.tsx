@@ -35,6 +35,9 @@ import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
 import { newId } from '../lib/mappers';
 import type { CommentInfo } from './schema/comments';
 import { MarkSheet, type MarkDraft } from './iphone/MarkSheet';
+import { GraphSheet } from './iphone/GraphSheet';
+import { cleanLang, LANG_EVENT } from './schema/graph';
+import type { GraphData } from './graph/data';
 import { CALLOUT_KINDS, type CalloutKind } from './schema/callout';
 import { parseClock } from './schema/timestampChip';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
@@ -66,7 +69,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -398,6 +401,35 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formulaTap]);
 
+  // Graphs (step 4.7d): a tap on one (or a new one) opens its sheet; each change redraws it above.
+  const [graphDraft, setGraphDraft] = useState<GraphData | null>(null);
+  const graphTap = state.format?.graphRequest?.id ?? null;
+  const seenGraphTap = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    // The first state seen may carry an old tap (the screen came back): not a new one.
+    if (seenGraphTap.current === undefined || graphTap === seenGraphTap.current) {
+      seenGraphTap.current = graphTap;
+      return;
+    }
+    seenGraphTap.current = graphTap;
+    const g = state.format?.graph;
+    if (g) {
+      setPanel(undefined);
+      setGraphDraft(g);
+    }
+    // Only a new tap opens it; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphTap]);
+  const changeGraph = (next: GraphData) => {
+    setGraphDraft(next);
+    run({ type: 'graph', action: 'set', graph: next });
+  };
+  const closeGraph = (action: 'done' | 'delete') => {
+    setGraphDraft(null);
+    if (action === 'delete') run({ type: 'graph', action: 'delete' });
+    editor.focus();
+  };
+
   useImperativeHandle(
     ref,
     () => ({
@@ -417,6 +449,15 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   useEffect(() => {
     if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
   }, [state.isReady, editor]);
+
+  // The page's language (step 4.7d): graphs write Spanish decimals with a comma; also the spellchecker's language.
+  useEffect(() => {
+    if (!state.isReady) return;
+    const lang = cleanLang(language);
+    editor.webviewRef.current?.injectJavaScript(
+      `(function(){var p=document.querySelector('.ProseMirror');if(p){${lang ? `p.setAttribute('lang','${lang}')` : "p.removeAttribute('lang')"};}document.dispatchEvent(new Event('${LANG_EVENT}'));})();true;`,
+    );
+  }, [state.isReady, editor, language]);
 
   // Print layout and zoom (step 4.5b): the sheet fits the screen's width, the zoom multiplies it.
   const viewZoom = typeof view?.zoom === 'number' ? view.zoom : 1;
@@ -503,6 +544,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             callout: pickCallout,
             mark: () => setMarkDraft({ kind: 'important', level: null, existing: false }),
             timestamp: () => void askTimestamp(),
+            graph: () => run({ type: 'graph', action: 'insert' }),
           }}
         />
       )}
@@ -521,6 +563,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           setMarkDraft(null);
         }}
       />
+      <GraphSheet draft={graphDraft} onChange={changeGraph} onDone={() => closeGraph('done')} onDelete={() => closeGraph('delete')} />
       <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} onLibrary={pickLibraryFormula} />
     </EditorKeyboardAvoidingView>
   );

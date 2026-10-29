@@ -166,7 +166,9 @@ Photos, formulas and comments (step 4.5, checkpoint B):
 
 Callouts (`schema/callout.ts`) and mark chips (`schema/markChip.ts`) are in `bridges/blocks.ts`; their menus are `BlockMenus.web.tsx` (laptop) and action sheets / `iphone/MarkSheet.tsx` (iPhone), through `calloutRequest` / `markChipRequest` in the format state. A tap on a timestamp chip opens `components/editor/MiniPlayer.tsx`, which plays the lecture's `audio_chunks` (`services/lecture-audio.service.ts`) through `src/lib/audioPlayer.ts`, the only file that plays audio with expo-av (to switch to expo-audio with the SDK upgrade).
 
-Formula cards (step 4.7c, `schema/formulaCard.ts`, also in `bridges/blocks.ts`) come from the formula library, `src/editor/formulas/library.ts` (the entries: LaTeX, plain text, legend, search words); the list is `components/editor/FormulaLibrary.tsx` on both devices, and the format command `{ type: 'formulaCard', id }` inserts one. Callouts and cards share their Enter rule (`schema/boxKeys.ts`).
+Formula cards (step 4.7c, `schema/formulaCard.ts`, also in `bridges/blocks.ts`) come from the formula library, `src/editor/formulas/library.ts` (the entries: LaTeX, plain text, legend, search words); the list is `components/editor/FormulaLibrary.tsx` on both devices, and the format command `{ type: 'formulaCard', id }` inserts one. Callouts and cards share their Enter rule (`schema/boxKeys.ts`) and, with graphs, where an inserted box goes (`schema/placeBlock.ts`).
+
+Graphs (step 4.7d, `schema/graph.ts`, also in `bridges/blocks.ts`) keep their data in the block (`graph/data.ts`: limits, reading typed numbers, what is left out); the form is `components/editor/GraphForm.tsx` (laptop `GraphPopover.web.tsx`, iPhone `iphone/GraphSheet.tsx`), the command `{ type: 'graph', … }`. The drawing comes from `src/lib/charts` (a separate module); `graph/charts.ts` is the only file that talks to it.
 
 ### Names and the simplicity pass (before 4.6)
 

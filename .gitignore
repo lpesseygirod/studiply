@@ -85,3 +85,6 @@ coverage/
 
 # Editor bundle (step 4.2): editorHtml.js is committed for Metro and EAS; the plain HTML is a build step
 editor-web/build/index.html
+
+# Reports and review notes (kept on this Mac only)
+docs/reports/

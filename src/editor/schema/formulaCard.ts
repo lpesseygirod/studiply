@@ -3,6 +3,7 @@ import { TextSelection } from '@tiptap/pm/state';
 
 import type { FormulaEntry } from '../formulas/library';
 import { boxAround, leaveBoxOnEmptyLast } from './boxKeys';
+import { placeBlock } from './placeBlock';
 
 /**
  * Formula cards (step 4.7c; SUMMARY-SPEC "Formula card": a boxed formula with
@@ -80,27 +81,9 @@ export const FormulaCard = Node.create({
         (entry) =>
         ({ state, tr, dispatch }) => {
           const card = state.schema.nodeFromJSON(formulaCardContent(entry));
-          const { $from } = state.selection;
-          // The nearest place a card may go: the document, or the callout the cursor is in.
-          let d = $from.depth - 1;
-          while (d > 0 && $from.node(d).type.name !== 'callout') d--;
-          const line = $from.node(d + 1);
           if (!dispatch) return true;
-          let at: number;
-          if ($from.depth === 0) {
-            // A selected block (a photo, a display formula): after it.
-            at = state.selection.to;
-            tr.insert(at, card);
-          } else if (line.isTextblock && line.content.size === 0) {
-            at = $from.before(d + 1);
-            tr.replaceWith(at, $from.after(d + 1), card);
-          } else {
-            at = $from.after(d + 1);
-            tr.insert(at, card);
-          }
           // The cursor goes after the card, on a line of its own.
-          const end = at + card.nodeSize;
-          if (!tr.doc.resolve(end).nodeAfter?.isTextblock) tr.insert(end, state.schema.nodes.paragraph.create());
+          const { end } = placeBlock(state, tr, card);
           tr.setSelection(TextSelection.create(tr.doc, end + 1));
           tr.scrollIntoView();
           return true;
