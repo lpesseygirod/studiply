@@ -95,7 +95,8 @@ export function prepare(spec: ChartSpec): PreparedChart {
         notNumbers++;
         return;
       }
-      let x: string | number = typeof p.x === 'number' ? p.x : clean(p.x);
+      // A number that isn't finite is no better than an empty label.
+      let x: string | number = typeof p.x === 'number' && Number.isFinite(p.x) ? p.x : clean(p.x);
       if (type === 'scatter') {
         const v = toNumber(p.x);
         if (v === null) {

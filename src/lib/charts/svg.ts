@@ -52,14 +52,15 @@ function trimZeros(s: string): string {
 
 /**
  * A value for a label: up to `maxDecimals` decimals, thousands separated
- * from `groupFrom` (10,000 by default, so years stay "2007"), millions and
- * billions shortened ("1.25M"), a true minus sign.
+ * from `groupFrom` (10,000 by default, so years stay "2007"), millions,
+ * billions and trillions shortened ("1.25M"), a true minus sign.
  */
 export function formatNumber(v: number, maxDecimals = 2, groupFrom = 1e4): string {
   if (!Number.isFinite(v)) return String(v);
   const abs = Math.abs(v);
   let body: string;
-  if (abs >= 1e9) body = `${trimZeros((abs / 1e9).toFixed(2))}B`;
+  if (abs >= 1e12) body = `${trimZeros((abs / 1e12).toFixed(2))}T`;
+  else if (abs >= 1e9) body = `${trimZeros((abs / 1e9).toFixed(2))}B`;
   else if (abs >= 1e6) body = `${trimZeros((abs / 1e6).toFixed(2))}M`;
   else if (abs > 0 && abs < 10 ** -maxDecimals) body = String(Number(abs.toPrecision(2)));
   else {

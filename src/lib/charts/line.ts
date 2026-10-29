@@ -9,7 +9,7 @@
 import { cartesian } from './cartesian';
 import type { PreparedChart } from './data';
 import { drawEndLabels, endLabelWidth, type EndLabel } from './endLabels';
-import { PAD, type Frame } from './frame';
+import type { Frame } from './frame';
 import { DASHES, MARKERS, marker } from './styles';
 import { el, n } from './svg';
 
@@ -27,7 +27,7 @@ export function drawLine(f: Frame, p: PreparedChart): string[] {
     x: p.numericX
       ? { kind: 'linear', values: drawn.flatMap((s) => s.points.map((pt) => pt.x as number)) }
       : { kind: 'category', labels: p.categories.map((cat) => cat.text), points: true },
-    rightWidth: names.length > 0 ? endLabelWidth(f, names) - PAD / 2 : 0,
+    rightWidth: names.length > 0 ? endLabelWidth(f, names) : 0,
     topExtra: 0,
     insetTop: 0,
     insetBottom: 0,
