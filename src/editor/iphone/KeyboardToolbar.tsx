@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useKeyboardAccessory } from '@10play/tentap-editor';
+import { useKeyboardAccessory } from './keyboardAccessory';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
@@ -11,10 +11,14 @@ import { PHOTO_WIDTHS } from '../schema/photo';
 import type { CommentInfo } from '../schema/comments';
 import { useToolbarExpanded } from '../../lib/toolbarPrefs';
 import { splitRow } from '../toolbarFit';
+import { TOOLS, toolCaption, type ToolKey } from '../toolNames';
 
 const TOOL_W = 44;
 const AA_W = 48;
 const TOOLS_PADDING = 8;
+const SEPARATOR_W = 1;
+const HINT_MS = 1500;
+const HINT_PRESS_MS = 350;
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 export type Panel = 'aa' | 'colors' | 'newTable' | 'table';
@@ -76,75 +80,109 @@ export function KeyboardToolbar({
   const accessory = useKeyboardAccessory(true);
   const [more, setMore] = useToolbarExpanded('iphone');
   const [room, setRoom] = useState(320);
-
-  const button = (label: string, icon: IconName, onPress: () => void, { active = false, disabled = false } = {}) => (
-    <Pressable
-      key={label}
-      onPress={onPress}
-      disabled={disabled}
-      style={[styles.button, active && styles.active, disabled && styles.disabled]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active, disabled }}
-    >
-      <MaterialCommunityIcons name={icon} size={22} color={active ? c.accentDark : c.text.primary} />
-    </Pressable>
-  );
+  // A long press shows the tool's name for a moment, over the toolbar (the simplicity pass).
+  const [hint, setHint] = useState<{ text: string; x: number } | null>(null);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (hintTimer.current && clearTimeout(hintTimer.current)), []);
+  const showHint = (text: string, e: GestureResponderEvent) => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    setHint({ text, x: e.nativeEvent.pageX });
+    hintTimer.current = setTimeout(() => setHint(null), HINT_MS);
+  };
   const s = state;
 
-  // The tools in the laptop's order (Lea): what fits stays in the row, the rest goes to the second row.
-  const tools: { key: string; width: number; node: React.ReactNode }[] = [
-    {
-      key: 'aa',
-      width: AA_W,
-      node: (
-        <Pressable
-          key="aa"
-          onPress={() => onPanel('aa')}
-          style={[styles.button, styles.aa, panel === 'aa' && styles.active]}
-          accessibilityRole="button"
-          accessibilityLabel="Text style and size"
-          accessibilityState={{ selected: panel === 'aa' }}
-        >
-          <Text style={[styles.aaText, panel === 'aa' && { color: c.accentDark }]}>Aa</Text>
-        </Pressable>
-      ),
-    },
-    { key: 'bold', width: TOOL_W, node: button('Bold', 'format-bold', () => run({ type: 'mark', mark: 'bold' }), { active: s?.bold }) },
-    { key: 'italic', width: TOOL_W, node: button('Italic', 'format-italic', () => run({ type: 'mark', mark: 'italic' }), { active: s?.italic }) },
-    { key: 'underline', width: TOOL_W, node: button('Underline', 'format-underline', () => run({ type: 'mark', mark: 'underline' }), { active: s?.underline }) },
-    { key: 'colours', width: TOOL_W, node: button('Text colour and highlight', 'palette-outline', () => onPanel('colors'), { active: panel === 'colors' }) },
-    { key: 'bullet', width: TOOL_W, node: button('Bulleted list', 'format-list-bulleted', () => run({ type: 'list', list: 'bullet' }), { active: s?.list === 'bullet' }) },
-    { key: 'ordered', width: TOOL_W, node: button('Numbered list', 'format-list-numbered', () => run({ type: 'list', list: 'ordered' }), { active: s?.list === 'ordered' }) },
-    { key: 'link', width: TOOL_W, node: button('Link', 'link-variant', onLink, { active: !!s?.link }) },
-    ...(s?.inTable ? [{ key: 'table', width: TOOL_W, node: button('Table', 'table-edit', () => onPanel('table'), { active: panel === 'table' }) }] : []),
-    { key: 'strike', width: TOOL_W, node: button('Strikethrough', 'format-strikethrough-variant', () => run({ type: 'mark', mark: 'strike' }), { active: s?.strike }) },
-    { key: 'task', width: TOOL_W, node: button('Checklist', 'format-list-checks', () => run({ type: 'list', list: 'task' }), { active: s?.list === 'task' }) },
-    { key: 'outdent', width: TOOL_W, node: button('Decrease indent', 'format-indent-decrease', () => run({ type: 'outdent' }), { disabled: s ? !s.canOutdent : false }) },
-    { key: 'indent', width: TOOL_W, node: button('Increase indent', 'format-indent-increase', () => run({ type: 'indent' }), { disabled: s ? !s.canIndent : false }) },
-    { key: 'undo', width: TOOL_W, node: button('Undo', 'undo', () => run({ type: 'undo' }), { disabled: s ? !s.canUndo : false }) },
-    { key: 'redo', width: TOOL_W, node: button('Redo', 'redo', () => run({ type: 'redo' }), { disabled: s ? !s.canRedo : false }) },
+  const tools: Tool[] = [
+    { key: 'textStyle', group: 'text', width: AA_W, text: 'Aa', onPress: () => onPanel('aa'), active: panel === 'aa' },
+    { key: 'bold', group: 'format', icon: 'format-bold', onPress: () => run({ type: 'mark', mark: 'bold' }), active: !!s?.bold },
+    { key: 'italic', group: 'format', icon: 'format-italic', onPress: () => run({ type: 'mark', mark: 'italic' }), active: !!s?.italic },
+    { key: 'underline', group: 'format', icon: 'format-underline', onPress: () => run({ type: 'mark', mark: 'underline' }), active: !!s?.underline },
+    { key: 'colours', group: 'format', icon: 'palette-outline', onPress: () => onPanel('colors'), active: panel === 'colors' },
+    { key: 'bullet', group: 'paragraph', icon: 'format-list-bulleted', onPress: () => run({ type: 'list', list: 'bullet' }), active: s?.list === 'bullet' },
+    { key: 'ordered', group: 'paragraph', icon: 'format-list-numbered', onPress: () => run({ type: 'list', list: 'ordered' }), active: s?.list === 'ordered' },
+    { key: 'link', group: 'insert', icon: 'link-variant', onPress: onLink, active: !!s?.link },
+    ...(s?.inTable ? [{ key: 'table' as const, group: 'insert' as const, icon: 'table-edit' as IconName, onPress: () => onPanel('table'), active: panel === 'table', label: 'Table options' }] : []),
   ];
-  // Always in the second row, after what didn't fit the first.
-  const inserts = [
+  // Always in the second row: what is rarely used, and what goes into the document.
+  const rest: Tool[] = [
+    { key: 'strike', group: 'format', icon: 'format-strikethrough-variant', onPress: () => run({ type: 'mark', mark: 'strike' }), active: !!s?.strike },
+    { key: 'task', group: 'paragraph', icon: 'format-list-checks', onPress: () => run({ type: 'list', list: 'task' }), active: s?.list === 'task' },
+    { key: 'outdent', group: 'paragraph', icon: 'format-indent-decrease', onPress: () => run({ type: 'outdent' }), disabled: s ? !s.canOutdent : false },
+    { key: 'indent', group: 'paragraph', icon: 'format-indent-increase', onPress: () => run({ type: 'indent' }), disabled: s ? !s.canIndent : false },
     ...(insert.photos
-      ? [button('Insert photo', 'image-outline', () => insert.photos?.('library')), button('Take photo', 'camera-outline', () => insert.photos?.('camera'))]
+      ? [
+          { key: 'image' as const, group: 'insert' as const, icon: 'image-outline' as IconName, onPress: () => insert.photos?.('library'), label: 'Insert photo' },
+          { key: 'camera' as const, group: 'insert' as const, icon: 'camera-outline' as IconName, onPress: () => insert.photos?.('camera') },
+        ]
       : []),
-    button('Insert table', 'table-large-plus', insert.table, { active: panel === 'newTable' }),
-    button('Insert formula', 'sigma', insert.formula),
-    button('Add comment', 'comment-plus-outline', insert.comment),
+    { key: 'table', group: 'insert', icon: 'table-large-plus', onPress: insert.table, active: panel === 'newTable', label: 'Insert table' },
+    { key: 'formula', group: 'insert', icon: 'sigma', onPress: insert.formula, label: 'Insert formula' },
+    { key: 'comment', group: 'insert', icon: 'comment-plus-outline', onPress: insert.comment, label: 'Add comment' },
+    { key: 'undo', group: 'edit', icon: 'undo', onPress: () => run({ type: 'undo' }), disabled: s ? !s.canUndo : false },
+    { key: 'redo', group: 'edit', icon: 'redo', onPress: () => run({ type: 'redo' }), disabled: s ? !s.canRedo : false },
   ];
-  // Room for the tools: the row less the arrow (always there for the inserts).
-  const { fits, overflow } = splitRow(tools, room - TOOL_W);
+
+  // The first row: what fits, with a thin line between groups; the arrow is always there (the second row always has something).
+  const row = withSeparators(tools);
+  const { fits, overflow } = splitRow(row, room - TOOL_W);
+  const first = trimSeparators(fits);
+  const moved = overflow.flatMap((t) => ('separator' in t ? [] : [t as Tool]));
+  const second = GROUPS.map((g) => ({ ...g, tools: [...moved, ...rest].filter((t) => t.group === g.key) })).filter((g) => g.tools.length > 0);
   const hasChips = !!(s?.link || s?.mathSuggestion || s?.comment || s?.photo);
+
+  /** A button of the first row: icon (or "Aa"), its name on a long press. */
+  const button = (t: Tool) => (
+    <Pressable
+      key={`${t.group}-${t.key}`}
+      onPress={t.onPress}
+      onLongPress={(e) => showHint(TOOLS[t.key].name, e)}
+      delayLongPress={HINT_PRESS_MS}
+      disabled={t.disabled}
+      style={[styles.button, t.width === AA_W && styles.aa, t.active && styles.active, t.disabled && styles.disabled]}
+      accessibilityRole="button"
+      accessibilityLabel={t.label ?? TOOLS[t.key].name}
+      accessibilityState={{ selected: !!t.active, disabled: !!t.disabled }}
+    >
+      {t.text ? (
+        <Text style={[styles.aaText, t.active && { color: c.accentDark }]}>{t.text}</Text>
+      ) : (
+        <MaterialCommunityIcons name={t.icon!} size={22} color={t.active ? c.accentDark : c.text.primary} />
+      )}
+    </Pressable>
+  );
+  /** A button of the second row: icon and its name under it. */
+  const captioned = (t: Tool) => (
+    <Pressable
+      key={`${t.group}-${t.key}`}
+      onPress={t.onPress}
+      disabled={t.disabled}
+      style={[styles.captioned, t.active && styles.active, t.disabled && styles.disabled]}
+      accessibilityRole="button"
+      accessibilityLabel={t.label ?? TOOLS[t.key].name}
+      accessibilityState={{ selected: !!t.active, disabled: !!t.disabled }}
+    >
+      {t.text ? (
+        <Text style={[styles.aaText, t.active && { color: c.accentDark }]}>{t.text}</Text>
+      ) : (
+        <MaterialCommunityIcons name={t.icon!} size={22} color={t.active ? c.accentDark : c.text.primary} />
+      )}
+      <Text style={[styles.caption, t.active && { color: c.accentDark }]} numberOfLines={1}>
+        {toolCaption(t.key)}
+      </Text>
+    </Pressable>
+  );
+  const arrow: Tool = { key: more ? 'fewer' : 'more', group: 'edit', icon: more ? 'chevron-down' : 'chevron-up', onPress: () => setMore(!more), active: more };
 
   return (
     <View onLayout={accessory.onLayout}>
-      {/* The second row: what didn't fit (open or closed is remembered on this iPhone). */}
+      {/* The second row: labelled groups, each tool named under its icon (open or closed is remembered on this iPhone). */}
       {more && (
         <View style={[styles.bar, styles.moreRow, styles.wrapRow]}>
-          {overflow.map((t) => t.node)}
-          {inserts}
+          {second.map((g) => (
+            <View key={g.key} style={styles.group}>
+              <Text style={styles.groupTitle}>{g.title}</Text>
+              <View style={styles.groupTools}>{g.tools.map(captioned)}</View>
+            </View>
+          ))}
         </View>
       )}
       {hasChips && (
@@ -216,15 +254,58 @@ export function KeyboardToolbar({
       )}
       <View style={styles.bar}>
         <View style={styles.tools} onLayout={(e) => setRoom(Math.floor(e.nativeEvent.layout.width) - TOOLS_PADDING)}>
-          {fits.map((t) => t.node)}
-          {button(more ? 'Fewer tools' : 'More tools', more ? 'chevron-down' : 'chevron-up', () => setMore(!more), { active: more })}
+          {first.map((t) => ('separator' in t ? <View key={t.key} style={styles.separator} /> : button(t)))}
+          {button(arrow)}
         </View>
-        <Pressable onPress={onDone} style={styles.done} accessibilityRole="button" accessibilityLabel="Hide keyboard">
+        <Pressable onPress={onDone} style={styles.done} accessibilityRole="button" accessibilityLabel={TOOLS.done.name}>
           <Text style={styles.doneText}>Done</Text>
         </Pressable>
       </View>
+      {hint && (
+        <View pointerEvents="none" style={[styles.hint, { left: Math.max(8, hint.x - 60) }]}>
+          <Text style={styles.hintText}>{hint.text}</Text>
+        </View>
+      )}
     </View>
   );
+}
+
+type Group = 'text' | 'format' | 'paragraph' | 'insert' | 'edit';
+const GROUPS: { key: Group; title: string }[] = [
+  { key: 'text', title: 'Text' },
+  { key: 'format', title: 'Format' },
+  { key: 'paragraph', title: 'Paragraph' },
+  { key: 'insert', title: 'Insert' },
+  { key: 'edit', title: 'Edit' },
+];
+interface Tool {
+  key: ToolKey;
+  group: Group;
+  icon?: IconName;
+  text?: string;
+  width?: number;
+  onPress: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  /** For VoiceOver when it says more than the name ("Insert table"). */
+  label?: string;
+}
+type RowItem = (Tool & { width: number }) | { key: string; separator: true; width: number };
+
+/** The tools with a thin line wherever the group changes. */
+function withSeparators(tools: Tool[]): RowItem[] {
+  const out: RowItem[] = [];
+  tools.forEach((t, i) => {
+    if (i > 0 && tools[i - 1].group !== t.group) out.push({ key: `sep-${i}`, separator: true, width: SEPARATOR_W });
+    out.push({ ...t, width: t.width ?? TOOL_W });
+  });
+  return out;
+}
+/** No line at the end of a row. */
+function trimSeparators(items: RowItem[]): RowItem[] {
+  const out = [...items];
+  while (out.length && 'separator' in out[out.length - 1]) out.pop();
+  return out;
 }
 
 const makeStyles = (c: ThemeColors) =>
@@ -240,7 +321,16 @@ const makeStyles = (c: ThemeColors) =>
     items: { alignItems: 'center', paddingHorizontal: 4 },
     tools: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: TOOLS_PADDING / 2, overflow: 'hidden' },
     moreRow: { backgroundColor: c.cardMuted },
-    wrapRow: { height: undefined, minHeight: 48, flexWrap: 'wrap', paddingHorizontal: 4 },
+    // 'auto', not undefined: the web drops an undefined height (the preview page).
+    wrapRow: { height: 'auto', minHeight: 48, flexWrap: 'wrap', alignItems: 'flex-start', paddingHorizontal: 6, paddingVertical: 6, rowGap: 6, columnGap: 10 },
+    group: { gap: 2 },
+    groupTitle: { marginLeft: 4, fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.text.secondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+    groupTools: { flexDirection: 'row' },
+    captioned: { width: 58, minHeight: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 4 },
+    caption: { fontSize: 10, color: c.text.secondary },
+    separator: { width: 1, height: 24, backgroundColor: c.border },
+    hint: { position: 'absolute', bottom: '100%', marginBottom: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: c.text.primary },
+    hintText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.card },
     chipRow: { backgroundColor: c.card },
     button: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     aa: { width: 48 },

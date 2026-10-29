@@ -105,8 +105,10 @@ const sheetNow = () => b.evaluate(`${EDITOR}.state.plugins.find((p) => p.key.sta
 const openPageSetup = async () => {
   await b.clickSelector('[aria-label="Document menu"]');
   await b.waitText('Page setup…', { exact: true });
+  // The menu's groups have headings (the simplicity pass).
+  for (const h of ['REVIEW', 'PAGE', 'DOCUMENT']) if (!(await b.hasText(h, true))) throw new Error(`the document menu has no "${h}" heading`);
   await b.click('Page setup…', { exact: true });
-  await b.waitText('Gap between pages', { exact: true });
+  await b.waitText('Space between pages', { exact: true });
 };
 const savedSetup = async () => (await admin.from('documents').select('page_setup').eq('file_id', file.id).eq('tab', 'notes').single()).data.page_setup;
 const zoomNow = () => b.evaluate(`(() => { const d = ${EDITOR}.view.dom; return Math.round(d.getBoundingClientRect().width / d.offsetWidth * 100) / 100; })()`);
@@ -206,12 +208,14 @@ try {
   });
 
   await step('Pageless and back from the toolbar, remembered after a reload', async () => {
-    await tool('Pages (switch to Pageless)');
+    await tool('View');
+    await b.click('Pageless', { exact: true });
     await waitPages((n) => n === 0);
     await openDoc();
     await b.sleep(800);
     expect((await pageCount()) === 0, 'Pageless not remembered');
-    await tool('Pageless (switch to Pages)');
+    await tool('View');
+    await b.click('Pages', { exact: true });
     await waitPages();
   });
 
@@ -229,9 +233,9 @@ try {
     await b.clickSelector('.studiply-editor .ProseMirror');
     await cmd('0', 'Digit0', 48);
     expect((await zoomNow()) === 1, `⌘0 gave ${await zoomNow()}`);
-    await tool('Zoom');
-    await b.waitText('Fit (', { exact: false });
-    await b.click('Fit (', { exact: false });
+    await tool('View');
+    await b.waitText('Fit to window (', { exact: false });
+    await b.click('Fit to window (', { exact: false });
     await b.sleep(300);
     expect((await zoomNow()) < 1, `Fit gave ${await zoomNow()} in a column narrower than the page`);
   });
@@ -260,8 +264,8 @@ try {
     await b.press('Escape');
     await b.evaluate(`${EDITOR}.commands.undo()`);
     // Back to Fit, so the whole sheet is in the column for the next step.
-    await tool('Zoom');
-    await b.click('Fit (', { exact: false });
+    await tool('View');
+    await b.click('Fit to window (', { exact: false });
     await b.sleep(300);
   });
 
@@ -291,7 +295,7 @@ try {
     await b.clickSelector('[aria-label="Letter"]');
     await b.clickSelector('[aria-label="Narrow margins"]');
     await b.clickSelector('[aria-label="Page numbers: Top right"]');
-    await b.clickSelector('[aria-label="Gap between pages: Large"]');
+    await b.clickSelector('[aria-label="Space between pages: Large"]');
     await b.clickSelector('[aria-label="Apply page setup"]');
     await b.sleep(1200);
     const want = { width: 1056, height: 816, marginTop: 48, marginBottom: 48, marginLeft: 48, marginRight: 48, gap: 48, numbers: 'top-right' };
@@ -317,7 +321,7 @@ try {
     await b.fill('input[aria-label="Left margin (cm)"]', '3');
     await b.fill('input[aria-label="Top margin (cm)"]', '20');
     await b.clickSelector('[aria-label="Page numbers: Off"]');
-    await b.clickSelector('[aria-label="Gap between pages: None"]');
+    await b.clickSelector('[aria-label="Space between pages: None"]');
     await b.clickSelector('[aria-label="Right margin (cm)"]');
     await b.sleep(300);
     expect(await b.hasText('lowered'), 'no note about lowered margins');

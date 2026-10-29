@@ -6,7 +6,7 @@ import { TABLE_BAR_CLASS } from './table/tableBar';
 import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
-import { PHOTO_BAR_CLASS, PHOTO_SIZE_CLASS } from './photoBar';
+import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CLASS, PHOTO_WIDE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
 import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
 
@@ -133,6 +133,9 @@ ${pm}.studiply-page-measuring .${PAGE_GAP_CLASS} { display: none !important; }
 ${scope ? '' : `html:has(.ProseMirror.${PAGE_CLASS}), body:has(.ProseMirror.${PAGE_CLASS}) { background: transparent; }
 .studiply-page-label { position: fixed; left: 12px; bottom: 12px; z-index: 20; padding: 4px 10px; border-radius: 12px; background: ${c.card}; border: 1px solid ${c.border}; font: 12px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; opacity: 0; transition: opacity 0.25s; pointer-events: none; }`}
 @media (pointer: coarse) { ${bar} button { min-height: 40px; padding: 0 11px; font-size: 15px; } }
-@media (max-width: 480px) { ${bar} .${PHOTO_SIZE_CLASS} { display: none; } ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
+${bar} .${PHOTO_NARROW_CLASS} { display: none; }
+${bar}.${PHOTO_COMPACT_CLASS} .${PHOTO_WIDE_CLASS} { display: none; }
+${bar}.${PHOTO_COMPACT_CLASS} .${PHOTO_NARROW_CLASS} { display: inline-flex; }
+@media (max-width: 480px) { ${bar} .${PHOTO_WIDE_CLASS} { display: none; } ${bar} .${PHOTO_NARROW_CLASS} { display: inline-flex; } ${bar} .${PHOTO_SIZE_CLASS} { display: none; } ${bar} button { padding: 0 8px; } ${bar} button[data-key='colour'] .${TABLE_BAR_CLASS}-text { display: none; } ${bar} .${TABLE_BAR_CLASS}-swatch { width: 16px; height: 16px; } }
 `;
 }

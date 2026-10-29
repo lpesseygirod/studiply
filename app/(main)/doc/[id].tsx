@@ -240,15 +240,16 @@ export default function DocumentScreen() {
     editorRef.current?.blur();
     const extra: DialogButton[] = showEditor
       ? [
-          { text: 'Comments', icon: 'chatbox-ellipses-outline', onPress: () => void openComments() },
+          // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
+          { text: 'Comments', icon: 'chatbox-ellipses-outline', section: 'Review', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
-          { text: 'Page setup…', icon: 'document-text-outline', onPress: () => setPageSetupOpen(true) },
+          { text: 'Page setup…', icon: 'document-text-outline', section: 'Page', onPress: () => setPageSetupOpen(true) },
           ...(Platform.OS !== 'web'
             ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]
             : []),
         ]
       : [];
-    itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra });
+    itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined });
   };
 
   const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : 'Document'} · ${metaDate(file.created_at)}` : '';

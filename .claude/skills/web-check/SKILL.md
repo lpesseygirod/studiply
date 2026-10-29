@@ -164,6 +164,12 @@ WEB_CHECK_ONLY='real mouse' node .claude/skills/web-check/scripts/inserting.mjs 
 node .claude/skills/web-check/scripts/formatting.mjs
 ```
 
+## After the simplicity pass (before 4.6)
+
+- Tools that moved into menus: **Insert ▾** (its items are labelled "Insert table", "Insert image", "Insert formula", "Insert comment", "Insert link", "Insert page break"), **Align ▾** ("Align left", "Align centre", "Align right", "Justify"), **View ▾** (Pages / Pageless and the zoom; "Fit to window"). `inserting.mjs`'s `toolbarTool()` opens Insert first; `formatting.mjs` opens Align. Indent is "Less indent" / "More indent".
+- The photo bar is **compact** (`studiply-photo-bar-compact`: one "Layout…" button, aria-label "Photo layout") wherever it doesn't fit, e.g. the 1280 px window with the assistant open; the photo step then uses Layout… and its menu.
+- The iPhone's keyboard toolbar and Page setup sheet can be screenshotted at `/dev/editor-preview?show=toolbar` and `?show=pagesetup` (development only; open the toolbar's second row with "More tools").
+
 ## Check the page view and zoom (step 4.5b)
 
 `scripts/pages.mjs` (a 10-page document of headings, long paragraphs, lists, a 28-row table, a formula and a page break):

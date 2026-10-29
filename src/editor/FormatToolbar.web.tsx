@@ -23,10 +23,12 @@ import { useToolbarExpanded } from '../lib/toolbarPrefs';
 import { LinkForm } from '../components/editor/LinkForm';
 import { LINE_SPACINGS } from './schema/blocks';
 import { cleanSize, FONTS } from './schema/fonts';
+import { TOOLS, toolTip, type ToolKey, type ToolName } from './toolNames';
+import { ToolTip } from '../components/editor/ToolTip.web';
 import { ZOOM_STEPS, type ViewPrefs, type ZoomSetting } from '../lib/viewPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'zoom';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'align' | 'insert' | 'view';
 
 /** A toolbar item and the width it takes (for deciding what fits on the first row). */
 interface Item {
@@ -67,15 +69,16 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
 };
 
 /**
- * The laptop's formatting toolbar (steps 4.4, 4.5; docs/design desktop-01).
- * One row of the most-used tools (undo, redo · style · font · size · B I U ·
- * colours · lists · link, image, table) and
- * ⌄ for a second row with the rest (align, line spacing, indent, page break,
- * clear formatting, formula, comment, strikethrough, checklist); open or
- * closed is remembered on this device, and what doesn't fit a narrow
- * window moves into the second row (Lea). Shows
- * what is active where the selection is (formatState) and runs the shared
- * commands (src/editor/format); the shortcuts are listed in the "?" sheet.
+ * The laptop's formatting toolbar (steps 4.4, 4.5; the simplicity pass
+ * before 4.6). One row in groups with separators: undo, redo · Text (style,
+ * font, size) · Format (B I U, text colour, highlight) · Paragraph (lists,
+ * Align ▾, Spacing ▾) · Insert ▾ (link, image, table, formula, comment, page
+ * break) · View ▾ (Pages / Pageless, zoom); ⌄ opens a second row with what
+ * is rarely used (strikethrough, Clear formatting, checklist, Indent − +),
+ * after what didn't fit a narrow window. Every tool says its name and
+ * shortcut on hover (toolNames.ts); menus have headings. Shows what is
+ * active where the selection is (formatState) and runs the shared commands
+ * (src/editor/format); the shortcuts are listed in the "?" sheet.
  */
 export function FormatToolbar({
   editor,
@@ -123,9 +126,9 @@ export function FormatToolbar({
     setSpectrum(false);
     runFormat(editor, cmd);
   };
-  const open = async (kind: Menu) => {
+  const open = async (kind: Menu, under: Menu = kind) => {
     // A tool that moved into the closed second row (⌘K for Link) opens under the toolbar.
-    const anchor = (await anchorBelow({ current: refs.current[kind] ?? null })) ?? (await anchorBelow(toolbarRef));
+    const anchor = (await anchorBelow({ current: refs.current[under] ?? null })) ?? (await anchorBelow(toolbarRef));
     if (anchor) setMenu({ kind, anchor });
   };
   // ∑: the formula popover (FormulaPopover) opens under the toolbar, for a new formula or the selected one.
@@ -138,76 +141,103 @@ export function FormatToolbar({
     setSpectrum(false);
   };
 
-  const tool = (label: string, icon: IconName, cmd: FormatCommand, { active = false, disabled = false } = {}) => (
-    <Pressable
-      key={label}
-      onPress={() => run(cmd)}
-      disabled={disabled}
-      style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && !disabled && styles.toolHover, active && styles.toolActive, disabled && styles.disabled]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active, disabled }}
-    >
-      <MaterialCommunityIcons name={icon} size={20} color={active ? c.accentDark : c.text.primary} />
-    </Pressable>
-  );
-
-  const dropdown = (kind: Menu, label: string, text: string, width: number, textStyle?: object) => (
-    <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
+  /** A tool: its icon, its name on hover ("Bold ⌘B"), and its name for VoiceOver. */
+  const tool = (key: ToolKey, icon: IconName, cmd: FormatCommand, { active = false, disabled = false } = {}) => (
+    <ToolTip key={key} label={toolTip(key)}>
       <Pressable
-        onPress={() => open(kind)}
-        style={({ hovered }: { hovered?: boolean }) => [styles.dropdown, { width }, hovered && styles.toolHover]}
+        onPress={() => run(cmd)}
+        disabled={disabled}
+        style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && !disabled && styles.toolHover, active && styles.toolActive, disabled && styles.disabled]}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={TOOLS[key].name}
+        accessibilityState={{ selected: active, disabled }}
       >
-        <Text style={[styles.dropdownText, textStyle]} numberOfLines={1}>
-          {text}
-        </Text>
-        <MaterialCommunityIcons name="menu-down" size={18} color={c.text.secondary} />
+        <MaterialCommunityIcons name={icon} size={20} color={active ? c.accentDark : c.text.primary} />
       </Pressable>
-    </View>
+    </ToolTip>
   );
 
-  const swatchButton = (kind: 'color' | 'highlight', label: string, icon: IconName, swatch: string) => (
-    <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
+  /** A menu button: words (and an icon) with ▾. */
+  const dropdown = (kind: Menu, key: ToolKey, text: string, width: number, { textStyle, icon }: { textStyle?: object; icon?: IconName } = {}) => (
+    <ToolTip label={toolTip(key)}>
+      <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
+        <Pressable
+          onPress={() => open(kind)}
+          style={({ hovered }: { hovered?: boolean }) => [styles.dropdown, { width }, hovered && styles.toolHover]}
+          accessibilityRole="button"
+          accessibilityLabel={TOOLS[key].name}
+        >
+          {icon && <MaterialCommunityIcons name={icon} size={18} color={c.text.primary} />}
+          <Text style={[styles.dropdownText, textStyle]} numberOfLines={1}>
+            {text}
+          </Text>
+          <MaterialCommunityIcons name="menu-down" size={18} color={c.text.secondary} />
+        </Pressable>
+      </View>
+    </ToolTip>
+  );
+
+  const swatchButton = (kind: 'color' | 'highlight', icon: IconName, swatch: string) => (
+    <ToolTip label={toolTip(kind)}>
+      <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
+        <Pressable
+          onPress={() => open(kind)}
+          style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover]}
+          accessibilityRole="button"
+          accessibilityLabel={TOOLS[kind].name}
+        >
+          <MaterialCommunityIcons name={icon} size={18} color={c.text.primary} />
+          <View style={[styles.swatchBar, { backgroundColor: swatch }]} />
+        </Pressable>
+      </View>
+    </ToolTip>
+  );
+
+  /** A tool whose icon wouldn't say what it does: words instead. */
+  const words = (key: ToolKey, onPress: () => void) => (
+    <ToolTip label={toolTip(key)}>
       <Pressable
-        onPress={() => open(kind)}
-        style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover]}
+        onPress={onPress}
+        style={({ hovered }: { hovered?: boolean }) => [styles.wordTool, hovered && styles.toolHover]}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={TOOLS[key].name}
       >
-        <MaterialCommunityIcons name={icon} size={18} color={c.text.primary} />
-        <View style={[styles.swatchBar, { backgroundColor: swatch }]} />
+        <Text style={styles.wordToolText}>{TOOLS[key].name}</Text>
       </Pressable>
-    </View>
+    </ToolTip>
   );
 
-  const iconMenu = (kind: 'spacing', label: string, icon: IconName) => (
-    <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
-      <Pressable
-        onPress={() => open(kind)}
-        style={({ hovered }: { hovered?: boolean }) => [styles.tool, styles.toolWide, hovered && styles.toolHover]}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        <MaterialCommunityIcons name={icon} size={20} color={c.text.primary} />
-        <MaterialCommunityIcons name="menu-down" size={14} color={c.text.secondary} />
-      </Pressable>
-    </View>
-  );
-
-  const row = (key: string, children: React.ReactNode, onPress: () => void, checked: boolean, hint?: string) => (
+  const row = (key: string, children: React.ReactNode, onPress: () => void, checked: boolean, hint?: string, label?: string) => (
     <Pressable
       key={key}
       onPress={onPress}
       style={({ hovered }: { hovered?: boolean }) => [styles.menuRow, hovered && styles.toolHover]}
       accessibilityRole="menuitem"
       accessibilityState={{ checked }}
+      accessibilityLabel={label}
     >
       <View style={styles.check}>{checked && <MaterialCommunityIcons name="check" size={16} color={c.accentDark} />}</View>
       <View style={styles.flex}>{children}</View>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </Pressable>
+  );
+  /** A menu item with its icon and name (Insert, Align). */
+  const iconRow = (key: ToolKey, icon: IconName, onPress: () => void, checked = false, spoken: string = TOOLS[key].name) =>
+    row(
+      key,
+      <View style={styles.rowInner}>
+        <MaterialCommunityIcons name={icon} size={18} color={c.text.primary} />
+        <Text style={styles.menuText}>{TOOLS[key].name}</Text>
+      </View>,
+      onPress,
+      checked,
+      (TOOLS[key] as ToolName).keys,
+      spoken,
+    );
+  const heading = (text: string) => (
+    <Text key={`h-${text}`} style={styles.menuHeading} accessibilityRole="header">
+      {text}
+    </Text>
   );
 
   // The colour picker (step 4.5): the grid, or the spectrum after More colours…
@@ -235,43 +265,24 @@ export function FormatToolbar({
   const styleLabel = TEXT_STYLES.find((t) => t.key === s.style)?.label ?? 'Normal text';
   const font = FONTS.find((f) => f.key === s.font) ?? FONTS[0];
   const soon = (what: string) => () => showAlert(what, 'Coming in the next update.');
-  const iconButton = (kind: Menu, label: string, icon: IconName, active = false) => (
-    <View ref={(v) => void (refs.current[kind] = v)} collapsable={false}>
-      <Pressable
-        onPress={() => open(kind)}
-        style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, active && styles.toolActive]}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        <MaterialCommunityIcons name={icon} size={20} color={active ? c.accentDark : c.text.primary} />
-      </Pressable>
-    </View>
-  );
-  const plain = (label: string, icon: IconName, onPress: () => void) => (
-    <Pressable
-      onPress={onPress}
-      style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <MaterialCommunityIcons name={icon} size={20} color={c.text.primary} />
-    </Pressable>
-  );
   const gap = (key: string): Item => ({ key, width: GAP_W, node: <View style={styles.gap} />, gap: true });
   const t = (key: string, node: React.ReactNode, width = TOOL_W): Item => ({ key, width, node });
+  const alignNow = ALIGNS.find((a) => a.key === s.align) ?? ALIGNS[0];
+  const viewText = view ? `${view.pages ? 'Pages' : 'Pageless'} · ${percent(view.shown)}` : '';
 
-  // Lea (step 4.5): the most-used tools on one row, in this order; the rest
-  // behind ⌄. Tools that don't fit a narrow window move into the ⌄ row.
+  // The simplicity pass (Lea, before 4.6): five groups with separators,
+  // Text · Format · Paragraph · Insert · View, after undo and redo; the
+  // rarely used tools behind ⌄. What doesn't fit a narrow window moves there too.
   const primary: Item[] = [
-    t('undo', tool('Undo', 'undo', { type: 'undo' }, { disabled: !s.canUndo })),
-    t('redo', tool('Redo', 'redo', { type: 'redo' }, { disabled: !s.canRedo })),
-    gap('g1'),
-    t('style', dropdown('style', 'Text style', styleLabel, 118), 124),
-    t('font', dropdown('font', 'Font', font.label, 100, font.css ? { fontFamily: font.css } : undefined), 106),
+    t('undo', tool('undo', 'undo', { type: 'undo' }, { disabled: !s.canUndo })),
+    t('redo', tool('redo', 'redo', { type: 'redo' }, { disabled: !s.canRedo })),
+    gap('g-text'),
+    t('style', dropdown('style', 'style', styleLabel, 118), 124),
+    t('font', dropdown('font', 'font', font.label, 100, { textStyle: font.css ? { fontFamily: font.css } : undefined }), 106),
     t(
       'size',
       <View style={styles.size}>
-        {tool('Smaller', 'minus', { type: 'sizeStep', direction: -1 })}
+        {tool('smaller', 'minus', { type: 'sizeStep', direction: -1 })}
         <TextInput
           value={sizeText}
           onChangeText={setSizeText}
@@ -287,61 +298,43 @@ export function FormatToolbar({
             if (n) runFormat(editor, { type: 'size', size: n });
           }}
           style={styles.sizeBox}
-          accessibilityLabel="Font size"
+          accessibilityLabel={TOOLS.size.name}
           inputMode="numeric"
           selectTextOnFocus
         />
-        {tool('Bigger', 'plus', { type: 'sizeStep', direction: 1 })}
+        {tool('bigger', 'plus', { type: 'sizeStep', direction: 1 })}
       </View>,
       108,
     ),
-    gap('g2'),
-    t('bold', tool('Bold', 'format-bold', { type: 'mark', mark: 'bold' }, { active: s.bold })),
-    t('italic', tool('Italic', 'format-italic', { type: 'mark', mark: 'italic' }, { active: s.italic })),
-    t('underline', tool('Underline', 'format-underline', { type: 'mark', mark: 'underline' }, { active: s.underline })),
-    t('color', swatchButton('color', 'Text colour', 'format-color-text', s.color ?? PAGE_COLORS.text.primary)),
-    t('highlight', swatchButton('highlight', 'Highlight', 'marker', s.highlight && s.highlight !== 'default' ? s.highlight : c.border)),
-    gap('g3'),
-    t('bullet', tool('Bulleted list', 'format-list-bulleted', { type: 'list', list: 'bullet' }, { active: s.list === 'bullet' })),
-    t('ordered', tool('Numbered list', 'format-list-numbered', { type: 'list', list: 'ordered' }, { active: s.list === 'ordered' })),
-    gap('g4'),
-    t('link', iconButton('link', 'Link (⌘K)', 'link-variant', !!s.link)),
-    t('image', plain('Image', 'image-outline', onImage ?? soon('Images'))),
-    t('table', iconButton('table', 'Insert table', 'table-large-plus')),
-    ...(view
-      ? [
-          gap('g9'),
-          t('zoom', dropdown('zoom', 'Zoom', view.zoom === 'fit' ? 'Fit' : percent(view.zoom), 72), 78),
-          t(
-            'pages',
-            <Pressable
-              onPress={() => view.set({ pages: !view.pages })}
-              style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, view.pages && styles.toolActive]}
-              accessibilityRole="button"
-              accessibilityLabel={view.pages ? 'Pages (switch to Pageless)' : 'Pageless (switch to Pages)'}
-              accessibilityState={{ selected: view.pages }}
-            >
-              <MaterialCommunityIcons name={view.pages ? 'file-document-multiple-outline' : 'text-long'} size={20} color={view.pages ? c.accentDark : c.text.primary} />
-            </Pressable>,
-          ),
-        ]
-      : []),
+    gap('g-format'),
+    t('bold', tool('bold', 'format-bold', { type: 'mark', mark: 'bold' }, { active: s.bold })),
+    t('italic', tool('italic', 'format-italic', { type: 'mark', mark: 'italic' }, { active: s.italic })),
+    t('underline', tool('underline', 'format-underline', { type: 'mark', mark: 'underline' }, { active: s.underline })),
+    t('color', swatchButton('color', 'format-color-text', s.color ?? PAGE_COLORS.text.primary)),
+    t('highlight', swatchButton('highlight', 'marker', s.highlight && s.highlight !== 'default' ? s.highlight : c.border)),
+    gap('g-paragraph'),
+    t('bullet', tool('bullet', 'format-list-bulleted', { type: 'list', list: 'bullet' }, { active: s.list === 'bullet' })),
+    t('ordered', tool('ordered', 'format-list-numbered', { type: 'list', list: 'ordered' }, { active: s.list === 'ordered' })),
+    t('align', dropdown('align', 'align', '', 52, { icon: ALIGN_ICON[alignNow.key] }), 58),
+    t('spacing', dropdown('spacing', 'spacing', `Spacing ${SPACING_LABEL[s.lineSpacing] ?? s.lineSpacing}`, 122), 128),
+    gap('g-insert'),
+    t('insert', dropdown('insert', 'insert', 'Insert', 84), 90),
+    ...(view ? [gap('g-view'), t('view', dropdown('view', 'view', viewText, 136), 142)] : []),
   ];
   const secondary: Item[] = [
-    ...ALIGNS.map((a) => t(`align-${a.key}`, tool(`Align ${a.label.toLowerCase()} (${a.shortcut})`, ALIGN_ICON[a.key], { type: 'align', align: a.key }, { active: s.align === a.key }))),
-    gap('g5'),
-    t('spacing', iconMenu('spacing', 'Line spacing', 'format-line-spacing'), 40),
-    t('outdent', tool('Decrease indent', 'format-indent-decrease', { type: 'outdent' }, { disabled: !s.canOutdent })),
-    t('indent', tool('Increase indent', 'format-indent-increase', { type: 'indent' }, { disabled: !s.canIndent })),
-    gap('g6'),
-    t('pageBreak', tool('Page break', 'format-page-break', { type: 'pageBreak' })),
-    t('clear', tool('Clear formatting', 'format-clear', { type: 'clear' })),
-    gap('g7'),
-    t('formula', plain('Formula', 'sigma', () => void openFormula())),
-    t('comment', plain('Comment (⌘⌥M)', 'comment-plus-outline', onComment ?? soon('Comments'))),
-    gap('g8'),
-    t('strike', tool('Strikethrough', 'format-strikethrough-variant', { type: 'mark', mark: 'strike' }, { active: s.strike })),
-    t('checklist', tool('Checklist', 'format-list-checks', { type: 'list', list: 'task' }, { active: s.list === 'task' })),
+    t('strike', tool('strike', 'format-strikethrough-variant', { type: 'mark', mark: 'strike' }, { active: s.strike })),
+    t('clear', words('clear', () => run({ type: 'clear' })), 128),
+    gap('g-more'),
+    t('checklist', tool('task', 'format-list-checks', { type: 'list', list: 'task' }, { active: s.list === 'task' })),
+    t(
+      'indent',
+      <View style={styles.size}>
+        <Text style={styles.groupWord}>Indent</Text>
+        {tool('outdent', 'format-indent-decrease', { type: 'outdent' }, { disabled: !s.canOutdent })}
+        {tool('indent', 'format-indent-increase', { type: 'indent' }, { disabled: !s.canIndent })}
+      </View>,
+      124,
+    ),
   ];
   const measuredItem = (i: Item) => (
     <View
@@ -364,6 +357,7 @@ export function FormatToolbar({
       <View style={styles.row}>
         {trimGaps(fits).map(measuredItem)}
         <View style={styles.flex} />
+        <ToolTip label={expanded ? TOOLS.fewer.name : TOOLS.more.name}>
         <Pressable
           onPress={() => setExpanded(!expanded)}
           style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, expanded && styles.toolActive]}
@@ -373,6 +367,7 @@ export function FormatToolbar({
         >
           <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={22} color={expanded ? c.accentDark : c.text.primary} />
         </Pressable>
+        </ToolTip>
       </View>
       {showSecond && (
         <View style={[styles.row, styles.secondRow]}>
@@ -381,11 +376,13 @@ export function FormatToolbar({
       )}
 
       <ToolbarPopover anchor={menu?.kind === 'style' ? menu.anchor : null} onClose={close} width={250} label="Text style">
+        {heading('Text style')}
         {TEXT_STYLES.map((t) =>
           row(t.key, <Text style={[styles.menuText, STYLE_LOOK[t.key]]}>{t.label}</Text>, () => run({ type: 'style', style: t.key }), t.key === s.style, t.shortcut),
         )}
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'font' ? menu.anchor : null} onClose={close} width={200} label="Font">
+        {heading('Font')}
         {FONTS.map((f) =>
           row(f.key, <Text style={[styles.menuText, f.css ? { fontFamily: f.css } : null]}>{f.label}</Text>, () => run({ type: 'font', font: f.key }), f.key === s.font),
         )}
@@ -402,14 +399,34 @@ export function FormatToolbar({
       <ToolbarPopover anchor={menu?.kind === 'table' ? menu.anchor : null} onClose={close} width={280} label="Insert table">
         <TableGrid onPick={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
         <View style={styles.menuDivider} />
-        <TableSizeForm rows={3} cols={3} action="Insert" onSubmit={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
+        <TableSizeForm rows={3} cols={3} action="Insert table" onSubmit={(rows, cols) => run({ type: 'table', action: 'insert', rows, cols })} />
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'align' ? menu.anchor : null} onClose={close} width={210} label="Align">
+        {heading('Align')}
+        {iconRow('alignLeft', ALIGN_ICON.left, () => run({ type: 'align', align: 'left' }), s.align === 'left', 'Align left')}
+        {iconRow('alignCenter', ALIGN_ICON.center, () => run({ type: 'align', align: 'center' }), s.align === 'center', 'Align centre')}
+        {iconRow('alignRight', ALIGN_ICON.right, () => run({ type: 'align', align: 'right' }), s.align === 'right', 'Align right')}
+        {iconRow('alignJustify', ALIGN_ICON.justify, () => run({ type: 'align', align: 'justify' }), s.align === 'justify', 'Justify')}
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'insert' ? menu.anchor : null} onClose={close} width={230} label="Insert">
+        {heading('Insert')}
+        {iconRow('link', 'link-variant', () => void open('link', 'insert'), false, 'Insert link')}
+        {iconRow('image', 'image-outline', () => (close(), (onImage ?? soon('Images'))()), false, 'Insert image')}
+        {iconRow('table', 'table-large-plus', () => void open('table', 'insert'), false, 'Insert table')}
+        {iconRow('formula', 'sigma', () => (close(), void openFormula()), false, 'Insert formula')}
+        {iconRow('comment', 'comment-plus-outline', () => (close(), (onComment ?? soon('Comments'))()), false, 'Insert comment')}
+        {iconRow('pageBreak', 'format-page-break', () => run({ type: 'pageBreak' }), false, 'Insert page break')}
       </ToolbarPopover>
       {view && (
-        <ToolbarPopover anchor={menu?.kind === 'zoom' ? menu.anchor : null} onClose={close} width={190} label="Zoom">
+        <ToolbarPopover anchor={menu?.kind === 'view' ? menu.anchor : null} onClose={close} width={220} label="View">
+          {heading('Layout')}
+          {row('pages', <Text style={styles.menuText}>Pages</Text>, () => (close(), view.set({ pages: true })), view.pages)}
+          {row('pageless', <Text style={styles.menuText}>Pageless</Text>, () => (close(), view.set({ pages: false })), !view.pages)}
+          {heading('Zoom')}
           {(['fit', ...ZOOM_STEPS] as ZoomSetting[]).map((z) =>
             row(
               String(z),
-              <Text style={styles.menuText}>{z === 'fit' ? `Fit (${percent(view.shown)})` : percent(z)}</Text>,
+              <Text style={styles.menuText}>{z === 'fit' ? `Fit to window (${percent(view.shown)})` : percent(z)}</Text>,
               () => {
                 close();
                 view.set({ zoom: z });
@@ -418,12 +435,11 @@ export function FormatToolbar({
               z === 1 ? '⌘0' : undefined,
             ),
           )}
-          <View style={styles.menuDivider} />
-          {row('pages', <Text style={styles.menuText}>Pages</Text>, () => (close(), view.set({ pages: true })), view.pages)}
-          {row('pageless', <Text style={styles.menuText}>Pageless</Text>, () => (close(), view.set({ pages: false })), !view.pages)}
+          <Text style={styles.menuFoot}>Zoom in ⌘+ · Zoom out ⌘−</Text>
         </ToolbarPopover>
       )}
       <ToolbarPopover anchor={menu?.kind === 'spacing' ? menu.anchor : null} onClose={close} width={170} label="Line spacing">
+        {heading('Line spacing')}
         {LINE_SPACINGS.map((v) =>
           row(String(v), <Text style={styles.menuText}>{SPACING_LABEL[v]}</Text>, () => run({ type: 'lineSpacing', spacing: v }), v === s.lineSpacing),
         )}
@@ -485,7 +501,12 @@ const makeStyles = (c: ThemeColors) =>
     },
     swatchBar: { position: 'absolute', left: 8, right: 8, bottom: 4, height: 3, borderRadius: 1.5 },
     menuRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36, paddingHorizontal: 10, marginHorizontal: 4, borderRadius: 8 },
-    rowInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    rowInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    menuHeading: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4, fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
+    menuFoot: { paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4, fontSize: Typography.size.xs, color: c.text.secondary },
+    wordTool: { height: 32, paddingHorizontal: 8, borderRadius: 8, justifyContent: 'center' },
+    wordToolText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.primary },
+    groupWord: { marginLeft: 6, marginRight: 2, fontSize: Typography.size.sm, color: c.text.secondary },
     check: { width: 22 },
     menuText: { fontSize: Typography.size.base, color: c.text.primary },
     hint: { fontSize: Typography.size.xs, color: c.text.secondary, marginLeft: 8 },

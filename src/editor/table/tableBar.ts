@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 
 import { selectedTable } from './selection';
+import { nameButton } from '../barHint';
 import { HANDLE_ROOM } from './tableHandles';
 
 /**
@@ -37,7 +38,7 @@ const BUTTONS: { key: TableBarButton | 'header' | 'delete'; text: string; label:
   { key: 'columns', text: 'Columns ▾', label: 'Table columns' },
   { key: 'colour', text: 'Colour', label: 'Cell colour' },
   { key: 'header', text: 'Header', label: 'Header row' },
-  { key: 'more', text: '⋯', label: 'More table options' },
+  { key: 'more', text: 'More ▾', label: 'More table options' },
   { key: 'delete', text: 'Delete', label: 'Delete table' },
 ];
 const GAP = 6;
@@ -76,7 +77,7 @@ class TableBarView {
       text.className = `${TABLE_BAR_CLASS}-text`;
       text.textContent = b.text;
       button.appendChild(text);
-      button.setAttribute('aria-label', b.label);
+      nameButton(button, b.label);
       button.dataset.key = b.key;
       if (b.key === 'colour') button.prepend(this.swatch);
       if (b.key === 'delete') button.classList.add('danger');

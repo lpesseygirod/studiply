@@ -6,7 +6,7 @@ import { CellSelection } from '@tiptap/pm/tables';
 import { showAlert, type Anchor } from '../components/dialogs/dialogs';
 import { ColorGrid } from '../components/editor/ColorGrid';
 import { SpectrumPicker } from '../components/editor/SpectrumPicker';
-import { PopoverDivider, PopoverRow, ToolbarPopover } from '../components/editor/ToolbarPopover';
+import { PopoverDivider, PopoverHeading, PopoverRow, ToolbarPopover } from '../components/editor/ToolbarPopover';
 import { TableSizeForm } from '../components/editor/TableSizeForm';
 import { useRecentColours } from '../services/preferences.service';
 import { formatState, runFormat, type FormatCommand, type TableAction } from './format';
@@ -15,28 +15,28 @@ import { selectedTable } from './table/selection';
 import { TABLE_BAR_EVENT, type TableBarButton } from './table/tableBar';
 
 type Kind = TableBarButton | 'all';
-type Item = { action: TableAction | 'colour' | 'size'; label: string; danger?: boolean } | '-';
+type Item = { action: TableAction | 'colour' | 'size'; label: string; danger?: boolean } | '-' | { heading: string };
 
-const ROWS: Item[] = [{ action: 'rowAbove', label: 'Insert row above' }, { action: 'rowBelow', label: 'Insert row below' }, '-', { action: 'deleteRow', label: 'Delete row', danger: true }];
-const COLUMNS: Item[] = [{ action: 'columnLeft', label: 'Insert column left' }, { action: 'columnRight', label: 'Insert column right' }, '-', { action: 'deleteColumn', label: 'Delete column', danger: true }];
-const MORE: Item[] = [{ action: 'headerRow', label: 'Header row' }, { action: 'merge', label: 'Merge cells' }, { action: 'split', label: 'Split cell' }, '-', { action: 'size', label: 'Table size…' }];
-/** The right-click menu: everything. */
+const ROWS: Item[] = [{ heading: 'Rows' }, { action: 'rowAbove', label: 'Insert row above' }, { action: 'rowBelow', label: 'Insert row below' }, '-', { action: 'deleteRow', label: 'Delete row', danger: true }];
+const COLUMNS: Item[] = [{ heading: 'Columns' }, { action: 'columnLeft', label: 'Insert column left' }, { action: 'columnRight', label: 'Insert column right' }, '-', { action: 'deleteColumn', label: 'Delete column', danger: true }];
+const MORE: Item[] = [{ heading: 'Table' }, { action: 'headerRow', label: 'Header row' }, { action: 'merge', label: 'Merge cells' }, { action: 'split', label: 'Split cell' }, '-', { action: 'size', label: 'Table size…' }];
+/** The right-click menu: everything, under headings (the simplicity pass before 4.6). */
 const ALL: Item[] = [
+  { heading: 'Rows' },
   { action: 'rowAbove', label: 'Insert row above' },
   { action: 'rowBelow', label: 'Insert row below' },
+  { action: 'deleteRow', label: 'Delete row', danger: true },
+  { heading: 'Columns' },
   { action: 'columnLeft', label: 'Insert column left' },
   { action: 'columnRight', label: 'Insert column right' },
-  '-',
-  { action: 'deleteRow', label: 'Delete row', danger: true },
   { action: 'deleteColumn', label: 'Delete column', danger: true },
-  { action: 'deleteTable', label: 'Delete table', danger: true },
-  '-',
+  { heading: 'Table' },
   { action: 'headerRow', label: 'Header row' },
   { action: 'colour', label: 'Cell colour…' },
   { action: 'merge', label: 'Merge cells' },
   { action: 'split', label: 'Split cell' },
-  '-',
   { action: 'size', label: 'Table size…' },
+  { action: 'deleteTable', label: 'Delete table', danger: true },
 ];
 const ITEMS: Record<Exclude<Kind, 'colour'>, Item[]> = { rows: ROWS, columns: COLUMNS, more: MORE, all: ALL };
 
@@ -105,6 +105,8 @@ export function TableMenus({ editor }: { editor: Editor }) {
     items.map((item, i) =>
       item === '-' ? (
         <PopoverDivider key={`divider-${i}`} />
+      ) : 'heading' in item ? (
+        <PopoverHeading key={`heading-${item.heading}`} text={item.heading} />
       ) : (
         <PopoverRow
           key={item.action}

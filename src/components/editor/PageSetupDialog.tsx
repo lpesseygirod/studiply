@@ -5,8 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import { PAGE_COLORS } from '../../editor/editorCss';
 import {
   fitMargins,
+  paperCm,
   MARGIN_PRESETS,
   PAGE_GAPS,
   PAGE_NUMBERS,
@@ -35,7 +37,9 @@ const showCm = (n: number) => String(n);
 /**
  * Page setup (after test D), Google Docs style, from the document's …
  * menu on both devices: orientation, paper size, margins (Normal, Narrow,
- * Wide or typed in cm), page numbers and the gap between pages. OK saves it
+ * Wide or typed in cm), page numbers and the space between pages. Each
+ * choice is a small drawn tile, and the page as set is drawn at the top
+ * (the simplicity pass before 4.6). OK saves it
  * on the document; "Set as default" keeps it for new documents. A centred
  * dialog on the laptop, a sheet on the iPhone.
  */
@@ -84,18 +88,24 @@ export function PageSetupDialog({
   const set = (change: Partial<PageSetup>) => setDraft((d) => ({ ...d, ...change }));
   const preset = presetOf(draft.margins);
 
-  const segment = <T extends string | number>(label: string, value: T, current: T, onPress: () => void, a11y?: string) => (
+  /** A choice: its small picture, its name (and a detail under it). */
+  const tile = <T extends string | number>(label: string, value: T, current: T, onPress: () => void, picture: React.ReactNode, a11y?: string, detail?: string) => (
     <Pressable
       key={String(value)}
       onPress={onPress}
-      style={[styles.segment, current === value && styles.segmentOn]}
+      style={({ hovered }: { hovered?: boolean }) => [styles.tile, hovered && styles.tileHover, current === value && styles.tileOn]}
       accessibilityRole="radio"
       accessibilityState={{ checked: current === value }}
       accessibilityLabel={a11y ?? label}
     >
-      <Text style={[styles.segmentText, current === value && styles.segmentTextOn]}>{label}</Text>
+      <View style={styles.tilePicture}>{picture}</View>
+      <Text style={[styles.tileText, current === value && styles.tileTextOn]} numberOfLines={1}>
+        {label}
+      </Text>
+      {detail ? <Text style={styles.tileDetail}>{detail}</Text> : null}
     </Pressable>
   );
+  const pic = (change: Partial<PageSetup>, height = TILE_PICTURE) => <PagePicture setup={{ ...draft, ...change }} height={height} />;
 
   const apply = () => {
     onApply(settled());
@@ -125,29 +135,50 @@ export function PageSetupDialog({
           </View>
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
             {pageless && <Text style={styles.hint}>You&apos;re in Pageless: these apply to Pages and printing.</Text>}
+            {/* The page as it is set: its shape, its text area, where the number goes. */}
+            <View style={styles.preview}>
+              <PagePicture setup={draft} height={PREVIEW} />
+              <Text style={styles.previewText}>
+                {PAPER[draft.size].label.split(' (')[0]} · {draft.orientation === 'portrait' ? 'Portrait' : 'Landscape'}
+                {'\n'}
+                {preset === 'custom' ? 'Custom margins' : `${MARGIN_PRESETS[preset].label} margins`}
+                {'\n'}
+                {PAGE_NUMBERS.find((n) => n.value === draft.numbers)?.label === 'Off' ? 'No page numbers' : `Page numbers: ${PAGE_NUMBERS.find((n) => n.value === draft.numbers)?.label.toLowerCase()}`}
+              </Text>
+            </View>
 
             <Text style={styles.label}>Orientation</Text>
-            <View style={styles.segments}>
-              {segment('Portrait', 'portrait', draft.orientation, () => set({ orientation: 'portrait' }))}
-              {segment('Landscape', 'landscape', draft.orientation, () => set({ orientation: 'landscape' }))}
+            <View style={styles.tiles}>
+              {tile('Portrait', 'portrait', draft.orientation, () => set({ orientation: 'portrait' }), pic({ orientation: 'portrait' }))}
+              {tile('Landscape', 'landscape', draft.orientation, () => set({ orientation: 'landscape' }), pic({ orientation: 'landscape' }))}
             </View>
 
             <Text style={styles.label}>Paper size</Text>
-            <View style={styles.segments}>
-              {(Object.keys(PAPER) as PaperSize[]).map((size) => segment(PAPER[size].label, size, draft.size, () => set({ size }), size === 'a4' ? 'A4' : 'Letter'))}
+            <View style={styles.tiles}>
+              {(Object.keys(PAPER) as PaperSize[]).map((size) =>
+                tile(size === 'a4' ? 'A4' : 'Letter', size, draft.size, () => set({ size }), pic({ size }), size === 'a4' ? 'A4' : 'Letter', PAPER[size].label.split('(')[1].replace(')', '')),
+              )}
             </View>
 
-            <Text style={styles.label}>Margins (cm)</Text>
-            <View style={styles.segments}>
+            <Text style={styles.label}>Margins</Text>
+            <View style={styles.tiles}>
               {(Object.keys(MARGIN_PRESETS) as MarginPreset[]).map((key) =>
-                segment(MARGIN_PRESETS[key].label, key, preset, () => {
-                  set({ margins: MARGIN_PRESETS[key].margins });
-                  setFields(textOf(MARGIN_PRESETS[key].margins));
-                  setNote(null);
-                }, `${MARGIN_PRESETS[key].label} margins`),
+                tile(
+                  MARGIN_PRESETS[key].label,
+                  key,
+                  preset,
+                  () => {
+                    set({ margins: MARGIN_PRESETS[key].margins });
+                    setFields(textOf(MARGIN_PRESETS[key].margins));
+                    setNote(null);
+                  },
+                  pic({ margins: MARGIN_PRESETS[key].margins }),
+                  `${MARGIN_PRESETS[key].label} margins`,
+                  key === 'wide' ? '2.54 / 5.08 cm' : `${MARGIN_PRESETS[key].margins.top} cm`,
+                ),
               )}
-              {preset === 'custom' && <View style={[styles.segment, styles.segmentOn]}><Text style={[styles.segmentText, styles.segmentTextOn]}>Custom</Text></View>}
             </View>
+            <Text style={styles.small}>Or type them, in cm{preset === 'custom' ? ' (custom)' : ''}:</Text>
             <View style={styles.marginRow}>
               {SIDES.map((side) => (
                 <View key={side.key} style={styles.marginField}>
@@ -171,12 +202,14 @@ export function PageSetupDialog({
             </View>
 
             <Text style={styles.label}>Page numbers</Text>
-            <View style={[styles.segments, styles.wrap]}>
-              {PAGE_NUMBERS.map((n) => segment(n.label, n.value, draft.numbers, () => set({ numbers: n.value }), `Page numbers: ${n.label}`))}
+            <View style={styles.tiles}>
+              {PAGE_NUMBERS.map((n) => tile(n.label, n.value, draft.numbers, () => set({ numbers: n.value }), pic({ numbers: n.value }), `Page numbers: ${n.label}`))}
             </View>
 
-            <Text style={styles.label}>Gap between pages</Text>
-            <View style={styles.segments}>{PAGE_GAPS.map((g) => segment(g.label, g.value, draft.gap, () => set({ gap: g.value }), `Gap between pages: ${g.label}`))}</View>
+            <Text style={styles.label}>Space between pages</Text>
+            <View style={styles.tiles}>
+              {PAGE_GAPS.map((g) => tile(g.label, g.value, draft.gap, () => set({ gap: g.value }), <TwoPages gap={g.value} />, `Space between pages: ${g.label}`))}
+            </View>
 
             {note && <Text style={styles.note}>{note}</Text>}
           </ScrollView>
@@ -195,6 +228,56 @@ export function PageSetupDialog({
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+const TILE_PICTURE = 40;
+const PREVIEW = 96;
+
+/**
+ * A page drawn small: the paper's shape (to scale), its text area inside the
+ * margins (with a few lines of "text"), and a dot where the page number goes.
+ */
+function PagePicture({ setup, height }: { setup: PageSetup; height: number }) {
+  const styles = useThemedStyles(makeStyles);
+  const paper = paperCm(setup);
+  const k = height / Math.max(paper.height, paper.width * 0.75);
+  const w = paper.width * k;
+  const h = paper.height * k;
+  const m = setup.margins;
+  const dot = 3;
+  const numberAt =
+    setup.numbers === 'off'
+      ? null
+      : setup.numbers === 'top-right'
+        ? { right: m.right * k, top: Math.max(1, (m.top * k - dot) / 2) }
+        : setup.numbers === 'bottom-right'
+          ? { right: m.right * k, bottom: Math.max(1, (m.bottom * k - dot) / 2) }
+          : { left: (w - dot) / 2, bottom: Math.max(1, (m.bottom * k - dot) / 2) };
+  const textH = Math.max(2, h - (m.top + m.bottom) * k);
+  const lines = Math.max(1, Math.min(height > 60 ? 24 : 6, Math.floor(textH / 5)));
+  return (
+    <View style={[styles.paper, { width: w, height: h }]}>
+      <View style={[styles.textArea, { left: m.left * k, right: m.right * k, top: m.top * k, bottom: m.bottom * k }]}>
+        {Array.from({ length: lines }, (_, i) => (
+          <View key={i} style={[styles.textLine, i === lines - 1 && { width: '60%' }]} />
+        ))}
+      </View>
+      {numberAt && <View style={[styles.numberDot, { width: dot, height: dot }, numberAt]} />}
+    </View>
+  );
+}
+
+/** Two pages one under the other, `gap` apart (to scale). */
+function TwoPages({ gap }: { gap: number }) {
+  const styles = useThemedStyles(makeStyles);
+  const space = Math.round(gap / 6);
+  return (
+    <View style={styles.twoPages}>
+      <View style={[styles.paper, styles.halfPage]} />
+      <View style={{ height: space }} />
+      <View style={[styles.paper, styles.halfPage]} />
+    </View>
   );
 }
 
@@ -223,12 +306,23 @@ const makeStyles = (c: ThemeColors) =>
     hint: { fontSize: Typography.size.sm, color: c.text.secondary },
     label: { marginTop: 8, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.primary },
     small: { fontSize: Typography.size.xs, color: c.text.secondary },
-    segments: { flexDirection: 'row', alignSelf: 'flex-start', borderRadius: 8, borderWidth: 1, borderColor: c.border, overflow: 'hidden' },
-    wrap: { flexWrap: 'wrap', alignSelf: 'stretch' },
-    segment: { paddingHorizontal: 12, paddingVertical: 8 },
-    segmentOn: { backgroundColor: c.accentLight },
-    segmentText: { fontSize: Typography.size.sm, color: c.text.secondary },
-    segmentTextOn: { color: c.accentDark, fontWeight: Typography.weight.semibold },
+    preview: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 12, borderRadius: 12, backgroundColor: c.cardMuted },
+    previewText: { flex: 1, fontSize: Typography.size.sm, lineHeight: 20, color: c.text.primary },
+    tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tile: { minWidth: 76, paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: c.border, alignItems: 'center', gap: 4 },
+    tileHover: { backgroundColor: c.cardMuted },
+    tileOn: { borderColor: c.accentDark, backgroundColor: c.accentLight },
+    tilePicture: { height: TILE_PICTURE + 2, justifyContent: 'center', alignItems: 'center' },
+    tileText: { fontSize: Typography.size.sm, color: c.text.primary },
+    tileTextOn: { color: c.accentDark, fontWeight: Typography.weight.semibold },
+    tileDetail: { fontSize: 10, color: c.text.secondary },
+    // White paper in dark mode too (the page palette, as the editor's pages).
+    paper: { backgroundColor: PAGE_COLORS.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.text.placeholder, borderRadius: 1 },
+    textArea: { position: 'absolute', gap: 2, paddingTop: 1, overflow: 'hidden' },
+    textLine: { height: 2, borderRadius: 1, backgroundColor: PAGE_COLORS.border },
+    numberDot: { position: 'absolute', borderRadius: 2, backgroundColor: c.accentDark },
+    twoPages: { alignItems: 'center' },
+    halfPage: { width: 26, height: 16 },
     marginRow: { flexDirection: 'row', gap: 10 },
     marginField: { flex: 1, gap: 4 },
     input: {

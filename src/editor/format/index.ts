@@ -10,6 +10,7 @@ import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../ta
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
 import { pageViewOf } from '../page/pageView';
+import { photoBarKey, type PhotoBarRequest } from '../photoBar';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 
@@ -97,6 +98,8 @@ export interface FormatState {
   selectionRequest: SelectionBarRequest | null;
   /** Maths typed as text before the cursor, offered as a formula (its LaTeX); null when none. */
   mathSuggestion: { latex: string } | null;
+  /** The last press on the photo bar's Layout… (a phone: the iPhone opens its layout sheet). */
+  photoRequest: PhotoBarRequest | null;
   /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
   view: { pages: boolean; zoom: number; pageCount: number };
 }
@@ -221,6 +224,7 @@ export function formatState(editor: Editor): FormatState {
     ...commentState(editor),
     selectionRequest: selectionBarKey.getState(editor.state) ?? null,
     mathSuggestion: mathSuggestionOf(editor),
+    photoRequest: photoBarKey.getState(editor.state) ?? null,
     view: viewOf(editor),
   };
 }

@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeyboardToolbar } from '../iphone/KeyboardToolbar';
 import type { FormatState } from '../format';
 
-jest.mock('@10play/tentap-editor', () => ({ useKeyboardAccessory: () => ({ onLayout: () => {} }) }));
+jest.mock('../iphone/keyboardAccessory', () => ({ useKeyboardAccessory: () => ({ onLayout: () => {} }) }));
 // Icons need fonts Jest can't load; a placeholder is enough here.
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 
@@ -54,7 +54,7 @@ async function render(state: Partial<FormatState> = {}, width = 330, withPhotos 
 }
 
 describe('the iPhone keyboard toolbar', () => {
-  it('an iPhone width: the first tools in the row, the arrow, Done; the rest only when the arrow opens them', async () => {
+  it('an iPhone width: the first tools in the row, the arrow, Done; the rest only when the arrow opens them, in named groups', async () => {
     const r = await render();
     const shown = unique(labels(r));
     expect(shown.slice(0, 6)).toEqual(['Text style and size', 'Bold', 'Italic', 'Underline', 'Text colour and highlight', 'Bulleted list']);
@@ -65,22 +65,23 @@ describe('the iPhone keyboard toolbar', () => {
     await act(async () => props(more).onPress!());
     const open = unique(labels(r));
     expect(open).toContain('Fewer tools');
-    expect(open).toContain('Undo');
-    expect(open).toContain('Redo');
-    // No "+" any more: what goes into the document is in the second row (Lea, after test C).
+    // No "+" any more: what goes into the document is in the second row (Lea, after test C), with Undo and Redo last.
     expect(shown).not.toContain('Insert');
     const first = open.indexOf('Insert photo');
     expect(open.slice(first, first + 5)).toEqual(['Insert photo', 'Take photo', 'Insert table', 'Insert formula', 'Add comment']);
-    // After what didn't fit the first row.
-    expect(open.indexOf('Redo')).toBeLessThan(first);
+    expect(open.slice(first + 5, first + 7)).toEqual(['Undo', 'Redo']);
+    // Each group has its title, each tool its name under it (the simplicity pass).
+    const texts = r.root.findAll((n) => typeof (n as unknown as { type: unknown }).type === 'string' && typeof n.props.children === 'string').map((n) => n.props.children as string);
+    for (const t of ['Format', 'Paragraph', 'Insert', 'Edit', 'Strike', 'Checklist', 'Indent −', 'Indent +', 'Photo', 'Camera', 'Table', 'Formula', 'Comment', 'Undo', 'Redo']) expect(texts).toContain(t);
   });
 
-  it('wide enough for every tool (an iPhone on its side): the arrow is still there for the inserts', async () => {
+  it('wide enough for the whole first row (an iPhone on its side): Link fits; the arrow is still there for the rest', async () => {
     const r = await render({}, 900);
     const shown = unique(labels(r));
-    expect(shown).toContain('Redo');
+    expect(shown).toContain('Link');
     expect(shown).toContain('More tools');
     expect(shown).not.toContain('Insert table');
+    expect(shown).not.toContain('Redo');
     const more = r.root.findAll((n) => props(n).accessibilityLabel === 'More tools' && typeof props(n).onPress === 'function')[0];
     await act(async () => props(more).onPress!());
     expect(unique(labels(r))).toContain('Insert table');

@@ -168,8 +168,13 @@ function Dialog({ request }: { request: DialogRequest }) {
           </Text>
         )}
         {items.map((b, i) => (
+          <React.Fragment key={b.text}>
+          {!!b.section && (
+            <Text style={styles.menuSection} accessibilityRole="header">
+              {b.section}
+            </Text>
+          )}
           <Pressable
-            key={b.text}
             ref={(node) => {
               itemNodes.current[i] = node as unknown as HTMLElement | null;
             }}
@@ -207,6 +212,7 @@ function Dialog({ request }: { request: DialogRequest }) {
               {!!b.hint && <Text style={styles.menuItemHint}>{b.hint}</Text>}
             </View>
           </Pressable>
+          </React.Fragment>
         ))}
       </View>
     );
@@ -350,6 +356,7 @@ const makeStyles = (c: ThemeColors) =>
   menuItemBody: { flexShrink: 1, paddingVertical: 6 },
   menuItemDisabled: { color: c.text.secondary },
   menuItemHint: { fontSize: Typography.size.xs, color: c.text.secondary },
+  menuSection: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2, fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
   menuItemText: {
     fontSize: Typography.size.base,
     color: c.text.primary,

@@ -83,6 +83,16 @@ export function PopoverDivider() {
   return <View style={styles.divider} />;
 }
 
+/** A small heading over a group of a menu's items ("Rows", "Layout"). */
+export function PopoverHeading({ text }: { text: string }) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <Text style={styles.heading} accessibilityRole="header">
+      {text}
+    </Text>
+  );
+}
+
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', minHeight: 36, paddingHorizontal: 10, marginHorizontal: 4, borderRadius: 8 },
@@ -91,6 +101,7 @@ const makeStyles = (c: ThemeColors) =>
     check: { width: 22 },
     text: { fontSize: Typography.size.base, color: c.text.primary },
     divider: { height: StyleSheet.hairlineWidth, marginVertical: 4, marginHorizontal: 10, backgroundColor: c.border },
+    heading: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 4, fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.text.secondary, textTransform: 'uppercase', letterSpacing: 0.6 },
     panel: {
       position: 'absolute',
       paddingVertical: 6,

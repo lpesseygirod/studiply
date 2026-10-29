@@ -296,6 +296,21 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionPress]);
 
+  // The photo bar's Layout… (in the WebView, a phone's width): the layout sheet.
+  const photoPress = state.format?.photoRequest?.id ?? null;
+  const seenPhotoPress = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    // The first state seen may carry an old press (the screen came back): not a new one.
+    if (seenPhotoPress.current === undefined || photoPress === seenPhotoPress.current) {
+      seenPhotoPress.current = photoPress;
+      return;
+    }
+    seenPhotoPress.current = photoPress;
+    openPhotoLayout();
+    // Only a new press opens it; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoPress]);
+
   // Tapping a formula (in the WebView) opens the sheet on it.
   const formulaTap = state.format?.formulaRequest?.id ?? null;
   const seenFormulaTap = useRef<number | null | undefined>(undefined);

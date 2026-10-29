@@ -173,11 +173,11 @@ try {
 
   await step('the toolbar: one row with ⌄; the second row remembered after a reload', async () => {
     if (await has('Fewer tools')) await click('Fewer tools');
-    expect(!(await has('Align centre (⌘⇧E)')), 'the second row is open');
+    expect(!(await has('Clear formatting')), 'the second row is open');
     await click('More tools');
-    expect(await has('Align centre (⌘⇧E)'), 'the second row did not open');
+    expect(await has('Clear formatting'), 'the second row did not open');
     await openDoc();
-    expect(await has('Fewer tools') && await has('Align centre (⌘⇧E)'), 'not remembered after a reload');
+    expect(await has('Fewer tools') && await has('Clear formatting'), 'not remembered after a reload');
   });
 
   // Tables, with real clicks (test A: "Delete table doesn't work").
@@ -188,7 +188,17 @@ try {
     await b.sleep(350);
   };
   const types = async () => (await json()).content.map((n) => n.type).join(',');
+  // Image, table, formula and comment are in the Insert menu (the simplicity pass).
+  const IN_INSERT = { 'Insert table': 'Insert table', Image: 'Insert image', Formula: 'Insert formula', 'Comment (⌘⌥M)': 'Insert comment' };
   const toolbarTool = async (label) => {
+    if (IN_INSERT[label]) {
+      if (!(await has('Insert'))) await click('More tools');
+      await click('Insert');
+      await b.sleep(300);
+      await click(IN_INSERT[label]);
+      await b.sleep(300);
+      return;
+    }
     if (!(await has(label))) await click('More tools');
     await click(label);
     await b.sleep(300);
@@ -205,7 +215,7 @@ try {
     await toolbarTool('Insert table');
     await b.fill('input[aria-label="Rows"]', '6');
     await b.fill('input[aria-label="Columns"]', '4');
-    await b.click('Insert', { exact: true });
+    await b.click('Insert table', { exact: true });
     await b.sleep(400);
     expect(JSON.stringify(await tableSize()) === '[6,4]', `size ${await tableSize()}`);
     expect((await types()) === 'paragraph,table,paragraph', await types());
@@ -529,7 +539,7 @@ try {
   // ── Part B: formulas ──
   const COMPOUND = 'A = P\\left(1 + \\frac{r}{n}\\right)^{nt}';
   const INTEGRAL = '\\int_{a}^{b} f(x)\\,dx';
-  const LATEX = 'textarea[aria-label="Formula (LaTeX)"]';
+  const LATEX = 'textarea[aria-label="Formula"]';
   const formulas = async () => {
     const out = [];
     const walk = (n) => {
@@ -543,7 +553,7 @@ try {
   await step('formulas: ∑, the compound-interest formula typed (in the text as it is typed, and previewed), Display, Done', async () => {
     await lastLine();
     await toolbarTool('Formula');
-    await b.waitText('Inline', { exact: true });
+    await b.waitText('In the text', { exact: true });
     // Typed in two goes: the formula in the text follows (one formula, changed).
     await b.type('A = P');
     expect(JSON.stringify(await formulas()) === JSON.stringify([{ type: 'inlineMath', latex: 'A = P' }]), JSON.stringify(await formulas()));
@@ -553,10 +563,10 @@ try {
     expect(await b.evaluate(`!!document.querySelector('.studiply-formula-preview .katex')`), 'no preview');
     expect(await b.evaluate(`!!document.querySelector('.ProseMirror [data-type="inline-math"] .katex')`), 'not drawn in the text');
     await b.shot('ins-formula-1280');
-    await click('Display formula (its own line)');
+    await click('Formula on its own line');
     expect((await formulas())[0]?.type === 'blockMath', JSON.stringify(await formulas()));
     await click('Done with the formula');
-    expect(!(await has('Formula (LaTeX)')), 'the popover is still open');
+    expect(!(await b.evaluate(`!!document.querySelector('${LATEX}')`)), 'the popover is still open');
     // KaTeX's own fonts are loaded (not a fallback font); none failed.
     const fonts = await b.evaluate(`document.fonts.ready.then(() => { const k = [...document.fonts].filter((f) => f.family.startsWith('KaTeX')); return k.some((f) => f.family === 'KaTeX_Main' && f.status === 'loaded') && !k.some((f) => f.status === 'error'); })`);
     expect(fonts, 'KaTeX fonts not loaded');
@@ -690,7 +700,15 @@ try {
     await b.clickAt(box.x, box.y);
     await b.sleep(300);
     expect(await b.evaluate(`getComputedStyle(document.querySelector('.studiply-photo-bar')).display === 'flex'`), 'no photo bar');
-    await click('Wrap left');
+    // Where the whole bar doesn't fit (this column, with the assistant open), its layouts are behind Layout… (the simplicity pass).
+    const compact = await b.evaluate(`document.querySelector('.studiply-photo-bar').classList.contains('studiply-photo-bar-compact')`);
+    const layout = async (label, menuText) => {
+      if (!compact) return click(label);
+      await click('Photo layout');
+      await b.sleep(300);
+      await b.click(menuText, { exact: true });
+    };
+    await layout('Wrap left', 'Wrap left');
     await b.sleep(300);
     expect((await photoAttrs()).wrap === 'left', JSON.stringify(await photoAttrs()));
     box = await photoBox();
@@ -698,14 +716,15 @@ try {
     const line = await b.evaluate(`(() => { const p = document.querySelectorAll('.ProseMirror p')[1]; const range = document.createRange(); range.setStart(p.firstChild, 0); range.setEnd(p.firstChild, 1); const r = range.getBoundingClientRect(); return { left: r.left, top: r.top }; })()`);
     expect(line.left >= box.right && line.top < box.bottom, `text at ${JSON.stringify(line)}, photo ${JSON.stringify(box)}`);
     await b.shot('ins-photo-wrap-left-1280');
-    await click('Break text');
-    await click('Centre photo');
+    await layout('Break text', 'Break text');
+    await b.sleep(300);
+    await layout('Centre photo', 'Centre');
     await b.sleep(300);
     expect((await photoAttrs()).align === 'center', JSON.stringify(await photoAttrs()));
     box = await photoBox();
     const page = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror').getBoundingClientRect(); return { left: r.left, right: r.right }; })()`);
     expect(Math.abs((box.left + box.right) / 2 - (page.left + page.right) / 2) < 4, 'not centred');
-    await click('In line with text');
+    await layout('In line with text', 'In line with text');
     await b.sleep(300);
     expect((await photoAttrs()).type === 'inlineImage', JSON.stringify(await photoAttrs()));
     await b.shot('ins-photo-inline-1280');
@@ -814,10 +833,10 @@ try {
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);
-    // The first row ends with ⌄; Insert table now sits in the second row (below it).
+    // The first row ends with ⌄; View (its last group) now sits in the second row (below it).
     const ys = await b.evaluate(`(() => {
       const y = (l) => document.querySelector('[aria-label="' + l + '"]')?.getBoundingClientRect().top ?? null;
-      return { bold: y('Bold'), table: y('Insert table'), toggle: y('Fewer tools') };
+      return { bold: y('Bold'), table: y('View'), toggle: y('Fewer tools') };
     })()`);
     expect(ys.table !== null && ys.table > ys.bold + 10, JSON.stringify(ys));
     await b.shot('ins-toolbar-1040');

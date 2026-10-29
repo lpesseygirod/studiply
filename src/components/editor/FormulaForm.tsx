@@ -51,7 +51,7 @@ export function FormulaForm({
       style={[styles.segment, display === value && styles.segmentOn]}
       accessibilityRole="button"
       accessibilityState={{ selected: display === value }}
-      accessibilityLabel={value ? 'Display formula (its own line)' : 'Inline formula (in the line)'}
+      accessibilityLabel={value ? 'Formula on its own line' : 'Formula in the text'}
     >
       <Text style={[styles.segmentText, display === value && styles.segmentTextOn]}>{label}</Text>
     </Pressable>
@@ -60,8 +60,8 @@ export function FormulaForm({
   return (
     <View style={styles.form}>
       <View style={styles.segments}>
-        {kind('Inline', false)}
-        {kind('Display', true)}
+        {kind('In the text', false)}
+        {kind('On its own line', true)}
       </View>
       <TextInput
         ref={input}
@@ -75,11 +75,12 @@ export function FormulaForm({
         autoCorrect={false}
         spellCheck={false}
         keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'default'}
-        placeholder="LaTeX, e.g. x^2 + y^2 = r^2"
+        placeholder="e.g. x^2 + y^2 = r^2"
         placeholderTextColor={c.text.placeholder}
         style={styles.input}
-        accessibilityLabel="Formula (LaTeX)"
+        accessibilityLabel="Formula"
       />
+      <Text style={styles.howTo}>Typed like this: x^2 for a power, \frac{'{'}a{'}'}{'{'}b{'}'} for a fraction, \sqrt{'{'}x{'}'} for a root.</Text>
       <View style={styles.starters}>
         {FORMULA_STARTERS.map((s) => (
           <Pressable key={s.label} onPress={() => insert(s.latex)} style={styles.starter} accessibilityRole="button" accessibilityLabel={`Insert ${s.label.toLowerCase()}`}>
@@ -111,6 +112,7 @@ const makeStyles = (c: ThemeColors) =>
     segmentOn: { backgroundColor: c.accentLight },
     segmentText: { fontSize: Typography.size.sm, color: c.text.secondary },
     segmentTextOn: { color: c.accentDark, fontWeight: Typography.weight.semibold },
+    howTo: { fontSize: Typography.size.xs, color: c.text.secondary },
     input: {
       minHeight: 64,
       maxHeight: 140,

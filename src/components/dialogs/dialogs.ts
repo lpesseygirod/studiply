@@ -28,6 +28,12 @@ export interface DialogButton {
   icon?: string;
   /** Menus on the web: what VoiceOver reads when the text is short ("Record" → "Record lecture"). */
   accessibilityLabel?: string;
+  /**
+   * Menus on the web: a small heading shown above this item, starting a group
+   * ("Document", "Page"). The iPhone's action sheet can't show headings; its
+   * items keep the same order.
+   */
+  section?: string;
 }
 
 /** Where a menu opens on the web (page coordinates of a right-click). */

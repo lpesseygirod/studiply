@@ -3,9 +3,10 @@ import type { Editor } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
 
 import type { Anchor } from '../components/dialogs/dialogs';
-import { PopoverDivider, PopoverRow, ToolbarPopover } from '../components/editor/ToolbarPopover';
+import { PopoverDivider, PopoverHeading, PopoverRow, ToolbarPopover } from '../components/editor/ToolbarPopover';
 import { formatState, runFormat, type FormatCommand } from './format';
 import { isPhoto, PHOTO_CLASS, PHOTO_WIDTHS, type PhotoAlign, type PhotoWrap } from './schema/photo';
+import { PHOTO_BAR_EVENT } from './photoBar';
 
 const LAYOUTS: { wrap: PhotoWrap; label: string }[] = [
   { wrap: 'inline', label: 'In line with text' },
@@ -50,8 +51,17 @@ export function PhotoMenu({ editor }: { editor: Editor }) {
       editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, at)));
       setAnchor({ x: e.clientX, y: e.clientY });
     };
+    // The photo bar's Layout… on a narrow window: the same menu, under the bar.
+    const onBar = (e: Event) => {
+      const { x, y } = (e as CustomEvent<{ x: number; y: number }>).detail;
+      setAnchor({ x, y });
+    };
     dom.addEventListener('contextmenu', onContextMenu);
-    return () => dom.removeEventListener('contextmenu', onContextMenu);
+    dom.addEventListener(PHOTO_BAR_EVENT, onBar);
+    return () => {
+      dom.removeEventListener('contextmenu', onContextMenu);
+      dom.removeEventListener(PHOTO_BAR_EVENT, onBar);
+    };
   }, [editor]);
 
   const close = () => setAnchor(null);
@@ -63,10 +73,11 @@ export function PhotoMenu({ editor }: { editor: Editor }) {
     <ToolbarPopover anchor={photo ? anchor : null} onClose={close} width={220} label="Photo">
       {photo && (
         <>
+          <PopoverHeading text="Layout" />
           {LAYOUTS.map((l) => (
             <PopoverRow key={l.wrap} label={l.label} checked={photo.wrap === l.wrap} onPress={() => run({ type: 'photoLayout', wrap: l.wrap })} />
           ))}
-          <PopoverDivider />
+          <PopoverHeading text="Align (Break text)" />
           {ALIGNS.map((a) => (
             <PopoverRow
               key={a.align}
@@ -76,7 +87,7 @@ export function PhotoMenu({ editor }: { editor: Editor }) {
               onPress={() => run({ type: 'photoLayout', align: a.align })}
             />
           ))}
-          <PopoverDivider />
+          <PopoverHeading text="Size" />
           {SIZES.map((sz) => (
             <PopoverRow key={sz.width} label={sz.label} checked={photo.width === sz.width} onPress={() => run({ type: 'photoWidth', width: sz.width })} />
           ))}

@@ -115,7 +115,7 @@ try {
     await click('Font');
     await b.click('Rounded');
     expect(marksOf(await first()).some((m) => m.type === 'textStyle' && /ui-rounded/.test(m.attrs.fontFamily)), 'no Rounded');
-    await click('Bigger');
+    await click('Bigger text');
     expect(marksOf(await first()).some((m) => m.attrs?.fontSize === '16px'), 'no 16px');
   });
 
@@ -141,20 +141,25 @@ try {
     await click('Numbered list');
     expect((await first()).type === 'orderedList', (await first()).type);
     await click('Numbered list');
-    for (const [label, value] of [['Align centre (⌘⇧E)', 'center'], ['Align right (⌘⇧R)', 'right'], ['Align justify (⌘⇧J)', 'justify'], ['Align centre (⌘⇧E)', 'center']]) {
+    // Align is one menu (the simplicity pass).
+    for (const [label, value] of [['Align centre', 'center'], ['Align right', 'right'], ['Justify', 'justify'], ['Align centre', 'center']]) {
+      await click('Align');
+      await b.sleep(250);
       await click(label);
       expect((await first()).attrs.textAlign === value, `${label}: ${JSON.stringify((await first()).attrs)}`);
     }
     await click('Line spacing');
     await b.click('Double');
     expect((await first()).attrs.lineSpacing === 2, JSON.stringify((await first()).attrs));
-    await click('Increase indent');
-    await click('Increase indent');
+    await click('More indent');
+    await click('More indent');
     expect((await first()).attrs.indent === 2, JSON.stringify((await first()).attrs));
-    await click('Decrease indent');
+    await click('Less indent');
     expect((await first()).attrs.indent === 1, 'indent not 1');
     await b.evaluate(`${EDITOR}.commands.focus('end')`);
-    await click('Page break');
+    await click('Insert');
+    await b.sleep(250);
+    await click('Insert page break');
     expect((await json()).content.some((n) => n.type === 'pageBreak'), 'no page break');
   });
 

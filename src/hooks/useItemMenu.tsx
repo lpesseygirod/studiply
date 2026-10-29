@@ -49,11 +49,14 @@ export function useItemMenu({
    * it). `dialogRename`: Rename… in a dialog even where folders are renamed
    * in place (the folder you're in has no tile to edit). `extra`: the
    * screen's own items, before Delete (a document's Version history).
+   * `section`: a heading over the item's own actions (laptop menus), when
+   * the screen's items come under headings of their own: they then come
+   * first, and the item's own group (ending with Delete) last.
    */
   function open(
     item: ShelfItem,
     anchor?: Anchor,
-    { skip = [], dialogRename = false, extra = [] }: { skip?: ItemAction[]; dialogRename?: boolean; extra?: DialogButton[] } = {},
+    { skip = [], dialogRename = false, extra = [], section }: { skip?: ItemAction[]; dialogRename?: boolean; extra?: DialogButton[]; section?: string } = {},
   ) {
     const button = (action: ItemAction): DialogButton => {
       const base = actionButton(action);
@@ -97,8 +100,13 @@ export function useItemMenu({
     const buttons = itemActions(item)
       .filter((action) => !skip.includes(action))
       .map(button);
-    const at = buttons.findIndex((b) => b.style === 'destructive');
-    buttons.splice(at < 0 ? buttons.length : at, 0, ...extra);
+    if (section && buttons[0]) {
+      buttons[0] = { ...buttons[0], section };
+      buttons.unshift(...extra);
+    } else {
+      const at = buttons.findIndex((b) => b.style === 'destructive');
+      buttons.splice(at < 0 ? buttons.length : at, 0, ...extra);
+    }
     showActionSheet(item.title, buttons, { anchor });
   }
 
