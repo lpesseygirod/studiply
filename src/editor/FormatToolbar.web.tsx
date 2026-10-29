@@ -15,6 +15,7 @@ import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
 import { FORMULA_EVENT } from './schema/formula';
+import { splitRow } from './toolbarFit';
 import { ALIGNS, formatState, runFormat, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from './format';
 import { TableGrid } from '../components/editor/TableGrid';
 import { TableSizeForm } from '../components/editor/TableSizeForm';
@@ -36,20 +37,6 @@ interface Item {
 const TOOL_W = 34;
 const GAP_W = 13;
 const ROW_PADDING = 24;
-
-/** The first items that fit in `room`, in order; the rest overflow (into the ⌄ row). */
-export function splitRow<T extends { width: number }>(items: T[], room: number): { fits: T[]; overflow: T[] } {
-  let used = 0;
-  let cut = items.length;
-  for (let i = 0; i < items.length; i++) {
-    used += items[i].width;
-    if (used > room) {
-      cut = i;
-      break;
-    }
-  }
-  return { fits: items.slice(0, cut), overflow: items.slice(cut) };
-}
 
 /** No separator at either end of a row, nor two in a row. */
 function trimGaps(items: Item[]): Item[] {
