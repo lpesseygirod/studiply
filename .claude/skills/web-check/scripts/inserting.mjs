@@ -295,7 +295,7 @@ try {
     const row = (r) => ({ type: 'tableRow', content: ['a', 'b', 'c'].map((c) => cell(`${c}${r}`)) });
     await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Antes' }] }, { type: 'table', content: ${JSON.stringify([1, 2, 3].map(row))} }, { type: 'paragraph' }] })`);
     await b.sleep(300);
-    const geo = () => b.evaluate(`(() => { const t = document.querySelector('.ProseMirror table').getBoundingClientRect(); const rows = [...document.querySelectorAll('.ProseMirror tr')].map((tr) => { const r = tr.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }); const cols = [...document.querySelectorAll('.ProseMirror tr:first-child > *')].map((td) => { const r = td.getBoundingClientRect(); return { left: r.left, right: r.right }; }); return { left: t.left, top: t.top, right: t.right, bottom: t.bottom, rows, cols }; })()`);
+    const geo = () => b.evaluate(`(() => { const t = document.querySelector('.ProseMirror table').getBoundingClientRect(); const rows = [...document.querySelectorAll('.ProseMirror tr')].map((tr) => { const r = tr.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }); const cols = [...document.querySelectorAll('.ProseMirror tr:first-child > *')].map((td) => { const r = td.getBoundingClientRect(); return { left: r.left, right: r.right }; }); const d = document.querySelector('.ProseMirror'); const zoom = Math.min(1, d.getBoundingClientRect().width / d.offsetWidth); return { left: t.left, top: t.top, right: t.right, bottom: t.bottom, rows, cols, zoom }; })()`);
     // What is under the pointer: the "+" (its label and size), or nothing.
     const under = (p) => b.evaluate(`(() => { const el = document.elementFromPoint(${p.x}, ${p.y})?.closest('.studiply-table-handles button'); if (!el) return null; const r = el.getBoundingClientRect(); return { label: el.getAttribute('aria-label'), width: r.width, height: r.height }; })()`);
     // A hand doesn't go straight: the path goes through `via` (off the line, further than the old 12 px).
@@ -317,11 +317,13 @@ try {
     };
 
     // A row: from a1, near the line under it, drifting up, then to the "+" on that line (aiming low on it).
+    // Drifts are in the document's size: zoomed out (Pages at Fit) the rows are smaller on screen, and so is a hand's drift.
     let g = await geo();
-    const a1 = { x: (g.cols[0].left + g.cols[0].right) / 2, y: g.rows[0].bottom - 8 };
+    const z = g.zoom;
+    const a1 = { x: (g.cols[0].left + g.cols[0].right) / 2, y: g.rows[0].bottom - 8 * z };
     const rowPlus = { x: g.left - 10, y: g.rows[0].bottom + 6 };
     await b.mouseMove({ x: a1.x - 40, y: a1.y }, a1, { steps: 3 });
-    await reach(a1, { x: g.left + 12, y: g.rows[0].bottom - 20 }, rowPlus, 'Insert row 2');
+    await reach(a1, { x: g.left + 12 * z, y: g.rows[0].bottom - 20 * z }, rowPlus, 'Insert row 2');
     await b.shot('ins-table-plus-row-1280');
     await b.pressHere(rowPlus);
     expect(JSON.stringify(await tableSize()) === '[4,3]', `row: size ${await tableSize()}`);
@@ -329,10 +331,10 @@ try {
 
     // A column: from b1, near the line on its left, drifting right, then up to the "+" on that line.
     g = await geo();
-    const b1 = { x: g.cols[1].left + 8, y: (g.rows[0].top + g.rows[0].bottom) / 2 };
+    const b1 = { x: g.cols[1].left + 8 * z, y: (g.rows[0].top + g.rows[0].bottom) / 2 };
     const colPlus = { x: g.cols[0].right - 5, y: g.top - 10 };
     await b.mouseMove(rowPlus, b1, { steps: 6 });
-    await reach(b1, { x: g.cols[1].left + 22, y: g.top + 4 }, colPlus, 'Insert column 2');
+    await reach(b1, { x: g.cols[1].left + 22 * z, y: g.top + 4 * z }, colPlus, 'Insert column 2');
     await b.shot('ins-table-plus-col-1280');
     await b.pressHere(colPlus);
     expect(JSON.stringify(await tableSize()) === '[4,4]', `column: size ${await tableSize()}`);

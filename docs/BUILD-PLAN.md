@@ -396,6 +396,8 @@ Also (Lea):
 Step 4.5b: a page view like Word's: A4 pages with gaps between them and the page count ("Page 3 of 12"), with a Pages / Pageless switch in the toolbar (laptop: Pages by default; iPhone: Pageless by default, the same switch). It only changes the display (the document stays one pageless JSON; see "Page view in 4.7: what is feasible" below for the approach), with A4 and standard margins until page setup comes in 4.7. Zoom: 50–200 % on the laptop (⌘+ / ⌘−, a zoom menu, remembered per device) and pinch-to-zoom on the iPhone. Start with a short spike against real documents; plan first.
 ```
 
+**Built 29 Oct** (see PROGRESS, checkpoint D): our own display-only page view (`src/editor/page/`), Fit / 50–200 % zoom, Print layout and pinch on the iPhone; the break rules in `pageLayout.ts` are the ones 4.8's export must follow.
+
 **Check:** a 10-page document shows its pages with gaps on the laptop and the right page count; a long paragraph splits between pages; switch to Pageless and back; zoom to 150 % and back with ⌘+ / ⌘− (remembered after a reload); pinch to zoom on the iPhone; Pages on the iPhone shows the same pages.
 
 **Step 4.6 — Studiply blocks**

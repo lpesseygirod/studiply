@@ -162,6 +162,10 @@ Photos, formulas and comments (step 4.5, checkpoint B):
 - **After test B (checkpoint C):** photo layout (`wrap` / `align` on the photo, the `inlineImage` node, the shared photo bar `photoBar.ts`, the laptop's `PhotoMenu.web.tsx`); the selection bar (`format/selectionBar.ts`, both editors); `$…$` and the "Make formula" suggestion (`schema/mathSuggest.ts`, handled in `schema/formula.ts`); the iPhone toolbar fitted to the width like the laptop's (`toolbarFit.ts`).
 - **Comments** are a `comment` mark (`schema/comments.ts`), so they travel with their block. Laptop: `Comments.web.tsx` (composer, margin, popover); the shell makes room for the margin (`components/shell/commentMargin.ts`). Both: the document menu's list (`components/editor/CommentsSheet.tsx`).
 
+### Page view and zoom (step 4.5b)
+
+Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, so both editors) measures the document with no gaps and inserts each page gap as a widget decoration (a block between blocks, a line break inside a paragraph, a row in a table); `page/pageLayout.ts` is the pure rule set (widow / orphan, headings kept with the next line, page breaks), for the export (4.8) too. Zoom is CSS `zoom` on the editor. Each device keeps Pages / Pageless and its zoom in `lib/viewPrefs.ts`: the laptop's toolbar and ⌘+ / ⌘− / ⌘0 (`StudiplyEditor.web.tsx`, `FormatToolbar.web.tsx`), the iPhone's **…** → Print layout and a pinch (WebKit gesture events in the WebView, the `view` format command and state).
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`
