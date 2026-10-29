@@ -52,10 +52,10 @@ function trimZeros(s: string): string {
 
 /**
  * A value for a label: up to `maxDecimals` decimals, thousands separated
- * from 10,000 (years stay "2007"), millions and billions shortened ("1.25M"),
- * a true minus sign.
+ * from `groupFrom` (10,000 by default, so years stay "2007"), millions and
+ * billions shortened ("1.25M"), a true minus sign.
  */
-export function formatNumber(v: number, maxDecimals = 2): string {
+export function formatNumber(v: number, maxDecimals = 2, groupFrom = 1e4): string {
   if (!Number.isFinite(v)) return String(v);
   const abs = Math.abs(v);
   let body: string;
@@ -64,9 +64,14 @@ export function formatNumber(v: number, maxDecimals = 2): string {
   else if (abs > 0 && abs < 10 ** -maxDecimals) body = String(Number(abs.toPrecision(2)));
   else {
     body = trimZeros(abs.toFixed(maxDecimals));
-    if (abs >= 1e4) body = body.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','));
+    if (abs >= groupFrom) body = body.replace(/^\d+/, (int) => int.replace(/\B(?=(\d{3})+$)/g, ','));
   }
   return v < 0 && /[1-9]/.test(body) ? MINUS + body : body;
+}
+
+/** Where to start thousands separators so values shown together match ("5,000" beside "10,000"). */
+export function groupFromFor(values: number[]): number {
+  return values.some((v) => Math.abs(v) >= 1e4) ? 1e3 : 1e4;
 }
 
 /** A number written by a student or Claude: a number, or a string that is only a number. */
