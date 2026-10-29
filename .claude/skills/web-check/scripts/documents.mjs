@@ -221,7 +221,8 @@ try {
     await b.nav(`${BASE}/doc/${docId}`);
     await editorReady();
     await b.sleep(2500);
-    const page = await b.evaluate(`getComputedStyle(document.querySelector('.studiply-editor .ProseMirror')).backgroundColor`);
+    // The page stays white in dark mode: the editor in Pageless, each page sheet in Pages (step 4.5b, on the gradient).
+    const page = await b.evaluate(`getComputedStyle(document.querySelector('.studiply-editor .studiply-page-layer-sheet') ?? document.querySelector('.studiply-editor .ProseMirror')).backgroundColor`);
     expect(page === 'rgb(255, 255, 255)', `page ${page}`);
     await b.shot('doc-blank-1280-dark');
     await b.send('Emulation.setEmulatedMedia', { features: [] });

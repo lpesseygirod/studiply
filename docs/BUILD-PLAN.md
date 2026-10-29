@@ -413,7 +413,7 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 ```markdown
 Step 4.7: add the writing tools of a full word processor, on both devices: find & replace (match case, whole words, next/previous, replace all, with Undo; Cmd+F and Cmd+Shift+H on the laptop), word and character count (whole document and selection; a status line on the laptop), an outline of the headings to jump around (beside the page on the laptop, a sheet on the iPhone; it follows as I write), and page setup for printing (A4 or Letter, portrait or landscape, margins; saved with the document, shown as page edges on the laptop, used by printing and PDF export).
 
-Also a page view and zoom, like Word and Google Docs (**moved to step 4.5b**, Lea after test B; 4.7 keeps page setup, which the page view then follows):
+Also a page view and zoom, like Word and Google Docs (**moved to step 4.5b**, Lea after test B), and page setup (**moved too**, after test D: built with 4.5b, per document; 4.7 keeps find & replace, word count and the outline):
 - **Page view:** separate A4/Letter pages with gaps between them and the page count ("Page 3 of 12"). The pages match what the PDF and Word export will produce (page setup's size and margins, page breaks), with a "Pageless" switch. The laptop starts with pages and the iPhone pageless, with a "Print layout" switch.
 - **Zoom:** 50–200 % on the laptop (⌘+ / ⌘−, a zoom menu, remembered per device), and pinch-to-zoom on the iPhone.
 

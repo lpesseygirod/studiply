@@ -166,6 +166,8 @@ Photos, formulas and comments (step 4.5, checkpoint B):
 
 Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, so both editors) measures the document with no gaps and inserts each page gap as a widget decoration (a block between blocks, a line break inside a paragraph, a row in a table); `page/pageLayout.ts` is the pure rule set (widow / orphan, headings kept with the next line, page breaks), for the export (4.8) too. Zoom is CSS `zoom` on the editor. Each device keeps Pages / Pageless and its zoom in `lib/viewPrefs.ts`: the laptop's toolbar and ⌘+ / ⌘− / ⌘0 (`StudiplyEditor.web.tsx`, `FormatToolbar.web.tsx`), the iPhone's **…** → Print layout and a pinch (WebKit gesture events in the WebView, the `view` format command and state).
 
+Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`

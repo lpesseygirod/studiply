@@ -13,10 +13,11 @@
 // Prints PASS/FAIL per step. Exit code 1 on any FAIL.
 // WEB_CHECK_ONLY=<part of a step's name> runs only the matching steps.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, OUT } from './cdp.mjs';
-import { makeUser, dropUser } from './testuser.mjs';
+import { admin, makeUser, dropUser } from './testuser.mjs';
 
 const BASE = process.env.WEB_CHECK_URL ?? 'http://localhost:8123';
 const ONLY = process.env.WEB_CHECK_ONLY;
@@ -59,9 +60,10 @@ for (let s = 1; s <= 6; s++) {
 /** Every line of text (not the gaps' page numbers) inside its page's text area. */
 const linesInPages = () => b.evaluate(`(() => {
   const dom = ${EDITOR}.view.dom;
+  const g = ${EDITOR}.state.plugins.find((p) => p.key.startsWith('studiplyPageView')).getState(${EDITOR}.state).sheet;
   const box = dom.getBoundingClientRect(), scale = box.width / dom.offsetWidth;
-  const top0 = box.top + 96 * scale, pitch = (1123 + 24) * scale, text = (1123 - 192) * scale;
-  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT, { acceptNode: (n) => n.parentElement.closest('.studiply-page-gap, .katex') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const top0 = box.top + g.marginTop * scale, pitch = (g.height + g.gap) * scale, text = (g.height - g.marginTop - g.marginBottom) * scale;
+  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT, { acceptNode: (n) => n.parentElement.closest('.studiply-page-gap, .studiply-page-layer, .katex') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
   const r = document.createRange(), bad = [];
   let lines = 0;
   for (let t = walker.nextNode(); t; t = walker.nextNode()) {
@@ -76,6 +78,37 @@ const linesInPages = () => b.evaluate(`(() => {
   return { scale: Math.round(scale * 100) / 100, pages: dom.querySelectorAll('.studiply-page-gap').length, lines, bad };
 })()`);
 const pageCount = () => b.evaluate(`${EDITOR}.view.dom.querySelectorAll('.studiply-page-gap').length`);
+/** The colour on screen at (x, y): a 1 × 1 PNG screenshot, decoded (one row: a filter byte, then RGBA). */
+const pixel = async (x, y) => {
+  const { data } = await b.send('Page.captureScreenshot', { format: 'png', clip: { x, y, width: 1, height: 1, scale: 1 } });
+  const png = Buffer.from(data, 'base64');
+  const chunks = [];
+  for (let i = 8; i < png.length; ) {
+    const len = png.readUInt32BE(i);
+    if (png.toString('ascii', i + 4, i + 8) === 'IDAT') chunks.push(png.subarray(i + 8, i + 8 + len));
+    i += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(chunks));
+  return [raw[1], raw[2], raw[3]];
+};
+const near = (a, b, d = 24) => a.every((v, i) => Math.abs(v - b[i]) <= d);
+const isWhite = (c) => c.every((v) => v >= 248);
+const isGrey = (c) => Math.max(...c) - Math.min(...c) < 10 && !isWhite(c);
+/** Between pages 1 and 2 (the middle of the gap), beside the sheet at the same height, and on page 1. */
+const gapSamples = () => b.evaluate(`(() => {
+  const dom = ${EDITOR}.view.dom, r = dom.getBoundingClientRect(), z = r.width / dom.offsetWidth;
+  const sheet = dom.querySelector('.studiply-page-layer-sheet');
+  const gapY = r.top + (1123 + 12) * z;
+  return { gap: { x: r.left + r.width / 2, y: gapY }, side: { x: Math.max(4, r.left - 12), y: gapY }, page: { x: r.left + 20 * z, y: r.top + 40 * z }, shadow: sheet ? getComputedStyle(sheet).boxShadow : '' };
+})()`);
+const sheetNow = () => b.evaluate(`${EDITOR}.state.plugins.find((p) => p.key.startsWith('studiplyPageView')).getState(${EDITOR}.state).sheet`);
+const openPageSetup = async () => {
+  await b.clickSelector('[aria-label="Document menu"]');
+  await b.waitText('Page setup…', { exact: true });
+  await b.click('Page setup…', { exact: true });
+  await b.waitText('Gap between pages', { exact: true });
+};
+const savedSetup = async () => (await admin.from('documents').select('page_setup').eq('file_id', file.id).eq('tab', 'notes').single()).data.page_setup;
 const zoomNow = () => b.evaluate(`(() => { const d = ${EDITOR}.view.dom; return Math.round(d.getBoundingClientRect().width / d.offsetWidth * 100) / 100; })()`);
 const waitPages = async (want = (n) => n > 1) => {
   for (let i = 0; i < 40; i++) {
@@ -114,6 +147,43 @@ try {
     const wide = await b.evaluate(`[...document.querySelectorAll('div')].filter((d) => d.contains(${EDITOR}.view.dom) && /auto|scroll/.test(getComputedStyle(d).overflowX) && d.scrollWidth > d.clientWidth + 1).length`);
     expect(wide === 0, 'the page scrolls sideways at Fit');
     await b.shot('pages-top');
+  });
+
+  await step('the pages sit on the gradient: the gap shows it (not grey, not white), each page white with a shadow; one scroll area, the whole pane', async () => {
+    await b.evaluate(`window.scrollTo(0, 0); (() => { let el = ${EDITOR}.view.dom.parentElement; while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.scrollTop = 1123 * 0.6; })()`);
+    await b.sleep(400);
+    const at = await gapSamples();
+    const [gap, side, page] = [await pixel(at.gap.x, at.gap.y), await pixel(at.side.x, at.side.y), await pixel(at.page.x, at.page.y)];
+    expect(!isWhite(gap) && !isGrey(gap) && near(gap, side), `gap ${gap}, beside the page ${side}`);
+    expect(isWhite(page), `page ${page}`);
+    expect(at.shadow && at.shadow !== 'none', `page shadow: ${at.shadow}`);
+    const boxes = await b.evaluate(`(() => {
+      const scrollers = [];
+      for (let el = ${EDITOR}.view.dom.parentElement; el; el = el.parentElement) if (/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight) scrollers.push(Math.round(el.getBoundingClientRect().width));
+      const pane = [...document.querySelectorAll('div')].filter((d) => d.contains(${EDITOR}.view.dom)).map((d) => d.getBoundingClientRect()).filter((r) => r.left >= 200 && r.right <= innerWidth - 300).sort((a, b) => b.width - a.width)[0];
+      return { scrollers, pane: pane && Math.round(pane.width) };
+    })()`);
+    expect(boxes.scrollers.length === 1 && boxes.scrollers[0] >= boxes.pane - 2, JSON.stringify(boxes));
+    await b.shot('pages-gradient');
+  });
+
+  await step('dark mode: white pages on the dark gradient', async () => {
+    await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+    try {
+      await openDoc();
+      await waitPages();
+      await b.evaluate(`(() => { let el = ${EDITOR}.view.dom.parentElement; while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.scrollTop = 1123 * 0.6; })()`);
+      await b.sleep(400);
+      const at = await gapSamples();
+      const [gap, side, page] = [await pixel(at.gap.x, at.gap.y), await pixel(at.side.x, at.side.y), await pixel(at.page.x, at.page.y)];
+      expect(!isWhite(gap) && !isGrey(gap) && near(gap, side), `dark: gap ${gap}, beside ${side}`);
+      expect(isWhite(page), `dark: page ${page}`);
+      await b.shot('pages-gradient-dark');
+    } finally {
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+      await openDoc();
+      await waitPages();
+    }
   });
 
   await step('a long paragraph splits across a gap; the page break starts a page', async () => {
@@ -215,17 +285,93 @@ try {
     await b.shot('pages-table');
   });
 
+  await step('Page setup: Landscape, Letter, Narrow, numbers top right, gap Large: drawn, saved on the document, kept after a reload', async () => {
+    await openPageSetup();
+    await b.clickSelector('[aria-label="Landscape"]');
+    await b.clickSelector('[aria-label="Letter"]');
+    await b.clickSelector('[aria-label="Narrow margins"]');
+    await b.clickSelector('[aria-label="Page numbers: Top right"]');
+    await b.clickSelector('[aria-label="Gap between pages: Large"]');
+    await b.clickSelector('[aria-label="Apply page setup"]');
+    await b.sleep(1200);
+    const want = { width: 1056, height: 816, marginTop: 48, marginBottom: 48, marginLeft: 48, marginRight: 48, gap: 48, numbers: 'top-right' };
+    expect(JSON.stringify(await sheetNow()) === JSON.stringify(want), `sheet ${JSON.stringify(await sheetNow())}`);
+    await waitPages();
+    const r = await linesInPages();
+    expect(r.bad.length === 0, `${r.bad.length} lines outside their (landscape) page: ${r.bad.slice(0, 3).join('; ')}`);
+    const number = await b.evaluate(`(() => { const s = document.querySelector('.studiply-page-layer-sheet'), n = s.querySelector('.studiply-page-layer-number'); const a = s.getBoundingClientRect(), z = a.width / 1056, b = n.getBoundingClientRect(); return { top: (b.top - a.top) / z, right: (a.right - b.right) / z }; })()`);
+    expect(number.top < 48 && Math.abs(number.right - 48) < 3, `page number: ${JSON.stringify(number)}`);
+    let saved;
+    for (let i = 0; i < 20 && !(saved = await savedSetup()); i++) await b.sleep(250);
+    expect(saved?.size === 'letter' && saved.orientation === 'landscape' && saved.numbers === 'top-right' && saved.gap === 48 && saved.margins.left === 1.27, `saved: ${JSON.stringify(saved)}`);
+    await b.shot('pages-setup-letter-landscape');
+    await openDoc();
+    await waitPages();
+    expect((await sheetNow()).width === 1056, `after a reload: ${JSON.stringify(await sheetNow())}`);
+  });
+
+  await step('Page setup: typed margins (3 cm left), too-big margins lowered with a note, numbers off, gap None', async () => {
+    await openPageSetup();
+    await b.clickSelector('[aria-label="Portrait"]');
+    await b.clickSelector('[aria-label="A4"]');
+    await b.fill('input[aria-label="Left margin (cm)"]', '3');
+    await b.fill('input[aria-label="Top margin (cm)"]', '20');
+    await b.clickSelector('[aria-label="Page numbers: Off"]');
+    await b.clickSelector('[aria-label="Gap between pages: None"]');
+    await b.clickSelector('[aria-label="Right margin (cm)"]');
+    await b.sleep(300);
+    expect(await b.hasText('lowered'), 'no note about lowered margins');
+    await b.clickSelector('[aria-label="Apply page setup"]');
+    await b.sleep(1200);
+    const g = await sheetNow();
+    expect(Math.abs(g.marginLeft - 113.4) < 0.2 && g.marginTop + g.marginBottom <= (29.7 - 5) * 96 / 2.54 + 1 && g.numbers === 'off' && g.gap === 0, JSON.stringify(g));
+    expect(!(await b.evaluate(`!!document.querySelector('.studiply-page-layer-number')`)), 'page numbers still drawn');
+  });
+
+  await step("Page setup from the other device (the row changed on the server): shown within the document's check", async () => {
+    await admin.from('documents').update({ page_setup: { size: 'a4', orientation: 'portrait', margins: { top: 2.54, bottom: 2.54, left: 5.08, right: 5.08 }, numbers: 'bottom-right', gap: 12 } }).eq('file_id', file.id).eq('tab', 'notes');
+    let g;
+    for (let i = 0; i < 40; i++) {
+      g = await sheetNow();
+      if (g.marginLeft > 190) break;
+      await b.sleep(250);
+    }
+    expect(g.marginLeft > 190 && g.numbers === 'bottom-right' && g.gap === 12, `after 10 s: ${JSON.stringify(g)}`);
+  });
+
+  await step('Set as default: kept on the account for new documents', async () => {
+    await openPageSetup();
+    await b.clickSelector('[aria-label="Letter"]');
+    await b.click('Set as default', { exact: true });
+    await b.waitText('Saved as the default', { exact: false });
+    const { data } = await admin.from('profiles').select('preferences').eq('id', user.id).single();
+    expect(data.preferences.pageSetup?.size === 'letter', JSON.stringify(data.preferences));
+    await b.click('Cancel', { exact: true });
+    // Back to the defaults for the steps after this one.
+    await admin.from('documents').update({ page_setup: null }).eq('file_id', file.id).eq('tab', 'notes');
+    await openDoc();
+    await waitPages();
+  });
+
   await step('iPhone (390 px, touch): Print layout fits the width, the label while scrolling, a pinch zooms', async () => {
     await b.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
     await b.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     try {
-      const css = await b.evaluate(`[...document.querySelectorAll('style')].map((s) => s.textContent).find((t) => t.includes('.studiply-editor .ProseMirror'))`);
+      // The CSS the app injects into the iPhone's WebView.
+      const css = await b.evaluate('window.studiplyEditorCss()');
       await b.nav(IPHONE);
       for (let i = 0; i < 80 && !(await b.evaluate(`!!${EDITOR}?.view?.dom`)); i++) await b.sleep(250);
-      await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); document.body.classList.add('studiply-editor'); })()`);
+      await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); })()`);
       await b.evaluate(`${EDITOR}.commands.setContent(${JSON.stringify({ type: 'doc', content })})`);
       await b.evaluate(`${EDITOR}.chain().setPageFit(true).setPageView(true).setPageZoom(1).run()`);
       await waitPages();
+      // Print layout: nothing white or grey behind the pages (the screen's gradient shows through the WebView).
+      const behind = await b.evaluate(`(() => {
+        const out = [];
+        for (let el = ${EDITOR}.view.dom; el; el = el.parentElement) out.push(getComputedStyle(el).backgroundColor);
+        return out;
+      })()`);
+      expect(behind.every((c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent'), `backgrounds behind the pages: ${behind.join(' | ')}`);
       const fit = await b.evaluate(`(() => { const r = ${EDITOR}.view.dom.getBoundingClientRect(); return { left: r.left, right: r.right, width: innerWidth }; })()`);
       expect(fit.left >= 0 && fit.right <= fit.width + 1 && fit.right - fit.left > fit.width - 40, `the sheet: ${JSON.stringify(fit)}`);
       const r = await linesInPages();
@@ -249,6 +395,11 @@ try {
       const z = await b.evaluate(`${EDITOR}.state.plugins.find((p) => p.key.startsWith('studiplyPageView')).getState(${EDITOR}.state).zoom`);
       expect(z === 1.6, `pinch gave zoom ${z}`);
       await b.shot('pages-iphone-pinched');
+      // The document's page setup (Letter landscape) in Print layout: the wider sheet still fits the screen.
+      await b.evaluate(`${EDITOR}.chain().setPageZoom(1).setPageSetup({ size: 'letter', orientation: 'landscape', margins: { top: 1.27, bottom: 1.27, left: 1.27, right: 1.27 }, numbers: 'bottom-center', gap: 24 }).run()`);
+      await b.sleep(800);
+      const wide = await b.evaluate(`(() => { const r = ${EDITOR}.view.dom.getBoundingClientRect(); return { left: r.left, right: r.right, width: innerWidth, css: ${EDITOR}.view.dom.offsetWidth }; })()`);
+      expect(wide.css === 1056 && wide.left >= 0 && wide.right <= wide.width + 1 && wide.right - wide.left > wide.width - 40, `Letter landscape on the iPhone: ${JSON.stringify(wide)}`);
     } finally {
       await b.send('Emulation.clearDeviceMetricsOverride');
       await b.send('Emulation.setTouchEmulationEnabled', { enabled: false });

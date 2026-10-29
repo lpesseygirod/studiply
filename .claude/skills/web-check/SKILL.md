@@ -170,7 +170,9 @@ node .claude/skills/web-check/scripts/formatting.mjs
 - Pages by default on the laptop: the page count, every line of text inside its page's text area (rects against the A4 geometry), a paragraph split across a gap, the page break starting a page, "Page n of m" following the scroll;
 - Pages ↔ Pageless and ⌘+ to 150 % remembered after a reload, ⌘0, the zoom menu's Fit; at 150 % a real click lands on the letter under it and typing goes there;
 - the table's hover handles on a later page (a gap drawn as a table row);
-- the iPhone bundle at 390 px with touch: Print layout fits the width, the scrolling label, a pinch (WebKit's gesture events, dispatched).
+- the iPhone bundle at 390 px with touch: Print layout fits the width, the scrolling label, a pinch (WebKit's gesture events, dispatched), nothing opaque behind the pages, a Letter landscape setup still fitted;
+- pages on the gradient (after test D): the colour in the gap between two pages, read from a 1 × 1 screenshot (decoded with Node's zlib), matches the gradient beside the page and is neither grey nor white, in light and dark; one scroll area as wide as the centre pane;
+- page setup: the dialog (… → Page setup…), the sheet drawn from it, the `documents.page_setup` row, a reload, typed and lowered margins, a change on the server shown within the document's check, Set as default on the profile.
 
 ```bash
 node .claude/skills/web-check/scripts/pages.mjs
