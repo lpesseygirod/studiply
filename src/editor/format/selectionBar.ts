@@ -64,10 +64,11 @@ class SelectionBarView {
       this.buttons.push({ el, on });
     };
     add('Comment on the selection', 'Comment', () => this.ask('comment'));
-    add('Bold', 'B', () => this.editor.chain().focus().toggleBold().run(), () => this.editor.isActive('bold'), 'font-weight: 800');
-    add('Italic', 'I', () => this.editor.chain().focus().toggleItalic().run(), () => this.editor.isActive('italic'), 'font-style: italic; font-family: Georgia, serif');
+    // Labels of their own: the toolbar has Bold, Italic, Highlight and Link too.
+    add('Bold selection', 'B', () => this.editor.chain().focus().toggleBold().run(), () => this.editor.isActive('bold'), 'font-weight: 800');
+    add('Italic selection', 'I', () => this.editor.chain().focus().toggleItalic().run(), () => this.editor.isActive('italic'), 'font-style: italic; font-family: Georgia, serif');
     add(
-      'Highlight',
+      'Highlight selection',
       'Highlight',
       () =>
         this.editor.isActive('highlight')
@@ -75,7 +76,7 @@ class SelectionBarView {
           : this.editor.chain().focus().setHighlight({ color: DocColors.highlight[0].value }).run(),
       () => this.editor.isActive('highlight'),
     );
-    add('Link', 'Link', () => this.ask('link'), () => this.editor.isActive('link'));
+    add('Link selection', 'Link', () => this.ask('link'), () => this.editor.isActive('link'));
     view.dom.addEventListener('mousedown', this.down);
     window.addEventListener('mouseup', this.up);
     view.dom.addEventListener('focus', this.refresh);

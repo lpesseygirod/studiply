@@ -390,6 +390,14 @@ Also (Lea):
 
 **Check:** insert the formula for compound interest and a 3×3 table on the iPhone; both look right on the laptop.
 
+**Step 4.5b — Page view and zoom (pulled forward from 4.7, Lea after test B)**
+
+```markdown
+Step 4.5b: a page view like Word's: A4 pages with gaps between them and the page count ("Page 3 of 12"), with a Pages / Pageless switch in the toolbar (laptop: Pages by default; iPhone: Pageless by default, the same switch). It only changes the display (the document stays one pageless JSON; see "Page view in 4.7: what is feasible" below for the approach), with A4 and standard margins until page setup comes in 4.7. Zoom: 50–200 % on the laptop (⌘+ / ⌘−, a zoom menu, remembered per device) and pinch-to-zoom on the iPhone. Start with a short spike against real documents; plan first.
+```
+
+**Check:** a 10-page document shows its pages with gaps on the laptop and the right page count; a long paragraph splits between pages; switch to Pageless and back; zoom to 150 % and back with ⌘+ / ⌘− (remembered after a reload); pinch to zoom on the iPhone; Pages on the iPhone shows the same pages.
+
 **Step 4.6 — Studiply blocks**
 
 ```markdown
@@ -403,7 +411,7 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 ```markdown
 Step 4.7: add the writing tools of a full word processor, on both devices: find & replace (match case, whole words, next/previous, replace all, with Undo; Cmd+F and Cmd+Shift+H on the laptop), word and character count (whole document and selection; a status line on the laptop), an outline of the headings to jump around (beside the page on the laptop, a sheet on the iPhone; it follows as I write), and page setup for printing (A4 or Letter, portrait or landscape, margins; saved with the document, shown as page edges on the laptop, used by printing and PDF export).
 
-Also a page view and zoom, like Word and Google Docs:
+Also a page view and zoom, like Word and Google Docs (**moved to step 4.5b**, Lea after test B; 4.7 keeps page setup, which the page view then follows):
 - **Page view:** separate A4/Letter pages with gaps between them and the page count ("Page 3 of 12"). The pages match what the PDF and Word export will produce (page setup's size and margins, page breaks), with a "Pageless" switch. The laptop starts with pages and the iPhone pageless, with a "Print layout" switch.
 - **Zoom:** 50–200 % on the laptop (⌘+ / ⌘−, a zoom menu, remembered per device), and pinch-to-zoom on the iPhone.
 

@@ -38,6 +38,8 @@ const step = async (name, fn) => {
     results.push(['FAIL', name, err.message]);
     await b.shot(`fail-ins-${results.length}`).catch(() => {});
   }
+  // As it goes, so a run that hangs still shows how far it got.
+  console.error(`step ${results.length}: ${results.at(-1).join(' | ')}`);
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 const EDITOR = 'window.studiplyEditor';
@@ -473,6 +475,9 @@ try {
   });
 
   await step('photos: one dragged onto the page, a screenshot pasted', async () => {
+    // The photo just added is selected and its bar covers the line above it: the cursor goes back into the text.
+    await b.evaluate(`${EDITOR}.commands.setTextSelection(2)`);
+    await b.sleep(200);
     const target = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror p').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 }; })()`);
     await b.htmlDrag(null, target, { files: [png] });
     await waitFor(async () => (await imgs()).length === 2 && (await imgs()).every((i) => i.w > 0), 'the dropped photo');
@@ -720,8 +725,8 @@ try {
     const bar = await b.evaluate(`(() => { const e = document.querySelector('.studiply-selection-bar'); if (!e || getComputedStyle(e).display !== 'flex') return null; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; })()`);
     expect(bar && bar.bottom <= word.top, `bar ${JSON.stringify(bar)}, words at ${word.top}`);
     await b.shot('ins-selection-bar-1280');
-    await click('Bold');
-    await click('Highlight');
+    await click('Bold selection');
+    await click('Highlight selection');
     const marks = (await json()).content[1].content.find((t) => t.text === 'conducta')?.marks?.map((m) => m.type) ?? [];
     expect(marks.includes('bold') && marks.includes('highlight'), JSON.stringify(marks));
     await click('Comment on the selection');
@@ -731,7 +736,7 @@ try {
     await b.sleep(200);
     await b.evaluate(`(() => { ${EDITOR}.commands.focus(); ${EDITOR}.commands.setTextSelection({ from: 19, to: 27 }); })()`);
     await b.sleep(200);
-    await click('Link');
+    await click('Link selection');
     await b.sleep(300);
     expect(await b.evaluate(`!!document.querySelector('input[aria-label="Link address"]')`), 'no link dialog');
     await b.press('Escape');
