@@ -144,13 +144,88 @@ describe('the photo node', () => {
     open([{ type: 'paragraph' }, { type: 'image', attrs: { src: 'media:m1' } }, { type: 'paragraph' }]);
     expect(formatState(editor!).photo).toBeNull();
     selectImage();
-    expect(formatState(editor!).photo).toEqual({ width: null });
+    expect(formatState(editor!).photo).toEqual({ width: null, wrap: 'break', align: 'left' });
     runFormat(editor!, { type: 'photoWidth', width: 25 });
     expect(images()[0].attrs?.width).toBe(25);
     // Still selected, so the next size applies to it too.
-    expect(formatState(editor!).photo).toEqual({ width: 25 });
+    expect(formatState(editor!).photo).toEqual({ width: 25, wrap: 'break', align: 'left' });
     runFormat(editor!, { type: 'photoWidth', width: 140 });
     expect(images()[0].attrs?.width).toBe(100);
+  });
+
+  describe('layout (after test B: as in Pages / Word)', () => {
+    const photoNodes = () => {
+      const out: JSONContent[] = [];
+      const walk = (n: JSONContent) => {
+        if (n.type === 'image' || n.type === 'inlineImage') out.push(n);
+        (n.content ?? []).forEach(walk);
+      };
+      walk(editor!.getJSON());
+      return out;
+    };
+    const layout = (wrap?: 'inline' | 'break' | 'left' | 'right', align?: 'left' | 'center' | 'right') => runFormat(editor!, { type: 'photoLayout', wrap, align });
+
+    it('Break text with alignment, Wrap left / right: through JSON and HTML', () => {
+      open([{ type: 'paragraph', content: [{ type: 'text', text: 'Antes' }] }, { type: 'image', attrs: { src: 'media:m1', width: 40 } }, { type: 'paragraph', content: [{ type: 'text', text: 'Texto que rodea la foto' }] }]);
+      selectImage();
+      layout(undefined, 'center');
+      expect(photoNodes()[0].attrs).toMatchObject({ wrap: 'break', align: 'center', width: 40 });
+      layout('right');
+      expect(photoNodes()[0].attrs).toMatchObject({ wrap: 'right', width: 40 });
+      expect(formatState(editor!).photo).toEqual({ width: 40, wrap: 'right', align: 'center' });
+      const other = new Editor({ extensions: studiplyExtensions(), content: editor!.getHTML() });
+      expect((other.getJSON().content ?? []).find((n) => n.type === 'image')?.attrs).toMatchObject({ wrap: 'right', align: 'center', width: 40 });
+      other.destroy();
+      // The node view floats it.
+      expect(editor!.view.dom.querySelector<HTMLElement>(`.${PHOTO_CLASS}`)!.dataset.wrap).toBe('right');
+    });
+
+    it('wrapping a photo as wide as the page makes it half as wide (text needs room beside it)', () => {
+      open([{ type: 'image', attrs: { src: 'media:m1' } }, { type: 'paragraph' }]);
+      selectImage();
+      layout('left');
+      expect(photoNodes()[0].attrs).toMatchObject({ wrap: 'left', width: 50 });
+    });
+
+    it('In line with text: the photo goes into a line of its own, keeping its source and width; and back', () => {
+      open([{ type: 'paragraph', content: [{ type: 'text', text: 'Antes' }] }, { type: 'image', attrs: { blockId: 'img', src: 'media:m1', width: 30 } }, { type: 'paragraph' }]);
+      selectImage();
+      layout('inline');
+      const blocks = editor!.getJSON().content ?? [];
+      expect(blocks[1]).toMatchObject({ type: 'paragraph', content: [{ type: 'inlineImage', attrs: { src: 'media:m1', width: 30 } }] });
+      expect(formatState(editor!).photo).toEqual({ width: 30, wrap: 'inline', align: 'left' });
+      // Type beside it.
+      editor!.commands.setTextSelection(editor!.state.selection.to);
+      editor!.commands.insertContent(' y texto');
+      expect((editor!.getJSON().content ?? [])[1].content?.map((n) => n.type)).toEqual(['inlineImage', 'text']);
+      // Back to Break text: before its paragraph, which keeps the text.
+      let pos = -1;
+      editor!.state.doc.descendants((n, p) => {
+        if (n.type.name === 'inlineImage') pos = p;
+      });
+      editor!.view.dispatch(editor!.state.tr.setSelection(NodeSelection.create(editor!.state.doc, pos)));
+      layout('break');
+      const after = editor!.getJSON().content ?? [];
+      expect(after.map((b) => b.type)).toEqual(['paragraph', 'image', 'paragraph', 'paragraph']);
+      expect(after[1].attrs).toMatchObject({ src: 'media:m1', width: 30, wrap: 'break' });
+      expect(JSON.stringify(after[2].content)).toContain(' y texto');
+    });
+
+    it('a photo alone in its line, set back to Break text, replaces that line', () => {
+      open([{ type: 'paragraph', content: [{ type: 'inlineImage', attrs: { src: 'media:m1' } }] }, { type: 'paragraph', content: [{ type: 'text', text: 'b' }] }]);
+      editor!.view.dispatch(editor!.state.tr.setSelection(NodeSelection.create(editor!.state.doc, 1)));
+      layout('left');
+      expect((editor!.getJSON().content ?? []).map((b) => b.type)).toEqual(['image', 'paragraph']);
+    });
+
+    it('size and delete work on a photo in a line too', () => {
+      open([{ type: 'paragraph', content: [{ type: 'text', text: 'a ' }, { type: 'inlineImage', attrs: { src: 'media:m1' } }] }]);
+      editor!.view.dispatch(editor!.state.tr.setSelection(NodeSelection.create(editor!.state.doc, 3)));
+      runFormat(editor!, { type: 'photoWidth', width: 25 });
+      expect(photoNodes()[0].attrs?.width).toBe(25);
+      runFormat(editor!, { type: 'photoDelete' });
+      expect(photoNodes()).toEqual([]);
+    });
   });
 
   it('a photo that could not be uploaded is taken out, and Undo does not bring it back', () => {

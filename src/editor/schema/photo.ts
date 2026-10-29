@@ -1,7 +1,7 @@
-import type { Editor } from '@tiptap/core';
+import { mergeAttributes, Node, type Editor } from '@tiptap/core';
 import { Image } from '@tiptap/extension-image';
 import type { Node as PMNode } from '@tiptap/pm/model';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import type { EditorView, NodeView } from '@tiptap/pm/view';
 
 import { mediaIdOf, providePhoto, watchPhoto, type PhotoSource } from '../media/photoSource';
@@ -14,13 +14,26 @@ import { mediaIdOf, providePhoto, watchPhoto, type PhotoSource } from '../media/
  * - `width` in % of the page, so a photo is as wide on the iPhone as on the
  *   laptop (null: its own size, at most the page's width).
  *
+ * - `wrap` (after test B, Lea: as in Pages / Word): `break` (on lines of its
+ *   own, between paragraphs; `align` left, centre or right), `left` / `right`
+ *   (it floats on that side and the paragraphs after it flow around it).
+ *   "In line with text" is a second node, `inlineImage`, inside a line like
+ *   a big letter; switching converts between the two (`setPhotoLayout`).
+ *
  * The node view shows the picture once resolved ("Loading photo…", or why it
- * can't show), and on a laptop (a mouse) handles on the corners of a
- * selected photo drag its width. The iPhone sets Small / Medium / Large /
- * Full width from the keyboard toolbar (`setPhotoWidth`).
+ * can't show); handles on the corners of a selected photo drag its width
+ * (a mouse on the laptop, a finger on the iPhone). The iPhone also has
+ * Small / Medium / Large / Full width in the keyboard toolbar.
  */
 
 export const PHOTO_CLASS = 'studiply-photo';
+export const INLINE_IMAGE = 'inlineImage';
+export type PhotoWrap = 'inline' | 'break' | 'left' | 'right';
+export type PhotoAlign = 'left' | 'center' | 'right';
+const WRAPS: PhotoWrap[] = ['break', 'left', 'right'];
+const ALIGNS: PhotoAlign[] = ['left', 'center', 'right'];
+/** A photo set to wrap that would fill the line gets this width (text needs room beside it). */
+const WRAP_WIDTH = 50;
 /** Small / Medium / Large / Full width, in % of the page. */
 export const PHOTO_WIDTHS = { small: 25, medium: 50, large: 75, full: 100 } as const;
 const MIN_WIDTH_PX = 40;
@@ -35,6 +48,8 @@ declare module '@tiptap/core' {
       setPhotoWidth: (width: number | null) => ReturnType;
       /** Removes the photos with this `src` (one that couldn't be uploaded); not in Undo. */
       removePhotos: (src: string) => ReturnType;
+      /** The selected photo's layout: in line, wrapped left or right, or on lines of its own (aligned). */
+      setPhotoLayout: (layout: { wrap?: PhotoWrap; align?: PhotoAlign }) => ReturnType;
     };
   }
 }
@@ -57,17 +72,87 @@ function parseWidth(el: HTMLElement): number | null {
 
 const clampPct = (n: number) => Math.max(MIN_PCT, Math.min(100, Math.round(n)));
 
+export const isPhoto = (node: PMNode | null | undefined) => !!node && (node.type.name === 'image' || node.type.name === INLINE_IMAGE);
+
+export interface PhotoInfo {
+  width: number | null;
+  wrap: PhotoWrap;
+  align: PhotoAlign;
+}
+
+/** A photo node's layout. */
+export function photoInfo(node: PMNode): PhotoInfo {
+  const width = node.attrs.width;
+  const wrap: PhotoWrap = node.type.name === INLINE_IMAGE ? 'inline' : WRAPS.includes(node.attrs.wrap) ? node.attrs.wrap : 'break';
+  const align: PhotoAlign = ALIGNS.includes(node.attrs.align) ? node.attrs.align : 'left';
+  return { width: typeof width === 'number' ? width : null, wrap, align };
+}
+
 /** The selected photo, if the selection is one. */
-export function selectedPhoto(editor: Editor): { width: number | null } | null {
-  const { selection } = editor.state;
-  if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return null;
-  const width = selection.node.attrs.width;
-  return { width: typeof width === 'number' ? width : null };
+export function selectedPhotoIn(state: EditorState): (PhotoInfo & { pos: number; node: PMNode }) | null {
+  const { selection } = state;
+  if (!(selection instanceof NodeSelection) || !isPhoto(selection.node)) return null;
+  return { ...photoInfo(selection.node), pos: selection.from, node: selection.node };
+}
+
+export function selectedPhoto(editor: Editor): PhotoInfo | null {
+  const found = selectedPhotoIn(editor.state);
+  return found && { width: found.width, wrap: found.wrap, align: found.align };
+}
+
+/**
+ * Changes the photo at `pos` to `wrap` / `align` in `tr`, converting between
+ * the block photo and the photo in a line; returns where it now is (still
+ * selected), or null if nothing was there.
+ * - block → in line: it goes into a paragraph of its own, where text can be
+ *   typed beside it;
+ * - in line → block: it goes just before its paragraph (so a wrapped photo
+ *   has that paragraph flowing around it); a paragraph left empty goes.
+ */
+export function layoutPhoto(tr: Transaction, pos: number, layout: { wrap?: PhotoWrap; align?: PhotoAlign }): number | null {
+  const node = tr.doc.nodeAt(pos);
+  if (!isPhoto(node)) return null;
+  const schema = tr.doc.type.schema;
+  const now = photoInfo(node!);
+  const wrap = layout.wrap ?? now.wrap;
+  const align = layout.align ?? now.align;
+  // Wrapping a photo as wide as the line leaves no room for the text.
+  const width = wrap === 'left' || wrap === 'right' ? (now.width === null || now.width >= 90 ? WRAP_WIDTH : now.width) : now.width;
+  const shared = { src: node!.attrs.src, alt: node!.attrs.alt, title: node!.attrs.title, width };
+  let at = pos;
+  if (wrap === 'inline') {
+    if (node!.type.name === INLINE_IMAGE) {
+      tr.setNodeMarkup(pos, undefined, { ...node!.attrs, width });
+    } else {
+      const inline = schema.nodes[INLINE_IMAGE].create(shared);
+      tr.replaceWith(pos, pos + node!.nodeSize, schema.nodes.paragraph.create(null, inline));
+      at = pos + 1;
+    }
+  } else if (node!.type.name === INLINE_IMAGE) {
+    const $pos = tr.doc.resolve(pos);
+    const block = schema.nodes.image.create({ ...shared, wrap, align });
+    const parentStart = $pos.before($pos.depth);
+    const alone = $pos.parent.childCount === 1;
+    if (alone && $pos.depth === 1) {
+      tr.replaceWith(parentStart, parentStart + $pos.parent.nodeSize, block);
+      at = parentStart;
+    } else {
+      tr.delete(pos, pos + node!.nodeSize);
+      // Before its paragraph, at the top level (or before the list / table it is in).
+      const top = tr.doc.resolve(tr.mapping.map(parentStart)).before(1);
+      tr.insert(top, block);
+      at = top;
+    }
+  } else {
+    tr.setNodeMarkup(pos, undefined, { ...node!.attrs, wrap, align, width });
+  }
+  tr.setSelection(NodeSelection.create(tr.doc, at));
+  return at;
 }
 
 class PhotoView implements NodeView {
-  dom = document.createElement('div');
-  private frame = document.createElement('div');
+  dom: HTMLElement;
+  private frame: HTMLElement;
   private img = document.createElement('img');
   private note = document.createElement('span');
   private unwatch: (() => void) | null = null;
@@ -79,6 +164,10 @@ class PhotoView implements NodeView {
     private view: EditorView,
     private getPos: () => number | undefined,
   ) {
+    // A photo in a line is inline itself.
+    const inline = node.type.name === INLINE_IMAGE;
+    this.dom = document.createElement(inline ? 'span' : 'div');
+    this.frame = document.createElement(inline ? 'span' : 'div');
     this.dom.className = PHOTO_CLASS;
     this.frame.className = `${PHOTO_CLASS}-frame`;
     this.note.className = `${PHOTO_CLASS}-note`;
@@ -102,10 +191,16 @@ class PhotoView implements NodeView {
 
   private render(node: PMNode) {
     this.node = node;
-    const { src, alt, width } = node.attrs;
+    const { src, alt } = node.attrs;
+    const { width, wrap, align } = photoInfo(node);
     this.img.alt = typeof alt === 'string' ? alt : '';
-    this.frame.style.width = typeof width === 'number' ? `${width}%` : '';
-    this.frame.classList.toggle('sized', typeof width === 'number');
+    // Its width in % of the page (or line): on the photo itself when it floats or sits in a line, else on its frame.
+    const outer = wrap !== 'break';
+    this.dom.style.width = outer && width !== null ? `${width}%` : '';
+    this.frame.style.width = !outer && width !== null ? `${width}%` : '';
+    this.frame.classList.toggle('sized', width !== null);
+    this.dom.dataset.wrap = wrap;
+    this.dom.dataset.align = align;
     if (src === this.src) return;
     this.src = src;
     this.unwatch?.();
@@ -140,11 +235,21 @@ class PhotoView implements NodeView {
     this.frame.classList.add('empty');
   };
 
+  /** What carries the width: the photo itself when it floats or sits in a line, else its frame. */
+  private sized() {
+    return photoInfo(this.node).wrap === 'break' ? this.frame : this.dom;
+  }
+
+  /** What the width is a share of: the page, or the line. */
+  private pageWidth() {
+    return (photoInfo(this.node).wrap === 'break' ? this.dom : this.dom.parentElement)?.clientWidth || 1;
+  }
+
   private startDrag(e: MouseEvent, sign: number) {
     if (!this.view.editable) return;
     e.preventDefault();
     e.stopPropagation();
-    this.drag = { startX: e.clientX, startWidth: this.frame.offsetWidth, page: this.dom.clientWidth || 1, sign };
+    this.drag = { startX: e.clientX, startWidth: this.sized().offsetWidth, page: this.pageWidth(), sign };
     this.dom.classList.add('resizing');
     window.addEventListener('mousemove', this.onDrag);
     window.addEventListener('mouseup', this.endDrag);
@@ -154,7 +259,7 @@ class PhotoView implements NodeView {
     const d = this.drag;
     if (!d) return;
     const px = Math.max(MIN_WIDTH_PX, Math.min(d.page, d.startWidth + d.sign * (e.clientX - d.startX)));
-    this.frame.style.width = `${px}px`;
+    this.sized().style.width = `${px}px`;
   };
 
   private endDrag = () => {
@@ -165,7 +270,7 @@ class PhotoView implements NodeView {
     window.removeEventListener('mouseup', this.endDrag);
     const pos = this.getPos();
     if (!d || pos === undefined) return;
-    const width = clampPct((this.frame.offsetWidth / d.page) * 100);
+    const width = clampPct((this.sized().offsetWidth / d.page) * 100);
     if (width === this.node.attrs.width) return this.render(this.node);
     const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, width });
     this.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos)));
@@ -192,6 +297,43 @@ class PhotoView implements NodeView {
   }
 }
 
+const sharedAttributes = {
+  src: { default: null },
+  alt: { default: null },
+  title: { default: null },
+  width: {
+    default: null,
+    parseHTML: parseWidth,
+    renderHTML: (attrs: Record<string, unknown>) => (typeof attrs.width === 'number' ? { 'data-width': attrs.width, style: `width: ${attrs.width}%` } : {}),
+  },
+};
+
+/** "In line with text": a photo inside a line, moving with the text around it. */
+export const InlinePhoto = Node.create({
+  name: INLINE_IMAGE,
+  inline: true,
+  group: 'inline',
+  atom: true,
+  draggable: true,
+
+  addAttributes() {
+    return sharedAttributes;
+  },
+
+  parseHTML() {
+    // Before the block photo's rule (which takes every img).
+    return [{ tag: 'img[data-inline][src]', priority: 60 }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['img', mergeAttributes(HTMLAttributes, { 'data-inline': '' })];
+  },
+
+  addNodeView() {
+    return ({ node, view, getPos }) => new PhotoView(node, view, getPos);
+  },
+});
+
 export const Photo = Image.extend({
   addOptions() {
     return { ...this.parent!(), inline: false, allowBase64: true, resize: false };
@@ -199,14 +341,16 @@ export const Photo = Image.extend({
 
   addAttributes() {
     return {
-      src: { default: null },
-      alt: { default: null },
-      title: { default: null },
-      width: {
-        default: null,
-        parseHTML: parseWidth,
-        renderHTML: (attrs: Record<string, unknown>) =>
-          typeof attrs.width === 'number' ? { 'data-width': attrs.width, style: `width: ${attrs.width}%` } : {},
+      ...sharedAttributes,
+      wrap: {
+        default: 'break',
+        parseHTML: (el: HTMLElement) => (WRAPS.includes(el.getAttribute('data-wrap') as PhotoWrap) ? el.getAttribute('data-wrap') : 'break'),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.wrap && attrs.wrap !== 'break' ? { 'data-wrap': attrs.wrap } : {}),
+      },
+      align: {
+        default: 'left',
+        parseHTML: (el: HTMLElement) => (ALIGNS.includes(el.getAttribute('data-align') as PhotoAlign) ? el.getAttribute('data-align') : 'left'),
+        renderHTML: (attrs: Record<string, unknown>) => (attrs.align && attrs.align !== 'left' ? { 'data-align': attrs.align } : {}),
       },
     };
   },
@@ -226,7 +370,7 @@ export const Photo = Image.extend({
         (width) =>
         ({ state, tr, dispatch }) => {
           const { selection } = state;
-          if (!(selection instanceof NodeSelection) || selection.node.type.name !== this.name) return false;
+          if (!(selection instanceof NodeSelection) || !isPhoto(selection.node)) return false;
           if (dispatch) {
             tr.setNodeMarkup(selection.from, undefined, { ...selection.node.attrs, width: width === null ? null : clampPct(width) });
             tr.setSelection(NodeSelection.create(tr.doc, selection.from));
@@ -238,13 +382,21 @@ export const Photo = Image.extend({
         ({ state, tr, dispatch }) => {
           const found: { pos: number; size: number }[] = [];
           state.doc.descendants((node, pos) => {
-            if (node.type.name === this.name && node.attrs.src === src) found.push({ pos, size: node.nodeSize });
+            if (isPhoto(node) && node.attrs.src === src) found.push({ pos, size: node.nodeSize });
           });
           if (!found.length) return false;
           if (dispatch) {
             for (const f of found.reverse()) tr.delete(f.pos, f.pos + f.size);
             tr.setMeta('addToHistory', false);
           }
+          return true;
+        },
+      setPhotoLayout:
+        (layout) =>
+        ({ state, tr, dispatch }) => {
+          const found = selectedPhotoIn(state);
+          if (!found) return false;
+          if (dispatch) layoutPhoto(tr, found.pos, layout);
           return true;
         },
     };

@@ -43,7 +43,7 @@ const BUTTONS: { key: TableBarButton | 'header' | 'delete'; text: string; label:
 const GAP = 6;
 
 /** The top of what can be seen around `el`: its scrolling container's top, or the window's. */
-function visibleTop(el: HTMLElement): number {
+export function visibleTop(el: HTMLElement): number {
   for (let n: HTMLElement | null = el; n; n = n.parentElement) {
     const { overflowY } = getComputedStyle(n);
     if (overflowY === 'auto' || overflowY === 'scroll') return n.getBoundingClientRect().top;

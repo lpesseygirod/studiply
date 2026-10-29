@@ -16,7 +16,7 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   bulletList: { origin: 'student' },
   taskList: { origin: 'student' },
   taskItem: { checked: false },
-  image: { origin: 'student' },
+  image: { origin: 'student', wrap: 'break', align: 'left' },
   table: { origin: 'student' },
   tableCell: { colspan: 1, rowspan: 1 },
   tableHeader: { colspan: 1, rowspan: 1 },

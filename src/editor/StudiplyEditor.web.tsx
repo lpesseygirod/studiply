@@ -10,6 +10,7 @@ import { studiplyExtensions } from './bridges';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { FormulaPopover } from './FormulaPopover.web';
+import { PhotoMenu } from './PhotoMenu.web';
 import { CommentMargin, CommentPopovers } from './Comments.web';
 import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
 import { runFormat } from './format';
@@ -146,6 +147,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             {editable && <LinkBubble editor={editor} page={page} />}
             {editable && <TableMenus editor={editor} />}
             {editable && <FormulaPopover editor={editor} />}
+            {editable && <PhotoMenu editor={editor} />}
             {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
           </View>
           {withMargin && <CommentMargin editor={editor} active={activeComment} onActive={setActiveComment} />}

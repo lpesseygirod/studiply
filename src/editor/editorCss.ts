@@ -6,6 +6,7 @@ import { TABLE_BAR_CLASS } from './table/tableBar';
 import { TABLE_HANDLES_CLASS } from './table/tableHandles';
 import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
+import { PHOTO_BAR_CLASS } from './photoBar';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
@@ -25,7 +26,7 @@ export function editorCss(scope = ''): string {
   const photo = `${pm} .${PHOTO_CLASS}`;
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;
   return `${page}
-${pm} { color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
+${pm} { display: flow-root; color: ${c.text.primary}; background: ${c.card}; color-scheme: light; font-family: ${DEFAULT_FONT_CSS}; font-size: ${DEFAULT_SIZE}px; line-height: ${DEFAULT_LINE_SPACING}; padding: 16px 20px 160px; caret-color: ${c.accentDark}; word-wrap: break-word; }
 ${pm} h1 { font-size: 1.75em; line-height: 1.25; margin: 0.8em 0 0.4em; }
 ${pm} h2 { font-size: 1.4em; line-height: 1.3; margin: 0.8em 0 0.4em; }
 ${pm} h3 { font-size: 1.15em; font-weight: 600; color: ${c.text.secondary}; margin: 0.8em 0 0.3em; }
@@ -78,6 +79,16 @@ ${pm} .inline-math-error, ${pm} .block-math-error { color: ${c.error}; }
 ${pm} .${COMMENT_CLASS} { background: ${DocColors.comment}; border-radius: 2px; }
 ${pm} .${COMMENT_CLASS}.resolved { background: ${DocColors.commentResolved}; }
 ${photo} { margin: 0 0 0.6em; line-height: 0; }
+${photo}[data-align='center'] { text-align: center; }
+${photo}[data-align='right'] { text-align: right; }
+${photo}[data-wrap='left'] { float: left; clear: left; margin: 0.25em 1.2em 0.6em 0; max-width: 100%; }
+${photo}[data-wrap='right'] { float: right; clear: right; margin: 0.25em 0 0.6em 1.2em; max-width: 100%; }
+${photo}[data-wrap='inline'] { display: inline-block; vertical-align: bottom; margin: 0 0.15em; max-width: 100%; text-align: left; }
+${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame, ${photo}[data-wrap='right'] .${PHOTO_CLASS}-frame, ${photo}[data-wrap='inline'] .${PHOTO_CLASS}-frame { display: block; }
+${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='right'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='inline'] .${PHOTO_CLASS}-frame.sized { width: 100%; }
+${bar} .${PHOTO_BAR_CLASS}-divider { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: ${c.border}; }
+${bar} button:disabled { opacity: 0.35; cursor: default; }
+${bar} button:disabled:hover { background: transparent; }
 ${photo}-frame { position: relative; display: inline-block; max-width: 100%; vertical-align: top; border-radius: 4px; }
 ${photo}-frame img { display: block; max-width: 100%; height: auto; border-radius: 4px; }
 ${photo}-frame.sized img { width: 100%; }

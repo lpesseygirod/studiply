@@ -2,7 +2,7 @@ import type { CommandProps, Editor, JSONContent } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 
 import { DEFAULT_LINE_SPACING, TITLE } from '../schema/blocks';
-import { selectedPhoto } from '../schema/photo';
+import { selectedPhoto, type PhotoAlign, type PhotoInfo, type PhotoWrap } from '../schema/photo';
 import { formulaRequest, selectedFormula, type FormulaRequest } from '../schema/formula';
 import { canComment, commentsAt, listComments, type CommentInfo } from '../schema/comments';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
@@ -78,8 +78,8 @@ export interface FormatState {
   canSplit: boolean;
   /** The last press on the floating table bar that asks for a menu (the iPhone opens it). */
   tableRequest: TableBarRequest | null;
-  /** A selected photo and its width in % of the page (null: its own size); null when none is selected. */
-  photo: { width: number | null } | null;
+  /** A selected photo: its width in % of the page (null: its own size) and layout; null when none is selected. */
+  photo: PhotoInfo | null;
   /** The selected formula (its LaTeX, display or inline); null when none is selected. */
   formula: { latex: string; display: boolean } | null;
   /** The last click or tap on a formula (the iPhone opens its sheet on a new one). */
@@ -117,6 +117,9 @@ export type FormatCommand =
   | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null }
   /** The selected photo's width in % of the page (step 4.5); null: its own size. */
   | { type: 'photoWidth'; width: number | null }
+  /** The selected photo's layout (in line, wrapped, on lines of its own) and alignment; or delete it. */
+  | { type: 'photoLayout'; wrap?: PhotoWrap; align?: PhotoAlign }
+  | { type: 'photoDelete' }
   /**
    * Formulas (step 4.5): put one in, or change the selected one (it stays
    * selected while its editor is open); `remove` deletes it; `done` closes
@@ -384,6 +387,10 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
     }
     case 'photoWidth':
       return chain().setPhotoWidth(cmd.width).run();
+    case 'photoLayout':
+      return chain().setPhotoLayout({ wrap: cmd.wrap, align: cmd.align }).run();
+    case 'photoDelete':
+      return editor.isActive('image') || editor.isActive('inlineImage') ? chain().deleteSelection().run() : false;
     case 'formula':
       // Not focusing the text: the student is typing in the formula's editor.
       if (cmd.action === 'set') return editor.chain().setFormula({ latex: cmd.latex, display: cmd.display }).run();

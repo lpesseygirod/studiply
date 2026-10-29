@@ -202,6 +202,26 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       { message: c.text },
     );
   };
+  // The keyboard toolbar's Layout (a photo is selected): as in Pages, then alignment for Break text.
+  const openPhotoLayout = () => {
+    const p = stateRef.current.format?.photo;
+    if (!p) return;
+    const mark = (on: boolean, text: string) => (on ? `${text} ✓` : text);
+    showActionSheet('Photo layout', [
+      { text: mark(p.wrap === 'inline', 'In line with text'), onPress: () => run({ type: 'photoLayout', wrap: 'inline' }) },
+      { text: mark(p.wrap === 'left', 'Wrap left'), onPress: () => run({ type: 'photoLayout', wrap: 'left' }) },
+      { text: mark(p.wrap === 'right', 'Wrap right'), onPress: () => run({ type: 'photoLayout', wrap: 'right' }) },
+      { text: mark(p.wrap === 'break', 'Break text'), onPress: () => run({ type: 'photoLayout', wrap: 'break' }) },
+      ...(p.wrap === 'break'
+        ? [
+            { text: mark(p.align === 'left', 'Align left'), onPress: () => run({ type: 'photoLayout', align: 'left' }) },
+            { text: mark(p.align === 'center', 'Centre'), onPress: () => run({ type: 'photoLayout', align: 'center' }) },
+            { text: mark(p.align === 'right', 'Align right'), onPress: () => run({ type: 'photoLayout', align: 'right' }) },
+          ]
+        : []),
+      { text: 'Delete photo', style: 'destructive' as const, onPress: () => run({ type: 'photoDelete' }) },
+    ]);
+  };
   const panelActions: PanelActionsValue = {
     addLink: () => void addLink(),
     addFormula: () => openFormula(null),
@@ -353,6 +373,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           onLink={addLink}
           onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
           onComment={openComment}
+          onPhotoLayout={openPhotoLayout}
         />
       )}
       <PanelActions.Provider value={panelActions}>

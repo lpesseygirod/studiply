@@ -656,6 +656,57 @@ try {
     expect(sel === 'conducta', `selected "${sel}"`);
   });
 
+  // ── Part C (after test B): photo layout ──
+  const LONG = 'La Psicobiología estudia la conducta humana como proceso biológico, dentro de los principios de la Psicología y la Biología. '.repeat(4);
+  const photoDoc = async () => {
+    await b.resize(1280, 900);
+    await b.evaluate(`(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 260; const g = c.getContext('2d'); g.fillStyle = '#2563EB'; g.fillRect(0, 0, 400, 260); ${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Antes' }] }, { type: 'image', attrs: { src: c.toDataURL(), width: 40 } }, { type: 'paragraph', content: [{ type: 'text', text: ${JSON.stringify(LONG)} }] }] }); })()`);
+    await b.sleep(400);
+  };
+  const photoBox = () => b.evaluate(`(() => { const r = document.querySelector('.ProseMirror .studiply-photo-frame').getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  const photoAttrs = async () => {
+    let found = null;
+    const walk = (n) => {
+      if (!found && (n.type === 'image' || n.type === 'inlineImage')) found = { type: n.type, ...n.attrs };
+      (n.content ?? []).forEach(walk);
+    };
+    walk(await json());
+    return found;
+  };
+
+  await step('photo layout: the photo bar; Wrap left (the text flows beside it), Break text centred, In line, a right-click menu', async () => {
+    await photoDoc();
+    let box = await photoBox();
+    await b.clickAt(box.x, box.y);
+    await b.sleep(300);
+    expect(await b.evaluate(`getComputedStyle(document.querySelector('.studiply-photo-bar')).display === 'flex'`), 'no photo bar');
+    await click('Wrap left');
+    await b.sleep(300);
+    expect((await photoAttrs()).wrap === 'left', JSON.stringify(await photoAttrs()));
+    box = await photoBox();
+    // The next paragraph's first line sits to the right of the photo, level with it.
+    const line = await b.evaluate(`(() => { const p = document.querySelectorAll('.ProseMirror p')[1]; const range = document.createRange(); range.setStart(p.firstChild, 0); range.setEnd(p.firstChild, 1); const r = range.getBoundingClientRect(); return { left: r.left, top: r.top }; })()`);
+    expect(line.left >= box.right && line.top < box.bottom, `text at ${JSON.stringify(line)}, photo ${JSON.stringify(box)}`);
+    await b.shot('ins-photo-wrap-left-1280');
+    await click('Break text');
+    await click('Centre photo');
+    await b.sleep(300);
+    expect((await photoAttrs()).align === 'center', JSON.stringify(await photoAttrs()));
+    box = await photoBox();
+    const page = await b.evaluate(`(() => { const r = document.querySelector('.ProseMirror').getBoundingClientRect(); return { left: r.left, right: r.right }; })()`);
+    expect(Math.abs((box.left + box.right) / 2 - (page.left + page.right) / 2) < 4, 'not centred');
+    await click('In line with text');
+    await b.sleep(300);
+    expect((await photoAttrs()).type === 'inlineImage', JSON.stringify(await photoAttrs()));
+    await b.shot('ins-photo-inline-1280');
+    box = await photoBox();
+    await b.clickAt(box.x, box.y, { button: 'right' });
+    await b.sleep(300);
+    await b.click('Wrap right', { exact: true });
+    await b.sleep(300);
+    expect((await photoAttrs()).type === 'image' && (await photoAttrs()).wrap === 'right', JSON.stringify(await photoAttrs()));
+  });
+
   await step('narrow window: tools that don\'t fit move into the second row; 390 and dark screenshots', async () => {
     await b.resize(1040, 860);
     await b.sleep(1200);

@@ -1,7 +1,8 @@
 import BridgeExtension from '@10play/tentap-editor/src/bridges/base.ts';
 
 import { mediaSrc, providePhoto, type PhotoResolver, type PhotoSource } from '../media/photoSource';
-import { Photo } from '../schema/photo';
+import { InlinePhoto, Photo } from '../schema/photo';
+import { PhotoBar } from '../photoBar';
 
 /**
  * Photos on the iPhone (step 4.5), through TenTap's bridge:
@@ -38,6 +39,8 @@ export function setNativePhotoResolver(resolver: PhotoResolver | null): void {
 
 export const PhotoBridge = new BridgeExtension<object, PhotoBridgeInstance, PhotoMessage>({
   tiptapExtension: Photo,
+  // A photo in a line, and the photo bar (layout, size, delete) both editors draw.
+  tiptapExtensionDeps: [InlinePhoto, PhotoBar],
   onBridgeMessage: (editor, message) => {
     if (message.type === PHOTO_INSERT) editor.chain().focus().insertPhotos(message.payload.map(mediaSrc)).run();
     if (message.type === PHOTO_SOURCE) providePhoto(message.payload.id, message.payload.source);

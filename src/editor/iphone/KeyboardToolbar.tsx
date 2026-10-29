@@ -31,6 +31,7 @@ export function KeyboardToolbar({
   onLink,
   onOpenLink,
   onComment,
+  onPhotoLayout,
 }: {
   state: FormatState | undefined;
   run: (cmd: FormatCommand) => void;
@@ -43,6 +44,8 @@ export function KeyboardToolbar({
   onOpenLink: (href: string) => void;
   /** The cursor is in commented words: open that comment. */
   onComment: (comment: CommentInfo) => void;
+  /** A photo is selected: its layout (in line, wrap, break text) and alignment. */
+  onPhotoLayout: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -104,8 +107,11 @@ export function KeyboardToolbar({
             </View>
           ) : null}
           {s?.photo ? (
-            // A selected photo: its size first.
+            // A selected photo: its layout and size first.
             <View style={styles.linkChips}>
+              <Pressable onPress={onPhotoLayout} style={styles.linkChip} accessibilityRole="button" accessibilityLabel="Photo layout">
+                <Text style={styles.linkChipText}>Layout</Text>
+              </Pressable>
               {[
                 { label: 'Small', width: PHOTO_WIDTHS.small },
                 { label: 'Medium', width: PHOTO_WIDTHS.medium },
