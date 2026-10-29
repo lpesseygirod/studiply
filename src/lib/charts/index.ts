@@ -4,10 +4,11 @@
  * 8.2): a chart spec in, an SVG string out. Plain TypeScript, no DOM, so the
  * same drawing works in the app, the editor's WebView and the PDF.
  *
- * Follows SUMMARY-SPEC "Graphs and visuals": series are named on the chart,
- * not in a legend (bars get a key above the plot); lines differ by style
- * and marker, bars and slices by pattern, so it prints in black and white;
- * the SVG carries a text description for screen readers.
+ * Follows SUMMARY-SPEC "Graphs and visuals": lines and pie slices are named
+ * on the chart, not in a legend (bars and scatter points get a key above the
+ * plot); lines differ by style and marker, bars and slices by pattern,
+ * points by shape, so it prints in black and white; the SVG carries a text
+ * description for screen readers.
  */
 
 import { drawBar } from './bar';
@@ -15,6 +16,8 @@ import { prepare, type PreparedChart } from './data';
 import { describePrepared, TYPE_NAMES } from './describe';
 import { emptyState, finish, makeFrame, type Frame } from './frame';
 import { drawLine } from './line';
+import { drawPie } from './pie';
+import { drawScatter } from './scatter';
 import { hashId } from './svg';
 import type { ChartSpec, ChartType, RenderOptions } from './types';
 
@@ -22,9 +25,11 @@ export type { ChartMode, ChartPoint, ChartSeries, ChartSpec, ChartType, RenderOp
 export { MAX_SERIES } from './theme';
 export { MAX_SLICES } from './data';
 
-const DRAW: Partial<Record<ChartType, (f: Frame, p: PreparedChart) => string[]>> = {
+const DRAW: Record<ChartType, (f: Frame, p: PreparedChart) => string[]> = {
   bar: drawBar,
   line: drawLine,
+  pie: drawPie,
+  scatter: drawScatter,
 };
 
 function chartId(spec: ChartSpec, options: RenderOptions): string {
@@ -40,8 +45,7 @@ function chartId(spec: ChartSpec, options: RenderOptions): string {
 export function renderChart(spec: ChartSpec, options: RenderOptions = {}): string {
   const p = prepare(spec);
   const f = makeFrame(p, options, chartId(spec, options));
-  const draw = DRAW[p.type];
-  const body = p.empty || !draw ? [emptyState(f, p.emptyText)] : draw(f, p);
+  const body = p.empty ? [emptyState(f, p.emptyText)] : DRAW[p.type](f, p);
   return finish(f, p.title || TYPE_NAMES[p.type], describePrepared(p), body);
 }
 

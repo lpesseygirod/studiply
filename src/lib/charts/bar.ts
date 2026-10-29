@@ -3,20 +3,19 @@
  * Bar chart: bars grouped by category, starting at zero (negative values go
  * down from the zero line), the data end rounded. Series are told apart by
  * fill pattern (solid, diagonal, dots, back-diagonal) as well as colour,
- * named in a key above the plot when there are several (one series is named
- * by the title); values are written
+ * named in a key above the plot when there are several; values are written
  * on the bars when they fit.
  */
 
 import { cartesian } from './cartesian';
 import type { PreparedChart } from './data';
-import { fillFor, lineHeight, type Frame } from './frame';
-import { el, ellipsize, esc, formatNumber, groupFromFor, n, textWidth } from './svg';
+import { fillFor, type Frame } from './frame';
+import { drawKey, SWATCH } from './key';
+import { el, esc, formatNumber, groupFromFor, n, textWidth } from './svg';
 import { ChartFont } from './theme';
 
 const RADIUS = 4;
 const BAR_GAP = 2;
-const SWATCH = 12;
 
 /** A bar from the baseline to `yEnd`, rounded at the data end only. */
 export function barPath(x: number, w: number, yBase: number, yEnd: number): string | null {
@@ -31,48 +30,22 @@ export function barPath(x: number, w: number, yBase: number, yEnd: number): stri
   );
 }
 
-/** Swatch + name per series, in rows that wrap; drawn above the plot. */
-function key(f: Frame, p: PreparedChart): { parts: string[]; height: number } {
-  if (p.series.length < 2) return { parts: [], height: 0 };
-  const lh = lineHeight(ChartFont.label) + 4;
-  const parts: string[] = [];
-  let x = f.area.left;
-  let row = 0;
-  for (const s of p.series) {
-    const name = ellipsize(s.name, 180, ChartFont.label);
-    const w = SWATCH + 6 + textWidth(name, ChartFont.label) + 16;
-    if (x > f.area.left && x + w > f.area.right) {
-      x = f.area.left;
-      row++;
-    }
-    const cy = f.area.top + row * lh + lh / 2 - 2;
-    const fill = fillFor(f, s.index);
-    parts.push(
-      el('rect', {
-        x,
-        y: cy - SWATCH / 2,
-        width: SWATCH,
-        height: SWATCH,
-        rx: 2,
-        fill: fill.fill,
-        stroke: fill.patterned ? fill.color : undefined,
-        'stroke-width': fill.patterned ? 1 : undefined,
-      }),
-      el(
-        'text',
-        { x: x + SWATCH + 6, y: cy + ChartFont.label * 0.35, 'font-size': ChartFont.label, fill: f.theme.text },
-        esc(name),
-      ),
-    );
-    x += w;
-  }
-  return { parts, height: (row + 1) * lh + 4 };
-}
-
 export function drawBar(f: Frame, p: PreparedChart): string[] {
   const values = p.series.flatMap((s) => s.points.map((pt) => pt.y));
   const hasNegative = values.some((v) => v < 0);
-  const k = key(f, p);
+  const k = drawKey(f, p, (s, cx, cy) => {
+    const fill = fillFor(f, s.index);
+    return el('rect', {
+      x: cx - SWATCH / 2,
+      y: cy - SWATCH / 2,
+      width: SWATCH,
+      height: SWATCH,
+      rx: 2,
+      fill: fill.fill,
+      stroke: fill.patterned ? fill.color : undefined,
+      'stroke-width': fill.patterned ? 1 : undefined,
+    });
+  });
   const valueRoom = ChartFont.tick + 6;
   const c = cartesian(f, p, {
     yValues: values,
