@@ -414,7 +414,7 @@ Step 4.6: create the custom blocks the summary will use, as editor extensions on
 
 **Check:** insert one of each block on the laptop; they look the same on the iPhone.
 
-**Order after 4.6 (Lea, 29 Oct):** 4.7c formula library → 4.7d graphs → 4.7e spreadsheet → 4.7 writing tools → 4.7b tabs → 4.8 import and export → 4.9.
+**Order after 4.6 (Lea, 29 Oct):** 4.7c formula library → 4.7d graphs → 4.7b tabs → 4.7e spreadsheet (a kind of tab) → 4.7 writing tools → 4.8 import and export → 4.9.
 
 **Step 4.7c — Formula library** (Lea, 29 Oct; built first, see the order above)
 
@@ -440,16 +440,30 @@ Step 4.7d: a graph block I build myself in any document, on both devices: Insert
 
 **Check:** make a bar chart of 5 values on the iPhone, change one value on the laptop: the bars change on both; switch it to line and pie; print it in black and white.
 
-**Step 4.7e — Spreadsheet** (Lea, 29 Oct; was 8.4; built before tabs)
+**Step 4.7b — Tabs in every document** (asked 29 Oct; after graphs, before the spreadsheet)
 
 ```markdown
-Step 4.7e: a spreadsheet in any document, on both devices: cells, rows and columns, and formulas that work like Excel. Built before tabs (4.7b), so it starts as a spreadsheet block (Insert ▾ → Spreadsheet; iPhone: the second row), drawn as a grid across the page width and moving whole to a new page in page view; with 4.7b, "+" → Spreadsheet adds one as a tab of its own.
+Step 4.7b: Google Docs–style tabs in every document, on both devices: "+" adds a tab, and I can rename, reorder (drag on the laptop; Move left / Move right in the long-press sheet on the iPhone for a first version) and delete tabs (with Undo; at least one stays). Lectures keep My notes, Summary and Transcript as fixed tabs (not renamed, moved or deleted), followed by any added tabs; plain documents start with one tab ("Tab 1") and can have more. The Transcript stays editable as since 4.3, to correct misheard words (Lea, 29 Oct). Laptop: a tab row above the toolbar; iPhone: a tab row that scrolls sideways, replacing the segmented control.
+- Data: each tab is a documents row; `tab` is its id (notes / summary / transcript as today, added tabs `t-<uuid>` made on the device), with `title`, `position` (moving a tab writes only its own position), `deleted_at` (soft delete) and `kind` (`summary` for a summary tab, `sheet` for a spreadsheet tab from 4.7e). `unique (file_id, tab)` stays; nothing in existing documents is rewritten.
+- Offline: `create_tab` and `tab_meta` queue ops per tab; edits merge per tab block by block as today; a tab deleted on one device and edited offline on another comes back with a notice.
+- Versions stay per tab (history, Restore, "Before restore"); page setup becomes the document's (saved to every tab; a new tab copies it).
+- A new summary that isn't added to the existing one goes into its own tab, "New summary" (`kind = summary`), after Summary and Transcript; the tab model supports it here, Phase 7 writes it.
+- 4.8's export offers This tab or All tabs, with page numbers.
+- Not in the first version: nested tabs, tab icons, a list of deleted tabs, remembering the last open tab, search inside tabs; at most 30 tabs.
+```
+
+**Check:** add, rename, move and delete tabs on the laptop and see them on the iPhone; do the same offline on the iPhone, then go online; restore a version in one tab without touching another; a lecture's My notes, Summary and Transcript stay first and fixed.
+
+**Step 4.7e — Spreadsheet tab** (Lea, 29 Oct; was 8.4; after tabs, 4.7b)
+
+```markdown
+Step 4.7e: a spreadsheet as a tab of any document ("+" → Spreadsheet; a tab with `kind = sheet`, 4.7b), on both devices: cells, rows and columns, and formulas that work like Excel.
 - Typing "=" in a cell starts a formula; clicking (tapping) other cells adds them (=A1+B2); ranges by dragging (A1:A10).
 - Autocomplete of functions while I type: Basic SUM, AVERAGE, MIN, MAX, COUNT, ROUND · Logic IF, AND, OR · Lookup VLOOKUP, XLOOKUP · Finance PV, FV, PMT, NPV, IRR, RATE, NPER. Under the formula, a short help line for the function being typed, with the current part in bold: PMT(**rate**, nper, pv).
 - Dragging a cell's corner copies its formula to the cells next to it, with the references moving as in Excel ($A$1 stays).
 - Laptop: a grid with a formula bar; iPhone: the grid with the formula bar above the keyboard and the cell references by tap.
-- Data: the block holds the cells (value or formula, bold), with its own id and origin like any block; between devices the cells merge one by one (two devices changing different cells both keep their change), so it works offline. Results are calculated on the device. Errors as in Excel (#DIV/0!, #REF!, #NAME?).
-- Export: PDF and Word (4.8) as a table of the values.
+- Data: the tab's row holds the cells (value or formula, bold); between devices the cells merge one by one (two devices changing different cells both keep their change), so it works offline, and versions work per tab as for text. Results are calculated on the device. Errors as in Excel (#DIV/0!, #REF!, #NAME?).
+- Export: PDF and Word (4.8), "This tab" or "All tabs", as a table of the values.
 - Not in the first version: .xlsx import and export, charts inside the sheet (a graph block can take its data from a sheet later), several sheets per tab, cell styles beyond bold, number formats (%, €, decimals) and column widths.
 The formula engine is built separately (Lea, 29 Oct: another Claude Code session, branch `sheets-engine`, worktree `../Studiply-sheets`, a standalone module with its own tests). This step does not write a formula engine: it plugs that module in (parsing, calculating, the function list and help lines, moving references when copying) and builds the grid, the editing and the syncing around it.
 ```
@@ -469,20 +483,6 @@ Start with a short spike comparing the page-view options (see the recommendation
 ```
 
 **Check:** in a 10-page document, replace a word everywhere and undo it; the word count matches Google Docs for the same text; jump to a heading from the outline on both devices; switch to Letter with 2 cm margins and print a preview; in page view the page count and where each page ends match the PDF; zoom to 150 % and back with ⌘+ / ⌘− (it is remembered after a reload); pinch to zoom on the iPhone; Print layout on the iPhone shows the same pages.
-
-**Step 4.7b — Tabs in every document** (asked 29 Oct, before 4.8)
-
-```markdown
-Step 4.7b: Google Docs–style tabs in every document, on both devices: "+" adds a tab, and I can rename, reorder (drag on the laptop; Move left / Move right in the long-press sheet on the iPhone for a first version) and delete tabs (with Undo; at least one stays). Lectures keep My notes, Summary and Transcript as fixed tabs (not renamed, moved or deleted), followed by any added tabs; plain documents start with one tab ("Tab 1") and can have more. The Transcript stays editable as since 4.3, to correct misheard words (Lea, 29 Oct). Laptop: a tab row above the toolbar; iPhone: a tab row that scrolls sideways, replacing the segmented control.
-- Data: each tab is a documents row; `tab` is its id (notes / summary / transcript as today, added tabs `t-<uuid>` made on the device), with `title`, `position` (moving a tab writes only its own position), `deleted_at` (soft delete) and `kind` (`summary` for a summary tab, `sheet` for a spreadsheet tab from 4.7e). `unique (file_id, tab)` stays; nothing in existing documents is rewritten.
-- Offline: `create_tab` and `tab_meta` queue ops per tab; edits merge per tab block by block as today; a tab deleted on one device and edited offline on another comes back with a notice.
-- Versions stay per tab (history, Restore, "Before restore"); page setup becomes the document's (saved to every tab; a new tab copies it).
-- A new summary that isn't added to the existing one goes into its own tab, "New summary" (`kind = summary`), after Summary and Transcript; the tab model supports it here, Phase 7 writes it.
-- 4.8's export offers This tab or All tabs, with page numbers.
-- Not in the first version: nested tabs, tab icons, a list of deleted tabs, remembering the last open tab, search inside tabs; at most 30 tabs.
-```
-
-**Check:** add, rename, move and delete tabs on the laptop and see them on the iPhone; do the same offline on the iPhone, then go online; restore a version in one tab without touching another; a lecture's My notes, Summary and Transcript stay first and fixed.
 
 **Step 4.8 — Import and export**
 
