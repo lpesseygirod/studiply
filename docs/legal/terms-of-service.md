@@ -43,7 +43,7 @@ We can suspend or close accounts that break these terms. Unless the breach is se
 
 ## 7. AI features
 
-Studiply uses AI from OpenAI and Anthropic. When you use these features, you are interacting with an AI system, not a person.
+Studiply uses AI from ElevenLabs (transcription) and Anthropic (summaries and the assistant). When you use these features, you are interacting with an AI system, not a person.
 
 **AI can make mistakes.** Transcripts can mishear words, and summaries, flashcards, quizzes and assistant answers can be incomplete or wrong. Always check important information against your lecture, your materials and your professor. Studiply is a study aid and does not replace attending class or your own work.
 

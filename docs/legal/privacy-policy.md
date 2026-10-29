@@ -65,23 +65,23 @@ We only share data with service providers who process it on our behalf under a d
 | Provider | What it does | What it receives | Where |
 |---|---|---|---|
 | Supabase, Inc. | Database, file storage, sign-in, server functions | All account data and study content | Stored in the EU (Ireland, AWS eu-west-1) |
-| OpenAI, L.L.C. | Transcribes lecture audio | Audio recordings | United States |
+| ElevenLabs, Inc. | Transcribes lecture audio | Audio recordings | United States |
 | Anthropic, PBC | Writes summaries, flashcards and quizzes; powers the AI assistant | Transcripts, notes, marks, photos, slides and documents you include, and assistant messages | United States |
 | Apple Inc. | Sign in with Apple, App Store payments | Sign-in and purchase data, as described in Apple's own privacy policy | Worldwide |
 | [RevenueCat, Inc., if used] | Subscription status | Anonymous user ID, purchase receipts | United States |
 
-OpenAI and Anthropic only receive data after you allow AI processing. Under their API terms they do not use this data to train their models, and they keep it only for a limited time for safety and abuse monitoring.
+ElevenLabs and Anthropic only receive data after you allow AI processing, and neither uses it to train its models. ElevenLabs stores the audio it receives in the United States; we delete each transcript from ElevenLabs as soon as we have it, and ElevenLabs may keep request logs for a limited time for security and troubleshooting (in its backups for up to 30 days). Anthropic keeps data only for a limited time for safety and abuse monitoring.
 
 We may also disclose data if required by law or a valid order from a court or authority.
 
 ## 6. Transfers outside the EU
 
-OpenAI, Anthropic and RevenueCat are in the United States. Transfers rely on the EU–US Data Privacy Framework where the provider is certified, and otherwise on the European Commission's Standard Contractual Clauses.
+ElevenLabs, Anthropic and RevenueCat are in the United States. Transfers rely on the EU–US Data Privacy Framework where the provider is certified, and otherwise on the European Commission's Standard Contractual Clauses.
 
 ## 7. How long we keep your data
 
 - **Your content:** as long as your account exists, or until you delete it.
-- **Recordings:** you can choose to delete audio automatically after a set time (Settings → Storage & sync).
+- **Recordings:** by default, the audio of a lecture is deleted automatically 3 days after it has been transcribed; the transcript stays. You can choose to delete it at once, keep it until you delete it, or keep it permanently (after a recording, or in Settings → Storage & sync).
 - **Trash:** items you delete stay in Recently Deleted for 30 days, then are deleted permanently.
 - **Deleted account:** all your data and files are deleted from our database and storage straight away. Backups are overwritten within [X] days.
 - **AI usage and consent records:** kept while your account exists.

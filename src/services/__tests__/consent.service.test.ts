@@ -26,7 +26,7 @@ it('asks, then records consent with the current policy version', async () => {
 
   await ensureConsent('transcription');
 
-  expect(jest.mocked(showAlert).mock.calls[0][0]).toBe('Send the recording to OpenAI?');
+  expect(jest.mocked(showAlert).mock.calls[0][0]).toBe('Send the recording to ElevenLabs?');
   expect(callsOn('ai_consent', 'insert')[0][0]).toEqual({ scope: 'transcription', policy_version: CONSENT_POLICY_VERSION });
 });
 

@@ -17,7 +17,7 @@ export as a PDF — filed under the project and folder it belongs to.
 - **TypeScript** — strict, across `app/` and `src/`
 - **expo-router** — file-based routing with typed routes
 - **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
-- **OpenAI Whisper** (`whisper-1`) — speech-to-text, called only by the `transcribe-chunk` Edge Function; **ElevenLabs Scribe v2** is built in as its replacement (switched on with `TRANSCRIBE_PROVIDER`, see `docs/PROGRESS.md`) before whisper-1 shuts down on 26 Feb 2027
+- **ElevenLabs Scribe v2** — speech-to-text with word times, called only by the `transcribe-chunk` Edge Function (the default since 29 Oct 2026; `TRANSCRIBE_PROVIDER=openai` still selects OpenAI's `whisper-1` until it shuts down on 26 Feb 2027, but only with consent text naming OpenAI)
 - **Anthropic Claude** (`claude-opus-5-5`) — notes and clarifications, called only by the `summarize` and `assistant-chat` Edge Functions
 - **expo-av / expo-print** — recording and PDF export
 

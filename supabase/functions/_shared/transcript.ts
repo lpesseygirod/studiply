@@ -11,9 +11,12 @@
 /**
  * Who transcribes, chosen on the server with TRANSCRIBE_PROVIDER.
  *
- * whisper-1 stays the default until ElevenLabs is ready to switch on
- * (docs/PROGRESS.md, Things Lea must do). OpenAI shuts whisper-1 down on
- * 26 Feb 2027 and its successor, gpt-transcribe, returns no timestamps.
+ * ElevenLabs is the default since 29 Oct 2026, when the consent text began
+ * naming it: an unset TRANSCRIBE_PROVIDER never sends audio to OpenAI under
+ * consent that names ElevenLabs (without ELEVENLABS_API_KEY it answers
+ * not_configured). `openai` (whisper-1) can still be chosen until OpenAI
+ * shuts it down on 26 Feb 2027, but only with consent text naming OpenAI;
+ * its successor, gpt-transcribe, returns no timestamps.
  * Scribe v2 returns the time of every word; wordsToSegments below groups
  * them into sentences.
  */
@@ -28,15 +31,12 @@ export const TRANSCRIBE_MODELS: Record<
   elevenlabs: { model: 'scribe_v2', name: 'ElevenLabs', keyEnv: 'ELEVENLABS_API_KEY', pricePerMinuteUsd: 0.22 / 60 },
 };
 
-/** TRANSCRIBE_PROVIDER as set on the server; unset means whisper-1, anything unknown is refused. */
+/** TRANSCRIBE_PROVIDER as set on the server; unset means ElevenLabs, anything unknown is refused. */
 export function transcribeProvider(value: string | undefined): TranscribeProvider | null {
   const name = (value ?? '').trim().toLowerCase();
-  if (name === '') return 'openai';
+  if (name === '') return 'elevenlabs';
   return name === 'openai' || name === 'elevenlabs' ? name : null;
 }
-
-/** Placeholder until plans and server-enforced limits arrive in step 10.2. */
-export const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 
 /** OpenAI's upload limit, same as the audio-chunks bucket (ElevenLabs takes far more). */
 export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;

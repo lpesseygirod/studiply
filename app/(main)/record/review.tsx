@@ -350,7 +350,7 @@ export default function ReviewScreen() {
             </Text>
             <Text style={styles.stageDetail}>
               {stage === 'transcribing'
-                ? 'Whisper is converting your recording to text.'
+                ? 'ElevenLabs is converting your recording to text.'
                 : 'Claude is analysing the transcript and building your study notes.'}
             </Text>
 

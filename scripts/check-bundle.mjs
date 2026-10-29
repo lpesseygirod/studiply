@@ -6,7 +6,7 @@
  * folder, then searches every output file for:
  *   1. the actual secret values on this Mac: EXPO_PUBLIC_OPENAI_API_KEY and
  *      EXPO_PUBLIC_ANTHROPIC_API_KEY in .env (if still there),
- *      OPENAI_API_KEY, ANTHROPIC_API_KEY and CRON_SECRET in supabase/functions/.env, and
+ *      OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY and CRON_SECRET in supabase/functions/.env, and
  *      the local service_role key, secret key and JWT secret from
  *      `supabase status`, and the remote project's service_role and
  *      sb_secret_ keys from `supabase projects api-keys` (step 1.7B);
@@ -89,6 +89,7 @@ const secretSources = [
   ['.env EXPO_PUBLIC_ANTHROPIC_API_KEY', appEnv.EXPO_PUBLIC_ANTHROPIC_API_KEY],
   ['functions OPENAI_API_KEY', functionsEnv.OPENAI_API_KEY],
   ['functions ANTHROPIC_API_KEY', functionsEnv.ANTHROPIC_API_KEY],
+  ['functions ELEVENLABS_API_KEY', functionsEnv.ELEVENLABS_API_KEY],
   ['functions CRON_SECRET', functionsEnv.CRON_SECRET],
   ['local SERVICE_ROLE_KEY', status?.SERVICE_ROLE_KEY],
   ['local SECRET_KEY', status?.SECRET_KEY],
@@ -126,9 +127,11 @@ const checks = [
   ['a Supabase secret key  sb_secret_…', (text) => (text.match(/sb_secret_(?!_)[A-Za-z0-9_-]{20,}/g) ?? []).length, ['web', 'ios']],
   ['the name OPENAI_API_KEY', (text) => count(text, 'OPENAI_API_KEY'), ['web', 'ios']],
   ['the name ANTHROPIC_API_KEY', (text) => count(text, 'ANTHROPIC_API_KEY'), ['web', 'ios']],
+  ['the name ELEVENLABS_API_KEY', (text) => count(text, 'ELEVENLABS_API_KEY'), ['web', 'ios']],
   ['the word service_role', (text) => count(text, 'service_role'), ['web', 'ios']],
   ['the host api.openai.com', (text) => count(text, 'api.openai.com'), ['web', 'ios']],
   ['the host api.anthropic.com', (text) => count(text, 'api.anthropic.com'), ['web', 'ios']],
+  ['the host api.elevenlabs.io', (text) => count(text, 'api.elevenlabs.io'), ['web', 'ios']],
   ['expo-sqlite / wa-sqlite (web must not load SQLite)', (text) => count(text, 'expo-sqlite') + count(text, 'wa-sqlite'), ['web']],
 ];
 

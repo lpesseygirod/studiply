@@ -11,9 +11,10 @@
  * second charge) → download → transcribe → log cost in ai_usage → save
  * segments.
  *
- * TRANSCRIBE_PROVIDER picks who transcribes: unset or `openai` is
- * whisper-1 (OPENAI_API_KEY), `elevenlabs` is Scribe v2
- * (ELEVENLABS_API_KEY). Anything else, or a missing key, answers
+ * TRANSCRIBE_PROVIDER picks who transcribes: unset or `elevenlabs` is
+ * Scribe v2 (ELEVENLABS_API_KEY), the provider the consent text names since
+ * 29 Oct 2026; `openai` is whisper-1 (OPENAI_API_KEY), only with consent
+ * text naming OpenAI. Anything else, or a missing key, answers
  * not_configured.
  *
  * Reads and writes the student's rows with a client acting as the student,
@@ -26,8 +27,8 @@ import { hasConsent, logUsage, ownLecture, signedIn, usedToday } from '../_share
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { deleteScribeTranscript, transcribeScribe } from '../_shared/elevenlabs.ts';
 import { transcribe } from '../_shared/openai.ts';
+import { DAILY_LIMIT_SECONDS } from '../_shared/policy.ts';
 import {
-  DAILY_LIMIT_SECONDS,
   MAX_AUDIO_BYTES,
   TRANSCRIBE_MODELS,
   costUsd,

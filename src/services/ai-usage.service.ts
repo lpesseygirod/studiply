@@ -86,19 +86,20 @@ export async function getUsageByOperation(_userId: string): Promise<
 
 // -------------------------------------------------------------------
 // getSpendingByProvider
-// Splits ai_usage rows into OpenAI (transcription) and Anthropic (Claude).
+// Splits ai_usage rows into transcription (by its operation, so whisper-1's
+// rows and ElevenLabs' since 29 Oct 2026 both count) and Anthropic (Claude).
 // -------------------------------------------------------------------
 export async function getSpendingByProvider(_userId: string): Promise<{
-  openai: { totalCost: number; totalMinutes: number; callCount: number };
+  transcription: { totalCost: number; totalMinutes: number; callCount: number };
   anthropic: { totalCost: number; totalTokensIn: number; totalTokensOut: number; callCount: number };
 }> {
-  const openai = { totalCost: 0, totalMinutes: 0, callCount: 0 };
+  const transcription = { totalCost: 0, totalMinutes: 0, callCount: 0 };
   const anthropic = { totalCost: 0, totalTokensIn: 0, totalTokensOut: 0, callCount: 0 };
   for (const row of await allUsage()) {
-    if (row.provider === 'openai') {
-      openai.totalCost += Number(row.cost_usd);
-      openai.totalMinutes += Number(row.audio_seconds) / 60;
-      openai.callCount += 1;
+    if (row.operation === 'transcription') {
+      transcription.totalCost += Number(row.cost_usd);
+      transcription.totalMinutes += Number(row.audio_seconds) / 60;
+      transcription.callCount += 1;
     } else if (row.provider === 'anthropic') {
       anthropic.totalCost += Number(row.cost_usd);
       anthropic.totalTokensIn += row.tokens_input;
@@ -106,7 +107,7 @@ export async function getSpendingByProvider(_userId: string): Promise<{
       anthropic.callCount += 1;
     }
   }
-  return { openai, anthropic };
+  return { transcription, anthropic };
 }
 
 // -------------------------------------------------------------------

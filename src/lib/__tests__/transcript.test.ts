@@ -1,6 +1,5 @@
-import { CONSENT_POLICY_VERSION } from '../../../supabase/functions/_shared/policy';
+import { CONSENT_POLICY_VERSION, DAILY_LIMIT_SECONDS } from '../../../supabase/functions/_shared/policy';
 import {
-  DAILY_LIMIT_SECONDS,
   TRANSCRIBE_MODELS,
   costUsd,
   fromScribe,
@@ -206,9 +205,9 @@ describe('fromWhisper and fromScribe', () => {
 });
 
 describe('transcribeProvider', () => {
-  it('is whisper-1 unless the server asks for ElevenLabs', () => {
-    expect(transcribeProvider(undefined)).toBe('openai');
-    expect(transcribeProvider('')).toBe('openai');
+  it('is ElevenLabs unless the server asks for whisper-1 (the consent text names ElevenLabs)', () => {
+    expect(transcribeProvider(undefined)).toBe('elevenlabs');
+    expect(transcribeProvider('')).toBe('elevenlabs');
     expect(transcribeProvider('openai')).toBe('openai');
     expect(transcribeProvider(' ElevenLabs ')).toBe('elevenlabs');
   });
@@ -257,7 +256,7 @@ describe('languageCode', () => {
 describe('constants', () => {
   it('match the decisions in docs/PROGRESS.md', () => {
     expect(DAILY_LIMIT_SECONDS).toBe(21_600);
-    expect(CONSENT_POLICY_VERSION).toBe('dev-2026-10');
+    expect(CONSENT_POLICY_VERSION).toBe('dev-2026-10-elevenlabs');
     expect(TRANSCRIBE_MODELS.openai.model).toBe('whisper-1');
     expect(TRANSCRIBE_MODELS.elevenlabs.model).toBe('scribe_v2');
   });

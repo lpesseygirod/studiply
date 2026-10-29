@@ -45,7 +45,7 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
-const POLICY_VERSION = 'dev-2026-10';
+const POLICY_VERSION = 'dev-2026-10-elevenlabs';
 const MODEL = 'claude-opus-5-5';
 const DAILY_LIMIT_USD = 3;
 const FUNCTIONS_ENV = 'supabase/functions/.env';

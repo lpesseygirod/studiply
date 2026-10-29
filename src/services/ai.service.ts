@@ -208,7 +208,7 @@ export async function clarifyContent(params: {
 // -------------------------------------------------------------------
 
 const SIMULATED_TRANSCRIPT = [
-  '[Simulated transcript — development mode, nothing was sent to OpenAI.]',
+  '[Simulated transcript — development mode, nothing was sent to ElevenLabs.]',
   'Today we covered the key concepts of this topic, starting with the basic definitions',
   'and then working through two examples step by step. The lecturer stressed that the',
   'second example is typical of exam questions.',

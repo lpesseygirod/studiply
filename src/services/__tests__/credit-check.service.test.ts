@@ -1,5 +1,5 @@
 import { formatClaude, formatTranscription, sumToday } from '../credit-check.service';
-import { DAILY_LIMIT_SECONDS } from '../../../supabase/functions/_shared/transcript';
+import { DAILY_LIMIT_SECONDS } from '../../../supabase/functions/_shared/policy';
 import { DAILY_CLAUDE_LIMIT_USD } from '../../../supabase/functions/_shared/claude';
 
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));

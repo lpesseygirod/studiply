@@ -25,8 +25,8 @@ export class ConsentDeclinedError extends Error {
 
 const QUESTIONS: Record<ConsentScope, { title: string; message: string }> = {
   transcription: {
-    title: 'Send the recording to OpenAI?',
-    message: 'To turn your recording into text, Studiply sends its audio to OpenAI. You will only be asked once.',
+    title: 'Send the recording to ElevenLabs?',
+    message: 'To turn your recording into text, Studiply sends its audio to ElevenLabs. You will only be asked once.',
   },
   assistant_summary: {
     title: 'Send the transcript to Anthropic?',

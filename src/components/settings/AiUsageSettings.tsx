@@ -18,7 +18,7 @@ import { formatClaude, formatTranscription, getTodayUsage, type TodayUsage } fro
 import { makeSettingsStyles } from './styles';
 
 type ProviderStats = {
-  openai: { totalCost: number; totalMinutes: number; callCount: number };
+  transcription: { totalCost: number; totalMinutes: number; callCount: number };
   anthropic: { totalCost: number; totalTokensIn: number; totalTokensOut: number; callCount: number };
 };
 
@@ -63,7 +63,7 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
     if (profile?.id) loadPiggyData(profile.id);
   }, [profile?.id, loadPiggyData]);
 
-  const totalSpent = (providerStats?.openai.totalCost ?? 0) + (providerStats?.anthropic.totalCost ?? 0);
+  const totalSpent = (providerStats?.transcription.totalCost ?? 0) + (providerStats?.anthropic.totalCost ?? 0);
 
   return (
     <>
@@ -88,7 +88,7 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
             reached={today?.transcriptionReached ?? false}
             subStats={
               providerStats
-                ? `All time: ${fmt(providerStats.openai.totalMinutes, 1)} min transcribed • ${providerStats.openai.callCount} part${providerStats.openai.callCount !== 1 ? 's' : ''}`
+                ? `All time: ${fmt(providerStats.transcription.totalMinutes, 1)} min transcribed • ${providerStats.transcription.callCount} part${providerStats.transcription.callCount !== 1 ? 's' : ''}`
                 : undefined
             }
           />
@@ -139,9 +139,9 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
           {/* Cost reference */}
           <View style={styles.costRefCard}>
             <Text style={styles.costRefTitle}>About these limits</Text>
-            <Text style={styles.costRefLine}>• Studiply runs the AI for you; no OpenAI or Anthropic account needed</Text>
+            <Text style={styles.costRefLine}>• Studiply runs the AI for you; no ElevenLabs or Anthropic account needed</Text>
             <Text style={styles.costRefLine}>• Each limit counts the last 24 hours, so it frees up gradually</Text>
-            <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.06 · lecture notes ≈ $0.02–0.30</Text>
+            <Text style={styles.costRefLine}>• 10 min transcription ≈ $0.04 · lecture notes ≈ $0.02–0.30</Text>
           </View>
         </>
       )}

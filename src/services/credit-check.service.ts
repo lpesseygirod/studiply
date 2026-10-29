@@ -13,9 +13,8 @@
 import { supabase } from '../lib/supabase';
 import { serviceError } from '../lib/cloudRows';
 import { isMockAiForced } from '../lib/aiMode';
-import { DAILY_LIMIT_SECONDS } from '../../supabase/functions/_shared/transcript';
 import { DAILY_CLAUDE_LIMIT_USD } from '../../supabase/functions/_shared/claude';
-import { LIMIT_WINDOW_MS } from '../../supabase/functions/_shared/policy';
+import { DAILY_LIMIT_SECONDS, LIMIT_WINDOW_MS } from '../../supabase/functions/_shared/policy';
 
 const PAGE = 1000;
 

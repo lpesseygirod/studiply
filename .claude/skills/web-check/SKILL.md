@@ -198,7 +198,7 @@ node .claude/skills/web-check/scripts/pages.mjs
 
 `scripts/ai-flow.mjs` records about 12 s of a spoken lecture (macOS `say`, played as the page's microphone), stops, generates notes through both consent dialogs, highlights a sentence and asks Clarify, confirms, opens the note, and checks the database (transcript, confirmed note with its clarification, lecture `ready`, consent rows, `ai_usage`).
 
-- **Real** (default): needs `supabase functions serve` with the keys in `supabase/functions/.env`. Calls Whisper and Claude: **about $0.05 per run** — run it when the AI path changed, not as a routine check.
+- **Real** (default): needs `supabase functions serve` with the keys in `supabase/functions/.env`. Calls ElevenLabs Scribe v2 (the transcription default since 29 Oct 2026; `ELEVENLABS_API_KEY` needed) and Claude: **about $0.05 per run** — run it when the AI path changed, not as a routine check.
   ```bash
   node .claude/skills/web-check/scripts/ai-flow.mjs
   ```
@@ -240,7 +240,7 @@ Check results in the database with `admin` (service role, local only), not just 
 - **Fresh profile every launch**: a kept profile restores the previous run's session (for a user that no longer exists) and skips sign-in.
 - **Text is matched as rendered**: labels styled with `textTransform: 'uppercase'` read as `UNDO`, not `Undo`.
 - **Off-screen elements**: the driver scrolls the target into view before clicking (wide windows make the square course cards very tall).
-- **Start Recording is disabled until a title is typed** (`input[placeholder^="e.g."]`). The microphone is Chrome's fake device (a beep once a second, which Whisper hears as "you"); the recording uploads as `.webm`.
+- **Start Recording is disabled until a title is typed** (`input[placeholder^="e.g."]`). The microphone is Chrome's fake device (a beep once a second, which Whisper heard as "you"; Scribe may hear nothing); the recording uploads as `.webm`.
 - **Real speech**: `launch({ micWav })` replaces getUserMedia with a Web Audio stream of the file. Chrome's own `--use-file-for-fake-audio-capture` stays silent in headless mode, whatever the WAV format.
 - **Summary sentences are `<span>`s on the web** (nested Text); other text is in `<div>`s.
 - **A full reload shows the splash screen for ~2 s**; wait before a screenshot (text checks pass underneath it, the screenshot shows only the splash).

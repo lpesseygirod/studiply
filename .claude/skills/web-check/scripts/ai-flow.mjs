@@ -70,7 +70,7 @@ try {
   await step(MOCK ? 'generate notes (simulated, no consent asked)' : 'generate notes: both consent dialogs, then real notes', async () => {
     await b.click('GENERATE NOTES');
     if (!MOCK) {
-      await b.waitText('Send the recording to OpenAI?', { timeout: 20000 });
+      await b.waitText('Send the recording to ElevenLabs?', { timeout: 20000 });
       await b.shot('ai-10-consent-transcription');
       await b.click('Allow', { exact: true });
       await b.waitText('Send the transcript to Anthropic?', { timeout: 90000 });

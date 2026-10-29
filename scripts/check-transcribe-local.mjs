@@ -3,8 +3,8 @@
  * check-transcribe-local.mjs — end-to-end check of transcribe-chunk (step 1.5).
  *
  * Calls the real local Edge Function, which calls the provider chosen by
- * TRANSCRIBE_PROVIDER in supabase/functions/.env (whisper-1 when unset,
- * Scribe v2 for `elevenlabs`; a few cents' fraction per run):
+ * TRANSCRIBE_PROVIDER in supabase/functions/.env (Scribe v2 when unset or
+ * `elevenlabs`, whisper-1 for `openai`; a few cents' fraction per run):
  *   1. makes a short sample lecture with macOS `say`: two known sentences
  *      with a 4-second pause between them;
  *   2. creates two throwaway users, A and B, and a lecture for A;
@@ -47,7 +47,7 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 const FUNCTION_URL = `${url}/functions/v1/transcribe-chunk`;
 const BUCKET = 'audio-chunks';
-const POLICY_VERSION = 'dev-2026-10';
+const POLICY_VERSION = 'dev-2026-10-elevenlabs';
 const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 const START_MS = 60_000;
 const PAUSE_MS = 4000;
@@ -81,7 +81,7 @@ function envValue(name) {
 }
 
 // The provider the function uses, as in supabase/functions/_shared/transcript.ts
-const PROVIDER = (envValue('TRANSCRIBE_PROVIDER') ?? 'openai').trim().toLowerCase();
+const PROVIDER = (envValue('TRANSCRIBE_PROVIDER') || 'elevenlabs').trim().toLowerCase();
 const { model: MODEL, keyEnv: KEY_ENV } = {
   openai: { model: 'whisper-1', keyEnv: 'OPENAI_API_KEY' },
   elevenlabs: { model: 'scribe_v2', keyEnv: 'ELEVENLABS_API_KEY' },
@@ -214,7 +214,7 @@ try {
     noConsent.status === 403 && noConsent.body.code === 'consent_required',
     `without consent: 403 consent_required (got ${noConsent.status} ${noConsent.body.code ?? ''})`,
   );
-  check((await usageRows(a.id)).length === 0, 'nothing was sent to OpenAI (no ai_usage row)');
+  check((await usageRows(a.id)).length === 0, 'nothing was sent to transcribe (no ai_usage row)');
 
   console.log('\nConsent, the way the step 10.1 screen will give it');
   const given = await a.client.from('ai_consent').insert({ scope: 'transcription', policy_version: POLICY_VERSION });

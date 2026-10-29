@@ -165,9 +165,9 @@ try {
 
   await step('Review: "Not now" sends nothing, keeps the recording, Library leaves', async () => {
     await b.click('GENERATE NOTES');
-    // A new account is asked before anything goes to OpenAI (real AI). The
+    // A new account is asked before anything goes to ElevenLabs (real AI). The
     // simulated pipeline (EXPO_PUBLIC_MOCK_AI=1) asks nothing and writes notes.
-    const asked = await b.waitText('Send the recording to OpenAI?', { timeout: 15000 }).then(() => true, () => false);
+    const asked = await b.waitText('Send the recording to ElevenLabs?', { timeout: 15000 }).then(() => true, () => false);
     if (asked) {
       await b.shot('20-consent');
       await b.click('Not now', { exact: true });

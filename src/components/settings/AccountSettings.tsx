@@ -258,7 +258,7 @@ export function AiPrivacyNote() {
     <View style={styles.infoCard}>
       <Ionicons name="shield-checkmark-outline" size={26} color={c.text.secondary} />
       <View style={styles.infoText}>
-        <Text style={styles.infoHint}>Recordings, notes and photos are sent to OpenAI or Anthropic only after you allow it.</Text>
+        <Text style={styles.infoHint}>Recordings are sent to ElevenLabs, and notes and photos to Anthropic, only after you allow it.</Text>
       </View>
     </View>
   );
