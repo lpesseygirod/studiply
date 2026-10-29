@@ -27,10 +27,10 @@ import { admin, makeUser, dropUser } from './testuser.mjs';
 const BASE = process.env.WEB_CHECK_URL ?? 'http://localhost:8123';
 const results = [];
 let b;
-// WEB_CHECK_ONLY=<part of a step's name> runs only the matching steps.
+// WEB_CHECK_ONLY=<part of a step's name> runs only the matching steps (several: separated by |).
 const ONLY = process.env.WEB_CHECK_ONLY;
 const step = async (name, fn) => {
-  if (ONLY && !name.includes(ONLY)) return;
+  if (ONLY && !ONLY.split('|').some((part) => name.includes(part))) return;
   try {
     await fn();
     results.push(['PASS', name]);
@@ -189,7 +189,7 @@ try {
   };
   const types = async () => (await json()).content.map((n) => n.type).join(',');
   // Image, table, formula and comment are in the Insert menu (the simplicity pass).
-  const IN_INSERT = { 'Insert table': 'Insert table', Image: 'Insert image', Formula: 'Insert formula', 'Comment (⌘⌥M)': 'Insert comment' };
+  const IN_INSERT = { 'Insert table': 'Insert table', Image: 'Insert image', Formula: 'Insert formula', 'Formula from the library': 'Insert formula from the library', 'Comment (⌘⌥M)': 'Insert comment' };
   const toolbarTool = async (label) => {
     if (IN_INSERT[label]) {
       if (!(await has('Insert'))) await click('More tools');
@@ -593,6 +593,68 @@ try {
     await b.resize(390, 844);
     await b.sleep(300);
     await b.shot('ins-formula-iphone-390');
+    await b.resize(1280, 900);
+    await openDoc();
+  });
+
+  // ── Step 4.7c: the formula library ──
+  await step('formula library: search "annuity", its card (KaTeX, the legend); NPV, WACC, CAPM; the formula edited, the legend stays; the iPhone bundle', async () => {
+    const cards = async () => {
+      const out = [];
+      const walk = (n) => {
+        if (n.type === 'formulaCard') out.push(n);
+        (n.content ?? []).forEach(walk);
+      };
+      walk(await json());
+      return out;
+    };
+    const legend = (card) => (card.content?.[1]?.content ?? []).map((c) => c.text ?? `[${c.attrs?.latex}]`).join('');
+    await lastLine();
+    for (const [query, name] of [['annuity', 'Annuity (present value)'], ['VAN', 'Net present value (NPV)'], ['wacc', 'WACC'], ['capm', 'CAPM']]) {
+      await toolbarTool('Formula from the library');
+      await b.fill('input[aria-label="Search formulas"]', query);
+      await b.sleep(250);
+      if (query === 'annuity') {
+        expect(await b.evaluate(`!document.querySelector('[aria-label="Insert WACC"]')`), 'the search did not narrow the list');
+        await b.shot('ins-formula-library-1280');
+      }
+      await click(`Insert ${name}`);
+      await b.sleep(400);
+    }
+    let list = await cards();
+    expect(JSON.stringify(list.map((c) => c.attrs.title)) === JSON.stringify(['Annuity (present value)', 'Net present value (NPV)', 'WACC', 'CAPM']), JSON.stringify(list.map((c) => c.attrs.title)));
+    expect(legend(list[0]) === '[\\mathit{PV}] present value of the payments · [C] payment per period · [r] rate per period · [n] number of payments', legend(list[0]));
+    const drawn = await b.evaluate(`[...document.querySelectorAll('.studiply-formula-card')].map((c) => [c.querySelector('.studiply-formula-card-title')?.textContent, !!c.querySelector('[data-type="block-math"] .katex'), c.querySelectorAll('p [data-type="inline-math"] .katex').length])`);
+    expect(drawn.length === 4 && drawn.every((d) => d[1]) && drawn[0][2] === 4 && drawn[2][2] === 7, JSON.stringify(drawn));
+    await b.evaluate(`document.querySelector('.studiply-formula-card').scrollIntoView({ block: 'start' })`);
+    await b.sleep(300);
+    await b.shot('ins-formula-cards-1280');
+    // The formula is a formula like any other: its editor opens with its LaTeX; the legend stays.
+    const at = await b.evaluate(`(() => { const r = document.querySelector('.studiply-formula-card [data-type="block-math"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await b.clickAt(at.x, at.y);
+    await b.sleep(300);
+    expect((await b.evaluate(`document.querySelector('${LATEX}')?.value`)) === list[0].content[0].attrs.latex, 'the formula editor has not its LaTeX');
+    await b.fill(LATEX, '\\mathit{PV} = 100 \\times \\frac{1 - 1.05^{-10}}{0.05}');
+    await click('Done with the formula');
+    await b.sleep(300);
+    list = await cards();
+    expect(list[0].content[0].attrs.latex === '\\mathit{PV} = 100 \\times \\frac{1 - 1.05^{-10}}{0.05}', list[0].content[0].attrs.latex);
+    expect(legend(list[0]).startsWith('[\\mathit{PV}] present value of the payments'), legend(list[0]));
+    // The iPhone's editor draws the same cards.
+    const doc = await json();
+    const css = await b.evaluate('window.studiplyEditorCss()');
+    // Leave a plain page (saved) for the next steps: openDoc clicks the page's middle, which would open a card's formula.
+    await b.evaluate(`${EDITOR}.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] })`);
+    await b.sleep(2000);
+    await b.resize(390, 844);
+    await b.nav(IPHONE);
+    await waitEditor();
+    await b.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); })()`);
+    await b.evaluate(`${EDITOR}.commands.setContent(${JSON.stringify(doc)})`);
+    await b.sleep(500);
+    const phone = await b.evaluate(`[...document.querySelectorAll('.studiply-formula-card')].map((c) => [c.querySelector('.studiply-formula-card-title')?.textContent, !!c.querySelector('[data-type="block-math"] .katex')])`);
+    expect(phone.length === 4 && phone.every((d) => d[1]), JSON.stringify(phone));
+    await b.shot('ins-formula-cards-iphone-390');
     await b.resize(1280, 900);
     await openDoc();
   });

@@ -310,6 +310,8 @@ export const DocColors = {
     exam: { bg: '#FFE4B5', text: '#7A4A00' },
     confused: { bg: '#F5E0D8', text: '#8A3B22' },
   },
+  /** Formula cards (step 4.7c; SUMMARY-SPEC "Formula card"): a quiet box, the title in the accent, the legend softer than the text. */
+  formulaCard: { bg: '#F8F7FC', border: '#DCD8EE', title: '#4F43B0', legend: '#4A4A5C' },
   /** Timestamp chips (step 4.6): the accent on its light fill. */
   timestamp: { bg: '#EAE8F7', text: '#4F43B0' },
   /** Text tinted to show it has a comment (step 4.5): not one of the highlights. */

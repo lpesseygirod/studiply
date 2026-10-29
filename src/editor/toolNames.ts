@@ -47,6 +47,7 @@ export const TOOLS = {
   camera: { name: 'Take photo', short: 'Camera' },
   table: { name: 'Table' },
   formula: { name: 'Formula' },
+  formulaLibrary: { name: 'Formula from the library', short: 'Library' },
   comment: { name: 'Comment', keys: '⌘⌥M' },
   pageBreak: { name: 'Page break', keys: '⌘↵' },
   callout: { name: 'Callout' },

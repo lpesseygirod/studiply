@@ -85,6 +85,12 @@ describe("Studiply's blocks in the document (step 4.6)", () => {
   it.each(Object.entries(DocColors.markChip).map(([k, v]) => [k, v]))('the %s mark chip ≥ 4.5', (_kind, c) => {
     expect(contrast(c.text, c.bg)).toBeGreaterThanOrEqual(TEXT);
   });
+  it('the formula card (4.7c): its title, legend and text ≥ 4.5', () => {
+    const f = DocColors.formulaCard;
+    expect(contrast(f.title, f.bg)).toBeGreaterThanOrEqual(TEXT);
+    expect(contrast(f.legend, f.bg)).toBeGreaterThanOrEqual(TEXT);
+    expect(contrast(LightColors.text.primary, f.bg)).toBeGreaterThanOrEqual(TEXT);
+  });
   it('the timestamp chip ≥ 4.5', () => {
     expect(contrast(DocColors.timestamp.text, DocColors.timestamp.bg)).toBeGreaterThanOrEqual(TEXT);
   });

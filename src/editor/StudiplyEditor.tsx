@@ -178,6 +178,13 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     formulaPlaced.current = false;
     editor.focus();
   };
+  // The formula library (step 4.7c), from the sheet: its card goes in where the cursor is.
+  const pickLibraryFormula = (id: string) => {
+    setFormula(null);
+    formulaPlaced.current = false;
+    run({ type: 'formulaCard', id });
+    editor.focus();
+  };
   // Comments (step 4.5): the toolbar's Comment on the selected words, through the app's prompt.
   const addComment = async () => {
     setPanel(undefined);
@@ -514,7 +521,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           setMarkDraft(null);
         }}
       />
-      <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} />
+      <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} onLibrary={pickLibraryFormula} />
     </EditorKeyboardAvoidingView>
   );
 });

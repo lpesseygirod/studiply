@@ -12,6 +12,7 @@ import { tableBarKey, type TableBarRequest } from '../table/tableBar';
 import { pageViewOf } from '../page/pageView';
 import { photoBarKey, type PhotoBarRequest } from '../photoBar';
 import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '../schema/callout';
+import { formulaEntry } from '../formulas/library';
 import { markChipKey, selectedMarkChip, type MarkChipRequest, type MarkKind as ChipKind } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
@@ -164,6 +165,8 @@ export type FormatCommand =
   | { type: 'formula'; action: 'remove' | 'done' }
   /** The "Make formula" suggestion: take it, or not this one. */
   | { type: 'formula'; action: 'acceptSuggestion' | 'dismissSuggestion' }
+  /** A formula card from the library (step 4.7c), by the entry's id (the editor has the library). */
+  | { type: 'formulaCard'; id: string }
   /** Comments (step 4.5): on the selected words (`add`), or one by id. */
   | { type: 'comment'; action: 'add'; id: string; text: string }
   | { type: 'comment'; action: 'edit'; id: string; text: string }
@@ -483,6 +486,10 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       if (cmd.action === 'dismissSuggestion') return chain().dismissMathSuggestion().run();
       if (!selectedFormula(editor.state)?.latex.trim()) return chain().removeFormula().run();
       return chain().leaveFormula().run();
+    case 'formulaCard': {
+      const entry = formulaEntry(cmd.id);
+      return !!entry && chain().insertFormulaCard(entry).run();
+    }
     case 'comment':
       switch (cmd.action) {
         case 'add':

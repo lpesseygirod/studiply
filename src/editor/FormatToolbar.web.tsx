@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/react';
 
 import { anchorBelow, promptText, showAlert, type Anchor } from '../components/dialogs/dialogs';
 import { CalloutKinds } from '../components/editor/CalloutKinds';
+import { FormulaLibrary } from '../components/editor/FormulaLibrary';
 import { MarkForm } from '../components/editor/MarkForm';
 import { parseClock } from './schema/timestampChip';
 import { ColorGrid } from '../components/editor/ColorGrid';
@@ -32,7 +33,7 @@ import { ToolTip } from '../components/editor/ToolTip.web';
 import { ZOOM_STEPS, type ViewPrefs, type ZoomSetting } from '../lib/viewPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'align' | 'insert' | 'view' | 'callout' | 'mark';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'align' | 'insert' | 'view' | 'callout' | 'mark' | 'library';
 
 /** A toolbar item and the width it takes (for deciding what fits on the first row). */
 interface Item {
@@ -438,6 +439,7 @@ export function FormatToolbar({
         {iconRow('image', 'image-outline', () => (close(), (onImage ?? soon('Images'))()), false, 'Insert image')}
         {iconRow('table', 'table-large-plus', () => void open('table', 'insert'), false, 'Insert table')}
         {iconRow('formula', 'sigma', () => (close(), void openFormula()), false, 'Insert formula')}
+        {iconRow('formulaLibrary', 'book-open-variant', () => void open('library', 'insert'), false, 'Insert formula from the library')}
         {iconRow('comment', 'comment-plus-outline', () => (close(), (onComment ?? soon('Comments'))()), false, 'Insert comment')}
         {iconRow('pageBreak', 'format-page-break', () => run({ type: 'pageBreak' }), false, 'Insert page break')}
         {heading('Study blocks')}
@@ -448,6 +450,10 @@ export function FormatToolbar({
       <ToolbarPopover anchor={menu?.kind === 'callout' ? menu.anchor : null} onClose={close} width={250} label="Callout">
         {heading(s.callout ? 'Change to' : 'Callout')}
         <CalloutKinds current={s.callout?.kind} onPick={(kind) => run({ type: 'callout', action: 'set', kind })} />
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'library' ? menu.anchor : null} onClose={close} width={320} label="Formula library">
+        {heading('Formula library')}
+        <FormulaLibrary autoFocus maxHeight={380} onPick={(id) => run({ type: 'formulaCard', id })} />
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'mark' ? menu.anchor : null} onClose={close} width={300} label="Mark">
         <View style={styles.picker}>

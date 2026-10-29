@@ -8,6 +8,7 @@ import { KeyboardToolbar } from '../../src/editor/iphone/KeyboardToolbar';
 import { DEFAULT_PAGE_SETUP } from '../../src/editor/page/pageSetup';
 import type { FormatState } from '../../src/editor/format';
 import { MarkSheet } from '../../src/editor/iphone/MarkSheet';
+import { FormulaSheet } from '../../src/editor/iphone/FormulaSheet';
 
 /**
  * Development only: the iPhone's keyboard toolbar and Page setup sheet drawn
@@ -17,6 +18,7 @@ import { MarkSheet } from '../../src/editor/iphone/MarkSheet';
  *   /dev/editor-preview?show=toolbar     the keyboard toolbar (open its second row with the arrow)
  *   /dev/editor-preview?show=pagesetup   the Page setup sheet
  *   /dev/editor-preview?show=mark        a mark chip's sheet
+ *   /dev/editor-preview?show=formula     the formula sheet (From the library shows the library)
  */
 const STATE = { canUndo: true, canRedo: true, canIndent: true, canOutdent: true, bold: true, list: null } as unknown as FormatState;
 
@@ -44,6 +46,9 @@ export default function EditorPreview() {
           />
         )}
       </View>
+      {show === 'formula' && (
+        <FormulaSheet draft={{ latex: '', display: false, existing: false }} onChange={() => {}} onDone={() => {}} onRemove={() => {}} onLibrary={() => {}} />
+      )}
       {show === 'mark' && <MarkSheet draft={{ kind: 'confused', level: 7, existing: true }} onSubmit={() => {}} onRemove={() => {}} onClose={() => {}} />}
       {show === 'pagesetup' && (
         <PageSetupDialog visible setup={setup} pageless={false} onClose={() => {}} onApply={setSetup} onSetDefault={async () => {}} />

@@ -2,6 +2,7 @@ import { mergeAttributes, Node, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';
 
+import { leaveBoxOnEmptyLast } from './boxKeys';
 import { chipLabel } from './timestampChip';
 
 /**
@@ -96,8 +97,8 @@ declare module '@tiptap/core' {
   }
 }
 
-/** What a callout holds: text blocks, lists, formulas, photos, tables; not another callout, a title or a page break. */
-const INSIDE = '(paragraph | heading | bulletList | orderedList | taskList | blockquote | blockMath | image | table)+';
+/** What a callout holds: text blocks, lists, formulas (and formula cards, 4.7c), photos, tables; not another callout, a title or a page break. */
+const INSIDE = '(paragraph | heading | bulletList | orderedList | taskList | blockquote | blockMath | formulaCard | image | table)+';
 
 export const Callout = Node.create({
   name: CALLOUT,
@@ -190,7 +191,7 @@ export const Callout = Node.create({
     const editor = this.editor;
     return {
       // Enter on an empty last line leaves the box (as in a list).
-      Enter: () => leaveOnEmptyLast(editor),
+      Enter: () => leaveBoxOnEmptyLast(editor, CALLOUT),
       // Backspace at the start of an empty box takes it away.
       Backspace: () => removeIfEmpty(editor),
     };
@@ -226,26 +227,6 @@ export const Callout = Node.create({
     ];
   },
 });
-
-function leaveOnEmptyLast(editor: Editor): boolean {
-  const { state } = editor;
-  const { $from, empty } = state.selection;
-  const at = calloutAt(state);
-  if (!at || !empty) return false;
-  const block = $from.parent;
-  const callout = state.doc.nodeAt(at.pos)!;
-  // The cursor's line is the callout's last child, a top-level line in it, and empty.
-  if ($from.depth !== 2 || block.type.name !== 'paragraph' || block.content.size > 0 || $from.index(1) !== callout.childCount - 1) return false;
-  if (callout.childCount === 1) return false;
-  const lineFrom = $from.before(2);
-  const end = at.pos + callout.nodeSize;
-  const tr = state.tr.delete(lineFrom, lineFrom + block.nodeSize);
-  const after = tr.mapping.map(end);
-  tr.insert(after, state.schema.nodes.paragraph.create());
-  tr.setSelection(TextSelection.create(tr.doc, after + 1));
-  editor.view.dispatch(tr.scrollIntoView());
-  return true;
-}
 
 function removeIfEmpty(editor: Editor): boolean {
   const { state } = editor;

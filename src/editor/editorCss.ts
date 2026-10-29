@@ -9,6 +9,7 @@ import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CLASS, PHOTO_WIDE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
 import { CALLOUT_CLASS } from './schema/callout';
+import { FORMULA_CARD_CLASS } from './schema/formulaCard';
 import { SELECTION_BAR_CLASS } from './format/selectionBar';
 import { MARK_CHIP_CLASS } from './schema/markChip';
 import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
@@ -69,6 +70,12 @@ ${pm} .${CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; 
 ${pm} .${CALLOUT_CLASS} { margin: 0 0 0.9em; padding: 10px 14px 10px 14px; border-left: 4px solid; border-radius: 8px; break-inside: avoid; }
 ${pm} .${CALLOUT_CLASS}-label { margin-bottom: 4px; font: 700 11px/16px -apple-system, system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${pm} .${CALLOUT_CLASS}-body > :last-child { margin-bottom: 0; }
+/* Formula cards (step 4.7c): a quiet box; the title in small capitals; the formula, then its legend smaller and softer. */
+${pm} .${FORMULA_CARD_CLASS} { margin: 0 0 0.9em; padding: 10px 14px; border: 1px solid ${DocColors.formulaCard.border}; border-radius: 8px; background: ${DocColors.formulaCard.bg}; break-inside: avoid; }
+${pm} .${FORMULA_CARD_CLASS}-title { margin-bottom: 2px; font: 700 11px/16px -apple-system, system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: ${DocColors.formulaCard.title}; user-select: none; -webkit-user-select: none; }
+${pm} .${FORMULA_CARD_CLASS}-body > [data-type='block-math'] { margin: 0.3em 0 0.4em; }
+${pm} .${FORMULA_CARD_CLASS}-body > p { margin: 0.15em 0 0; font-size: 0.85em; line-height: 1.5; color: ${DocColors.formulaCard.legend}; }
+@media (max-width: 480px) { ${pm} .${FORMULA_CARD_CLASS}-body > [data-type='block-math'] .katex { font-size: 1em; } }
 ${Object.entries(DocColors.callout)
   .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)
   .join('\n')}

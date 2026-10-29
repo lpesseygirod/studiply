@@ -25,6 +25,7 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   inlineMath: { latex: '' },
   timestampChip: { ms: 0 },
   callout: { origin: 'student', kind: 'definition' },
+  formulaCard: { origin: 'student', title: '' },
   markChip: { kind: 'important' },
   link: { target: '_blank', rel: 'noopener noreferrer nofollow' },
   comment: { text: '', createdAt: 0, resolved: false },
