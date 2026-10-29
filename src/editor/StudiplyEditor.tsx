@@ -29,7 +29,7 @@ import { promptText, showActionSheet, showAlert } from '../components/dialogs/di
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
 import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
 import { FormulaSheet, type FormulaDraft } from './iphone/FormulaSheet';
-import { INSERT_PANEL, InsertKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
+import { NEW_TABLE_PANEL, NewTableKeyboard, PanelActions, TABLE_PANEL, TableKeyboard, type PanelActionsValue, type TableSize, type TableView } from './iphone/InsertPanels';
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
 import { newId } from '../lib/mappers';
@@ -42,8 +42,8 @@ type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatB
 setNativePhotoResolver(editorPhotoSource);
 type State = ReturnType<typeof useBridgeState> & Partial<TimestampChipState & PasteReportState & FormatBridgeState>;
 
-const PANELS = [AaKeyboard, ColorKeyboard, InsertKeyboard, TableKeyboard];
-const PANEL_IDS: Record<Panel, string> = { aa: AA_PANEL, colors: COLOR_PANEL, insert: INSERT_PANEL, table: TABLE_PANEL };
+const PANELS = [AaKeyboard, ColorKeyboard, NewTableKeyboard, TableKeyboard];
+const PANEL_IDS: Record<Panel, string> = { aa: AA_PANEL, colors: COLOR_PANEL, newTable: NEW_TABLE_PANEL, table: TABLE_PANEL };
 const panelOf = (id: string | undefined) => (Object.keys(PANEL_IDS) as Panel[]).find((k) => PANEL_IDS[k] === id);
 
 const CSS_TAG = 'studiply';
@@ -92,8 +92,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
   const openPanel = (which: Panel) => {
-    // From the toolbar, + and Table start fresh (a prompt in them keeps their state meanwhile).
-    if (which === 'insert') setInsertSize(null);
+    // From the toolbar, a new table and Table start fresh (a prompt in them keeps their state meanwhile).
+    if (which === 'newTable') setInsertSize(null);
     if (which === 'table') {
       setTableView('list');
       setResize(null);
@@ -124,7 +124,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     if (!n) return null;
     return { value: Math.min(n, max), lowered: n > max };
   };
-  // "+" → Photo (several) or Take photo: each is kept on the phone and queued, then all go in where the cursor was.
+  // Photo (several) or Take photo, in the toolbar's second row: each is kept on the phone and queued, then all go in where the cursor was.
   const addPhotos = async (from: 'library' | 'camera') => {
     setPanel(undefined);
     if (!fileId || !(await (from === 'camera' ? requestCameraPermission() : requestMediaLibraryPermission()))) return;
@@ -174,7 +174,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     formulaPlaced.current = false;
     editor.focus();
   };
-  // Comments (step 4.5): + → Comment on the selected words, through the app's prompt.
+  // Comments (step 4.5): the toolbar's Comment on the selected words, through the app's prompt.
   const addComment = async () => {
     setPanel(undefined);
     if (!stateRef.current.format?.canComment) {
@@ -223,10 +223,6 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     ]);
   };
   const panelActions: PanelActionsValue = {
-    addLink: () => void addLink(),
-    addFormula: () => openFormula(null),
-    addComment: () => void addComment(),
-    addPhotos: fileId ? (from) => void addPhotos(from) : null,
     askNumber,
     insertSize,
     setInsertSize,
@@ -391,6 +387,12 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
           onComment={openComment}
           onPhotoLayout={openPhotoLayout}
+          insert={{
+            photos: fileId ? (from) => void addPhotos(from) : null,
+            table: () => openPanel('newTable'),
+            formula: () => openFormula(null),
+            comment: () => void addComment(),
+          }}
         />
       )}
       <PanelActions.Provider value={panelActions}>

@@ -24,19 +24,11 @@ export interface TableSize {
 export type TableView = 'list' | 'colour' | 'spectrum' | 'size';
 
 /**
- * What the panels ask of the editor screen: a link's address, a typed
- * number (the app's prompt with the number pad: the panels sit where the
+ * What the panels ask of the editor screen: a typed number (the app's prompt with the number pad: the panels sit where the
  * keyboard goes, so a field in them can't bring one up), and the panel
  * state a prompt must not lose (kept on the screen, not in the panel).
  */
 export interface PanelActionsValue {
-  addLink: () => void;
-  /** The formula sheet, for a new formula. */
-  addFormula: () => void;
-  /** A comment on the selected words. */
-  addComment: () => void;
-  /** From Photos (several) or the camera; null when photos can't be added here. */
-  addPhotos: ((from: 'library' | 'camera') => void) | null;
   /** A number from 1 to `max`; a larger one comes back as `max`, `lowered`. Null when cancelled. */
   askNumber: (title: string, value: number, max: number) => Promise<{ value: number; lowered: boolean } | null>;
   insertSize: TableSize | null;
@@ -47,10 +39,6 @@ export interface PanelActionsValue {
   setResize: (size: TableSize | null) => void;
 }
 export const PanelActions = createContext<PanelActionsValue>({
-  addLink: () => {},
-  addFormula: () => {},
-  addComment: () => {},
-  addPhotos: null,
   askNumber: async () => null,
   insertSize: null,
   setInsertSize: () => {},
@@ -117,76 +105,41 @@ function Stepper({ label, value, max, onChange }: { label: string; value: number
 }
 
 /**
- * "+" (step 4.5, DESIGN's insert menu), in place of the keyboard: Photo,
- * Take photo, Table (rows and columns, then Insert), Formula, Link,
- * Comment.
+ * A new table (step 4.5; the toolbar's second row since test C), in place
+ * of the keyboard: rows and columns, then Insert. Starts at 3 × 3.
  */
-function InsertPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
+function NewTablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
   const { run } = useFormat(editor);
-  const { addLink, addFormula, addComment, addPhotos, insertSize: table, setInsertSize: setTable } = useContext(PanelActions);
-
-  if (table) {
-    return (
-      <View style={styles.panel}>
-        <Header title="Table" close={close} />
-        <View style={styles.content}>
-          <Stepper label="Rows" value={table.rows} max={MAX_TABLE.rows} onChange={(rows) => setTable({ ...table, rows })} />
-          <Stepper label="Columns" value={table.cols} max={MAX_TABLE.cols} onChange={(cols) => setTable({ ...table, cols })} />
-          <Text style={styles.note}>Tap a number to type it (up to {MAX_TABLE.rows} × {MAX_TABLE.cols}).</Text>
-          <View style={styles.row}>
-            <Pressable onPress={() => setTable(null)} style={styles.secondary} accessibilityRole="button">
-              <Text style={styles.secondaryText}>Back</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                run({ type: 'table', action: 'insert', rows: table.rows, cols: table.cols });
-                setTable(null);
-                close?.();
-              }}
-              style={styles.primary}
-              accessibilityRole="button"
-              accessibilityLabel={`Insert a ${table.rows} by ${table.cols} table`}
-            >
-              <Text style={styles.primaryText}>Insert {table.rows} × {table.cols}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  const items: { label: string; icon: IconName; onPress: () => void }[] = [
-    // Photos need the document's file (always there on the document screen).
-    ...(addPhotos
-      ? [
-          { label: 'Photo', icon: 'image-outline' as IconName, onPress: () => addPhotos('library') },
-          { label: 'Take photo', icon: 'camera-outline' as IconName, onPress: () => addPhotos('camera') },
-        ]
-      : []),
-    { label: 'Table', icon: 'table-large-plus', onPress: () => setTable({ rows: 3, cols: 3 }) },
-    { label: 'Formula', icon: 'sigma', onPress: addFormula },
-    {
-      label: 'Link',
-      icon: 'link-variant',
-      onPress: () => {
-        close?.();
-        addLink();
-      },
-    },
-    { label: 'Comment', icon: 'comment-plus-outline', onPress: addComment },
-  ];
+  const { insertSize, setInsertSize } = useContext(PanelActions);
+  const table = insertSize ?? { rows: 3, cols: 3 };
+  const finish = () => {
+    setInsertSize(null);
+    close?.();
+  };
   return (
     <View style={styles.panel}>
-      <Header title="Insert" close={close} />
-      <View style={styles.grid}>
-        {items.map((i) => (
-          <Pressable key={i.label} onPress={i.onPress} style={styles.tile} accessibilityRole="button" accessibilityLabel={`Insert ${i.label.toLowerCase()}`}>
-            <MaterialCommunityIcons name={i.icon} size={28} color={c.text.primary} />
-            <Text style={styles.tileText}>{i.label}</Text>
+      <Header title="New table" close={finish} />
+      <View style={styles.content}>
+        <Stepper label="Rows" value={table.rows} max={MAX_TABLE.rows} onChange={(rows) => setInsertSize({ ...table, rows })} />
+        <Stepper label="Columns" value={table.cols} max={MAX_TABLE.cols} onChange={(cols) => setInsertSize({ ...table, cols })} />
+        <Text style={styles.note}>Tap a number to type it (up to {MAX_TABLE.rows} × {MAX_TABLE.cols}).</Text>
+        <View style={styles.row}>
+          <Pressable onPress={finish} style={styles.secondary} accessibilityRole="button">
+            <Text style={styles.secondaryText}>Cancel</Text>
           </Pressable>
-        ))}
+          <Pressable
+            onPress={() => {
+              run({ type: 'table', action: 'insert', rows: table.rows, cols: table.cols });
+              finish();
+            }}
+            style={styles.primary}
+            accessibilityRole="button"
+            accessibilityLabel={`Insert a ${table.rows} by ${table.cols} table`}
+          >
+            <Text style={styles.primaryText}>Insert {table.rows} × {table.cols}</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -344,9 +297,9 @@ function TablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   );
 }
 
-export const INSERT_PANEL = 'studiply-insert';
+export const NEW_TABLE_PANEL = 'studiply-new-table';
 export const TABLE_PANEL = 'studiply-table';
-export const InsertKeyboard = new CustomKeyboardExtension(INSERT_PANEL, InsertPanel);
+export const NewTableKeyboard = new CustomKeyboardExtension(NEW_TABLE_PANEL, NewTablePanel);
 export const TableKeyboard = new CustomKeyboardExtension(TABLE_PANEL, TablePanel);
 
 const makeStyles = (c: ThemeColors) =>

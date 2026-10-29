@@ -17,18 +17,32 @@ const AA_W = 48;
 const TOOLS_PADDING = 8;
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-export type Panel = 'aa' | 'colors' | 'insert' | 'table';
+export type Panel = 'aa' | 'colors' | 'newTable' | 'table';
+
+/** What goes into the document from the second row (Lea, after test C: no "+" panel). */
+export interface InsertActions {
+  /** From Photos (several) or the camera; null when photos can't be added here. */
+  photos: ((from: 'library' | 'camera') => void) | null;
+  /** Rows and columns, in place of the keyboard. */
+  table: () => void;
+  formula: () => void;
+  /** A comment on the selected words. */
+  comment: () => void;
+}
 
 /**
  * The iPhone's keyboard toolbar (steps 4.4, 4.5), like the laptop's (Lea,
  * test B): one row of tools in the laptop's order (Aa · B I U · colours ·
- * lists · link · + · Table in a table · then strikethrough, checklist,
+ * lists · link · Table in a table · then strikethrough, checklist,
  * indent, undo, redo), never scrolling: what doesn't fit this iPhone's width
  * goes to a second row above, opened with the arrow at the right (open or
- * closed is remembered on this iPhone), with Done at the end. What to do
- * with the link, comment, photo or maths at the cursor comes on a row of
- * its own above the tools. Aa, the colours, + and Table open their panels
- * in place of the keyboard. A keyboard accessory, so the caret stays above.
+ * closed is remembered on this iPhone), with Done at the end. The second
+ * row always ends with what goes into the document: Photo, Take photo,
+ * Table, Formula, Comment (Lea, after test C: no "+" panel, all at once).
+ * What to do with the link, comment, photo or maths at the cursor comes on
+ * a row of its own above the tools. Aa, the colours, a new table and Table
+ * open their panels in place of the keyboard. A keyboard accessory, so the
+ * caret stays above.
  */
 export function KeyboardToolbar({
   state,
@@ -40,6 +54,7 @@ export function KeyboardToolbar({
   onOpenLink,
   onComment,
   onPhotoLayout,
+  insert,
 }: {
   state: FormatState | undefined;
   run: (cmd: FormatCommand) => void;
@@ -54,6 +69,7 @@ export function KeyboardToolbar({
   onComment: (comment: CommentInfo) => void;
   /** A photo is selected: its layout (in line, wrap, break text) and alignment. */
   onPhotoLayout: () => void;
+  insert: InsertActions;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -101,7 +117,6 @@ export function KeyboardToolbar({
     { key: 'bullet', width: TOOL_W, node: button('Bulleted list', 'format-list-bulleted', () => run({ type: 'list', list: 'bullet' }), { active: s?.list === 'bullet' }) },
     { key: 'ordered', width: TOOL_W, node: button('Numbered list', 'format-list-numbered', () => run({ type: 'list', list: 'ordered' }), { active: s?.list === 'ordered' }) },
     { key: 'link', width: TOOL_W, node: button('Link', 'link-variant', onLink, { active: !!s?.link }) },
-    { key: 'insert', width: TOOL_W, node: button('Insert', 'plus-circle-outline', () => onPanel('insert'), { active: panel === 'insert' }) },
     ...(s?.inTable ? [{ key: 'table', width: TOOL_W, node: button('Table', 'table-edit', () => onPanel('table'), { active: panel === 'table' }) }] : []),
     { key: 'strike', width: TOOL_W, node: button('Strikethrough', 'format-strikethrough-variant', () => run({ type: 'mark', mark: 'strike' }), { active: s?.strike }) },
     { key: 'task', width: TOOL_W, node: button('Checklist', 'format-list-checks', () => run({ type: 'list', list: 'task' }), { active: s?.list === 'task' }) },
@@ -110,15 +125,28 @@ export function KeyboardToolbar({
     { key: 'undo', width: TOOL_W, node: button('Undo', 'undo', () => run({ type: 'undo' }), { disabled: s ? !s.canUndo : false }) },
     { key: 'redo', width: TOOL_W, node: button('Redo', 'redo', () => run({ type: 'redo' }), { disabled: s ? !s.canRedo : false }) },
   ];
-  // Room for the tools: the row less the arrow (when anything has to move).
-  const all = splitRow(tools, room);
-  const { fits, overflow } = all.overflow.length ? splitRow(tools, room - TOOL_W) : all;
+  // Always in the second row, after what didn't fit the first.
+  const inserts = [
+    ...(insert.photos
+      ? [button('Insert photo', 'image-outline', () => insert.photos?.('library')), button('Take photo', 'camera-outline', () => insert.photos?.('camera'))]
+      : []),
+    button('Insert table', 'table-large-plus', insert.table, { active: panel === 'newTable' }),
+    button('Insert formula', 'sigma', insert.formula),
+    button('Add comment', 'comment-plus-outline', insert.comment),
+  ];
+  // Room for the tools: the row less the arrow (always there for the inserts).
+  const { fits, overflow } = splitRow(tools, room - TOOL_W);
   const hasChips = !!(s?.link || s?.mathSuggestion || s?.comment || s?.photo);
 
   return (
     <View onLayout={accessory.onLayout}>
       {/* The second row: what didn't fit (open or closed is remembered on this iPhone). */}
-      {more && overflow.length > 0 && <View style={[styles.bar, styles.moreRow, styles.wrapRow]}>{overflow.map((t) => t.node)}</View>}
+      {more && (
+        <View style={[styles.bar, styles.moreRow, styles.wrapRow]}>
+          {overflow.map((t) => t.node)}
+          {inserts}
+        </View>
+      )}
       {hasChips && (
         // What to do with the link, comment, photo or maths at the cursor comes first, on its own row.
         <View style={[styles.bar, styles.chipRow]}>
@@ -189,7 +217,7 @@ export function KeyboardToolbar({
       <View style={styles.bar}>
         <View style={styles.tools} onLayout={(e) => setRoom(Math.floor(e.nativeEvent.layout.width) - TOOLS_PADDING)}>
           {fits.map((t) => t.node)}
-          {overflow.length > 0 && button(more ? 'Fewer tools' : 'More tools', more ? 'chevron-down' : 'chevron-up', () => setMore(!more), { active: more })}
+          {button(more ? 'Fewer tools' : 'More tools', more ? 'chevron-down' : 'chevron-up', () => setMore(!more), { active: more })}
         </View>
         <Pressable onPress={onDone} style={styles.done} accessibilityRole="button" accessibilityLabel="Hide keyboard">
           <Text style={styles.doneText}>Done</Text>

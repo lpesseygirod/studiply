@@ -3,6 +3,7 @@
 // link, comment, photo or maths at the cursor on a row of their own.
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { KeyboardToolbar } from '../iphone/KeyboardToolbar';
 import type { FormatState } from '../format';
@@ -18,12 +19,14 @@ const labels = (r: ReactTestRenderer) =>
 const unique = (xs: string[]) => [...new Set(xs)];
 
 let current: ReactTestRenderer | null = null;
+// The open / closed row is remembered: each test starts closed.
+beforeEach(() => AsyncStorage.clear());
 afterEach(() => {
   act(() => current?.unmount());
   current = null;
 });
 
-async function render(state: Partial<FormatState> = {}, width = 330) {
+async function render(state: Partial<FormatState> = {}, width = 330, withPhotos = true) {
   let r!: ReactTestRenderer;
   // Async: the remembered open / closed row loads from storage.
   await act(async () => {
@@ -38,6 +41,7 @@ async function render(state: Partial<FormatState> = {}, width = 330) {
         onOpenLink={() => {}}
         onComment={() => {}}
         onPhotoLayout={() => {}}
+        insert={{ photos: withPhotos ? () => {} : null, table: () => {}, formula: () => {}, comment: () => {} }}
       />,
     );
     await Promise.resolve();
@@ -63,13 +67,33 @@ describe('the iPhone keyboard toolbar', () => {
     expect(open).toContain('Fewer tools');
     expect(open).toContain('Undo');
     expect(open).toContain('Redo');
-    expect(open).toContain('Insert');
+    // No "+" any more: what goes into the document is in the second row (Lea, after test C).
+    expect(shown).not.toContain('Insert');
+    const first = open.indexOf('Insert photo');
+    expect(open.slice(first, first + 5)).toEqual(['Insert photo', 'Take photo', 'Insert table', 'Insert formula', 'Add comment']);
+    // After what didn't fit the first row.
+    expect(open.indexOf('Redo')).toBeLessThan(first);
   });
 
-  it('wide enough for everything (an iPhone on its side): no arrow', async () => {
-    const shown = unique(labels(await render({}, 900)));
-    expect(shown).not.toContain('More tools');
+  it('wide enough for every tool (an iPhone on its side): the arrow is still there for the inserts', async () => {
+    const r = await render({}, 900);
+    const shown = unique(labels(r));
     expect(shown).toContain('Redo');
+    expect(shown).toContain('More tools');
+    expect(shown).not.toContain('Insert table');
+    const more = r.root.findAll((n) => props(n).accessibilityLabel === 'More tools' && typeof props(n).onPress === 'function')[0];
+    await act(async () => props(more).onPress!());
+    expect(unique(labels(r))).toContain('Insert table');
+  });
+
+  it("no photo buttons where photos can't be added", async () => {
+    const r = await render({}, 900, false);
+    const more = r.root.findAll((n) => props(n).accessibilityLabel === 'More tools' && typeof props(n).onPress === 'function')[0];
+    await act(async () => props(more).onPress!());
+    const open = unique(labels(r));
+    expect(open).toContain('Insert formula');
+    expect(open).not.toContain('Insert photo');
+    expect(open).not.toContain('Take photo');
   });
 
   it('a selected photo, maths typed as text: their chips, on a row of their own', async () => {
