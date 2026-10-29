@@ -29,6 +29,16 @@ export function chipLabel(ms: number): string {
   return formatHitTime(ms);
 }
 
+/** "4:12", "1:04:12" or "75" (seconds) typed by hand → ms; null when it isn't a time. */
+export function parseClock(text: string): number | null {
+  const parts = text.trim().split(':');
+  if (!parts.length || parts.length > 3 || parts.some((p) => !/^\d{1,3}$/.test(p))) return null;
+  const nums = parts.map(Number);
+  if (nums.slice(1).some((n) => n > 59)) return null;
+  const seconds = nums.reduce((total, n) => total * 60 + n, 0);
+  return seconds * 1000;
+}
+
 /** A whole, non-negative number of milliseconds; anything else is 0. */
 export function chipMs(value: unknown): number {
   const n = typeof value === 'string' ? Number(value) : value;

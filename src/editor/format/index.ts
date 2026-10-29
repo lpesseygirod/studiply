@@ -11,6 +11,8 @@ import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
 import { pageViewOf } from '../page/pageView';
 import { photoBarKey, type PhotoBarRequest } from '../photoBar';
+import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '../schema/callout';
+import { markChipKey, selectedMarkChip, type MarkChipRequest, type MarkKind as ChipKind } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 
@@ -100,6 +102,12 @@ export interface FormatState {
   mathSuggestion: { latex: string } | null;
   /** The last press on the photo bar's Layout… (a phone: the iPhone opens its layout sheet). */
   photoRequest: PhotoBarRequest | null;
+  /** The callout the cursor is in (step 4.6), and the last click on a callout's label (the iPhone opens its menu). */
+  callout: { kind: CalloutKind; level: number | null; ms: number | null } | null;
+  calloutRequest: CalloutRequest | null;
+  /** The selected mark chip (step 4.6), and the last tap on one (the iPhone opens its menu). */
+  markChip: { kind: ChipKind; level: number | null } | null;
+  markChipRequest: MarkChipRequest | null;
   /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
   view: { pages: boolean; zoom: number; pageCount: number };
 }
@@ -132,6 +140,16 @@ export type FormatCommand =
   /** The selected photo's layout (in line, wrapped, on lines of its own) and alignment; or delete it. */
   | { type: 'photoLayout'; wrap?: PhotoWrap; align?: PhotoAlign }
   | { type: 'photoDelete' }
+  /** Callouts (step 4.6): put one in (or change the one at the cursor), its level, or take the box away keeping the text. */
+  | { type: 'callout'; action: 'set'; kind: CalloutKind; level?: number | null; ms?: number | null }
+  | { type: 'callout'; action: 'level'; level: number | null }
+  | { type: 'callout'; action: 'remove' }
+  /** Mark chips (step 4.6): put one in, or change or remove the selected one. */
+  | { type: 'markChip'; action: 'insert'; kind: ChipKind; level: number | null }
+  | { type: 'markChip'; action: 'update'; kind?: ChipKind; level?: number | null }
+  | { type: 'markChip'; action: 'delete' }
+  /** A timestamp chip (step 4.6), by hand. */
+  | { type: 'timestamp'; ms: number }
   /**
    * Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print
    * layout (the sheet fits the screen); `setup`: the document's page setup.
@@ -225,8 +243,22 @@ export function formatState(editor: Editor): FormatState {
     selectionRequest: selectionBarKey.getState(editor.state) ?? null,
     mathSuggestion: mathSuggestionOf(editor),
     photoRequest: photoBarKey.getState(editor.state) ?? null,
+    callout: calloutOf(editor),
+    calloutRequest: calloutKey.getState(editor.state) ?? null,
+    markChip: markChipOf(editor),
+    markChipRequest: markChipKey.getState(editor.state) ?? null,
     view: viewOf(editor),
   };
+}
+
+function calloutOf(editor: Editor): FormatState['callout'] {
+  const c = calloutAt(editor.state);
+  return c && { kind: c.kind, level: c.level, ms: c.ms };
+}
+
+function markChipOf(editor: Editor): FormatState['markChip'] {
+  const c = selectedMarkChip(editor.state);
+  return c && { kind: c.kind, level: c.level };
 }
 
 function viewOf(editor: Editor): FormatState['view'] {
@@ -422,6 +454,16 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().setPhotoWidth(cmd.width).run();
     case 'photoLayout':
       return chain().setPhotoLayout({ wrap: cmd.wrap, align: cmd.align }).run();
+    case 'callout':
+      if (cmd.action === 'set') return chain().setCallout(cmd.kind, { level: cmd.level, ms: cmd.ms }).run();
+      if (cmd.action === 'level') return chain().setCalloutLevel(cmd.level).run();
+      return chain().removeCallout().run();
+    case 'markChip':
+      if (cmd.action === 'insert') return chain().insertMarkChip({ kind: cmd.kind, level: cmd.level }).run();
+      if (cmd.action === 'update') return chain().updateMarkChip({ kind: cmd.kind, level: cmd.level }).run();
+      return chain().deleteMarkChip().run();
+    case 'timestamp':
+      return chain().insertTimestampChip(cmd.ms).run();
     case 'view': {
       // Not focusing the text: it only changes how the document is shown.
       let c = editor.chain();

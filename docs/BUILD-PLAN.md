@@ -406,6 +406,8 @@ Step 4.5b: a page view like Word's: A4 pages with gaps between them and the page
 Step 4.6: create the custom blocks the summary will use, as editor extensions on both platforms, styled with the app palette from SUMMARY-SPEC.md (Color system): callouts (Definition, Example, Exam signal, Warning, From your notes, You were confused here, Added context) with text labels, timestamp chips (tap to play the audio from that moment), mark chips ("Confused 7/10"). Students can edit text inside them.
 ```
 
+**Built 29 Oct** (see PROGRESS): callouts with their labels and menu, mark chips, timestamp chips with a mini player (playback in one file, `src/lib/audioPlayer.ts`, to move to expo-audio with the SDK upgrade).
+
 **Check:** insert one of each block on the laptop; they look the same on the iPhone.
 
 **Step 4.7 — Writing tools**

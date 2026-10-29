@@ -62,4 +62,6 @@ export type StudiplyEditorProps = {
   onZoom?: (zoom: number) => void;
   /** The document's page setup (after test D): paper, margins, page numbers, gap. */
   pageSetup?: PageSetup;
+  /** Under the document (the mini player, step 4.6): under the pages on the laptop, above the keyboard toolbar on the iPhone. */
+  footer?: React.ReactNode;
 };

@@ -164,6 +164,14 @@ WEB_CHECK_ONLY='real mouse' node .claude/skills/web-check/scripts/inserting.mjs 
 node .claude/skills/web-check/scripts/formatting.mjs
 ```
 
+## Check Studiply's blocks (step 4.6)
+
+`scripts/blocks.mjs`: each callout from Insert ▾ → Callout, typed in (label, fill, border); a click on a label (Level); mark chips (Insert ▾ → Mark, a click to change, Remove); a timestamp typed in a prompt; the iPhone bundle at phone width with all seven kinds (each kind's label and fill, then typing in each box keeps its kind, level and text), screenshot `blocks-iphone`; then Change to and Remove callout (after the iPhone step, so the iPhone sees all seven); a lecture with a recording made in the check (two 5-second WAV tones uploaded to local `audio-chunks` with their `audio_chunks` rows): a click on its 0:07 chip plays from 0:07 in the second piece (the player's "At 0:07 of 0:10"), +10 s, and a blank document's "This document has no recording."
+
+```bash
+node .claude/skills/web-check/scripts/blocks.mjs
+```
+
 ## After the simplicity pass (before 4.6)
 
 - Tools that moved into menus: **Insert ▾** (its items are labelled "Insert table", "Insert image", "Insert formula", "Insert comment", "Insert link", "Insert page break"), **Align ▾** ("Align left", "Align centre", "Align right", "Justify"), **View ▾** (Pages / Pageless and the zoom; "Fit to window"). `inserting.mjs`'s `toolbarTool()` opens Insert first; `formatting.mjs` opens Align. Indent is "Less indent" / "More indent".

@@ -18,6 +18,6 @@ describe('tool names', () => {
   });
 
   it('plain words: no technical terms in any name', () => {
-    for (const t of Object.values(TOOLS)) expect(t.name).not.toMatch(/LaTeX|inline|node|toggle|mark|outdent/i);
+    for (const t of Object.values(TOOLS)) expect(t.name).not.toMatch(/LaTeX|inline|node|toggle|outdent/i);
   });
 });

@@ -24,6 +24,8 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   blockMath: { origin: 'student', latex: '' },
   inlineMath: { latex: '' },
   timestampChip: { ms: 0 },
+  callout: { origin: 'student', kind: 'definition' },
+  markChip: { kind: 'important' },
   link: { target: '_blank', rel: 'noopener noreferrer nofollow' },
   comment: { text: '', createdAt: 0, resolved: false },
 };

@@ -76,3 +76,16 @@ describe('contrast()', () => {
     expect(contrast('#777777', '#FFFFFF')).toBeCloseTo(4.48, 1);
   });
 });
+
+describe("Studiply's blocks in the document (step 4.6)", () => {
+  it.each(Object.entries(DocColors.callout).map(([k, v]) => [k, v]))('the %s callout: its label and the text on its fill ≥ 4.5', (_kind, c) => {
+    expect(contrast(c.label, c.bg)).toBeGreaterThanOrEqual(TEXT);
+    expect(contrast(LightColors.text.primary, c.bg)).toBeGreaterThanOrEqual(TEXT);
+  });
+  it.each(Object.entries(DocColors.markChip).map(([k, v]) => [k, v]))('the %s mark chip ≥ 4.5', (_kind, c) => {
+    expect(contrast(c.text, c.bg)).toBeGreaterThanOrEqual(TEXT);
+  });
+  it('the timestamp chip ≥ 4.5', () => {
+    expect(contrast(DocColors.timestamp.text, DocColors.timestamp.bg)).toBeGreaterThanOrEqual(TEXT);
+  });
+});

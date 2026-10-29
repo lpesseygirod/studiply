@@ -34,6 +34,9 @@ import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types
 import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
 import { newId } from '../lib/mappers';
 import type { CommentInfo } from './schema/comments';
+import { MarkSheet, type MarkDraft } from './iphone/MarkSheet';
+import { CALLOUT_KINDS, type CalloutKind } from './schema/callout';
+import { parseClock } from './schema/timestampChip';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
 
 type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance & PhotoBridgeInstance;
@@ -63,7 +66,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -311,6 +314,64 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoPress]);
 
+  // Studiply's blocks (step 4.6): a callout's kind, a mark chip's sheet, a timestamp typed in.
+  const [markDraft, setMarkDraft] = useState<MarkDraft | null>(null);
+  const pickCallout = (current?: CalloutKind | null) =>
+    showActionSheet(
+      current ? 'Change to' : 'Callout',
+      CALLOUT_KINDS.map((k) => ({ text: current === k.kind ? `${k.name} ✓` : k.name, onPress: () => run({ type: 'callout', action: 'set', kind: k.kind }) })),
+    );
+  const askTimestamp = async () => {
+    const text = await promptText('Timestamp', { message: 'The time in the recording, for example 4:12.', placeholder: '4:12', confirmLabel: 'Insert', keyboard: 'ascii-capable' });
+    editor.focus();
+    if (text === null) return;
+    const ms = parseClock(text);
+    if (ms === null) showAlert('Not a time', 'Type minutes and seconds, for example 4:12.');
+    else run({ type: 'timestamp', ms });
+  };
+  // A tap on a callout's label (in the WebView): its menu.
+  const calloutPress = state.format?.calloutRequest?.id ?? null;
+  const seenCalloutPress = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    // The first state seen may carry an old press (the screen came back): not a new one.
+    if (seenCalloutPress.current === undefined || calloutPress === seenCalloutPress.current) {
+      seenCalloutPress.current = calloutPress;
+      return;
+    }
+    seenCalloutPress.current = calloutPress;
+    const c = stateRef.current.format?.callout;
+    if (!c) return;
+    showActionSheet(CALLOUT_KINDS.find((k) => k.kind === c.kind)?.name ?? 'Callout', [
+      { text: 'Change to…', onPress: () => pickCallout(c.kind) },
+      ...(c.kind === 'confused'
+        ? [
+            {
+              text: `Level${c.level ? ` (${c.level}/10)` : ''}…`,
+              onPress: () =>
+                void askNumber('Level', c.level ?? 5, 10).then((n) => {
+                  if (n) run({ type: 'callout', action: 'level', level: n.value });
+                }),
+            },
+          ]
+        : []),
+      { text: 'Remove callout (keep the text)', style: 'destructive' as const, onPress: () => run({ type: 'callout', action: 'remove' }) },
+    ]);
+    // Only a new press opens it; the format state changes all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calloutPress]);
+  // A tap on a mark chip (in the WebView): its sheet.
+  const markPress = state.format?.markChipRequest?.id ?? null;
+  const seenMarkPress = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (seenMarkPress.current === undefined || markPress === seenMarkPress.current) {
+      seenMarkPress.current = markPress;
+      return;
+    }
+    seenMarkPress.current = markPress;
+    const m = stateRef.current.format?.markChip;
+    if (m) setMarkDraft({ kind: m.kind, level: m.level, existing: true });
+  }, [markPress]);
+
   // Tapping a formula (in the WebView) opens the sheet on it.
   const formulaTap = state.format?.formulaRequest?.id ?? null;
   const seenFormulaTap = useRef<number | null | undefined>(undefined);
@@ -412,6 +473,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         {/* Print layout (step 4.5b): a transparent WebView, so the screen's gradient shows around and between the pages. */}
         <RichText editor={editor} style={view?.pages ? CLEAR_WEBVIEW : undefined} />
       </View>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
       {typing && editable && (
         <KeyboardToolbar
           state={state.format}
@@ -428,12 +490,27 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             table: () => openPanel('newTable'),
             formula: () => openFormula(null),
             comment: () => void addComment(),
+            callout: pickCallout,
+            mark: () => setMarkDraft({ kind: 'important', level: null, existing: false }),
+            timestamp: () => void askTimestamp(),
           }}
         />
       )}
       <PanelActions.Provider value={panelActions}>
         <CustomKeyboard editor={editor} keyboards={PANELS} activeKeyboardID={panel} setActiveKeyboardID={setPanel} rootBackground={colors.cardMuted} />
       </PanelActions.Provider>
+      <MarkSheet
+        draft={markDraft}
+        onClose={() => setMarkDraft(null)}
+        onSubmit={(kind, level) => {
+          run(markDraft?.existing ? { type: 'markChip', action: 'update', kind, level } : { type: 'markChip', action: 'insert', kind, level });
+          setMarkDraft(null);
+        }}
+        onRemove={() => {
+          run({ type: 'markChip', action: 'delete' });
+          setMarkDraft(null);
+        }}
+      />
       <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} />
     </EditorKeyboardAvoidingView>
   );
@@ -444,4 +521,5 @@ export default StudiplyEditor;
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     container: { flex: 1 },
+    footer: { paddingHorizontal: 8, paddingVertical: 6 },
   });

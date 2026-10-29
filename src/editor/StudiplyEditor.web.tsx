@@ -11,6 +11,7 @@ import { editorCss, PAGE_COLORS } from './editorCss';
 import { FormatToolbar } from './FormatToolbar.web';
 import { FormulaPopover } from './FormulaPopover.web';
 import { PhotoMenu } from './PhotoMenu.web';
+import { BlockMenus } from './BlockMenus.web';
 import { CommentMargin, CommentPopovers } from './Comments.web';
 import { setDocumentPages } from '../components/shell/commentMargin';
 import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
@@ -47,7 +48,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -255,10 +256,12 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             {editable && <TableMenus editor={editor} />}
             {editable && <FormulaPopover editor={editor} />}
             {editable && <PhotoMenu editor={editor} />}
+            {editable && <BlockMenus editor={editor} />}
             {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
           </View>
           {!pages && margin}
         </View>
+        {footer ? <View style={pages ? styles.footerPages : undefined}>{footer}</View> : null}
     </View>
   );
 });
@@ -278,6 +281,7 @@ const makeStyles = (c: ThemeColors) =>
     containerPages: { maxWidth: '100%' },
     toolbarPages: { width: '100%', maxWidth: Layout.documentMaxWidth + 2 * CANVAS_PADDING, alignSelf: 'center', paddingHorizontal: CANVAS_PADDING },
     pageOnGradient: { backgroundColor: 'transparent', borderRadius: 0 },
+    footerPages: { width: '100%', maxWidth: Layout.documentMaxWidth + 2 * CANVAS_PADDING, alignSelf: 'center', paddingHorizontal: CANVAS_PADDING, paddingBottom: 12 },
     // A sheet wider than the pane (zoomed in) scrolls sideways too.
     scrollBothWays: { overflowX: 'auto' } as object,
     canvasContent: { paddingHorizontal: CANVAS_PADDING, paddingTop: 4, paddingBottom: 48 },

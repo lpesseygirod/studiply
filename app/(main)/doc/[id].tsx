@@ -13,6 +13,7 @@ import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCar
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
 import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
+import { MiniPlayer, type PlayRequest } from '../../../src/components/editor/MiniPlayer';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
@@ -234,6 +235,8 @@ export default function DocumentScreen() {
   const [phoneView, setPhoneView] = useViewPrefs('iphone');
   // Page setup (after test D): saved on the document; both devices.
   const [pageSetupOpen, setPageSetupOpen] = useState(false);
+  // A tap on a timestamp chip plays the lecture's recording from there (step 4.6).
+  const [play, setPlay] = useState<PlayRequest | null>(null);
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -320,6 +323,10 @@ export default function DocumentScreen() {
         onChange={sync.onChange}
         view={nativeEditor ? phoneView : undefined}
         pageSetup={sync.pageSetup}
+        onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
+        footer={
+          play ? <MiniPlayer lectureId={isLecture ? id : null} recording={lectureStatus === 'recording'} request={play} onClose={() => setPlay(null)} /> : null
+        }
         onZoom={(zoom) => setPhoneView({ zoom })}
       />
     </View>

@@ -162,6 +162,10 @@ Photos, formulas and comments (step 4.5, checkpoint B):
 - **After test B (checkpoint C):** photo layout (`wrap` / `align` on the photo, the `inlineImage` node, the shared photo bar `photoBar.ts`, the laptop's `PhotoMenu.web.tsx`); the selection bar (`format/selectionBar.ts`, both editors); `$…$` and the "Make formula" suggestion (`schema/mathSuggest.ts`, handled in `schema/formula.ts`); the iPhone toolbar fitted to the width like the laptop's (`toolbarFit.ts`).
 - **Comments** are a `comment` mark (`schema/comments.ts`), so they travel with their block. Laptop: `Comments.web.tsx` (composer, margin, popover); the shell makes room for the margin (`components/shell/commentMargin.ts`). Both: the document menu's list (`components/editor/CommentsSheet.tsx`).
 
+### Studiply's blocks (step 4.6)
+
+Callouts (`schema/callout.ts`) and mark chips (`schema/markChip.ts`) are in `bridges/blocks.ts`; their menus are `BlockMenus.web.tsx` (laptop) and action sheets / `iphone/MarkSheet.tsx` (iPhone), through `calloutRequest` / `markChipRequest` in the format state. A tap on a timestamp chip opens `components/editor/MiniPlayer.tsx`, which plays the lecture's `audio_chunks` (`services/lecture-audio.service.ts`) through `src/lib/audioPlayer.ts`, the only file that plays audio with expo-av (to switch to expo-audio with the SDK upgrade).
+
 ### Names and the simplicity pass (before 4.6)
 
 Every editor tool's name and shortcut is in `src/editor/toolNames.ts`, read by the laptop's tooltips (`components/editor/ToolTip.web.tsx`), the iPhone toolbar's long-press names and captions, the menus and VoiceOver; the bars drawn inside the document name their buttons with `editor/barHint.ts`. Menus take headings (`section` on `DialogButton`, `PopoverHeading`). `app/dev/editor-preview.tsx` (development only) draws the iPhone's keyboard toolbar and Page setup sheet in a browser for screenshots.

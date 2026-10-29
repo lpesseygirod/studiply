@@ -118,7 +118,7 @@ describe('the document schema', () => {
   });
 
   it('refuses a node it does not know', () => {
-    const unknown = { type: 'doc', content: [{ type: 'callout', content: [] }] };
-    expect(() => PMNode.fromJSON(laptopSchema, unknown)).toThrow(/callout/);
+    const unknown = { type: 'doc', content: [{ type: 'notANode', content: [] }] };
+    expect(() => PMNode.fromJSON(laptopSchema, unknown)).toThrow(/notANode/);
   });
 });

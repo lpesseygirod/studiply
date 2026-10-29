@@ -289,6 +289,29 @@ export const DocColors = {
     { key: 'purple', label: 'Purple', value: '#9333EA' },
     { key: 'pink', label: 'Pink', value: '#DB2777' },
   ],
+  /**
+   * Studiply's blocks in the document (step 4.6; SUMMARY-SPEC "Color system"
+   * where it gives them): each callout a light fill, a 4 px border and a label
+   * colour that passes 4.5:1 on its fill. Example, Warning and Added context
+   * aren't in the spec.
+   */
+  callout: {
+    definition: { bg: '#EAE8F7', border: '#7B6FD4', label: '#4F43B0' },
+    example: { bg: '#EEF4FF', border: '#7DA2E8', label: '#1E4E9C' },
+    exam: { bg: '#FFFBEB', border: '#F0C890', label: '#7A4A00' },
+    warning: { bg: '#FDECEC', border: '#E8A0A0', label: '#9B1C1C' },
+    fromNotes: { bg: '#E8F5EE', border: '#8FD1AE', label: '#1F6B45' },
+    confused: { bg: '#F5E0D8', border: '#E8B4A0', label: '#8A3B22' },
+    addedContext: { bg: '#F3F1EC', border: '#CFCBC4', label: '#5A5A6A' },
+  },
+  /** Mark chips in the document (step 4.6): Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
+  markChip: {
+    important: { bg: '#FFE4B5', text: '#7A4A00' },
+    exam: { bg: '#FFE4B5', text: '#7A4A00' },
+    confused: { bg: '#F5E0D8', text: '#8A3B22' },
+  },
+  /** Timestamp chips (step 4.6): the accent on its light fill. */
+  timestamp: { bg: '#EAE8F7', text: '#4F43B0' },
   /** Text tinted to show it has a comment (step 4.5): not one of the highlights. */
   comment: '#FDECC8',
   commentResolved: '#F3F1EC',

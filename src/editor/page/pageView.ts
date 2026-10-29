@@ -177,7 +177,8 @@ const TEXTBLOCKS_KEEP_WITH_NEXT = ['heading', 'title'];
 const CONTAINERS = ['bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'blockquote'];
 
 /** Measures the document (no gaps shown) into units for the layout, in CSS px from the first page's text top. */
-function measure(view: EditorView): { units: PageUnit[]; scale: number; sheetLeft: number; end: number } | null {
+/** `textHeight`: a page's text area (a callout that fits moves whole; a longer one splits between lines). */
+function measure(view: EditorView, textHeight: number): { units: PageUnit[]; scale: number; sheetLeft: number; end: number } | null {
   const dom = view.dom as HTMLElement;
   const box = dom.getBoundingClientRect();
   if (!dom.offsetWidth || !box.width) return null;
@@ -231,7 +232,8 @@ function measure(view: EditorView): { units: PageUnit[]; scale: number; sheetLef
       });
       return;
     }
-    if (CONTAINERS.includes(name)) {
+    // A callout (step 4.6) moves whole when it fits on a page, as in the PDF (SUMMARY-SPEC); a longer one splits between lines.
+    if (CONTAINERS.includes(name) || (name === 'callout' && (r.bottom - r.top) / scale > textHeight)) {
       node.forEach((child, offset, i) => block(child, pos + 1 + offset, blockIndex * 1000 + i));
       return;
     }
@@ -423,7 +425,7 @@ class PageViewController {
     }
     const dom = view.dom as HTMLElement;
     dom.classList.add(MEASURING_CLASS);
-    const measured = measure(view);
+    const measured = measure(view, state.sheet.height - state.sheet.marginTop - state.sheet.marginBottom);
     if (!measured) {
       dom.classList.remove(MEASURING_CLASS);
       return;

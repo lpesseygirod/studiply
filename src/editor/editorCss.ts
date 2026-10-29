@@ -8,6 +8,8 @@ import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CLASS, PHOTO_WIDE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
+import { CALLOUT_CLASS } from './schema/callout';
+import { MARK_CHIP_CLASS } from './schema/markChip';
 import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
@@ -60,8 +62,20 @@ ${pm} .ProseMirror-gapcursor { display: none; pointer-events: none; position: ab
 ${pm} .ProseMirror-gapcursor::after { content: ''; display: block; position: absolute; top: -2px; width: 20px; border-top: 1.5px solid ${c.accentDark}; animation: studiply-gap-blink 1.1s steps(2, start) infinite; }
 ${pm}.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 @keyframes studiply-gap-blink { to { visibility: hidden; } }
-${pm} .${CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; background: ${c.status.info.bg}; color: ${c.status.info.text}; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+${pm} .${CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; background: ${DocColors.timestamp.bg}; color: ${DocColors.timestamp.text}; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${pm} .${CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; }
+/* Studiply's blocks (step 4.6; SUMMARY-SPEC "Callouts"): a 4 px coloured border, a light fill, 8 px corners; the label in small capitals. */
+${pm} .${CALLOUT_CLASS} { margin: 0 0 0.9em; padding: 10px 14px 10px 14px; border-left: 4px solid; border-radius: 8px; break-inside: avoid; }
+${pm} .${CALLOUT_CLASS}-label { margin-bottom: 4px; font: 700 11px/16px -apple-system, system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; user-select: none; -webkit-user-select: none; }
+${pm} .${CALLOUT_CLASS}-body > :last-child { margin-bottom: 0; }
+${Object.entries(DocColors.callout)
+  .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)
+  .join('\n')}
+${pm} .${MARK_CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+${Object.entries(DocColors.markChip)
+  .map(([kind, k]) => `${pm} .${MARK_CHIP_CLASS}[data-mark='${kind}'] { background: ${k.bg}; color: ${k.text}; }`)
+  .join('\n')}
+${pm} .${MARK_CHIP_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; }
 ${pm} p.is-editor-empty:first-child::before { color: ${c.text.placeholder}; }
 ${bar} { position: absolute; z-index: 5; display: flex; align-items: center; gap: 2px; padding: 3px; border-radius: 10px; box-sizing: border-box; overflow-x: auto; scrollbar-width: none; background: ${c.card}; border: 1px solid ${c.border}; box-shadow: 0 4px 14px ${c.scrim}; font-family: -apple-system, system-ui, sans-serif; }
 ${bar} button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: ${c.text.primary}; font: 600 13px/1 -apple-system, system-ui, sans-serif; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }

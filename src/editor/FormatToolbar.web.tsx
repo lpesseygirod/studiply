@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Editor } from '@tiptap/react';
 
-import { anchorBelow, showAlert, type Anchor } from '../components/dialogs/dialogs';
+import { anchorBelow, promptText, showAlert, type Anchor } from '../components/dialogs/dialogs';
+import { CalloutKinds } from '../components/editor/CalloutKinds';
+import { MarkForm } from '../components/editor/MarkForm';
+import { parseClock } from './schema/timestampChip';
 import { ColorGrid } from '../components/editor/ColorGrid';
 import { SpectrumPicker } from '../components/editor/SpectrumPicker';
 import { ToolbarPopover } from '../components/editor/ToolbarPopover';
@@ -28,7 +31,7 @@ import { ToolTip } from '../components/editor/ToolTip.web';
 import { ZOOM_STEPS, type ViewPrefs, type ZoomSetting } from '../lib/viewPrefs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'align' | 'insert' | 'view';
+type Menu = 'style' | 'font' | 'color' | 'highlight' | 'spacing' | 'link' | 'table' | 'align' | 'insert' | 'view' | 'callout' | 'mark';
 
 /** A toolbar item and the width it takes (for deciding what fits on the first row). */
 interface Item {
@@ -139,6 +142,14 @@ export function FormatToolbar({
   const close = () => {
     setMenu(null);
     setSpectrum(false);
+  };
+  // A timestamp by hand (step 4.6): the time in the recording ("4:12").
+  const askTimestamp = async () => {
+    const text = await promptText('Timestamp', { message: 'The time in the recording, for example 4:12.', placeholder: '4:12', confirmLabel: 'Insert' });
+    if (text === null) return;
+    const ms = parseClock(text);
+    if (ms === null) showAlert('Not a time', 'Type minutes and seconds, for example 4:12.');
+    else runFormat(editor, { type: 'timestamp', ms });
   };
 
   /** A tool: its icon, its name on hover ("Bold ⌘B"), and its name for VoiceOver. */
@@ -416,6 +427,19 @@ export function FormatToolbar({
         {iconRow('formula', 'sigma', () => (close(), void openFormula()), false, 'Insert formula')}
         {iconRow('comment', 'comment-plus-outline', () => (close(), (onComment ?? soon('Comments'))()), false, 'Insert comment')}
         {iconRow('pageBreak', 'format-page-break', () => run({ type: 'pageBreak' }), false, 'Insert page break')}
+        {heading('Study blocks')}
+        {iconRow('callout', 'card-text-outline', () => void open('callout', 'insert'), false, 'Insert callout')}
+        {iconRow('mark', 'flag-outline', () => void open('mark', 'insert'), false, 'Insert mark')}
+        {iconRow('timestamp', 'clock-outline', () => (close(), void askTimestamp()), false, 'Insert timestamp')}
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'callout' ? menu.anchor : null} onClose={close} width={250} label="Callout">
+        {heading('Callout')}
+        <CalloutKinds onPick={(kind) => run({ type: 'callout', action: 'set', kind })} />
+      </ToolbarPopover>
+      <ToolbarPopover anchor={menu?.kind === 'mark' ? menu.anchor : null} onClose={close} width={300} label="Mark">
+        <View style={styles.picker}>
+          <MarkForm kind="important" level={null} action="Insert" onSubmit={(kind, level) => run({ type: 'markChip', action: 'insert', kind, level })} />
+        </View>
       </ToolbarPopover>
       {view && (
         <ToolbarPopover anchor={menu?.kind === 'view' ? menu.anchor : null} onClose={close} width={220} label="View">

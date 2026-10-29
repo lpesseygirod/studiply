@@ -32,6 +32,10 @@ export interface InsertActions {
   formula: () => void;
   /** A comment on the selected words. */
   comment: () => void;
+  /** Studiply's blocks (step 4.6): a callout (its kind), a mark chip, a timestamp typed in. */
+  callout: () => void;
+  mark: () => void;
+  timestamp: () => void;
 }
 
 /**
@@ -117,6 +121,9 @@ export function KeyboardToolbar({
     { key: 'table', group: 'insert', icon: 'table-large-plus', onPress: insert.table, active: panel === 'newTable', label: 'Insert table' },
     { key: 'formula', group: 'insert', icon: 'sigma', onPress: insert.formula, label: 'Insert formula' },
     { key: 'comment', group: 'insert', icon: 'comment-plus-outline', onPress: insert.comment, label: 'Add comment' },
+    { key: 'callout', group: 'insert', icon: 'card-text-outline', onPress: insert.callout, label: 'Insert callout' },
+    { key: 'mark', group: 'insert', icon: 'flag-outline', onPress: insert.mark, label: 'Insert mark' },
+    { key: 'timestamp', group: 'insert', icon: 'clock-outline', onPress: insert.timestamp, label: 'Insert timestamp' },
     { key: 'undo', group: 'edit', icon: 'undo', onPress: () => run({ type: 'undo' }), disabled: s ? !s.canUndo : false },
     { key: 'redo', group: 'edit', icon: 'redo', onPress: () => run({ type: 'redo' }), disabled: s ? !s.canRedo : false },
   ];
@@ -323,9 +330,9 @@ const makeStyles = (c: ThemeColors) =>
     moreRow: { backgroundColor: c.cardMuted },
     // 'auto', not undefined: the web drops an undefined height (the preview page).
     wrapRow: { height: 'auto', minHeight: 48, flexWrap: 'wrap', alignItems: 'flex-start', paddingHorizontal: 6, paddingVertical: 6, rowGap: 6, columnGap: 10 },
-    group: { gap: 2 },
+    group: { gap: 2, maxWidth: '100%' },
     groupTitle: { marginLeft: 4, fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.text.secondary, textTransform: 'uppercase', letterSpacing: 0.5 },
-    groupTools: { flexDirection: 'row' },
+    groupTools: { flexDirection: 'row', flexWrap: 'wrap' },
     captioned: { width: 58, minHeight: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 4 },
     caption: { fontSize: 10, color: c.text.secondary },
     separator: { width: 1, height: 24, backgroundColor: c.border },
