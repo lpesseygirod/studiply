@@ -92,7 +92,45 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **Not yet:**
     - background audio in app.json (with expo-audio);
     - the recording screen (5.3).
-- [ ] 5.3 — Recording screen (iPhone + laptop strip)
+- [ ] 5.3 — Recording screen (iPhone + laptop strip) — **web (laptop + the 390 px layout) done and checked** 30 Oct on branch `phase-5-recording`; the iPhone screen waits for expo-audio (until then the iPhone keeps `record/active`).
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1813; all sixteen Chrome suites pass:
+    - recording 9, recorder 7, spike 3, flows 18, documents 9, notes 8;
+    - look 12, layout 9, formatting 12, inserting 30, blocks 8;
+    - pages 13, tabs 8, sheets 16, writing 19, export 9.
+  - **Lea's list (suggestion):** a Pause button. DESIGN has none; the service supports it.
+  - **Setup (Lea's option A):** the course, then a folder in it (the course itself or any nested folder, with **+ New folder**); preset when opened from a course or folder.
+  - **Start** (`recordingFlow`, `src/services/recording-flow.ts` + `recording.service.ts`):
+    1. the microphone first;
+    2. transcription consent (declined: it records without a live transcript);
+    3. the lecture and its status `recording`;
+    4. the recorder.
+
+    The lecture's My notes then opens.
+  - **The laptop:** the red strip under the top bar on every screen (`components/recording/RecordingStrip.tsx`): timer (back to the lecture), live waveform, Important · Confused · Exam · Photo board greyed out until 5.5 / 5.6, Stop & summarize. The assistant panel shows "Recording continues".
+  - **The iPhone layout** (the web below 1024 px): the lecture's document becomes the iphone-02 recording screen (`RecordingPhone.tsx`):
+    - header: back, timer chip, Course › folder, title, waveform;
+    - My notes;
+    - bottom bar: the marks and Photo greyed out, ✦ Ask greyed out until Phase 6, Stop & summarize.
+
+    Elsewhere a red pill leads back.
+  - **Nothing but Stop stops it:**
+    - leaving the screen, the assistant, other documents;
+    - reload / close asks first; an interrupted recording is offered with Continue / Finish;
+    - sign-out asks to stop first;
+    - a lost microphone pauses with "Microphone disconnected · Resume".
+  - **Stop:** a confirm; saving waits for every chunk (offline: until the connection is back) and the live transcript (at most a minute); then `transcribing` with the length, then today's after-recording step.
+  - **Recorder additions:** `level()` (Web Audio analyser) and the microphone-lost pause.
+  - **BUILD-PLAN feature table:** the laptop needs internet only to start.
+  - **After Lea's run (recording.mjs 6/8), fixed:**
+    1. **Truly disabled:** the marks, Photo board and ✦ Ask now use `disabled` + `aria-disabled` (react-native-web 0.21).
+    2. **Equally quiet:** on the laptop all four disabled buttons have one look.
+    3. **The 390 recording screen as iphone-02:** the title once (header), My notes pageless under a "MY NOTES" label, without the web toolbar card, page sheets or word-count line (`plain` editor prop; the iPhone keeps its keyboard toolbar; Print layout untouched for later).
+    4. **DESIGN.md:** the old "recording screen stays dark" line corrected.
+    5. **A tab closed during "Saving…":** the lecture is handed off in the background on the next load (`recordings()`, `settleStopped`), never left `recording`.
+  - **Checked:**
+    - Jest: 20 new (recording flow, folder picker, clock and saving text, microphone lost);
+    - installed `recorder.mjs` 7/7, `documents.mjs` 9/9, `layout.mjs` 9/9 (my runs);
+    - new `recording.mjs`, and `flows.mjs` / `ai-flow.mjs` updated for the new web flow: for Lea to install and run.
 - [ ] 5.4 — Live notes with timestamps
 - [ ] 5.5 — Marks with a 1–10 level
 - [ ] 5.6 — Board photos
@@ -735,6 +773,9 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 
 ## Things Lea must do
 
+- **Step 5.3 — suggestion to decide: a Pause button** on the recording strip and the iPhone recording screen.
+  - **Now:** DESIGN has none; the recorder already supports pause, and the microphone closes while paused.
+  - **If wanted:** say so, and where it goes.
 - **Step 5.2 — deploy `summarize` and `assistant-chat` to the remote (your step; 5.2 is committed).**
   - **What changed:** both now read the transcript through `_shared/lecture-content.ts`, which joins the chunks' 500 ms overlaps with `_shared/transcriptJoin.ts`, as the app does.
   - **Tested locally:** `npm run check:claude` passed against the local functions (30 Oct).

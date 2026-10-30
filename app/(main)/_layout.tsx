@@ -10,6 +10,9 @@ import { Typography } from '../../src/constants/typography';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
+import { RecordingHost } from '../../src/components/recording/RecordingHost';
+import { RecordingPill } from '../../src/components/recording/RecordingPill';
+import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
 import { SimulatedAiBadge } from '../../src/components/SimulatedAiBadge';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
@@ -118,7 +121,8 @@ export default function MainLayout() {
               onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
             />
           )}
-          {/* The recording strip goes here (Phase 5). */}
+          {/* While a lecture records (step 5.3): on every screen, so leaving the lecture never stops it. */}
+          {wide && <RecordingStrip />}
           <View style={styles.row}>
             {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
             <View style={styles.center} onLayout={(e) => setCommentMarginRoom(e.nativeEvent.layout.width >= COMMENT_MARGIN_ROOM)}>
@@ -167,6 +171,8 @@ export default function MainLayout() {
             {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
           </View>
           {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
+          {!wide && <RecordingPill />}
+          <RecordingHost />
           {toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}

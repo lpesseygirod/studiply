@@ -18,7 +18,8 @@ const L = 'lecture-1';
 /** A microphone that records when told: a piece per second, a chunk when cut. */
 class FakeSource implements AudioSource {
   from: { seq: number; ms: number } | null = null;
-  private on!: { part: (p: SourcePart) => void; chunk: (c: SourceChunk) => void };
+  private on!: { part: (p: SourcePart) => void; chunk: (c: SourceChunk) => void; lost?: () => void };
+  loudness = 0.5;
   private seq = 0;
   private ms = 0;
   private chunkStart = 0;
@@ -57,6 +58,13 @@ class FakeSource implements AudioSource {
   }
   elapsedMs() {
     return this.ms;
+  }
+  level() {
+    return this.loudness;
+  }
+  /** The microphone goes away by itself (unplugged). */
+  unplug() {
+    this.on.lost?.();
   }
 }
 
@@ -174,7 +182,7 @@ describe('the recorder service', () => {
     const r = rig();
     const { service } = r.make();
     await service.start({ lectureId: L, transcribe: true });
-    expect(service.state()).toEqual({ lectureId: L, status: 'recording' });
+    expect(service.state()).toEqual({ lectureId: L, status: 'recording', microphoneLost: false });
     const mic = r.source();
     mic.tick(3);
     mic.cut();
@@ -197,7 +205,7 @@ describe('the recorder service', () => {
     // Uploaded: the device's copy is dropped; no pieces left.
     expect(r.store.chunks.every((c) => c.blob === null && c.storagePath)).toBe(true);
     expect(r.store.parts).toEqual([]);
-    expect(service.state()).toEqual({ lectureId: null, status: 'idle' });
+    expect(service.state()).toEqual({ lectureId: null, status: 'idle', microphoneLost: false });
     expect(r.held.size).toBe(0);
   });
 
@@ -412,6 +420,24 @@ describe('the recorder service', () => {
     await tab2.service.recover();
     await tab2.service.finish(L);
     expect((await r.store.getRecording(L))?.status).toBe('stopped');
+  });
+
+  it('a microphone that goes away pauses the recording (never a silent stop); Resume goes on', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false });
+    const mic = r.source();
+    mic.tick(3);
+    expect(service.level()).toBe(0.5);
+    mic.unplug();
+    await idle();
+    expect(service.state()).toEqual({ lectureId: L, status: 'paused', microphoneLost: true });
+    // What was recorded is kept: the chunk ended at the moment it went.
+    expect(r.store.chunks.map((c) => [c.seq, c.durationMs])).toEqual([[0, 3000]]);
+    expect(service.level()).toBe(0);
+    await service.resume();
+    expect(service.state()).toEqual({ lectureId: L, status: 'recording', microphoneLost: false });
+    await service.stop();
   });
 
   it('a microphone that can’t start leaves nothing behind', async () => {

@@ -188,15 +188,38 @@ function webSource({ chunkMs, overlapMs }: { chunkMs: number; overlapMs: number 
   let stream: MediaStream | null = null;
   let recorder: ChunkRecorder | null = null;
   let fromMs = 0;
+  let lost: (() => void) | undefined;
+  // The waveform: an analyser on the same stream (Web Audio, no dependency).
+  let audio: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let samples: Float32Array<ArrayBuffer> | null = null;
+
   // The browser's own processing, as the recording screen has today.
-  const open = () => navigator.mediaDevices.getUserMedia({ audio: true });
+  const open = async () => {
+    const opened = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Ended by the browser (unplugged, permission withdrawn), not by close(): stop() fires no event.
+    opened.getAudioTracks().forEach((t) => t.addEventListener('ended', () => lost?.()));
+    try {
+      audio ??= new AudioContext();
+      analyser = audio.createAnalyser();
+      analyser.fftSize = 1024;
+      samples = new Float32Array(analyser.fftSize);
+      audio.createMediaStreamSource(opened).connect(analyser);
+    } catch {
+      // No waveform; recording itself doesn't need it.
+      analyser = null;
+    }
+    return opened;
+  };
   const close = () => {
     stream?.getTracks().forEach((t) => t.stop());
     stream = null;
+    analyser = null;
   };
   return {
     async start(from, on) {
       fromMs = from.ms;
+      lost = on.lost;
       stream = await open();
       recorder = new ChunkRecorder({ chunkMs, overlapMs, timesliceMs: PIECE_MS, from, onPart: on.part, onChunk: on.chunk });
       try {
@@ -219,8 +242,18 @@ function webSource({ chunkMs, overlapMs }: { chunkMs: number; overlapMs: number 
     async stop() {
       await recorder?.stop();
       close();
+      void audio?.close().catch(() => {});
+      audio = null;
     },
     elapsedMs: () => recorder?.elapsedMs() ?? fromMs,
+    level() {
+      if (!analyser || !samples) return 0;
+      analyser.getFloatTimeDomainData(samples);
+      let sum = 0;
+      for (const x of samples) sum += x * x;
+      // Speech is about 0.02–0.3 RMS: spread over the bar's height.
+      return Math.min(1, Math.sqrt(sum / samples.length) * 4);
+    },
   };
 }
 

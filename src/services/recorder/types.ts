@@ -92,13 +92,21 @@ export type SourcePart = Omit<StoredPart, 'lectureId'>;
 
 /** The microphone in chunks (the web's ChunkRecorder; the iPhone's after expo-audio). */
 export interface AudioSource {
-  /** Opens the microphone and records from chunk `from.seq`, at `from.ms` in the recording. */
-  start(from: { seq: number; ms: number }, on: { part: (p: SourcePart) => void; chunk: (c: SourceChunk) => void }): Promise<void>;
+  /**
+   * Opens the microphone and records from chunk `from.seq`, at `from.ms` in the recording.
+   * `lost`: the microphone went away by itself (unplugged, permission withdrawn).
+   */
+  start(
+    from: { seq: number; ms: number },
+    on: { part: (p: SourcePart) => void; chunk: (c: SourceChunk) => void; lost?: () => void },
+  ): Promise<void>;
   /** Each resolves once the chunks it ended have been handed over. */
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<void>;
   elapsedMs(): number;
+  /** How loud the microphone is right now, 0 to 1 (the waveform). */
+  level?(): number;
 }
 
 /** One of the recorder's two queue lanes (createSyncQueue). */
@@ -137,6 +145,8 @@ export interface RecordingSnapshot {
 export interface RecorderState {
   lectureId: string | null;
   status: 'idle' | 'recording' | 'paused' | 'stopping';
+  /** Paused because the microphone went away (not by the student); Resume reopens it. */
+  microphoneLost: boolean;
 }
 
 export interface RecorderService {
@@ -151,6 +161,8 @@ export interface RecorderService {
    * its pieces, everything not uploaded queued again. Returns them.
    */
   recover(): Promise<RecordingMeta[]>;
+  /** The signed-in student's recordings kept on this device (any status). */
+  recordings(): Promise<RecordingMeta[]>;
   /** Records on into an interrupted recording, after its last chunk. */
   continueRecording(lectureId: string): Promise<void>;
   /** An interrupted recording ends there (its chunks still upload). */
@@ -158,6 +170,8 @@ export interface RecorderService {
   state(): RecorderState;
   /** Where the recording is (ms), pauses left out. */
   elapsedMs(): number;
+  /** The microphone's loudness now, 0 to 1 (0 when not recording). */
+  level(): number;
   snapshot(lectureId: string): Promise<RecordingSnapshot>;
   /** Anything changed: a chunk saved, uploaded or transcribed, the state. */
   subscribe(fn: () => void): () => void;

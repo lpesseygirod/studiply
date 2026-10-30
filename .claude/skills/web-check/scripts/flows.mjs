@@ -1,6 +1,7 @@
 // flows.mjs — the main web flows: menus and dialogs (right-click,
 // long-press, rename prompt, confirm, Escape), library actions, and the
-// recording flow (start, Stop & save, Library buttons). Prints PASS/FAIL per
+// recording flow (since step 5.3: Start opens the lecture with the red
+// strip, Stop & summarize → confirm → post-session). Prints PASS/FAIL per
 // step; screenshots go to $WEB_CHECK_OUT/shots. Exit code 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
@@ -130,37 +131,26 @@ try {
     expect(url === '/library', `url ${url}`);
   });
 
-  await step('Recording: start, Library → "Stop & save" saves and returns to the library', async () => {
+  await step('Recording: Start opens the lecture with the red strip; Stop & summarize → confirm → post-session, the chunk saved', async () => {
     await b.nav(`${BASE}/record`);
     await b.waitText('New Recording');
     await b.shot('17-record-setup');
-    await b.fill('input[placeholder^="e.g."]', `Web test ${Date.now() % 1000}`);
+    const title = `Web test ${Date.now() % 1000}`;
+    await b.fill('input[placeholder^="e.g."]', title);
     await b.click('Start Recording');
-    await b.waitText('RECORDING IN PROCESS', { timeout: 15000 });
+    // A new account is asked once about the live transcript (real AI); "Not now" records anyway and sends nothing.
+    const asked = await b.waitText('Send the recording to ElevenLabs?', { timeout: 5000 }).then(() => true, () => false);
+    if (asked) await b.click('Not now', { exact: true });
+    await b.waitText('Stop & summarize', { timeout: 15000 });
     await b.sleep(2500);
     await b.shot('18-recording');
-    await b.click('Library', { exact: true });
-    await b.waitText('Stop and leave?');
-    await b.shot('19-stop-and-leave');
-    await b.click('Stop & save');
-    for (let i = 0; i < 40 && (await b.evaluate('location.pathname')) !== '/library'; i++) await b.sleep(250);
-    const url = await b.evaluate('location.pathname');
-    expect(url === '/library', `url ${url}`);
-    const { data: chunks } = await admin.from('audio_chunks').select('storage_path, duration_ms').eq('user_id', user.id);
-    expect(chunks?.length === 1 && chunks[0].storage_path?.endsWith('.webm'), JSON.stringify(chunks));
-  });
-
-  await step('Recording: Stop → confirm → post-session', async () => {
-    await b.nav(`${BASE}/record`);
-    await b.waitText('New Recording');
-    await b.fill('input[placeholder^="e.g."]', `Web test ${Date.now() % 1000}`);
-    await b.click('Start Recording');
-    await b.waitText('RECORDING IN PROCESS', { timeout: 15000 });
-    await b.sleep(1500);
-    await b.click('STOP', { exact: true });
+    await b.click('Stop & summarize', { exact: true });
     await b.waitText('Stop recording?');
     await b.click('Stop', { exact: true });
-    await b.waitText('Post-Session', { timeout: 15000 });
+    await b.waitText('Post-Session', { timeout: 30000 });
+    const { data: file } = await admin.from('files').select('id').eq('user_id', user.id).eq('title', title).single();
+    const { data: chunks } = await admin.from('audio_chunks').select('storage_path').eq('lecture_id', file.id);
+    expect(chunks?.length >= 1 && chunks.every((c) => c.storage_path?.endsWith('.webm')), JSON.stringify(chunks));
   });
 
   await step('Review: "Not now" sends nothing, keeps the recording, Library leaves', async () => {
@@ -182,8 +172,9 @@ try {
     for (let i = 0; i < 20 && (await b.evaluate('location.pathname')) !== '/library'; i++) await b.sleep(250);
     const url = await b.evaluate('location.pathname');
     expect(url === '/library', `url ${url} (asked: ${asked})`);
+    // Lecture 1 and the recording above.
     const { count } = await admin.from('files').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('kind', 'lecture').is('deleted_at', null);
-    expect(count >= 3, `lectures ${count}`);
+    expect(count >= 2, `lectures ${count}`);
   });
 
   await step('Recently Deleted: Empty asks first; Restore puts it back', async () => {

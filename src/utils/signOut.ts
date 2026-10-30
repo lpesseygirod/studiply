@@ -1,6 +1,7 @@
 import { showAlert, type DialogButton } from '../components/dialogs/dialogs';
 import { isOffline } from '../lib/connectivity';
 import { syncCounts, syncNow } from '../lib/sync';
+import { recorder } from '../services/recorder';
 
 /**
  * Signing out, on iPhone and web. When this iPhone still has changes that
@@ -72,6 +73,11 @@ export async function runSignOut(
 
 /** The app's sign-out: the shared dialogs, the sync queue, AuthProvider's signOut. */
 export function confirmSignOut(signOut: () => Promise<void>, confirm: { title: string; message: string }): Promise<boolean> {
+  // Nothing but Stop stops a recording (step 5.3).
+  if (recorder.state().status !== 'idle') {
+    showAlert('A lecture is recording', 'Stop the recording before signing out.');
+    return Promise.resolve(false);
+  }
   return runSignOut(
     {
       unsynced: async () => {

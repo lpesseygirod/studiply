@@ -70,4 +70,9 @@ export type StudiplyEditorProps = {
   footer?: React.ReactNode;
   /** The document's language ('es', 'en'…): the lecture's, else the account's. Graphs write Spanish decimals with a comma (step 4.7d). */
   language?: string | null;
+  /**
+   * The recording screen's My notes (step 5.3, iphone-02): pageless whatever the device's page
+   * view, no toolbar card and no status line on the web (the iPhone keeps its keyboard toolbar).
+   */
+  plain?: boolean;
 };

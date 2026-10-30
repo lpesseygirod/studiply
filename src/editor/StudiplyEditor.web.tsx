@@ -58,7 +58,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, plain = false },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -234,12 +234,14 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       />
     </View>
   );
-  const zoom = effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, sheet.width);
+  // `plain` (the recording screen): pageless at 100 %, whatever this laptop's view (which stays as it was).
+  const zoom = plain ? 1 : effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, sheet.width);
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const wantPages = plain ? false : viewPrefs?.pages;
   useEffect(() => {
-    if (viewPrefs && viewPrefs.pages !== pageViewOf(editor.state)?.pages) editor.commands.setPageView(viewPrefs.pages);
-  }, [editor, viewPrefs]);
+    if (wantPages !== undefined && wantPages !== pageViewOf(editor.state)?.pages) editor.commands.setPageView(wantPages);
+  }, [editor, wantPages]);
   useEffect(() => {
     if (zoom !== pageViewOf(editor.state)?.zoom) editor.commands.setPageZoom(zoom);
   }, [editor, zoom]);
@@ -275,7 +277,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   return (
     <View style={[styles.container, pages ? styles.containerPages : withMargin && styles.containerWithMargin]}>
         <style>{CSS}</style>
-        {editable && (
+        {editable && !plain && (
           <View style={pages && styles.toolbarPages}>
             <FormatToolbar
               editor={editor}
@@ -329,7 +331,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
             </View>
             {/* The status line (step 4.7), under the page and never over its text: "Page 3 of 12" (Pages), and the
                 word count, the selection's too when words are selected; a click gives the details. */}
-            {editable && (
+            {editable && !plain && (
               <View style={styles.status} {...{ dataSet: { status: 'line' } }}>
                 {pages && pageCount > 1 ? (
                   <View style={styles.statusPill}>

@@ -87,6 +87,8 @@ const light = {
   onRecording: '#FFFFFF',
   /** The ring around the raised Record button. */
   recordRing: '#FFFFFF',
+  /** While recording (step 5.3, desktop-01 / iphone-02): the pale strip, its red text, the timer chip and the waveform. */
+  recordingStrip: { bg: '#FCE8E8', text: '#B22A2A', border: '#F5C2C2', wave: '#E59A86', dot: '#CC3333' },
 
   // Status
   error: '#C23B3B',
@@ -221,6 +223,7 @@ export const DarkColors: ThemeColors = {
   recording: '#CC3333',
   onRecording: '#FFFFFF',
   recordRing: '#F2F1F6',
+  recordingStrip: { bg: '#3A1F22', text: '#F5A8A8', border: '#6B3238', wave: '#C9826F', dot: '#F08A8A' },
 
   error: '#F08A8A',
   errorLight: '#3A1F22',

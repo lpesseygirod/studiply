@@ -29,8 +29,15 @@ import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { createSession } from '../../../src/services/session.service';
 import { getTodayUsage, type TodayUsage } from '../../../src/services/credit-check.service';
-import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { promptText, showAlert } from '../../../src/components/dialogs/dialogs';
 import { isOffline } from '../../../src/lib/connectivity';
+import { createFolder, getFolders } from '../../../src/services/folder.service';
+import { recorder } from '../../../src/services/recorder';
+import { recordingFlow } from '../../../src/services/recording.service';
+import { useRecorderState } from '../../../src/hooks/useRecorder';
+import type { Folder } from '../../../src/types/database';
+import { folderPath, folderTree } from '../../../src/utils/folderTree';
+import { errorMessage } from '../../../src/utils/errors';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -69,10 +76,53 @@ export default function RecordSetupScreen() {
   // Data
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
 
+  // The folder in the course (step 5.3, Lea's option A): the course itself or one of its folders.
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  useEffect(() => {
+    const courseId = selectedProject?.id;
+    setFolders([]);
+    setSelectedFolderId(null);
+    if (!courseId) return;
+    let current = true;
+    getFolders({ projectId: courseId })
+      .then((list) => {
+        if (!current) return;
+        setFolders(list);
+        // Opened from inside a folder: that folder, preset.
+        if (courseId === preselectedProjectId && preselectedFolderId && list.some((f) => f.id === preselectedFolderId)) {
+          setSelectedFolderId(preselectedFolderId);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [selectedProject?.id, preselectedProjectId, preselectedFolderId]);
+
+  const addFolder = async () => {
+    if (!profile?.id || !selectedProject) return;
+    // One sheet at a time on the iPhone: the picker closes first.
+    setShowFolderPicker(false);
+    await new Promise((r) => setTimeout(r, Platform.OS === 'ios' ? 350 : 0));
+    const name = await promptText('New folder', { message: `In ${selectedProject.name}`, placeholder: 'Folder name', confirmLabel: 'Create' });
+    if (!name) {
+      setShowFolderPicker(true);
+      return;
+    }
+    try {
+      const folder = await createFolder({ userId: profile.id, projectId: selectedProject.id, parentFolderId: null, name });
+      setFolders((list) => [...list, folder]);
+      setSelectedFolderId(folder.id);
+    } catch (err) {
+      showAlert('Could not create the folder', errorMessage(err, 'Please try again.'));
+    }
+  };
+
   // The laptop's top bar: "New recording" under the chosen course.
-  const folderForCourse = selectedProject && selectedProject.id === preselectedProjectId ? preselectedFolderId ?? null : null;
   useShellScreen(
-    { courseId: selectedProject?.id ?? null, folderId: folderForCourse },
+    { courseId: selectedProject?.id ?? null, folderId: selectedFolderId },
     {
       crumbs: selectedProject
         ? [{ label: selectedProject.name, href: `/project/${selectedProject.id}` }]
@@ -144,6 +194,33 @@ export default function RecordSetupScreen() {
   const handleStart = async () => {
     if (!profile?.id || !title.trim()) return;
     setIsStarting(true);
+
+    // The recorder service (web now; the iPhone once expo-audio is in): record, then write in the lecture's My notes.
+    if (recorder.supported) {
+      try {
+        const lectureId = await recordingFlow.start({
+          userId: profile.id,
+          title: title.trim(),
+          courseId: selectedProject?.id ?? null,
+          folderId: selectedFolderId,
+          mode: selectedMode,
+          language: selectedLanguage.code,
+        });
+        router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
+      } catch (err) {
+        const denied = err instanceof Error && err.name === 'NotAllowedError';
+        showAlert(
+          denied ? 'Microphone access needed' : 'Could not start recording',
+          denied
+            ? 'Allow the microphone for Studiply (the icon in the address bar), then press Start again.'
+            : errorMessage(err, 'Please try again.'),
+        );
+      } finally {
+        setIsStarting(false);
+      }
+      return;
+    }
+
     try {
       // 1. Request microphone permission
       const { status } = await Audio.requestPermissionsAsync();
@@ -164,7 +241,7 @@ export default function RecordSetupScreen() {
         userId: profile.id,
         title: title.trim(),
         projectId: selectedProject?.id,
-        folderId: preselectedFolderId ?? undefined,
+        folderId: selectedFolderId ?? undefined,
         recordingMode: selectedMode,
         language: selectedLanguage.code,
       });
@@ -185,7 +262,10 @@ export default function RecordSetupScreen() {
     }
   };
 
-  const canStart = title.trim().length > 0 && !isStarting;
+  // One recording at a time: while one runs, this opens it instead.
+  const running = useRecorderState();
+  const busyRecording = running.status !== 'idle' && !!running.lectureId;
+  const canStart = busyRecording || (title.trim().length > 0 && !isStarting);
 
   // ── Credit warning banners ──────────────────────────────────
   // Recording always works; only the AI step waits for the limit to free up.
@@ -260,6 +340,8 @@ export default function RecordSetupScreen() {
             style={styles.pickerPill}
             onPress={() => setShowProjectPicker(true)}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Course: ${selectedProject?.name ?? 'none'}. Choose the course`}
           >
             {selectedProject ? (
               <>
@@ -273,6 +355,26 @@ export default function RecordSetupScreen() {
             )}
             <Ionicons name="chevron-down" size={16} color={c.text.secondary} />
           </TouchableOpacity>
+
+          {/* ── Folder in the course (option A) ─────────────────── */}
+          {selectedProject && (
+            <>
+              <Text style={[styles.fieldLabel, { marginTop: 20 }]}>IN WHAT FOLDER</Text>
+              <TouchableOpacity
+                style={styles.pickerPill}
+                onPress={() => setShowFolderPicker(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`Folder: ${folderPath(selectedProject.name, folders, selectedFolderId)}. Choose the folder`}
+              >
+                <Ionicons name={selectedFolderId ? 'folder' : 'albums-outline'} size={16} color={c.accentDark} />
+                <Text style={styles.pickerText} numberOfLines={1} {...{ dataSet: { record: 'folder' } }}>
+                  {selectedFolderId ? folderPath(selectedProject.name, folders, selectedFolderId) : `${selectedProject.name} (not in a folder)`}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={c.text.secondary} />
+              </TouchableOpacity>
+            </>
+          )}
 
           {/* ── Language selector ──────────────────────────────── */}
           <Text style={[styles.fieldLabel, { marginTop: 20 }]}>LANGUAGE</Text>
@@ -310,14 +412,20 @@ export default function RecordSetupScreen() {
           {/* ── Start Recording button ─────────────────────────── */}
           <TouchableOpacity
             style={[styles.startButton, !canStart && styles.startButtonDisabled]}
-            onPress={handleStart}
+            onPress={() =>
+              busyRecording
+                ? router.replace({ pathname: '/doc/[id]', params: { id: running.lectureId!, tab: 'notes' } })
+                : void handleStart()
+            }
             disabled={!canStart}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={busyRecording ? 'Open the recording' : 'Start recording'}
           >
             {isStarting ? (
               <ActivityIndicator color={c.white} size="small" />
             ) : (
-              <Text style={styles.startButtonText}>Start Recording</Text>
+              <Text style={styles.startButtonText}>{busyRecording ? 'A lecture is recording · Open it' : 'Start Recording'}</Text>
             )}
           </TouchableOpacity>
           <Text style={styles.recordingHint}>Recordings up to 3 hours • Optimized for speech</Text>
@@ -376,6 +484,60 @@ export default function RecordSetupScreen() {
                     <Text style={[styles.pickerRowText, styles.createProjectText]}>
                       + New course
                     </Text>
+                  </TouchableOpacity>
+                </>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Folder picker: the course itself, its folders, + New folder ─── */}
+      <Modal
+        visible={showFolderPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFolderPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowFolderPicker(false)}
+          />
+          <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text style={styles.pickerSheetTitle}>Select folder</Text>
+            <FlatList
+              data={[null, ...folderTree(folders)]}
+              keyExtractor={item => item?.id ?? '__course'}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.pickerRow, item && { paddingLeft: 24 + item.depth * 20 }]}
+                  onPress={() => {
+                    setSelectedFolderId(item?.id ?? null);
+                    setShowFolderPicker(false);
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={item ? item.name : `${selectedProject?.name ?? 'The course'}, not in a folder`}
+                >
+                  <Ionicons name={item ? 'folder-outline' : 'albums-outline'} size={18} color={c.accentDark} />
+                  <Text style={styles.pickerRowText}>{item ? item.name : `${selectedProject?.name ?? 'The course'} (not in a folder)`}</Text>
+                  {selectedFolderId === (item?.id ?? null) && <Ionicons name="checkmark" size={18} color={c.accentDark} />}
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              ListFooterComponent={
+                <>
+                  <View style={styles.separator} />
+                  <TouchableOpacity
+                    style={styles.pickerRow}
+                    onPress={() => void addFolder()}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="New folder"
+                  >
+                    <Text style={[styles.pickerRowText, styles.newFolderText]}>+ New folder</Text>
                   </TouchableOpacity>
                 </>
               }
@@ -589,6 +751,10 @@ const makeStyles = (c: ThemeColors) =>
   // Create new project row
   createProjectText: {
     color: c.salmon,
+    fontWeight: Typography.weight.semibold,
+  },
+  newFolderText: {
+    color: c.accentDark,
     fontWeight: Typography.weight.semibold,
   },
 

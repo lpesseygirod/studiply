@@ -272,3 +272,14 @@ Check results in the database with `admin` (service role, local only), not just 
 - **Continue and Stop;** every `audio_chunks` file is decoded to its length.
 
 transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. It prints `RESULT` lines and saves screenshots `recorder-*.png`.
+
+`scripts/recording.mjs` (step 5.3 web, about 3 min): the recording screens on the 5.2 recorder, with a synthetic microphone (a 1 kHz tone) and the app's real 30-second chunks.
+- **The setup (option A):** opened from a folder, the course and folder are preset; the picker lists the course and its folders; **+ New folder** makes "Tema 3".
+- **Start:** the lecture is made in Math › Tema 3 with status `recording`; its My notes opens with the red strip (timer moving, waveform, marks greyed out).
+- **Leaving never stops it:** the course page and another document still show the strip, and a chunk is uploaded meanwhile.
+- **The microphone going away** pauses it, then Resume.
+- **At 390 px:** the iPhone recording screen, then back to the course, where the red pill leads back.
+- **A reload asks first,** then Continue the interrupted recording.
+- **Stop & summarize:** confirm, saving, then post-session. The lecture is `transcribing` with its length, and the chunks are in order with no hole.
+
+transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. Screenshots `rec-*.png` (1280 and 390, light and dark).

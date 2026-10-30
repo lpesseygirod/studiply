@@ -228,6 +228,24 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
 
 **The dev screen:** `/dev/recorder` (development only; Chrome check `recorder.mjs`).
 
+**The recording screens (step 5.3)** sit on top of it.
+- **`services/recording-flow.ts`:** the pure flow, tested with fakes:
+  - **Start:** the microphone first, consent, the lecture, its status, the recorder;
+  - **Stop:** waits until every chunk is sent and the live transcript has caught up, then `transcribing`;
+  - **interrupted recordings:** Continue or Finish.
+- **`recording.service.ts`:** the app's flow, with its real parts.
+- **The shell (`app/(main)/_layout.tsx`):**
+  - `RecordingStrip` (laptop) and `RecordingPill` (iPhone layout) show on every screen;
+  - `RecordingHost` runs the recovery at sign-in and the browser's "leave?" question while recording.
+- **The iPhone recording screen** is the lecture's own document: `doc/[id].tsx` draws `RecordingPhoneHeader` and `RecordingPhoneBar` around My notes when its lecture records at phone width.
+- **`hooks/useRecorder.ts`:**
+  - `useRecorder()` gives the clock and the waveform, 10 times a second, for the strip and the header only;
+  - `useRecorderState()` gives just the state, for screens that must not redraw that often;
+  - `useRecordingFlow()` gives the saving and interrupted states.
+- **The setup's folder picker:** `utils/folderTree.ts`.
+
+**The iPhone** keeps `record/active` (expo-av) until the recorder's `platform.ts` gets expo-audio; then the setup sends it through the same flow.
+
 Earlier notes (step 4.9) live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
 - **`run.ts`** converts only when the tab has no document, and only reads the old row.

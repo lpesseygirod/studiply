@@ -61,7 +61,7 @@ Studiply is one app with two faces: the **iPhone app** (App Store) for recording
 | --- | --- | --- | --- | --- |
 | Record lecture | Big Record button; keeps recording with screen locked or app in background | Record button; browser recording | 5 | v1 |
 | Live transcription in 30-second chunks | Yes | Yes | 5 | v1 |
-| Recording without internet, uploaded later | Yes | No (needs internet) | 5 | v1 |
+| Recording without internet, uploaded later | Yes | Needs internet only to start; then keeps recording offline and uploads later (step 5.2) | 5 | v1 |
 | Timer and live waveform | Top of the recording screen | Red strip under the top bar | 5 | v1 |
 | Marks: Important, Confused, Exam with 1–10 slider and note | Large buttons at the bottom, slider in a small sheet, haptic tap on save | Buttons in the strip, inline slider panel | 5 | v1 |
 | Live notes stamped with the recording time | Notes editor above the mark buttons | My notes tab | 5 | v1 |

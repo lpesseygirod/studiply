@@ -29,12 +29,14 @@ export const recorder: RecorderService = {
   resume: async () => {},
   stop: async () => {},
   recover: async () => [],
+  recordings: async () => [],
   continueRecording: async () => {
     throw new Error(NOT_YET);
   },
   finish: async () => {},
-  state: () => ({ lectureId: null, status: 'idle' }),
+  state: () => ({ lectureId: null, status: 'idle', microphoneLost: false }),
   elapsedMs: () => 0,
+  level: () => 0,
   snapshot: async () => ({ meta: null, chunks: [], transcript: [] }),
   subscribe: () => () => {},
 };

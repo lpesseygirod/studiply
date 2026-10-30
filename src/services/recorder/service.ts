@@ -58,6 +58,8 @@ interface Active {
   meta: RecordingMeta;
   source: AudioSource;
   status: 'recording' | 'paused' | 'stopping';
+  /** Paused by the microphone going away, not by the student. */
+  microphoneLost: boolean;
 }
 
 export function createRecorderService(deps: RecorderDeps): RecorderService {
@@ -129,7 +131,8 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
 
   async function begin(meta: RecordingMeta, from: { seq: number; ms: number }) {
     const source = deps.createSource({ chunkMs: meta.chunkMs, overlapMs: meta.overlapMs });
-    active = { meta, source, status: 'recording' };
+    active = { meta, source, status: 'recording', microphoneLost: false };
+    const mine = active;
     try {
       await source.start(from, {
         part: (p) => void serial(() => store.addPart({ ...p, lectureId: meta.lectureId })),
@@ -139,6 +142,17 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
             await queueChunk(meta, c.seq);
             emit();
           }),
+        // Never a silent stop: the recording pauses (what was recorded is kept) and says why.
+        lost: () => {
+          if (active !== mine || mine.status !== 'recording') return;
+          void service
+            .pause()
+            .then(() => {
+              mine.microphoneLost = true;
+              emit();
+            })
+            .catch((err) => console.warn('[recorder] could not pause after the microphone went away', err));
+        },
       });
     } catch (err) {
       // No microphone (refused, none): the recording is as it was before.
@@ -240,6 +254,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       const a = active;
       await a.source.resume();
       a.status = 'recording';
+      a.microphoneLost = false;
       a.meta = await save(a.meta, 'recording');
       emit();
     },
@@ -293,6 +308,12 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       return found;
     },
 
+    async recordings() {
+      await deps.ready?.();
+      const userId = deps.userId();
+      return (await store.listRecordings()).filter((m) => m.userId === userId);
+    },
+
     async continueRecording(lectureId) {
       if (active) throw new Error('A recording is already running.');
       const meta = await store.getRecording(lectureId);
@@ -315,11 +336,17 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
     },
 
     state(): RecorderState {
-      return active ? { lectureId: active.meta.lectureId, status: active.status } : { lectureId: null, status: 'idle' };
+      return active
+        ? { lectureId: active.meta.lectureId, status: active.status, microphoneLost: active.microphoneLost }
+        : { lectureId: null, status: 'idle', microphoneLost: false };
     },
 
     elapsedMs() {
       return active ? active.source.elapsedMs() : 0;
+    },
+
+    level() {
+      return active?.status === 'recording' ? (active.source.level?.() ?? 0) : 0;
     },
 
     async snapshot(lectureId) {

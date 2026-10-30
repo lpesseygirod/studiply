@@ -5,6 +5,12 @@
 // clarification). Needs `supabase functions serve` with the keys in
 // supabase/functions/.env. Exit code 1 on any FAIL.
 //
+// Since step 5.3 the web records with the recorder service: Start asks for
+// transcription consent (the live transcript), the lecture's My notes opens
+// with the red strip, Stop & summarize saves and opens the after-recording
+// step; the chunk is already transcribed, so Generate notes asks only for
+// Anthropic.
+//
 // WEB_CHECK_MOCK=1: expect the simulated pipeline instead (the dev server
 // was started with EXPO_PUBLIC_MOCK_AI=1); no consent dialogs, no cost.
 import { execFileSync } from 'node:child_process';
@@ -53,26 +59,30 @@ let lectureId;
 try {
   await step('sign in', () => b.signIn(BASE, user.email, user.password));
 
-  await step('record about 12 s and stop', async () => {
+  await step(MOCK ? 'record about 12 s and stop (simulated, no consent asked)' : 'record about 12 s and stop: transcription consent at Start', async () => {
     await b.nav(`${BASE}/record`);
     await b.waitText('New Recording');
     await b.fill('input[placeholder^="e.g."]', 'AI flow check');
     await b.click('Start Recording');
-    await b.waitText('RECORDING IN PROCESS', { timeout: 15000 });
-    await b.sleep(12000);
-    await b.click('STOP', { exact: true });
-    await b.click('Stop', { exact: true });
-    await b.waitText('Post-Session', { timeout: 30000 });
-    const { data } = await admin.from('files').select('id').eq('user_id', user.id).eq('title', 'AI flow check').single();
-    lectureId = data.id;
-  });
-
-  await step(MOCK ? 'generate notes (simulated, no consent asked)' : 'generate notes: both consent dialogs, then real notes', async () => {
-    await b.click('GENERATE NOTES');
     if (!MOCK) {
       await b.waitText('Send the recording to ElevenLabs?', { timeout: 20000 });
       await b.shot('ai-10-consent-transcription');
       await b.click('Allow', { exact: true });
+    }
+    await b.waitText('Stop & summarize', { timeout: 20000 });
+    await b.sleep(12000);
+    await b.click('Stop & summarize', { exact: true });
+    await b.waitText('Stop recording?', { timeout: 5000 });
+    await b.click('Stop', { exact: true });
+    // Saving waits for the upload and the live transcript (at most a minute).
+    await b.waitText('Post-Session', { timeout: 90000 });
+    const { data } = await admin.from('files').select('id').eq('user_id', user.id).eq('title', 'AI flow check').single();
+    lectureId = data.id;
+  });
+
+  await step(MOCK ? 'generate notes (simulated, no consent asked)' : 'generate notes: the Anthropic consent, then real notes', async () => {
+    await b.click('GENERATE NOTES');
+    if (!MOCK) {
       await b.waitText('Send the transcript to Anthropic?', { timeout: 90000 });
       await b.shot('ai-11-consent-assistant');
       await b.click('Allow', { exact: true });

@@ -28,6 +28,8 @@ import { Typography } from '../../../src/constants/typography';
 import { saveLabel, useDocumentSync } from '../../../src/hooks/useDocumentSync';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
+import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecorder';
+import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useViewPrefs } from '../../../src/lib/viewPrefs';
 import { saveDefaultPageSetup } from '../../../src/services/preferences.service';
@@ -134,6 +136,17 @@ export default function DocumentScreen() {
   useEffect(() => {
     if (tabs && tabs.length > 0 && !tabs.some((t) => t.tab === tab)) setTab(tabs[0].tab);
   }, [tabs, tab]);
+
+  // This lecture is recording (step 5.3): on the iPhone (and below 1024 px) the
+  // recording screen of iphone-02 around My notes; the laptop has the strip.
+  const live = useRecorderState();
+  const recordingFlowState = useRecordingFlow();
+  const recordingHere =
+    !!id && ((live.lectureId === id && live.status !== 'idle') || recordingFlowState.saving?.lectureId === id);
+  const recordingScreen = recordingHere && !wide;
+  useEffect(() => {
+    if (recordingScreen && tab !== 'notes') setTab('notes');
+  }, [recordingScreen, tab]);
 
   const leave = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -479,19 +492,30 @@ export default function DocumentScreen() {
     </View>
   ) : showEditor ? (
     // Print layout: no white card; the pages sit on the gradient (step 4.5b).
-    <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
+    <View style={[styles.editorWrap, !wide && nativeEditor && (recordingScreen || !phoneView?.pages) && styles.pageCard]}>
       {keptNotice}
       {lostNotice}
       <StudiplyEditor
         key={editorKey}
         ref={editorRef}
         fileId={id}
-        header={makeHeader(nativeEditor)}
+        // The recording screen (iphone-02): the title is in its header above; here only "MY NOTES".
+        header={
+          recordingScreen ? (
+            <Text style={[styles.notesLabel, nativeEditor && styles.notesLabelInset]} {...{ dataSet: { recording: 'notes-label' } }}>
+              MY NOTES
+            </Text>
+          ) : (
+            makeHeader(nativeEditor)
+          )
+        }
+        plain={recordingScreen}
         commentRoom={commentRoom}
         onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
-        view={nativeEditor ? phoneView : undefined}
+        // While recording, My notes is pageless (Print layout stays as the student set it for later).
+        view={nativeEditor ? (recordingScreen && phoneView ? { ...phoneView, pages: false } : phoneView) : undefined}
         pageSetup={sync.pageSetup}
         onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
         language={docLanguage}
@@ -537,6 +561,16 @@ export default function DocumentScreen() {
         <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={c.text.onGradientStrong} />
       </View>
     </View>
+  ) : recordingScreen ? (
+    <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
+      <RecordingPhoneHeader
+        backLabel={courseName ?? 'Library'}
+        backColor={backColor}
+        onBack={leave}
+        crumbs={chain.length ? chain.map((b) => b.name).join(' › ') : (courseName ?? 'My library')}
+        title={file?.title ?? ''}
+      />
+    </View>
   ) : (
     // Above the page: a tap on its empty space closes the keyboard (buttons answer their own taps).
     <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
@@ -567,7 +601,10 @@ export default function DocumentScreen() {
       {/* In Pages (step 4.5b) and on a spreadsheet tab (4.7e) the page area has the whole pane; the tabs row keeps its column. */}
       <View style={wide ? (fullPane ? styles.columnPages : [styles.column, margin.shown && commentRoom && styles.columnWithMargin]) : styles.container}>
         {wide && fullPane ? <View style={styles.topRowPages}>{top}</View> : top}
-        <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
+        <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>
+          {body}
+          {recordingScreen && <RecordingPhoneBar />}
+        </View>
       </View>
       {toast}
       {itemMenu.modal}
@@ -650,4 +687,12 @@ const makeStyles = (c: ThemeColors) =>
     backText: { fontSize: Typography.size.md, fontWeight: Typography.weight.medium },
     status: { fontSize: Typography.size.xs, color: c.text.onGradient, marginTop: -6, marginLeft: 6 },
     phoneBody: { flex: 1, paddingHorizontal: 12 },
+    notesLabel: {
+      marginBottom: 10,
+      fontSize: Typography.size.xs,
+      fontWeight: Typography.weight.bold,
+      letterSpacing: Typography.tracking.wider,
+      color: PAGE_COLORS.text.secondary,
+    },
+    notesLabelInset: { marginHorizontal: 16, marginTop: 14 },
   });

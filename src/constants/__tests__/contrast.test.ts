@@ -47,6 +47,8 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ...Object.entries(c.meter).map(([n, v]) => [`meter.${n} on card`, v, c.card, ICON] as [string, string, string, number]),
     ['recording screen text on its background', c.recordingScreen.text, c.recordingScreen.bg, TEXT],
     ['recording warning text on its banner', c.recordingScreen.warningText, c.recordingScreen.warningBg, TEXT],
+    ['recording strip text on the strip (step 5.3)', c.recordingStrip.text, c.recordingStrip.bg, TEXT],
+    ['recording dot on the strip', c.recordingStrip.dot, c.recordingStrip.bg, ICON],
     ...stops.map(([name, bg]) => [`button.onGradient on gradient.${name}`, c.button.onGradient, bg, ICON] as [string, string, string, number]),
     ['button.onGradientText on button.onGradient', c.button.onGradientText, c.button.onGradient, TEXT],
   ];
