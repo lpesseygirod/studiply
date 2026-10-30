@@ -292,3 +292,17 @@ transcribe-chunk is answered by the page itself; the check fails if any request 
 - **After Stop:** a new line gets no chip, and a chip plays from Storage with the time never going back across a chunk join.
 
 transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. Screenshots `notes-live-1280`, `-1280-dark`, `-390`, `-390-dark`, `notes-live-playing-1280`.
+
+## Measure the iPhone's chunk joins (step 5.1–5.4, iPhone half)
+
+`scripts/joins.mjs` measures the joins of a lecture the **iPhone** recorded while the laptop played the click track (`docs/recording-test/click-track.html`: a click every 50 ms, a longer beep on each whole second). It reads only: the newest lecture with the given title, its `audio_chunks` rows and files on **local** Supabase (the iPhone's development build uses it), decoded in headless Chrome. Nothing is changed, sent or paid for, and no test user is made.
+
+```bash
+node .claude/skills/web-check/scripts/joins.mjs "Join test"
+```
+
+- **Per join:** the clicks heard in both chunks (the overlap: about 10 with 500 ms), the clicks heard in neither (audio lost, ≈ 50 ms each), how far the next chunk's `start_ms` is off, and the join from the files' lengths (± the AAC padding, a few tens of ms).
+- **Also:** chunk order, clicks missed inside a chunk (a dropout while locked), decoded length against `duration_ms`, the phone's clock drift, and whether the joins overlapped (two recorders) or restarted (iOS refused two).
+- **Pause / Continue joins** (a chunk starting exactly where the one before ended) are left out; a jump in the clicks (a call) starts a new stretch.
+- Exit code 1 if a join lost audio or couldn't be measured. The whole test, step by step: `docs/recording-test/INSTRUCTIONS.md`.
+- It can't be checked without a recording from the phone: there is no browser half.
