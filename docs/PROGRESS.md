@@ -432,7 +432,38 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
       - one patch for the seven checks that pressed Stop or opened a lecture at post-session;
       - `ai-flow.mjs` is retired until 7.4.
   - **No migration, no new dependency.** No `editor:build` needed: the shared editor didn't change.
-- [ ] 7.4 — First real summary (≤ 60 min pipeline)
+- [x] 7.4 — First real summary (≤ 60 min pipeline). **Done (31 Oct), verified by the advisor on the synthetic lecture.**
+  - **The paid run:** `npm run check:claude -- --only=summary`, a 30-min Spanish lecture: done in **42 s for $0.1570** (classify + generate on Opus 5.5). Every check passed; the one failure was the check's own key-order compare, now fixed.
+  - **The other checks:** `summarize.mjs` 12/12, `assistant.mjs` 15/15, `recording.mjs` 10/10, `library-menus.mjs` 10/10, `npm run check`, `check:bundle`.
+  - **Still to do:** BUILD-PLAN's run on Lea's shortest real fixture waits for 7.1.
+  - **Decisions:**
+    - **The schema:** blocks are `{ type, data }`, after the API refused the 22 block shapes in one `anyOf` (HTTP 400).
+    - **zod 4.6.7,** with Lea's OK (31 Oct).
+    - **No retry for a 4xx:** 400/401/403/404/413 fail at once (`claude_rejected`); unreadable or cut-off JSON, 5xx and overloaded get one retry.
+  - **Server (`summarize { lectureId, summaryId }`):** the summarize panel's pending row is claimed once (`pending → generating`; a second start is 409), the answer is 202 at once, and the pipeline runs in the background (`EdgeRuntime.waitUntil`). The status goes `checking → done | failed` on the row.
+  - **`_shared/summary-pipeline.ts`** (pure, Claude faked in Jest):
+    1. **Align:** ±30 s, else the nearest segment.
+    2. **Classify** (Opus 5.5, structured output): subject, modules, topics, the professor's exam phrases, concepts explained 3+ times.
+    3. **Plan:** `planSummary` (7.2).
+    4. **Generate** (Opus 5.5, structured output in `_shared/summary-schema.ts`).
+    5. **Check:** the answer checked with zod 4.6.7 (`_shared/summary-zod.ts`: the outer shape, then each block's data per type). Unknown ids are dropped; each "From your notes" block gets the notes' own text and formatting by code; the header and coverage are counted.
+  - **Failures:** one retry when the answer is unreadable or cut off; a refusal is final. The cost is logged once per call. A lecture over 60 min is `long_lecture` (7.6).
+  - **After the first paid run (31 Oct):** classify worked, generate got HTTP 400 twice.
+    - **The likely cause:** the 22 block shapes in one `anyOf`, the one part classify didn't have.
+    - **The fix:** the planned fallback, blocks as `{ type, data }` with `data` checked by our validator per type, and the prompt lists each type's fields.
+    - **Failed calls** now log the API's error type and message (never the request).
+    - **A 4xx (400/401/403/404/413)** fails at once (`claude_rejected`); the retry stays for unreadable or cut-off JSON, 5xx and overloaded.
+    - **A Jest test** builds the exact request both calls send and checks it against structured outputs' rules.
+  - **Stored:** `summaries.result` in format `studiply-summary-v1`, plus `note_lines_*`, `marks_*` and `model`. The earlier notes (legacy-note-v1) keep apart: their readers filter on their own format.
+  - **Media:** the photos and slides ticked, only with the `images` consent (≤ 20 photos, ≤ 3 PDFs, 24 MB).
+  - **App:**
+    - **Starting:** Stop & generate summary starts the summary on the laptop when consent is already given (no dialog over the screen); the iPhone starts it from its sync queue once the request is on the server.
+    - **The Summary tab card follows the row:** saved (Summarize now), writing (read again every 5 s), ready (counts and takeaways), failed (why, Try again). 7.7 writes the summary into the tab.
+  - **Tests:**
+    - **Jest:** the schema (structured outputs' subset), the validator, alignment, the prompts, parsing, the run (retry, refusal, cut off, failures), the service (start, retry, latest, iPhone queue) and the card's words.
+    - **Chrome:** `summarize.mjs` (the summary started, the card's states) and `assistant.mjs` answer summarize in the page.
+    - **`check:claude`:** a synthetic 30-min lecture (`npm run check:claude -- --only=summary`), written, not run by me.
+  - **Git:** `tests/fixtures/` and `tests/output/` are git-ignored.
 - [ ] 7.5 — Quality checks (schema, coverage, length, faithfulness, language)
 - [ ] 7.6 — Long lectures (split by topic, merge)
 - [ ] 7.7 — Into the document (JSON → editor blocks, versions, edit-safe regen)
@@ -526,6 +557,23 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.4: zod (Lea OK'd it, 31 Oct).** This replaces the advisor's earlier "no zod" decision of the same day.
+  - **Version and scope:** zod **4.6.7** exactly (MIT), **server-side only**.
+    - The Edge Functions import `npm:zod@4.6.7`, pinned like the SDK.
+    - It is a devDependency for Jest, which maps that specifier to the installed zod (`moduleNameMapper`), so Jest runs the very same file; tsconfig's `paths` does the same for tsc.
+    - **The app never imports it:** only type imports reach the summary files.
+  - **What checks what:**
+    - `_shared/summary-zod.ts` checks Claude's answers: the outer summary, the classify answer, and each block's `data` per type (the spec's block shapes); it also writes the prompt's block guide.
+    - `parseSummary` keeps the semantic work: notes copied by code, ids that exist, coverage.
+  - **The API contract stays the JSON Schema constants** (`_shared/summary-schema.ts`, structured outputs). `z.toJSONSchema` adds safe-integer minimum/maximum to whole numbers, which structured outputs refuse, so a Jest test checks zod and the constants agree.
+  - **The hand-written validator `checkSchema` is gone** (no file became unused).
+- **Step 7.4, the earlier "no zod" decision (the advisor's, 31 Oct, replaced above):**
+  - **What it was:** BUILD-PLAN's "validate the JSON with zod" was to become structured outputs (`output_config.format`) with one JSON Schema constant (`_shared/summary-schema.ts`), plus our own small validator and `parseSummary` for what a schema can't say (ids exist, notes copied by code).
+  - **What structured outputs accept (the claude-api reference):** basic types, enum, const, anyOf, allOf, $ref/$defs, additionalProperties: false with every field required. Not recursive schemas, minimum/maximum/multipleOf, minLength/maxLength, or complex array limits. The schema stays inside that, and a Jest test checks it.
+  - **First run:** a new schema's first request compiles it once (cached 24 h).
+  - **Fallback:** if the API ever refuses the schema as too complex, blocks become `{ type, data }`.
+  - **Classify:** on Opus 5.5 too (Lea's rule: summaries on Opus).
+  - **Hosted Supabase stops a function at 150 s (free) / 400 s (paid):** the run is in the background, but the limit still applies. It's a before-launch item on Lea's list, not a 7.4 blocker.
 - **Step 7.2's answers to the spec's open points (advisor, 30 Oct, for Lea to confirm; reversible):**
   - **A. Self-test 1 vs high marks:** high Exam and Important marks still get their self-test question. The count is max(the slider's count, the questions they need).
   - **B. Takeaways:** they rise to fit the high Important marks, up to 5. Beyond 5, a bullet carries several marks (`fromMarkIds[]` in 7.4).

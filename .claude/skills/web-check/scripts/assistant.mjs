@@ -116,6 +116,11 @@ const PAGE_SETUP = `(() => {
       const segments = [{ startMs: body.startMs, endMs: body.startMs + 30000, text: 'Simulated chunk ' + body.seq }];
       return new Response(JSON.stringify({ chunkId: 'simulated', durationMs: 30000, segments }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+    // Step 7.4: Stop & generate summary starts the summary (this check gave the consent): answered here, nothing is written.
+    if (url && url.includes('/functions/v1/summarize')) {
+      window.__summarizeCalls = [...(window.__summarizeCalls || []), body];
+      return new Response(JSON.stringify({ summaryId: body.summaryId, status: 'generating' }), { status: 202, headers: { 'Content-Type': 'application/json' } });
+    }
     if (url && url.includes('/functions/v1/assistant-chat')) {
       if (window.__checkOffline) throw new TypeError('Failed to fetch');
       window.__assistantCalls.push(body);
@@ -494,8 +499,8 @@ try {
     expect(!(await has(`${PANEL} [data-assistant="composer"]`)), 'a composer for a plain document');
   });
 
-  await step('no request reached assistant-chat or transcribe-chunk on the server, nor Anthropic, OpenAI or ElevenLabs', async () => {
-    const out = requests.filter((u) => /functions\/v1\/(assistant-chat|transcribe-chunk)|anthropic\.com|api\.openai\.com|elevenlabs\.io/.test(u));
+  await step('no request reached assistant-chat, transcribe-chunk or summarize on the server, nor Anthropic, OpenAI or ElevenLabs', async () => {
+    const out = requests.filter((u) => /functions\/v1\/(assistant-chat|transcribe-chunk|summarize)|anthropic\.com|api\.openai\.com|elevenlabs\.io/.test(u));
     expect(out.length === 0, `requests: ${JSON.stringify(out)}`);
   });
 

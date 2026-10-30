@@ -10,14 +10,7 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import {
-  CLAUDE_EFFORT,
-  DAILY_CLAUDE_LIMIT_USD,
-  FALLBACK_BETA,
-  MAX_TOKENS,
-  claudeCost,
-  type Cost,
-} from './claude.ts';
+import { DAILY_CLAUDE_LIMIT_USD, claudeCost, claudeRequest, type Cost } from './claude.ts';
 import { hasConsent, logUsage, ownFile, ownLecture, signedIn, usedToday } from './guard.ts';
 import { fail } from './http.ts';
 
@@ -96,18 +89,10 @@ export function claudeParams(
   messages: Anthropic.Beta.BetaMessageParam[],
   options: { maxTokens?: number; jsonSchema?: Record<string, unknown> } = {},
 ) {
-  return {
-    model,
-    max_tokens: options.maxTokens ?? MAX_TOKENS,
-    system,
-    messages,
-    output_config: {
-      effort: CLAUDE_EFFORT,
-      ...(options.jsonSchema && { format: { type: 'json_schema' as const, schema: options.jsonSchema } }),
-    },
-    betas: [FALLBACK_BETA],
-    fallbacks: 'default',
-  } satisfies Anthropic.Beta.MessageCreateParamsStreaming | Omit<Anthropic.Beta.MessageCreateParamsStreaming, 'stream'>;
+  // Built in claude.ts (no SDK there), so Jest checks the very body sent.
+  return claudeRequest(model, system, messages, options) satisfies
+    | Anthropic.Beta.MessageCreateParamsStreaming
+    | Omit<Anthropic.Beta.MessageCreateParamsStreaming, 'stream'>;
 }
 
 /** Prices one answer and logs it once in ai_usage. */
@@ -141,10 +126,19 @@ export function answerText(message: Anthropic.Beta.BetaMessage): string {
     .join('');
 }
 
-/** A short, loggable description of why a Claude call failed, from the SDK's typed errors. */
-export function claudeFailure(err: unknown): { status: number; code: string } {
+/**
+ * A short, loggable description of why a Claude call failed, from the SDK's typed errors: the status,
+ * and the API's own error type and message (e.g. invalid_request_error "…schema…"), cut to 300
+ * characters. These describe the request's form, never its content; the request itself is never logged.
+ */
+export function claudeFailure(err: unknown): { status: number; code: string; type?: string; message?: string } {
   if (err instanceof Anthropic.APIConnectionTimeoutError) return { status: 0, code: 'timeout' };
   if (err instanceof Anthropic.APIConnectionError) return { status: 0, code: 'network_error' };
-  if (err instanceof Anthropic.APIError) return { status: err.status ?? 0, code: `http_${err.status}` };
+  if (err instanceof Anthropic.APIError) {
+    const body = (err.error ?? {}) as { type?: string; message?: string; error?: { type?: string; message?: string } };
+    const type = body.error?.type ?? body.type;
+    const message = String(body.error?.message ?? body.message ?? '').slice(0, 300);
+    return { status: err.status ?? 0, code: `http_${err.status}`, ...(type && { type }), ...(message && { message }) };
+  }
   return { status: 0, code: 'unknown' };
 }

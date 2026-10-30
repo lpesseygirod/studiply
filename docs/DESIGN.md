@@ -255,6 +255,12 @@ As built in step 4.4:
   - **Opening a lecture:** a lecture opens as a document (on My notes until it has a summary). A lecture recorded the earlier way (no chunks) keeps "Process now", the earlier after-recording screen.
 
 ### 3. Summary in the same document
+- **Until 7.7 writes it into the tab (step 7.4):** the Summary tab shows a card that follows the summary.
+  - **Saved, not started** (no permission yet, offline, or today's limit): the preview line and **Summarize now**, which asks for the permission and starts it.
+  - **Writing your summary:** "about 1–2 minutes, you can keep working", read again every 5 s.
+  - **Summary ready:** its sections, questions and flashcards, "N of N note lines and M of M marks used", and the takeaways.
+  - **The summary wasn't written:** why, in plain words, and **Try again**. Over 60 minutes: Change settings; long lectures come with 7.6.
+  - **Starting:** Stop & generate summary starts it at once when the permission was already given; a permission is never asked over the screen she's on at Stop.
 - Green banner: "Summary added to this document · Built from your notes (all N lines, M marks) + audio · slides · photos · your questions" + **Extend with next lecture**.
 - At the top of the Summary tab: "All your notes are in this summary · N of N lines and M of M marks used".
 - The student's notes appear as green **From your notes** blocks, keeping their formatting; Confused marks become "You were confused here · 7/10 · mm:ss" explanation blocks; Important/Exam levels show as chips on the matching section.

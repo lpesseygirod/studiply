@@ -88,13 +88,17 @@
     "jest-expo": "~54.0.18",
     "typescript": "~5.9.2",
     "vite": "^8.3.5",
-    "vite-plugin-singlefile": "^2.3.4"
+    "vite-plugin-singlefile": "^2.3.4",
+    "zod": "4.6.7"
   },
   "jest": {
     "preset": "jest-expo",
     "setupFiles": [
       "<rootDir>/src/test-utils/jestSetup.ts"
     ],
+    "moduleNameMapper": {
+      "^npm:zod@4\\.6\\.7$": "zod"
+    },
     "transformIgnorePatterns": [
       "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@10play/tentap-editor/src))",
       "/node_modules/react-native-reanimated/plugin/"

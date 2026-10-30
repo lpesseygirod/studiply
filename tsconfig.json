@@ -6,6 +6,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "npm:zod@4.6.7": [
+        "./node_modules/zod/index.d.ts"
       ]
     }
   },

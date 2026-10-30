@@ -21,7 +21,7 @@ export const CLAUDE_MODELS: { assistant: string; summary: string } = {
  * is medium). Low for both models: valid for Sonnet 5.5 too (checked against
  * the Claude API reference, 30 Oct 2026), and quick enough in class.
  */
-export const CLAUDE_EFFORT = 'low';
+export const CLAUDE_EFFORT = 'low' as const;
 
 /** Room for thinking plus the answer; the real limits come with the real prompts. */
 export const MAX_TOKENS = 4096;
@@ -37,6 +37,27 @@ export const ACTION_MAX_TOKENS = 4096;
  * model for that kind of refusal, inside the same call.
  */
 export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
+
+/**
+ * The request both functions send (anthropic.ts's claudeParams), built here without the SDK so Jest
+ * can check the exact body (step 7.4: summaryRequest.test.ts). `jsonSchema` makes the answer JSON of
+ * that shape (structured outputs): it sits in output_config with the effort. One user turn, no
+ * assistant prefill (structured outputs refuse prefill), no citations.
+ */
+export function claudeRequest<M>(model: string, system: string, messages: M[], options: { maxTokens?: number; jsonSchema?: Record<string, unknown> } = {}) {
+  return {
+    model,
+    max_tokens: options.maxTokens ?? MAX_TOKENS,
+    system,
+    messages,
+    output_config: {
+      effort: CLAUDE_EFFORT,
+      ...(options.jsonSchema && { format: { type: 'json_schema' as const, schema: options.jsonSchema } }),
+    },
+    betas: [FALLBACK_BETA],
+    fallbacks: 'default' as const,
+  };
+}
 
 /** Placeholder until plans and server-enforced limits arrive in step 10.2. */
 export const DAILY_CLAUDE_LIMIT_USD = 3;

@@ -12,6 +12,8 @@ import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useConnectivity } from '../../lib/connectivity';
 import { isNetworkError } from '../../lib/cloudRows';
 import { notifyLibraryUpdated } from '../../lib/cache';
+import { syncEnabled } from '../../lib/sync';
+import { ConsentDeclinedError, consentGiven } from '../../services/consent.service';
 import { errorMessage } from '../../utils/errors';
 import { recorder } from '../../services/recorder';
 import { recordingFlow } from '../../services/recording.service';
@@ -21,6 +23,7 @@ import {
   loadSummarizeInfo,
   requestSummary,
   saveCourseDefaults,
+  startSummary,
   type SummarizeInfo,
   type SummarizeResources,
 } from '../../services/summarize.service';
@@ -57,8 +60,10 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
       return;
     }
   }
+  const media = p.resources.slides || p.resources.photos;
+  let summaryId: string | null = null;
   try {
-    await requestSummary(p.lectureId, p.sliders, p.resources, p.plan);
+    summaryId = await requestSummary(p.lectureId, p.sliders, p.resources, p.plan);
     notifyLibraryUpdated();
   } catch (err) {
     showAlert(
@@ -69,6 +74,16 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
     );
   }
   p.open();
+  // Step 7.4: the laptop starts it now when the student already allowed it (no dialog over the screen
+  // she's on); the iPhone once the request has reached the server (summarize.service). Otherwise the
+  // Summary tab's "Summarize now" asks and starts it.
+  if (summaryId && !syncEnabled && (await consentGiven('assistant_summary'))) {
+    // Photos and slides go along when already allowed too (the server checks it again); never a dialog here.
+    await startSummary(p.lectureId, summaryId, { media: media && (await consentGiven('images')) }).catch((err) => {
+      if (!(err instanceof ConsentDeclinedError)) showAlert('The summary didn’t start', `${errorMessage(err, 'Please try again.')} You can start it from the Summary tab.`);
+    });
+    notifyLibraryUpdated();
+  }
 }
 
 export function SummarizePanel() {

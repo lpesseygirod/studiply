@@ -65,6 +65,14 @@ function ask(scope: ConsentScope): Promise<boolean> {
   });
 }
 
+/** Whether the student already allowed `scope`, without asking (false offline or on error). */
+export async function consentGiven(scope: ConsentScope): Promise<boolean> {
+  if (granted.has(scope)) return true;
+  const yes = await hasConsent(scope).catch(() => false);
+  if (yes) granted.add(scope);
+  return yes;
+}
+
 // -------------------------------------------------------------------
 // ensureConsent
 // Resolves once the student has consent for every scope (asking for the

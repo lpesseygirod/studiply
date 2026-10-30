@@ -22,7 +22,19 @@
  *      plain document, in Spanish, the formula kept; Make flashcard; cards
  *      from a saved answer; each logged once; B can't use A's document), the
  *      daily limit, and withdrawing consent;
+ *      the summary (step 7.4) of a synthetic 30-min Spanish lecture: notes
+ *      with formatting, marks of all three kinds at low and high levels, a
+ *      board photo, a question to the assistant, an exam phrase and a concept
+ *      explained three times, a sentence asking Claude to obey it; the
+ *      summarize panel's pending row is started (202), a second start is 409,
+ *      the row is followed to done, and the result is checked (shape, every
+ *      note line and mark used, takeaways, Spanish, the photo, the exam
+ *      signal, each call logged once) and saved to tests/output/ (git-ignored);
+ *      about $0.17–0.20 on Opus 5.5;
  *   4. deletes both users and their rows, even when a check fails.
+ *
+ * Only the summary (step 7.4), without paying for the earlier steps again:
+ *   npm run check:claude -- --only=summary
  *
  * Local only: refuses to run unless Supabase is on 127.0.0.1 / localhost.
  * Never reads supabase/functions/.env; the functions report a missing key.
@@ -33,7 +45,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
@@ -52,6 +64,8 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
   process.exit(1);
 }
 
+/** `--only=summary`: the step-7.4 summary alone (it creates what it needs). */
+const ONLY_SUMMARY = process.argv.includes('--only=summary');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
 const POLICY_VERSION = 'dev-2026-10-elevenlabs';
@@ -210,6 +224,182 @@ const gitIgnored = (file) => {
   }
 };
 
+/** Step 7.4's synthetic lecture: 30 min of Psicobiología in Spanish (60 segments of 30 s). */
+const PSICO = {
+  intro: [
+    'La Psicobiología estudia la conducta como un proceso biológico.',
+    'La conducta es todo lo que hace un organismo y que podemos observar.',
+    'Para entenderla necesitamos la psicología experimental y la neurociencia.',
+    'El sistema nervioso es el órgano que produce la conducta.',
+  ],
+  questions: [
+    'La Psicobiología responde a cinco preguntas sobre cada conducta.',
+    'La primera pregunta es qué estructuras del sistema nervioso la producen.',
+    'La segunda es qué procesos la ponen en marcha y la tercera cómo se regula.',
+    'La cuarta pregunta es su finalidad, su valor adaptativo, y la quinta cómo ha evolucionado.',
+  ],
+  evolution: [
+    'La filogenia es la historia evolutiva de una especie.',
+    'La ontogenia es el desarrollo de un individuo desde la concepción.',
+    'La heredabilidad se calcula como la varianza genética dividida por la varianza fenotípica.',
+    'Darwin explicó la selección natural en el origen de las especies.',
+  ],
+};
+/** "Esto entra en el examen" at 21:00; the definition of conducta explained three times (1:00, 12:30, 26:00). */
+const EXAM_PHRASE = 'Esto entra en el examen: las cinco preguntas de la Psicobiología hay que saberlas de memoria.';
+const REPEATED = 'Repito: la conducta es todo lo que hace un organismo, y la estudiamos como un proceso biológico.';
+const psicoSegment = (i) => {
+  if (i === 42) return EXAM_PHRASE;
+  if (i === 2 || i === 25 || i === 52) return REPEATED;
+  if (i === 55) return INJECTION;
+  if (i === 47) return 'Y luego… [ruido en el aula] … no se entiende bien esta parte.';
+  const pool = i < 20 ? PSICO.intro : i < 40 ? PSICO.questions : PSICO.evolution;
+  return [0, 1, 2].map((k) => pool[(i + k) % pool.length]).join(' ');
+};
+/** Deep equality of JSON values, whatever the order of object keys (jsonb stores them in its own order). */
+const sameJson = (a, b) => {
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => sameJson(x, b[i]));
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every((k) => Object.prototype.hasOwnProperty.call(b, k) && sameJson(a[k], b[k]));
+  }
+  return a === b;
+};
+
+/** A text node of My notes' editor JSON. */
+const pmText = (t) => ({ type: 'text', text: t });
+
+/**
+ * Step 7.4: the summary of the synthetic lecture, end to end through the real summarize function and
+ * Anthropic (about $0.17–0.20 on Opus 5.5). Saves the result in tests/output/ (git-ignored).
+ */
+async function summarySection(a, b) {
+  console.log('\nThe summary (step 7.4): a synthetic 30-min lecture in Spanish, Opus 5.5');
+  // With --only=summary nothing was allowed yet (the earlier steps give the same consent; a second row is harmless).
+  for (const scope of ['assistant_summary', 'images']) await a.client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION });
+
+  const { data: course, error: courseError } = await a.client.from('courses').insert({ name: 'Psicobiología (check)' }).select('id').single();
+  if (courseError) throw new Error(`Could not create the course: ${courseError.message}`);
+  await a.client.from('course_settings').update({ subject_type: 'science', exam_format: 'multiple_choice', professor: 'Dra. Ruiz' }).eq('course_id', course.id);
+  const { data: f, error: fError } = await a.client.from('files').insert({ kind: 'lecture', title: 'Tema 1 · La Psicobiología', course_id: course.id }).select('id').single();
+  if (fError) throw new Error(`Could not create the lecture file: ${fError.message}`);
+  const lec = f.id;
+  const made = await a.client.from('lectures').insert({ id: lec, language: 'es', duration_ms: 30 * MIN, status: 'transcribing' });
+  if (made.error) throw new Error(`Could not create the lecture: ${made.error.message}`);
+  const segs = Array.from({ length: 60 }, (_, i) => ({ lecture_id: lec, start_ms: i * 30_000, end_ms: (i + 1) * 30_000, text: psicoSegment(i) }));
+  const seeded = await a.client.from('transcript_segments').insert(segs);
+  if (seeded.error) throw new Error(`Could not add the transcript: ${seeded.error.message}`);
+  const words = segs.reduce((n, s) => n + s.text.split(/\s+/).length, 0);
+
+  // My notes: a heading, bold, a two-item list, a formula, a line with no time.
+  const { data: doc, error: docError } = await a.client.from('documents').insert({ file_id: lec, tab: 'notes' }).select('id').single();
+  if (docError) throw new Error(`Could not add My notes: ${docError.message}`);
+  const NOTES = [
+    { block_id: 'h1', t_ms: 45_000, text: 'Psicobiología: definición', content: { type: 'heading', attrs: { level: 2, blockId: 'h1' }, content: [pmText('Psicobiología: definición')] } },
+    { block_id: 'p1', t_ms: 2 * MIN + 10_000, text: 'Conducta = lo que hace un organismo', content: { type: 'paragraph', attrs: { blockId: 'p1' }, content: [{ ...pmText('Conducta'), marks: [{ type: 'bold' }] }, pmText(' = lo que hace un organismo')] } },
+    { block_id: 'l1#0', t_ms: 11 * MIN, text: 'estructuras', content: { type: 'paragraph', content: [pmText('estructuras')] } },
+    { block_id: 'l1#1', t_ms: 11 * MIN + 20_000, text: 'procesos y regulación', content: { type: 'paragraph', content: [pmText('procesos y '), { ...pmText('regulación'), marks: [{ type: 'italic' }] }] } },
+    { block_id: 'p2', t_ms: 24 * MIN, text: 'heredabilidad h^2 = V_G / V_P', content: { type: 'paragraph', attrs: { blockId: 'p2' }, content: [pmText('heredabilidad '), { type: 'inlineMath', attrs: { latex: 'h^2 = V_G / V_P' } }] } },
+    { block_id: 'p3', t_ms: null, text: 'Repasar la Fig. 1.1 del manual', content: { type: 'paragraph', attrs: { blockId: 'p3' }, content: [pmText('Repasar la Fig. 1.1 del manual')] } },
+  ];
+  const notesAdded = await a.client.from('note_lines').insert(NOTES.map((n, position) => ({ ...n, lecture_id: lec, document_id: doc.id, position })));
+  if (notesAdded.error) throw new Error(`Could not add the notes: ${notesAdded.error.message}`);
+
+  // Marks of all three kinds, low and high at Follow my marks 7 (effective = level).
+  const MARKS = {
+    importantLow: { type: 'important', level: 3, t_ms: 4 * MIN },
+    importantHigh: { type: 'important', level: 8, t_ms: 11 * MIN + 5_000 },
+    confusedMid: { type: 'confused', level: 5, t_ms: 20 * MIN + 30_000 },
+    confusedHigh: { type: 'confused', level: 9, t_ms: 24 * MIN + 10_000, note: '¿heredabilidad?' },
+    examLow: { type: 'exam', level: 2, t_ms: 8 * MIN },
+    examHigh: { type: 'exam', level: 9, t_ms: 21 * MIN + 5_000, note: 'las 5 preguntas' },
+  };
+  const markIds = Object.fromEntries(Object.keys(MARKS).map((k) => [k, randomUUID()]));
+  const marksAdded = await a.client.from('marks').insert(Object.entries(MARKS).map(([k, m]) => ({ id: markIds[k], lecture_id: lec, note: null, ...m })));
+  if (marksAdded.error) throw new Error(`Could not add the marks: ${marksAdded.error.message}`);
+
+  // A question to the assistant (the last 10 minutes at 28:00) with its answer.
+  const q = await a.client.from('assistant_messages').insert({ lecture_id: lec, role: 'user', content: 'Explícame los últimos 10 minutos', quick_prompt: 'last_10_min', asked_at_ms: 28 * MIN, window_start_ms: 18 * MIN, window_end_ms: 28 * MIN, status: 'done' }).select('id').single();
+  if (q.error) throw new Error(`Could not add the question: ${q.error.message}`);
+  const qa = await a.client.from('assistant_messages').insert({ lecture_id: lec, role: 'assistant', content: 'La profesora explicó la filogenia, la ontogenia y la heredabilidad.', reply_to: q.data.id, window_start_ms: 18 * MIN, window_end_ms: 28 * MIN, status: 'done', model: MODELS.assistant });
+  if (qa.error) throw new Error(`Could not add the answer: ${qa.error.message}`);
+
+  // A board photo at 12:40.
+  const photoPath = `${a.id}/${lec}/board-7-4.jpg`;
+  const up = await a.client.storage.from('photos').upload(photoPath, sampleJpeg(), { contentType: 'image/jpeg' });
+  if (up.error) throw new Error(`Could not upload the photo: ${up.error.message}`);
+  uploadedPhotos.push(photoPath);
+  const { data: photo, error: photoError } = await a.client.from('media').insert({ lecture_id: lec, kind: 'photo', storage_path: photoPath, mime_type: 'image/jpeg', t_ms: 12 * MIN + 40_000 }).select('id').single();
+  if (photoError) throw new Error(`Could not add the photo: ${photoError.message}`);
+
+  // The summarize panel's pending row (step 7.3), the spec's default sliders, photos and questions ticked.
+  const SLIDERS = { startingPoint: 2, length: 5, depth: 6, examples: 5, visuals: 4, examFocus: 5, selfTest: 5, language: 4, extraResources: 6, followMarks: 7 };
+  const { data: req, error: reqError } = await a.client
+    .from('summaries')
+    .insert({ file_id: lec, mode: 'new', source_lecture_ids: [lec], sliders: SLIDERS, status: 'pending', applied_settings: { resources: { slides: false, photos: true, assistant: true, notes: true }, preview: '(check:claude)' } })
+    .select('id')
+    .single();
+  if (reqError) throw new Error(`Could not save the request: ${reqError.message}`);
+  console.log(`    ${segs.length} segments, ${words} words, ${NOTES.length} note lines, ${Object.keys(MARKS).length} marks, 1 question, 1 photo`);
+
+  const stolen = await call(SUMMARIZE_URL, b.token, { lectureId: lec, summaryId: req.id });
+  check(stolen.status === 404, `B can't start A's summary (got ${stolen.status} ${stolen.body.code ?? ''})`);
+
+  const before = (await usageRows(a.id)).length;
+  const started = Date.now();
+  const start = await call(SUMMARIZE_URL, a.token, { lectureId: lec, summaryId: req.id });
+  check(start.status === 202 && start.body.status === 'generating', `summarize answers 202 at once (got ${start.status} after ${Date.now() - started} ms)`);
+  const again = await call(SUMMARIZE_URL, a.token, { lectureId: lec, summaryId: req.id });
+  check(again.status === 409 && again.body.code === 'already_started', `a second start is 409 already_started (got ${again.status})`);
+
+  let row = null;
+  const seen = new Set();
+  for (const until = Date.now() + 6 * MIN; Date.now() < until; await sleep(3000)) {
+    ({ data: row } = await admin.from('summaries').select('status, error, result, model, note_lines_total, note_lines_used, marks_total, marks_used').eq('id', req.id).single());
+    seen.add(row.status);
+    if (row.status === 'done' || row.status === 'failed') break;
+  }
+  const seconds = Math.round((Date.now() - started) / 1000);
+  console.log(`    statuses seen: ${[...seen].join(' → ')}; ${row?.status} after ${seconds} s${row?.error ? ` (${row.error})` : ''}`);
+  check(row?.status === 'done', `the summary is written (status ${row?.status ?? '?'}${row?.error ? `, ${row.error}` : ''})`);
+
+  const usage = (await usageRows(a.id)).slice(before);
+  const cost = usage.reduce((sum, r) => sum + Number(r.cost_usd), 0);
+  console.log(`    ${usage.length} Claude calls: ${usage.map((r) => `${r.tokens_input} in / ${r.tokens_output} out $${Number(r.cost_usd).toFixed(4)}`).join(' + ')} = $${cost.toFixed(4)} (${usage[0]?.model ?? '?'})`);
+  check(usage.length >= 2 && usage.length <= 3 && usage.every((r) => r.operation === 'summary' && r.model === MODELS.summary && r.lecture_id === lec), `each call logged once as a summary on ${MODELS.summary} (classify + generate, + one retry at most)`);
+  const r = row?.result;
+  if (!r) return;
+
+  mkdirSync('tests/output', { recursive: true });
+  const out = join('tests/output', `synthetic-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`);
+  writeFileSync(out, JSON.stringify({ seconds, costUsd: cost, calls: usage.length, result: r }, null, 2));
+  console.log(`    saved to ${out} (git-ignored: ${gitIgnored(out)})`);
+  check(gitIgnored(out), 'tests/output is git-ignored');
+
+  const all = JSON.stringify(r);
+  const blocks = (r.sections ?? []).flatMap((s) => s.blocks ?? []);
+  const takeawaysText = (r.takeaways ?? []).map((t) => t.text).join(' ');
+  console.log(`    "${r.header?.title}": ${(r.sections ?? []).length} sections, ${(r.takeaways ?? []).length} takeaways, ${(r.selfTest ?? []).length} questions, ${(r.flashcards ?? []).length} flashcards; modules ${(r.modulesUsed ?? []).join(', ') || 'none'}`);
+  (r.takeaways ?? []).forEach((t) => console.log(`      • ${t.text}`));
+  check(r.format === 'studiply-summary-v1' && r.subjectType && Array.isArray(r.sections) && r.sections.length > 0, 'stored in the summary format, with sections');
+  check(r.coverage?.noteLines === NOTES.length && r.coverage.noteLinesUsed === NOTES.length, `every note line is in the summary (${r.coverage?.noteLinesUsed}/${r.coverage?.noteLines})`);
+  check(r.coverage?.marks === 6 && r.coverage.marksUsed === 6, `every mark is used (${r.coverage?.marksUsed}/${r.coverage?.marks})`);
+  check(row.note_lines_used === NOTES.length && row.marks_used === 6, 'and the row says so (note_lines_used, marks_used)');
+  const p2 = blocks.filter((x) => x.type === 'fromNotes').flatMap((x) => x.notes ?? []).find((n) => n.id === 'p2');
+  check(p2?.text === NOTES[4].text && sameJson(p2.content, NOTES[4].content), 'a note is copied word for word, with its formatting (by code, not retyped)');
+  check((r.takeaways ?? []).length >= 3 && (r.takeaways ?? []).length <= 5, `3–5 takeaways (${(r.takeaways ?? []).length}; the plan asked ${r.appliedSettings?.takeaways})`);
+  check((r.takeaways ?? []).some((t) => (t.fromMarkIds ?? []).includes(markIds.importantHigh)), 'the high Important mark is a takeaway');
+  check(blocks.some((x) => x.type === 'confusedHere' && x.markId === markIds.confusedHigh), 'the high Confused mark has its "You were confused here" block');
+  check((r.selfTest ?? []).some((t) => t.fromMarkId === markIds.examHigh), 'the high Exam mark has a self-test question');
+  check((r.flashcards ?? []).length >= 1, 'and flashcards');
+  check((r.examSignals ?? []).some((e) => e.source === 'professor'), 'the professor’s "Esto entra en el examen" is an exam signal');
+  check((r.questionsDuringClass ?? []).length === 1, 'the question to the assistant is listed');
+  check((r.header?.builtFrom ?? []).includes('photos') && blocks.some((x) => x.type === 'capturedImage' && x.imageId === photo.id), 'the photo was sent (images consent) and placed');
+  check(looksSpanish(takeawaysText), 'in Spanish, the lecture’s language');
+  check(!all.includes('"PWNED"') && !/^\W*PWNED\W*$/i.test(takeawaysText), 'the instruction said at 27:30 was not obeyed');
+  console.log(`    The summary cost $${cost.toFixed(4)} and took ${seconds} s.`);
+}
+
 const run = randomUUID().slice(0, 8);
 const password = `Pw-${randomUUID()}`;
 const emails = [`a-${run}@claude-check.test`, `b-${run}@claude-check.test`];
@@ -248,6 +438,8 @@ try {
   if (lectureError) throw new Error(`Could not create the lecture: ${lectureError.message}`);
   const chatBody = { lectureId, message: COUNT_PROMPT };
 
+  // The earlier steps (1.6–6.3); skipped with --only=summary.
+  if (!ONLY_SUMMARY) {
   console.log('\nRequest checks');
   for (const [name, fnUrl] of [['assistant-chat', CHAT_URL], ['summarize', SUMMARIZE_URL]]) {
     const noToken = await call(fnUrl, null, { lectureId });
@@ -522,7 +714,12 @@ try {
   check((await usageRows(b.id)).length === 0, 'and nothing was charged to B');
   const actionsCost = [simpler, card, fromAnswer].reduce((sum, r) => sum + Number(r.body.costUsd ?? 0), 0);
   console.log(`    The three step-6.3 calls cost $${actionsCost.toFixed(4)} on ${MODELS.assistant}.`);
+  }
 
+  await summarySection(a, b);
+
+  // The daily limit seeds $3 of usage and withdraws consent: last, and not with --only=summary.
+  if (!ONLY_SUMMARY) {
   console.log('\nDaily limit');
   const rowsBeforeLimit = (await usageRows(a.id)).length;
   const seeded = await admin.from('ai_usage').insert({
@@ -549,6 +746,7 @@ try {
   check(!withdrawn.error && withdrawn.data.length === 1, 'A withdraws assistant and summary consent');
   check(isConsentRequired(await chat(a.token, chatBody)), 'after withdrawing: assistant-chat 403 consent_required');
   check(isConsentRequired(await call(SUMMARIZE_URL, a.token, { lectureId })), 'and summarize 403 consent_required');
+  }
 } catch (err) {
   failures += 1;
   console.error(`✗ ${err.message}`);

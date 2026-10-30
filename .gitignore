@@ -88,3 +88,7 @@ editor-web/build/index.html
 
 # Reports and review notes (kept on this Mac only)
 docs/reports/
+
+# Real lectures as test fixtures (step 7.1) and the summaries written from them (7.4): never in git
+tests/fixtures/
+tests/output/

@@ -9,6 +9,11 @@ import type { Json } from '../types/supabase';
 import { noteLinesOf } from '../editor/noteLines';
 import type { DocJSON } from '../editor/types';
 import { fromCourseSettings, SLIDER_DEFAULTS, SLIDER_KEYS, type PlanInput, type Sliders, type SummaryPlan } from '../../supabase/functions/_shared/summary-plan';
+import { SUMMARY_FORMAT } from '../../supabase/functions/_shared/summary-schema';
+import type { StoredSummary } from '../../supabase/functions/_shared/summary-pipeline';
+import { isMockAiForced } from '../lib/aiMode';
+import { callFunction, FunctionError } from '../lib/functions';
+import { ConsentDeclinedError, ensureConsent, forgetConsent } from './consent.service';
 import { Buckets, removeFiles, uploadFile } from './cloud-storage.service';
 import { openDocument, getDocumentFile } from './document.service';
 import { checkUpload, type PickedFile } from './library-upload.service';
@@ -237,6 +242,11 @@ registerSyncHandler<RequestRow>('request_summary', {
     if (error) throw syncError(error, 'Could not save the summary settings.');
     const { data } = await supabase.from('summaries').select('*').eq('id', row.id).maybeSingle();
     if (data) await markClean('summaries', row.id, data);
+    // Step 7.4: on the server now, so the summary can start (consent was asked at Stop; no dialog here).
+    // If it can't (no consent yet, the daily limit), the row stays pending and the Summary tab offers it.
+    if (data?.status === 'pending' && !isMockAiForced()) {
+      await callFunction('summarize', { lectureId: row.file_id, summaryId: row.id }).catch(() => {});
+    }
   },
 });
 
@@ -260,6 +270,98 @@ export async function latestSummaryRequest(lectureId: string): Promise<{ id: str
   if (!row) return null;
   const s = row.applied_settings as Record<string, unknown> | null;
   return { id: row.id, status: row.status, settings: s && typeof s.preview === 'string' ? (s as unknown as RequestSettings) : null, createdAt: row.created_at };
+}
+
+// -------------------------------------------------------------------
+// The summary (step 7.4): started on the server, read back by status
+// -------------------------------------------------------------------
+
+export type SummaryStatus = 'pending' | 'generating' | 'checking' | 'done' | 'failed';
+
+export interface LectureSummary {
+  id: string;
+  status: SummaryStatus;
+  /** Why it failed (the server's code), when it did. */
+  error: string | null;
+  settings: RequestSettings | null;
+  /** The summary as stored (7.7 writes it into the Summary tab), when done. */
+  result: StoredSummary | null;
+  createdAt: string;
+}
+
+/** A summary of the new engine (done) or a request for one (no result yet); never an earlier note. */
+function isNewSummary(row: SummaryRow): boolean {
+  if (isSummaryRequest(row)) return true;
+  const r = row.result as { format?: unknown } | null;
+  return !!r && typeof r === 'object' && r.format === SUMMARY_FORMAT;
+}
+
+/** The lecture's newest summary or request (the Summary tab's card), or null. */
+export async function latestSummary(lectureId: string): Promise<LectureSummary | null> {
+  const rows = await readThrough<SummaryRow[]>(
+    async () => {
+      const { data, error } = await supabase.from('summaries').select('*').eq('file_id', lectureId).order('created_at', { ascending: false }).limit(20);
+      if (error) throw serviceError(error, 'Could not load the summary.');
+      remember('summaries', data);
+      return data;
+    },
+    () => readRows<SummaryRow>('summaries', lectureId),
+  ).catch((err) => {
+    if (isNetworkError(err)) return [] as SummaryRow[];
+    throw err;
+  });
+  const row = (rows ?? []).filter(isNewSummary).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  if (!row) return null;
+  const s = row.applied_settings as Record<string, unknown> | null;
+  return {
+    id: row.id,
+    status: row.status as SummaryStatus,
+    error: row.error,
+    settings: s && typeof s.preview === 'string' ? (s as unknown as RequestSettings) : null,
+    result: row.result ? (row.result as unknown as StoredSummary) : null,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Starts writing the summary of a pending request (the summarize function answers at once and works in
+ * the background; the row's status follows). Asks for consent first; photos and slides only go with
+ * the images consent (declining it still writes the summary, without them).
+ */
+export async function startSummary(lectureId: string, summaryId: string, { media = false }: { media?: boolean } = {}): Promise<void> {
+  if (isMockAiForced()) return;
+  await ensureConsent('assistant_summary');
+  if (media) await ensureConsent('images').catch((err) => {
+    if (!(err instanceof ConsentDeclinedError)) throw err;
+  });
+  try {
+    await callFunction('summarize', { lectureId, summaryId });
+  } catch (err) {
+    // Withdrawn on another device: asked again next time.
+    if (err instanceof FunctionError && err.code === 'consent_required') forgetConsent();
+    // Already started (another device, or twice): the card follows the row.
+    if (err instanceof FunctionError && err.code === 'already_started') return;
+    throw err;
+  }
+}
+
+/** Try again after a failure: a new request with the same settings, started at once. */
+export async function retrySummary(lectureId: string, failed: LectureSummary): Promise<void> {
+  const s = failed.settings;
+  const { data: row, error } = await supabase.from('summaries').select('sliders').eq('id', failed.id).single();
+  if (error) throw serviceError(error, 'Could not read the summary settings.');
+  const id = newId();
+  const { error: insertError } = await supabase.from('summaries').insert({
+    id,
+    file_id: lectureId,
+    mode: 'new',
+    source_lecture_ids: [lectureId],
+    sliders: row.sliders as RequestRow['sliders'],
+    status: 'pending',
+    applied_settings: (s ?? null) as unknown as Json,
+  });
+  if (insertError) throw serviceError(insertError, 'Could not save the summary settings.');
+  await startSummary(lectureId, id, { media: !!(s?.resources.photos || s?.resources.slides) });
 }
 
 /** Whether the lecture was recorded in the new way (chunks transcribed while recording): it summarizes with the panel. */

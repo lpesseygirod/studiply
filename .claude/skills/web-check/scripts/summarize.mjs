@@ -35,6 +35,10 @@
 //      stops; the Summary tab says "Summary settings saved" with the preview;
 //      one summaries row: mode new, pending, the lecture, the 10 values, the
 //      calculator's numbers, the resources ticked, the preview; no result.
+//      Step 7.4: with the consent given, the summary is started at once with
+//      that row (summarize answered in the page: nothing is written or paid).
+//   8b. Step 7.4: the Summary tab card follows the row: writing (read again
+//      every few seconds), ready (counts, takeaways), failed (why, Try again).
 //   9. Another lecture of the same course (its Summarize): the panel after
 //      class (Cancel · Generate summary) with the saved defaults (BUILD-PLAN 7.3).
 //  10. No request reached summarize or transcribe-chunk on the server, nor
@@ -120,6 +124,13 @@ const PAGE_SETUP = `(() => {
       try { body = JSON.parse(init && init.body ? init.body : '{}'); } catch {}
       const segments = [{ startMs: body.startMs, endMs: body.startMs + 30000, text: 'Simulated chunk ' + body.seq }];
       return new Response(JSON.stringify({ chunkId: 'simulated', durationMs: 30000, segments }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    // Step 7.4: Stop & generate summary starts the summary (the consent is given): answered here, nothing is written.
+    if (url && url.includes('/functions/v1/summarize')) {
+      let body = {};
+      try { body = JSON.parse(init && init.body ? init.body : '{}'); } catch {}
+      window.__summarizeCalls = [...(window.__summarizeCalls || []), body];
+      return new Response(JSON.stringify({ summaryId: body.summaryId, status: 'generating' }), { status: 202, headers: { 'Content-Type': 'application/json' } });
     }
     return realFetch(input, init);
   };
@@ -376,8 +387,39 @@ try {
     // Key by key: jsonb keeps its own key order (the earlier check compared the JSON text and failed on the order alone).
     const r = s.resources ?? {};
     expect(r.slides === true && r.photos === false && r.assistant === true && r.notes === true && Object.keys(r).length === 4, `resources (photos unticked): ${JSON.stringify(r)}`);
+    // Step 7.4: with the consent given, the summary was started at once with this row (answered in the page).
+    const started = await waitFor(() => b.evaluate('(window.__summarizeCalls || []).length > 0 && window.__summarizeCalls'), 'the summary started', 10000);
+    expect(started.length === 1 && started[0].lectureId === lectureId && started[0].summaryId === row.id, `summarize calls: ${JSON.stringify(started)}`);
     await shot('summarize-requested-1280');
     report.push(`RESULT | request | ${s.preview}`);
+  });
+
+  await step('step 7.4: the Summary tab card follows the summary: writing (read again every few seconds), ready (its counts and takeaways), failed (why, and Try again)', async () => {
+    const { data: rows } = await admin.from('summaries').select('id').eq('file_id', lectureId);
+    const id = rows[0].id;
+    await admin.from('summaries').update({ status: 'generating' }).eq('id', id);
+    await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);
+    await waitFor(async () => (await attr('[data-summarize="requested"]', 'data-status')) === 'generating', 'the "writing" card', 20000);
+    expect(/writing your summary/i.test(await text('[data-summarize="requested"]')), `writing: ${await text('[data-summarize="requested"]')}`);
+    // As the server stores it (a few fields; 7.7 writes the whole into the tab).
+    const result = {
+      format: 'studiply-summary-v1',
+      coverage: { noteLines: 1, noteLinesUsed: 1, marks: 1, marksUsed: 1 },
+      takeaways: [{ text: 'La conducta es un proceso biológico.', fromMarkIds: [] }],
+      sections: [{}, {}, {}],
+      selfTest: [{}, {}],
+      flashcards: [{}, {}],
+    };
+    await admin.from('summaries').update({ status: 'done', result }).eq('id', id);
+    await waitFor(() => has('[data-summarize="done"]'), 'the "ready" card (read again while writing)', 15000);
+    const ready = await text('[data-summarize="done"]');
+    expect(/summary ready/i.test(ready) && ready.includes('3 sections · 2 questions · 2 flashcards · 1 of 1 note lines and 1 of 1 marks used') && ready.includes('• La conducta es un proceso biológico.'), `ready: ${ready}`);
+    await shot('summarize-ready-1280');
+    await admin.from('summaries').update({ status: 'failed', error: 'too_long', result: null }).eq('id', id);
+    await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);
+    await waitFor(() => has('[data-summarize="failed"]'), 'the "failed" card', 20000);
+    const failed = await text('[data-summarize="failed"]');
+    expect(/too long/i.test(failed) && failed.includes('Try again'), `failed: ${failed}`);
   });
 
   await step('another lecture of the same course: its Summarize opens the panel after class (Cancel · Generate summary) with the saved defaults', async () => {

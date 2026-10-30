@@ -13,10 +13,13 @@ import {
   addSlides,
   courseDefaults,
   isSummaryRequest,
+  latestSummary,
   latestSummaryRequest,
   loadSummarizeInfo,
   requestSummary,
+  retrySummary,
   saveCourseDefaults,
+  startSummary,
 } from '../summarize.service';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/fakeTables').module);
@@ -67,6 +70,21 @@ jest.mock('../cloud-storage.service', () => ({
   uploadFile: jest.fn(async ({ path }: { path: string }) => ({ path: `user-1/${path}` })),
   removeFiles: jest.fn(async () => {}),
 }));
+jest.mock('../../lib/aiMode', () => ({ isMockAiForced: () => false }));
+jest.mock('../../lib/functions', () => {
+  class FunctionError extends Error {
+    code: string;
+    constructor(message: string, _httpStatus: number, code: string) {
+      super(message);
+      this.code = code;
+    }
+  }
+  return { FunctionError, callFunction: jest.fn(async () => ({ status: 'generating' })) };
+});
+jest.mock('../consent.service', () => {
+  class ConsentDeclinedError extends Error {}
+  return { ConsentDeclinedError, ensureConsent: jest.fn(async () => {}), forgetConsent: jest.fn(), consentGiven: jest.fn(async () => true) };
+});
 jest.mock('../library-upload.service', () => ({
   checkUpload: (f: { mimeType: string | null }) => (f.mimeType === 'application/pdf' ? { ok: true, kind: 'pdf' } : { ok: true, kind: 'photo' }),
 }));
@@ -188,6 +206,62 @@ describe('earlier notes (legacy-note-v1) and requests live in one table, never m
   it('the Summary tab’s request skips the earlier note', async () => {
     serverWrite('summaries', legacy);
     expect(await latestSummaryRequest(LECTURE)).toBeNull();
+  });
+});
+
+describe('step 7.4: the summary started, read back by status', () => {
+  const functions = jest.requireMock('../../lib/functions') as { callFunction: jest.Mock; FunctionError: new (m: string, s: number, c: string) => Error };
+  const consent = jest.requireMock('../consent.service') as { ensureConsent: jest.Mock; forgetConsent: jest.Mock };
+  beforeEach(() => {
+    functions.callFunction.mockReset().mockResolvedValue({ status: 'generating' });
+    consent.ensureConsent.mockClear();
+  });
+
+  it('startSummary: the consent (images only with media), then summarize with the row', async () => {
+    await startSummary(LECTURE, 'sum-1');
+    expect(consent.ensureConsent.mock.calls).toEqual([['assistant_summary']]);
+    expect(functions.callFunction).toHaveBeenCalledWith('summarize', { lectureId: LECTURE, summaryId: 'sum-1' });
+    consent.ensureConsent.mockClear();
+    await startSummary(LECTURE, 'sum-1', { media: true });
+    expect(consent.ensureConsent.mock.calls).toEqual([['assistant_summary'], ['images']]);
+  });
+
+  it('already started (another device): fine; consent withdrawn: forgotten and thrown', async () => {
+    functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 409, 'already_started'));
+    await expect(startSummary(LECTURE, 'sum-1')).resolves.toBeUndefined();
+    functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 403, 'consent_required'));
+    await expect(startSummary(LECTURE, 'sum-1')).rejects.toThrow();
+    expect(consent.forgetConsent).toHaveBeenCalled();
+  });
+
+  it('latestSummary: the newest request or new-engine summary, never an earlier note', async () => {
+    serverWrite('summaries', { id: 'old', file_id: LECTURE, mode: 'new', sliders: { summaryLevel: 'x' }, status: 'done', result: { format: 'legacy-note-v1' }, created_at: '2026-10-31T00:00:00Z' });
+    expect(await latestSummary(LECTURE)).toBeNull();
+    serverWrite('summaries', { id: 'req', file_id: LECTURE, mode: 'new', sliders: SLIDER_DEFAULTS, status: 'generating', result: null, applied_settings: { preview: '≈ 1,440 words', resources }, created_at: '2026-10-30T00:00:00Z' });
+    expect(await latestSummary(LECTURE)).toMatchObject({ id: 'req', status: 'generating', result: null, settings: { preview: '≈ 1,440 words' } });
+    serverWrite('summaries', { id: 'req', status: 'done', result: { format: 'studiply-summary-v1', coverage: {} } });
+    expect(await latestSummary(LECTURE)).toMatchObject({ id: 'req', status: 'done', result: { format: 'studiply-summary-v1' } });
+    // The earlier-note readers still skip it.
+    expect(latestNote(rowsOf('summaries') as unknown as SummaryRow[], { id: LECTURE, deleted_at: null } as FileRow)?.id).toBe('old');
+  });
+
+  it('retrySummary: a new pending row with the same settings, started at once', async () => {
+    serverWrite('summaries', { id: 'bad', file_id: LECTURE, mode: 'new', sliders: SLIDER_DEFAULTS, status: 'failed', error: 'too_long', result: null, applied_settings: { preview: 'p', resources } });
+    const failed = (await latestSummary(LECTURE))!;
+    await retrySummary(LECTURE, failed);
+    const fresh = rowsOf('summaries').find((r) => r.id !== 'bad')!;
+    expect(fresh).toMatchObject({ file_id: LECTURE, mode: 'new', status: 'pending', sliders: SLIDER_DEFAULTS, applied_settings: { preview: 'p', resources } });
+    expect(functions.callFunction).toHaveBeenCalledWith('summarize', { lectureId: LECTURE, summaryId: fresh.id });
+  });
+
+  it('the iPhone: once the request reaches the server, the summary starts (no dialog); failing to start leaves it pending', async () => {
+    sync.state.enabled = true;
+    await requestSummary(LECTURE, SLIDER_DEFAULTS, resources, plan());
+    functions.callFunction.mockRejectedValueOnce(new Error('403'));
+    await sync.handlers.request_summary.run(sync.queued[0].payload);
+    expect(functions.callFunction).toHaveBeenCalledWith('summarize', { lectureId: LECTURE, summaryId: (sync.queued[0].payload as { id: string }).id });
+    expect(rowsOf('summaries')[0].status).toBe('pending');
+    expect(consent.ensureConsent).not.toHaveBeenCalled();
   });
 });
 
