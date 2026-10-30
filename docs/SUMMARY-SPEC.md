@@ -341,6 +341,25 @@ Examples are for a 90-minute lecture of 12,000 transcript words with the default
 | Resource use | Slider 9 · Extra resources | 1–3 → slides only to fix spellings and formulas · 4–7 → slides fill gaps the audio missed · 8–10 → slide and reading content that wasn't spoken is added, labeled “From slides” | Slides fill gaps |
 | Mark strength | Slider 10 · Follow my marks | Effective level = mark level × (slider ÷ 7), rounded, kept between 1 and 10. At 7 marks count as set; at 10 they're boosted; at 1 they only show as chips | 7/10 stays 7 |
 
+*Calculator notes (step 7.2, `supabase/functions/_shared/summary-plan.ts`; the advisor's answers of 30 Oct, for Lea to confirm):*
+- **Rounding:**
+  - Target words go to the nearest word, with no minimum (0 words → 0).
+  - Self-test is `round((20 + (v − 2) × 16) / 10)`.
+  - Why/how questions are `round(count × 3 / 10)`, half up.
+  - level × slider ÷ 7 never ends in .5, so mark strength has no ties.
+- **The self-test count is max(the slider's count, one question per high Exam and high Important mark).** So these marks get their question even at Self-test 1; when the slider's count is enough, they're inside it.
+- **Takeaways rise to fit the high Important marks, up to 5.** Beyond 5, one bullet carries several marks (`fromMarkIds`).
+- **The exam format sets the question kinds:**
+  - multiple choice → recall + apply;
+  - essay → why + apply;
+  - problem-solving → calculate + apply;
+  - open book → apply + why;
+  - oral → why + recall;
+  - not set → recall + apply.
+- **At Follow my marks 1, the student's marks are chips only.** No clarification, not in Exam signals.
+- **`appliedSettings.markStrength`** = slider ÷ 7, to 2 decimals (1.0 at 7).
+- **Exam focus 1–3** ("professor's flags only") shapes the content. The student's own Exam marks still follow the mark table below.
+
 ### What each mark does
 
 The effective level (above) falls into a band: low 1–3, mid 4–7, high 8–10.
@@ -360,6 +379,13 @@ The effective level (above) falls into a band: low 1–3, mid 4–7, high 8–10
 | Repetition | A concept explained 3 or more times | Important at level 6 |
 | Poor audio | Low transcription confidence | Listed in Logistics & gaps; never guessed |
 
+*Calculator notes (step 7.2; advisor, 30 Oct, for Lea to confirm):*
+- **"Already marked":** a student **Confused** mark inside the question's window, ±30 s (the alignment window). An Important or Exam mark there doesn't count.
+  - Two questions with the same window make one mark.
+  - A question without a window (typed, about the whole lecture) is listed but adds no mark.
+- **Follow my marks scales the assistant question's level 6:** it's the student's own action. Repetition (Important 6, mid) and the professor's exam phrases are the lecture's signals, so they're never scaled.
+- **The calculator doesn't detect phrases or repetition.** The pipeline (7.4) finds them and passes them in.
+
 ### When rules conflict
 
 1. **The student's notes win.** They're never cut, shortened or reworded, whatever the Length slider says.
@@ -367,6 +393,10 @@ The effective level (above) falls into a band: low 1–3, mid 4–7, high 8–10
 3. **Exam focus high + Depth high:** full depth only on exam-relevant sections; the rest stays short.
 4. **Slides and audio disagree** (a different number or date): show both and flag it.
 5. **Starting point high but a Confused mark is high:** that moment still gets the full explanation.
+
+*Calculator notes (step 7.2):*
+- **"High" means the 8–10 band.**
+- **Rule 2 in numbers:** the length check is 85–115 % of the target. With at least one high-band mark, the upper bound is 120 %: a cap on the total, not added to the 15 %. At 1,440 words that's 1,656 → 1,728.
 
 ### Quality checks before the summary is shown
 

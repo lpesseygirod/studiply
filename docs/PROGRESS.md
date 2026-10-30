@@ -368,8 +368,22 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **No migration, no new dependency, no native build.**
 
 ## Phase 7 — The summary engine (`phase-7-summary`)
-- [ ] 7.1 — Test lectures first (3 fixtures)
-- [ ] 7.2 — The calculator (derived variables, no AI, spec-exact tests)
+- [ ] 7.1 — Test lectures first (3 fixtures). **Waits for Lea's three lectures; skipped for now.**
+- [x] 7.2 — The calculator (derived variables, no AI, spec-exact tests). **Done (30 Oct).**
+  - **The module:** `supabase/functions/_shared/summary-plan.ts`, pure and import-free (the app, Jest, and the summarize function in 7.4).
+  - **`planSummary(input)`:**
+    - **Inputs:** the 10 sliders, the transcript's words and length, the marks, the assistant questions with their windows, the note lines, the exam format, and the professor signals and repetitions (given by the pipeline).
+    - **Output:**
+      - the spec's `appliedSettings`;
+      - the length bounds;
+      - takeaways (count and mark ids);
+      - one value per slider rule;
+      - self-test (count, why/how, kinds, the marks that need a question);
+      - each mark's effective level, band and effects;
+      - exam signals, questions during class, the conflict rules;
+      - the preview line for 7.3 ("≈ 1,440 words · 4 takeaways · 7 questions").
+  - **Also exported:** the slider defaults, the presets and `fromCourseSettings`.
+  - **Tests:** Jest `src/lib/__tests__/summaryPlan.test.ts`, 119 cases: every example and band edge in "How Claude builds the summary", the open points' answers (see Decisions) and the presets. No AI.
 - [ ] 7.3 — The summarize panel (resources, 10 sliders, presets, live preview)
 - [ ] 7.4 — First real summary (≤ 60 min pipeline)
 - [ ] 7.5 — Quality checks (schema, coverage, length, faithfulness, language)
@@ -465,6 +479,29 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.2's answers to the spec's open points (advisor, 30 Oct, for Lea to confirm; reversible):**
+  - **A. Self-test 1 vs high marks:** high Exam and Important marks still get their self-test question. The count is max(the slider's count, the questions they need).
+  - **B. Takeaways:** they rise to fit the high Important marks, up to 5. Beyond 5, a bullet carries several marks (`fromMarkIds[]` in 7.4).
+  - **D2. Follow my marks** scales the assistant question's Confused 6 (her own action), **but not** repetition: it's the lecture's signal, like the professor's exam phrases, so it stays Important 6 (mid).
+  - **E. Detection:** the professor's exam phrases and repetitions are inputs to the calculator. The pipeline (7.4) decides how to find them.
+  - **G. Follow my marks 1:** the student's marks are chips only (the spec: "at 1 they only show as chips").
+  - **H. The exam format sets the question kinds:**
+    - multiple choice → recall + apply;
+    - essay → why + apply;
+    - problem-solving → calculate + apply;
+    - open book → apply + why;
+    - oral → why + recall;
+    - not set → recall + apply.
+
+    30 % are why/how in every case.
+
+  **Engineering, settled:**
+  - **C:** a high-band mark raises the length check's upper bound from 115 % to 120 % of the target.
+  - **D:** "already marked" = a Confused mark of hers inside the question's window, ±30 s.
+  - **F:** why/how = round(30 %), half up.
+  - **I:** whole-word targets, no minimum; "high" = the 8–10 band.
+
+  All are in SUMMARY-SPEC as notes under the tables.
 - **Server-side fallbacks on (step 1.6).** Every Claude call sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): if Claude declines a request for policy reasons, Anthropic re-runs it on its recommended model for that kind of refusal inside the same call. The cost is priced per attempt from `usage.iterations`, each at its own model's price (a model missing from the price table is priced like the dearest one, so a limit is never undercounted), and `ai_usage.model` records the model that answered. Only a refusal by the whole chain reaches the student: an `error` event `refused` (assistant) or 422 `refused` (summarize).
 - **`assistant-chat` and `summarize` (step 1.6).** `POST /functions/v1/assistant-chat` `{ lectureId, message }` (max 4000 characters) and `POST /functions/v1/summarize` `{ lectureId }`, with the user's token. Order of checks: signed in (401) → server has the key (500 `not_configured`) → valid body (400) → own lecture (404) → `assistant_summary` consent (403 `consent_required`) → daily limit (429 `daily_limit`). Nothing reaches Anthropic before all of them pass. `summarize` still answers a fixed test prompt (Phase 7). `assistant-chat` has its real prompts and saves `assistant_messages` since step 6.1 (see Phase 6 above). Logs hold ids, status, timings and token counts only, never the message, the answer or keys.
 - **Streaming format (step 1.6).** `assistant-chat` answers `text/event-stream`: `event: delta` `{ text }` for each piece, then `event: done` `{ model, stopReason, usage, costUsd }`, or `event: error` `{ code, error }` instead of done, after which the app discards the pieces it got. Errors found before streaming starts stay plain JSON like the other functions. `summarize` answers JSON `{ text, model, stopReason, usage, costUsd }`, but streams from Anthropic itself because real summaries will be long.
