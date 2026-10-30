@@ -283,3 +283,12 @@ transcribe-chunk is answered by the page itself; the check fails if any request 
 - **Stop & summarize:** confirm, saving, then post-session. The lecture is `transcribing` with its length, and the chunks are in order with no hole.
 
 transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. Screenshots `rec-*.png` (1280 and 390, light and dark).
+
+`scripts/notes-live.mjs` (step 5.4 web, about 3 min): live notes on a recording, with a synthetic microphone.
+- **Stamps:** three lines typed into My notes a few seconds apart (a bold word via `**…**`, a list item via "- ") each start with a chip at the timer's time (± 1.5 s), in order; an empty line gets none.
+- **`note_lines`:** the rows hold the time, the text without the chip and the bold.
+- **Playing during the recording:** a chip plays that moment from the browser's own copy while recording goes on, with the quiet headphones line once.
+- **At 390 px:** a new line is stamped too.
+- **After Stop:** a new line gets no chip, and a chip plays from Storage with the time never going back across a chunk join.
+
+transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. Screenshots `notes-live-1280`, `-1280-dark`, `-390`, `-390-dark`, `notes-live-playing-1280`.

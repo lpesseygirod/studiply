@@ -22,7 +22,8 @@ import { LinkBubble } from './LinkBubble.web';
 import { setPhotoResolver } from './media/photoSource';
 import { addPhotoFiles, pickPhotoFiles } from './photos.web';
 import { TableMenus } from './TableMenus.web';
-import { selectedChipMs } from './schema/timestampChip';
+import { CHIP_TAP, selectedChipMs, type ChipTap } from './schema/timestampChip';
+import { setRecordingClock } from './schema/liveStamps';
 import { TableHandles } from './table/tableHandles';
 import { DEFAULT_SHEET } from './page/pageSetup';
 import { MIN_ZOOM, pageViewOf } from './page/pageView';
@@ -58,7 +59,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, plain = false },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, plain = false, recordingClock },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -111,6 +112,14 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         lastPaste.current = report.id;
         handlers.current.onPaste?.(report);
       }
+    },
+    // A tap on a chip plays, also on the chip already selected (step 5.4); the selection that
+    // follows it is then the same chip and doesn't play it twice.
+    onTransaction: ({ transaction }) => {
+      const tap = transaction.getMeta(CHIP_TAP) as ChipTap | undefined;
+      if (!tap) return;
+      lastChip.current = tap.ms;
+      handlers.current.onChipPress?.(tap.ms);
     },
     onSelectionUpdate: ({ editor: e }) => {
       const ms = selectedChipMs(e);
@@ -234,6 +243,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       />
     </View>
   );
+  // Live notes (step 5.4): new lines get the recording time while the lecture records.
+  useEffect(() => setRecordingClock(editor, recordingClock ?? null), [editor, recordingClock]);
+
   // `plain` (the recording screen): pageless at 100 %, whatever this laptop's view (which stays as it was).
   const zoom = plain ? 1 : effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, sheet.width);
   const zoomRef = useRef(zoom);

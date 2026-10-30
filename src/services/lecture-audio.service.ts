@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { serviceError } from '../lib/cloudRows';
 import { Buckets, getSignedUrl } from './cloud-storage.service';
+import type { PlaybackSource } from './recorder/types';
 
 /**
  * A lecture's recording for the mini player (step 4.6): its 30-second chunks
@@ -30,6 +31,32 @@ export async function getLecturePlayback(lectureId: string): Promise<LecturePlay
   );
   return { chunks, deleted: data.length > 0 && kept.length === 0 };
 }
+
+/**
+ * While the lecture records (step 5.4, web): its audio as this device has it (recorder.playback):
+ * a chunk not uploaded yet and the chunk being recorded play from the browser's own copy, an
+ * uploaded one from Storage. `release` frees the browser copies' links when they're done with.
+ */
+export async function getLivePlayback(list: PlaybackSource[]): Promise<LecturePlayback & { release: () => void }> {
+  const local: string[] = [];
+  const chunks = await Promise.all(
+    list.map(async (s) => {
+      let url = '';
+      if (s.blob) {
+        url = URL.createObjectURL(s.blob);
+        local.push(url);
+      } else if (s.storagePath) url = await getSignedUrl(Buckets.audioChunks, s.storagePath);
+      return { startMs: s.startMs, durationMs: s.durationMs, url };
+    }),
+  );
+  return { chunks: chunks.filter((c) => c.url), deleted: false, release: () => local.forEach((u) => URL.revokeObjectURL(u)) };
+}
+
+/**
+ * Where to go on after chunk `index` ends: where it ends in the recording. The web's chunks
+ * overlap by 500 ms (step 5.1), so the next one starts that far in instead of repeating it.
+ */
+export const endOf = (chunks: { startMs: number; durationMs: number }[], index: number) => chunks[index].startMs + chunks[index].durationMs;
 
 /** The chunk with the moment `ms` in it, and how far into it; the last chunk's end for a moment past it; null when none. */
 export function chunkAt(chunks: { startMs: number; durationMs: number }[], ms: number): { index: number; offsetMs: number } | null {

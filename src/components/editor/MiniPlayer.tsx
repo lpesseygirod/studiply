@@ -7,7 +7,10 @@ import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { createAudioPlayer, type AudioPlayer } from '../../lib/audioPlayer';
 import { isNetworkError } from '../../lib/cloudRows';
-import { chunkAt, getLecturePlayback, recordingLength, type PlaybackChunk } from '../../services/lecture-audio.service';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { chunkAt, endOf, getLecturePlayback, getLivePlayback, recordingLength, type PlaybackChunk } from '../../services/lecture-audio.service';
+import { recorder } from '../../services/recorder';
 import { formatHitTime } from '../../utils/searchText';
 
 const STEP_MS = 10_000;
@@ -23,9 +26,15 @@ export interface PlayRequest {
  * audio"): a tap on a timestamp chip plays the lecture's recording from that
  * moment, chunk after chunk (the recording is stored in 30-second pieces).
  * ▶ / ❚❚, −10 s, +10 s, the time and the length, ✕. Plays through
- * lib/audioPlayer (the one place that plays audio). Never touches a
- * recording in progress (CLAUDE.md): while the lecture is being recorded it
- * only says when it can play.
+ * lib/audioPlayer (the one place that plays audio). The web's chunks
+ * overlap by 500 ms: the next one starts where the last one ended, so
+ * nothing is heard twice.
+ *
+ * While the lecture is being recorded (step 5.4) it plays from this
+ * device's own copy (recorder.playback), never touching the recording
+ * (CLAUDE.md), and says once to use headphones (the microphone would record
+ * the sound again). Where the recorder can't (the iPhone until expo-audio),
+ * it says when it can play.
  */
 export function MiniPlayer({
   lectureId,
@@ -50,6 +59,9 @@ export function MiniPlayer({
   const index = useRef(0);
   const player = useRef<AudioPlayer | null>(null);
   const [length, setLength] = useState(0);
+  // The chunks came from this device during the recording (read again on each tap; freed after).
+  const live = useRef<{ release: () => void } | null>(null);
+  const [hint, setHint] = useState(false);
 
   // One player for the screen; it stops when the screen goes.
   if (!player.current) {
@@ -58,11 +70,22 @@ export function MiniPlayer({
       if (!chunk) return;
       setNow(chunk.startMs + s.positionMs);
       setPlaying(s.playing);
-      // The end of a piece: on to the next.
-      if (s.finished && chunks.current && index.current < chunks.current.length - 1) void playFrom(chunks.current[index.current + 1].startMs);
+      // The end of a piece: on to the next, from where this one ended (past the overlap).
+      if (s.finished && chunks.current && index.current < chunks.current.length - 1) void playFrom(endOf(chunks.current, index.current));
     });
   }
-  useEffect(() => () => void player.current?.unload(), []);
+  useEffect(
+    () => () => {
+      void player.current?.unload();
+      live.current?.release();
+    },
+    [],
+  );
+  useEffect(() => {
+    if (!hint) return;
+    const t = setTimeout(() => setHint(false), HINT_MS);
+    return () => clearTimeout(t);
+  }, [hint]);
 
   const playFrom = async (ms: number) => {
     const list = chunks.current;
@@ -75,16 +98,33 @@ export function MiniPlayer({
 
   useEffect(() => {
     if (!request) return;
-    let live = true;
+    let active = true;
     setMessage(null);
     if (!lectureId) return void setMessage('This document has no recording.');
-    if (recording) return void setMessage('The recording plays here once it has stopped.');
+    if (recording && !recorder.supported) return void setMessage('The recording plays here once it has stopped.');
     void (async () => {
       setLoading(true);
       try {
-        if (!chunks.current) {
+        if (recording) {
+          // What this device has recorded so far, read again on every tap.
+          const playback = await getLivePlayback(await recorder.playback(lectureId));
+          live.current?.release();
+          live.current = playback;
+          if (!active) return;
+          if (!playback.chunks.length) {
+            setMessage('The first seconds are still being saved. Try again in a moment.');
+            return;
+          }
+          chunks.current = playback.chunks;
+          setLength(recordingLength(playback.chunks));
+          void showHintOnce(setHint);
+        } else if (!chunks.current || live.current) {
+          // After the recording: from Storage (the device's copies are let go).
+          live.current?.release();
+          live.current = null;
+          chunks.current = null;
           const playback = await getLecturePlayback(lectureId);
-          if (!live) return;
+          if (!active) return;
           if (!playback.chunks.length) {
             setMessage(playback.deleted ? 'The recording was deleted (its audio setting).' : 'This lecture has no recording yet.');
             return;
@@ -94,13 +134,13 @@ export function MiniPlayer({
         }
         await playFrom(request.ms);
       } catch (err) {
-        if (live) setMessage(isNetworkError(err) ? 'Playing the recording needs a connection.' : "The recording couldn't be played.");
+        if (active) setMessage(isNetworkError(err) ? 'Playing the recording needs a connection.' : "The recording couldn't be played.");
       } finally {
-        if (live) setLoading(false);
+        if (active) setLoading(false);
       }
     })();
     return () => {
-      live = false;
+      active = false;
     };
     // A new request (a tap) plays; the rest is read when it comes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,6 +159,12 @@ export function MiniPlayer({
   );
 
   return (
+    <View style={styles.wrap}>
+      {hint && (
+        <Text style={styles.hint} accessibilityLiveRegion="polite" aria-live="polite" {...{ dataSet: { player: 'hint' } }}>
+          Use headphones: the recording is still running.
+        </Text>
+      )}
     <View style={styles.bar} accessibilityLabel="Recording player">
       {message ? (
         <Text style={styles.message}>{message}</Text>
@@ -141,11 +187,37 @@ export function MiniPlayer({
       <View style={styles.flex} />
       {button('close', 'Close the player', close)}
     </View>
+    </View>
   );
+}
+
+const HINT_MS = 6000;
+const HINT_KEY = 'studiply.hint.headphones';
+
+/** The first time this device plays during a recording: the quiet headphones line, once. */
+async function showHintOnce(show: (on: boolean) => void): Promise<void> {
+  try {
+    if (await AsyncStorage.getItem(HINT_KEY)) return;
+    await AsyncStorage.setItem(HINT_KEY, '1');
+  } catch {
+    // No storage: shown this time anyway.
+  }
+  show(true);
 }
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
+    wrap: { gap: 6 },
+    hint: {
+      alignSelf: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 14,
+      overflow: 'hidden',
+      fontSize: Typography.size.xs,
+      color: c.text.secondary,
+      backgroundColor: c.card,
+    },
     bar: {
       flexDirection: 'row',
       alignItems: 'center',

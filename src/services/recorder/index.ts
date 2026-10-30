@@ -5,4 +5,4 @@
 
 export { recorder } from './platform';
 export { CHUNK_MS, OVERLAP_MS } from './service';
-export type { ChunkInfo, RecorderService, RecorderState, RecordingMeta, RecordingSnapshot, Segment } from './types';
+export type { ChunkInfo, PlaybackSource, RecorderService, RecorderState, RecordingMeta, RecordingSnapshot, Segment } from './types';

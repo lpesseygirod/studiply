@@ -1,5 +1,5 @@
 import { mergeAttributes, Node, type Editor } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 
 import { formatHitTime } from '../../utils/searchText';
 
@@ -46,8 +46,39 @@ export function chipMs(value: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
 }
 
-export const TimestampChip = Node.create({
+/**
+ * A tap on a chip (step 5.4): its time and a running count, so a tap on the
+ * chip that is already selected (the same one again, after the player was
+ * closed) still plays. Selecting alone missed it: nothing changes then.
+ */
+export type ChipTap = { ms: number; n: number };
+export const CHIP_TAP = 'studiplyChipTap';
+const chipTapKey = new PluginKey(CHIP_TAP);
+
+export const TimestampChip = Node.create<Record<string, never>, { tap: ChipTap | null }>({
   name: TIMESTAMP_CHIP,
+
+  addStorage() {
+    return { tap: null };
+  },
+
+  addProseMirrorPlugins() {
+    const storage = this.storage;
+    return [
+      new Plugin({
+        key: chipTapKey,
+        props: {
+          // Before the click selects it; a transaction of its own (no change) carries the tap to the screen.
+          handleClickOn(view, _pos, node, _nodePos, _event, direct) {
+            if (!direct || node.type.name !== TIMESTAMP_CHIP) return false;
+            storage.tap = { ms: chipMs(node.attrs.ms), n: (storage.tap?.n ?? 0) + 1 };
+            view.dispatch(view.state.tr.setMeta(CHIP_TAP, storage.tap));
+            return false;
+          },
+        },
+      }),
+    ];
+  },
   group: 'inline',
   inline: true,
   atom: true,
@@ -94,6 +125,11 @@ export const TimestampChip = Node.create({
  * so both editors report a tap through this: the laptop on every selection
  * update, the iPhone through the bridge state.
  */
+/** The last tap on a chip in this editor (for the iPhone's bridge state). */
+export function lastChipTap(editor: Pick<Editor, 'storage'>): ChipTap | null {
+  return (editor.storage as unknown as Record<string, { tap?: ChipTap | null } | undefined>)[TIMESTAMP_CHIP]?.tap ?? null;
+}
+
 export function selectedChipMs(editor: Pick<Editor, 'state'>): number | null {
   const { selection } = editor.state;
   const node = 'node' in selection ? (selection.node as { type: { name: string }; attrs: { ms?: unknown } } | undefined) : undefined;

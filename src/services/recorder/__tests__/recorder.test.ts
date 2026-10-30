@@ -422,6 +422,32 @@ describe('the recorder service', () => {
     expect((await r.store.getRecording(L))?.status).toBe('stopped');
   });
 
+  it('step 5.4: playback while recording: each chunk’s own audio or its Storage path, and the chunk being recorded from its pieces', async () => {
+    const r = rig();
+    r.server.online = false;
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false });
+    const mic = r.source();
+    mic.tick(3);
+    mic.cut();
+    mic.tick(2);
+    await idle();
+    let sources = await service.playback(L);
+    expect(sources.map((s) => [s.seq, s.startMs, s.durationMs, s.blob ? 'device' : s.storagePath])).toEqual([
+      [0, 0, 3000, 'device'],
+      [1, 3000, 2000, 'device'],
+    ]);
+    // The chunk being recorded is its two pieces so far, as one file.
+    expect(sources[1].blob!.size).toBe(r.store.parts.filter((p) => p.seq === 1).reduce((n, p) => n + p.blob.size, 0));
+    r.server.online = true;
+    await r.make().uploads.flush({ now: true });
+    await idle();
+    sources = await service.playback(L);
+    expect(sources[0].storagePath).toMatch(/0000\.webm$/);
+    expect(sources[0].blob).toBeNull();
+    await service.stop();
+  });
+
   it('a microphone that goes away pauses the recording (never a silent stop); Resume goes on', async () => {
     const r = rig();
     const { service } = r.make();

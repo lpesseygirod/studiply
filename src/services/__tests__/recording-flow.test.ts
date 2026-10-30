@@ -46,6 +46,7 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     },
     recover: async () => world.interrupted,
     recordings: async () => [...world.interrupted, ...world.stopped],
+    playback: async () => [],
     continueRecording: async (id) => {
       calls.push(`recorder.continue ${id}`);
       state = { lectureId: id, status: 'recording', microphoneLost: false };

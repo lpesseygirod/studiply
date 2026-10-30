@@ -30,6 +30,7 @@ export const recorder: RecorderService = {
   stop: async () => {},
   recover: async () => [],
   recordings: async () => [],
+  playback: async () => [],
   continueRecording: async () => {
     throw new Error(NOT_YET);
   },

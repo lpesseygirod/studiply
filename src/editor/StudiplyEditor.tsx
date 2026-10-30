@@ -23,6 +23,7 @@ import type { BlockMetaInstance } from './bridges/blockMeta';
 import type { FormatBridgeInstance, FormatBridgeState } from './bridges/format';
 import { setNativePhotoResolver, type PhotoBridgeInstance } from './bridges/photo';
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
+import type { LiveStampsInstance } from './bridges/liveStamps';
 import { editorCss, PAGE_COLORS } from './editorCss';
 import { cleanUrl, type FormatCommand, type TableAction } from './format';
 import { promptText, showActionSheet, showAlert } from '../components/dialogs/dialogs';
@@ -45,7 +46,7 @@ import { CALLOUT_KINDS, type CalloutKind } from './schema/callout';
 import { parseClock } from './schema/timestampChip';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
 
-type Bridge = EditorBridge & TimestampChipInstance & BlockMetaInstance & FormatBridgeInstance & PhotoBridgeInstance;
+type Bridge = EditorBridge & TimestampChipInstance & LiveStampsInstance & BlockMetaInstance & FormatBridgeInstance & PhotoBridgeInstance;
 
 // The WebView's photos (`media:<id>`): the phone's copy, or a signed link (then kept on the phone).
 setNativePhotoResolver(editorPhotoSource);
@@ -72,7 +73,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language, recordingClock },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -101,6 +102,20 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   // The toolbar shows while typing, and over the Aa / colour panels.
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
+  // Live notes (step 5.4): the WebView counts the recording time from what it is told twice a second.
+  useEffect(() => {
+    if (!recordingClock) return;
+    const tell = () => {
+      const ms = recordingClock();
+      editor.setRecordingClock({ ms, running: ms !== null, at: Date.now() });
+    };
+    tell();
+    const t = setInterval(tell, 500);
+    return () => {
+      clearInterval(t);
+      editor.setRecordingClock({ ms: null, running: false, at: Date.now() });
+    };
+  }, [editor, recordingClock]);
   const openPanel = (which: Panel) => {
     // From the toolbar, a new table and Table start fresh (a prompt in them keeps their state meanwhile).
     if (which === 'newTable') setInsertSize(null);
@@ -511,6 +526,18 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   }, [state.isReady, onReady]);
 
   const lastChip = useRef<number | null>(null);
+  // A tap on a chip plays, also on the one already selected (step 5.4); before the selection's
+  // effect, so the selection that follows the tap doesn't play it twice.
+  const lastTap = useRef(0);
+  useEffect(() => {
+    const tap = state.chipTap;
+    if (!tap || tap.n === lastTap.current) return;
+    lastTap.current = tap.n;
+    lastChip.current = tap.ms;
+    onChipPress?.(tap.ms);
+    // Only a new tap counts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.chipTap?.n]);
   useEffect(() => {
     const ms = state.selectedChipMs ?? null;
     if (ms !== null && ms !== lastChip.current) onChipPress?.(ms);

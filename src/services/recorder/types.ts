@@ -125,6 +125,15 @@ export interface ChunkRef {
 
 export type ChunkState = 'on-device' | 'uploaded' | 'transcribed' | 'no-transcript';
 
+/** A piece of a recording to play: the audio itself, or where it is in Storage. */
+export interface PlaybackSource {
+  seq: number;
+  startMs: number;
+  durationMs: number;
+  blob: Blob | null;
+  storagePath: string | null;
+}
+
 export interface ChunkInfo {
   seq: number;
   startMs: number;
@@ -161,6 +170,12 @@ export interface RecorderService {
    * its pieces, everything not uploaded queued again. Returns them.
    */
   recover(): Promise<RecordingMeta[]>;
+  /**
+   * Live notes (step 5.4): a recording's audio as this device has it, for playing a moment while it
+   * still records: each chunk's own audio (until uploaded) or its Storage path, and the chunk being
+   * recorded from its saved pieces (a file cut short, which plays).
+   */
+  playback(lectureId: string): Promise<PlaybackSource[]>;
   /** The signed-in student's recordings kept on this device (any status). */
   recordings(): Promise<RecordingMeta[]>;
   /** Records on into an interrupted recording, after its last chunk. */

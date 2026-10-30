@@ -29,6 +29,7 @@ import { saveLabel, useDocumentSync } from '../../../src/hooks/useDocumentSync';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecorder';
+import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useViewPrefs } from '../../../src/lib/viewPrefs';
@@ -144,6 +145,11 @@ export default function DocumentScreen() {
   const recordingHere =
     !!id && ((live.lectureId === id && live.status !== 'idle') || recordingFlowState.saving?.lectureId === id);
   const recordingScreen = recordingHere && !wide;
+  // Live notes (step 5.4): while this lecture records (or pauses), new lines of My notes get its time.
+  const recordingClock = useCallback(() => {
+    const now = recorder.state();
+    return now.lectureId === id && (now.status === 'recording' || now.status === 'paused') ? recorder.elapsedMs() : null;
+  }, [id]);
   useEffect(() => {
     if (recordingScreen && tab !== 'notes') setTab('notes');
   }, [recordingScreen, tab]);
@@ -510,6 +516,7 @@ export default function DocumentScreen() {
           )
         }
         plain={recordingScreen}
+        recordingClock={isLecture && tab === 'notes' ? recordingClock : undefined}
         commentRoom={commentRoom}
         onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}

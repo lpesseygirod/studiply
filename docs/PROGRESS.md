@@ -131,7 +131,25 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - Jest: 20 new (recording flow, folder picker, clock and saving text, microphone lost);
     - installed `recorder.mjs` 7/7, `documents.mjs` 9/9, `layout.mjs` 9/9 (my runs);
     - new `recording.mjs`, and `flows.mjs` / `ai-flow.mjs` updated for the new web flow: for Lea to install and run.
-- [ ] 5.4 — Live notes with timestamps
+- [ ] 5.4 — Live notes with timestamps — **web (laptop + 390 px) done and checked** 30 Oct on branch `phase-5-recording`; the iPhone part is in the shared code and the rebuilt `editorHtml.js`, its device check waits for expo-audio and an EAS development build.
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1830; all seventeen Chrome suites pass (notes-live 6/6 included).
+  - **Lea, separately:** `eas.json` gained a `development-simulator` profile (commit d9bfbc2), for the iOS Simulator builds.
+  - **Stamps** (`editor/schema/liveStamps.ts`, both editors): while the lecture records (or pauses), a line of My notes gets a timestamp chip at its first character, with the recorder's time (Lea: first character; nothing before Start or after Stop).
+    - **Only lines that were empty:** stamped lines, earlier lines and empty lines get none.
+    - **Paste** stamps each new line.
+    - **Undo** takes the chip away.
+    - **"- ", "# ", "[] "** still work on a stamped line (`typingShortcuts` skips a leading stamp).
+    - **Laptop:** a `recordingClock` prop.
+    - **iPhone:** `LiveStampsBridge` (native tells the WebView the time twice a second); needs `npm run editor:build`.
+  - **`note_lines`** (no migration: the table, trigger, indexes and RLS exist since `20261023155314`):
+    - **What:** `editor/noteLines.ts` projects My notes (time, text without the chip, the line's JSON with its formatting, position; list items `<list id>#n`).
+    - **When:** `note-lines.service.ts` writes it after each save of a lecture's notes tab: the laptop's save (a failure retries with the next save) and the iPhone's queued `document_edit` (retried with it).
+  - **Playing:** a chip plays during the recording on the web from the browser's own copy (`recorder.playback()`: chunks not yet uploaded, uploaded ones from Storage, the chunk being recorded from its pieces). A quiet one-time line "Use headphones: the recording is still running." is shown. At a chunk join playback goes on past the 500 ms overlap (also after the recording).
+  - **Checked:** Jest, 16 new (live stamps 7, note lines 3 + 3, playback and overlap 2, recorder playback 1). Chrome `notes-live.mjs` is for Lea to install and run.
+  - **After Lea's run (notes-live 5/6, "playing again"), fixed:** a tap on a chip only played when the selection changed (since 4.6), so the chip already selected (tapped again after closing the player) did nothing, on both devices. Seeking inside the chunk being recorded was fine (the first play passed).
+    - **The fix:** a tap on a chip is now counted by the chip extension itself (`CHIP_TAP`) and plays every time; the selection that follows doesn't play twice.
+    - **Checked:** Jest 1 new; `notes-live.mjs` 6/6 and `blocks.mjs` 8/8 (my runs).
+    - **The iPhone bundle** needs `npm run editor:build` again.
 - [ ] 5.5 — Marks with a 1–10 level
 - [ ] 5.6 — Board photos
 - [ ] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct
@@ -773,6 +791,7 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 
 ## Things Lea must do
 
+- ~~**Step 5.4 — rebuild the iPhone editor bundle** (`npm run editor:build`)~~ — done by Lea, 30 Oct (with the chip-tap fix). Trying it on the phone needs an EAS development build, together with expo-audio.
 - **Step 5.3 — suggestion to decide: a Pause button** on the recording strip and the iPhone recording screen.
   - **Now:** DESIGN has none; the recorder already supports pause, and the microphone closes while paused.
   - **If wanted:** say so, and where it goes.

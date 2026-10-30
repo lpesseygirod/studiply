@@ -14,6 +14,7 @@ import { PhotoBridge } from './photo';
 import { SpacingBridge } from './spacing';
 import { TableBridge } from './table';
 import { TimestampChipBridge } from './timestampChip';
+import { LiveStampsBridge } from './liveStamps';
 
 /**
  * The one list that makes Studiply's document schema (step 4.2).
@@ -28,7 +29,7 @@ import { TimestampChipBridge } from './timestampChip';
  * of ProseMirror) are used, so tables and the chip share one ProseMirror.
  * Studiply's photos (step 4.5) take the place of TenTap's image.
  */
-export const studiplyBridges = [...TenTapStartKit.filter((b) => b !== ImageBridge), PhotoBridge, TimestampChipBridge, TableBridge, MathBridge, StudyBlocksBridge, CommentBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge, ExportBridge];
+export const studiplyBridges = [...TenTapStartKit.filter((b) => b !== ImageBridge), PhotoBridge, TimestampChipBridge, LiveStampsBridge, TableBridge, MathBridge, StudyBlocksBridge, CommentBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge, ExportBridge];
 
 /** The Tiptap extensions of `bridges`, configured as TenTap's WebView configures them. */
 export function extensionsOf(bridges: typeof studiplyBridges) {
@@ -40,4 +41,4 @@ export function studiplyExtensions() {
   return extensionsOf(studiplyBridges);
 }
 
-export { StudyBlocksBridge, PhotoBridge, MathBridge, CommentBridge, TimestampChipBridge, TableBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge, ExportBridge };
+export { StudyBlocksBridge, PhotoBridge, MathBridge, CommentBridge, TimestampChipBridge, LiveStampsBridge, TableBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge, ExportBridge };

@@ -1,14 +1,15 @@
 import BridgeExtension from '@10play/tentap-editor/src/bridges/base.ts';
 
-import { selectedChipMs, TimestampChip } from '../schema/timestampChip';
+import { lastChipTap, selectedChipMs, TimestampChip, type ChipTap } from '../schema/timestampChip';
 
 /**
  * The chip on the iPhone, through TenTap's bridge: native asks the WebView
  * to insert a chip, and the WebView reports the chip the selection is on
- * (tapping a chip selects it) in the bridge state.
+ * (tapping a chip selects it) and the last tap on a chip with a count (step
+ * 5.4: so the chip already selected plays again) in the bridge state.
  */
 
-export type TimestampChipState = { selectedChipMs: number | null };
+export type TimestampChipState = { selectedChipMs: number | null; chipTap: ChipTap | null };
 export type TimestampChipInstance = { insertTimestampChip: (ms: number) => void };
 
 export const INSERT_TIMESTAMP_CHIP = 'insert-timestamp-chip';
@@ -25,5 +26,5 @@ export const TimestampChipBridge = new BridgeExtension<TimestampChipState, Times
   extendEditorInstance: (sendBridgeMessage) => ({
     insertTimestampChip: (ms) => sendBridgeMessage({ type: INSERT_TIMESTAMP_CHIP, payload: ms }),
   }),
-  extendEditorState: (editor) => ({ selectedChipMs: selectedChipMs(editor) }),
+  extendEditorState: (editor) => ({ selectedChipMs: selectedChipMs(editor), chipTap: lastChipTap(editor) }),
 });

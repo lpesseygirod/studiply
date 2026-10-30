@@ -16,6 +16,7 @@ import type { EditorView } from '@tiptap/pm/view';
 import { DocColors } from '../../constants/colors';
 import { BLOCK_MATH, INLINE_MATH } from './formula';
 import { DOLLAR_MATH } from './mathSuggest';
+import { TIMESTAMP_CHIP } from './timestampChip';
 
 /**
  * Typing shortcuts (after test C, Lea): "- ", "1. ", "[] ", "# ", "> ",
@@ -131,13 +132,25 @@ export function typingShortcutRules(schema: Schema): InputRule[] {
   return rules.filter((r): r is InputRule => !!r);
 }
 
+/** Where a leading timestamp chip (and the space after it) ends in the line; 0 without one. */
+function leadingStampEnd(block: PMNode): number {
+  const chip = block.firstChild;
+  if (chip?.type.name !== TIMESTAMP_CHIP) return 0;
+  const next = block.maybeChild(1);
+  return chip.nodeSize + (next?.isText && next.text?.startsWith(' ') ? 1 : 0);
+}
+
 /** Applies the first shortcut the typed `text` completes, in one change. */
 function runShortcut(editor: Editor, view: EditorView, rules: InputRule[], from: number, to: number, text: string): boolean {
   if (view.composing || !view.editable) return false;
   const $from = view.state.doc.resolve(from);
   if (!$from.parent.isTextblock || $from.parent.type.spec.code) return false;
+  // A line stamped with the recording time (step 5.4: a timestamp chip and a space first) still
+  // starts after its stamp: "- " makes a list, "# " a heading, and the chip stays in the line.
+  const stampEnd = leadingStampEnd($from.parent);
+  if (stampEnd > $from.parentOffset) return false;
   // One character for each inline leaf (a formula, a chip), so the text's places are the document's.
-  const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - LOOK_BACK), $from.parentOffset, undefined, '￼') + text;
+  const before = $from.parent.textBetween(Math.max(stampEnd, $from.parentOffset - LOOK_BACK), $from.parentOffset, undefined, '￼') + text;
   for (const rule of rules) {
     if (!(rule.find instanceof RegExp)) continue;
     const match = rule.find.exec(before);

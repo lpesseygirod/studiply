@@ -25,6 +25,7 @@ import type {
   AudioSource,
   ChunkInfo,
   ChunkRef,
+  PlaybackSource,
   RecorderQueue,
   RecorderService,
   RecorderState,
@@ -306,6 +307,38 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       }
       emit();
       return found;
+    },
+
+    async playback(lectureId) {
+      const [chunks, parts] = await Promise.all([store.listChunks(lectureId), store.listParts(lectureId)]);
+      const sources: PlaybackSource[] = chunks
+        .filter((c) => c.blob || c.storagePath)
+        .map((c) => ({ seq: c.seq, startMs: c.startMs, durationMs: c.durationMs, blob: c.blob, storagePath: c.storagePath }));
+      // The chunks being recorded: their pieces so far, in order from the first (only it has the file's header).
+      const bySeq = new Map<number, StoredPart[]>();
+      for (const p of parts) bySeq.set(p.seq, [...(bySeq.get(p.seq) ?? []), p]);
+      for (const [seq, pieces] of bySeq) {
+        if (chunks.some((c) => c.seq === seq)) continue;
+        pieces.sort((x, y) => x.index - y.index);
+        const kept: StoredPart[] = [];
+        for (const p of pieces) {
+          if (p.index !== kept.length) break;
+          kept.push(p);
+        }
+        if (!kept.length) continue;
+        const startMs = kept[0].startMs;
+        sources.push({
+          seq,
+          startMs,
+          durationMs: Math.max(1, kept[kept.length - 1].endMs - startMs),
+          blob: new Blob(
+            kept.map((p) => p.blob),
+            { type: kept[0].mimeType },
+          ),
+          storagePath: null,
+        });
+      }
+      return sources.sort((x, y) => x.seq - y.seq);
     },
 
     async recordings() {

@@ -75,4 +75,9 @@ export type StudiplyEditorProps = {
    * view, no toolbar card and no status line on the web (the iPhone keeps its keyboard toolbar).
    */
   plain?: boolean;
+  /**
+   * Live notes (step 5.4): the recording time now (ms on the recorder's timeline), or null when
+   * nothing records. Given for a lecture's My notes; each new line then starts with that time.
+   */
+  recordingClock?: () => number | null;
 };
