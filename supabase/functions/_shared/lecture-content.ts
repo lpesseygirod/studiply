@@ -7,6 +7,7 @@
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { MAX_MEDIA_BYTES, toBase64 } from './legacy-notes.ts';
+import { joinSegmentRows, placeSegments } from './transcriptJoin.ts';
 
 const PAGE_SIZE = 1000;
 
@@ -17,32 +18,46 @@ export async function lectureLanguage(db: SupabaseClient, lectureId: string): Pr
   return (data?.language as string | null) ?? null;
 }
 
+interface SegmentRead {
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  chunk_id: string | null;
+}
+
 /**
  * The transcript as one text, segments in time order, read page by page
  * (a long lecture has more than PostgREST's 1000 rows). Stops once
- * `maxChars` are read, when given.
+ * `maxChars` are read, when given. Assembled like the app's
+ * (./transcriptJoin): each chunk's segments as stored, the words of the
+ * 500 ms overlap between two chunks kept once.
  */
 export async function lectureTranscript(db: SupabaseClient, lectureId: string, maxChars = Infinity): Promise<string> {
-  const parts: string[] = [];
+  const rows: SegmentRead[] = [];
   let length = 0;
   for (let from = 0; length < maxChars; from += PAGE_SIZE) {
     const { data, error } = await db
       .from('transcript_segments')
-      .select('text')
+      .select('start_ms, end_ms, text, chunk_id')
       .eq('lecture_id', lectureId)
       .order('start_ms', { ascending: true })
       .order('id', { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
-    for (const row of data) {
-      const text = String(row.text ?? '').trim();
-      if (!text) continue;
-      parts.push(text);
-      length += text.length + 1;
+    for (const row of data as SegmentRead[]) {
+      rows.push({ ...row, text: String(row.text ?? '') });
+      length += row.text ? row.text.trim().length + 1 : 0;
     }
     if (data.length < PAGE_SIZE) break;
   }
-  return parts.join(' ');
+  if (rows.length === 0) return '';
+  // Where each segment's chunk sits in the recording, to join the chunks' overlaps.
+  const { data: chunks, error } = await db.from('audio_chunks').select('id, seq, start_ms, duration_ms').eq('lecture_id', lectureId);
+  if (error) throw error;
+  return joinSegmentRows(placeSegments(rows, chunks ?? []))
+    .map((row) => row.text.trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 export type MediaResult =

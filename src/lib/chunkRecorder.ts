@@ -1,7 +1,8 @@
 /**
- * Recording in chunks (step 5.1, the spike). The web's is chunkRecorder.web.ts
- * (MediaRecorder). The iPhone's waits for expo-audio, which needs Lea's OK
- * (a new dependency); until then starting here says so.
+ * Recording in chunks (step 5.1; the recorder service, src/services/recorder,
+ * uses it since 5.2). The web's is chunkRecorder.web.ts (MediaRecorder). The
+ * iPhone's waits for expo-audio, which needs Lea's OK (a new dependency);
+ * until then starting here says so.
  */
 
 export interface RecordedChunk {
@@ -17,6 +18,21 @@ export interface RecordedChunk {
   durationMs: number;
 }
 
+/**
+ * A piece of the chunk being recorded (every `timesliceMs`), saved so that a
+ * crash loses at most one piece. A chunk's pieces in order are one file.
+ */
+export interface RecordedPart {
+  seq: number;
+  /** The piece's number in its chunk, from 0. */
+  index: number;
+  blob: Blob;
+  mimeType: string;
+  /** Where its chunk starts, and where this piece ends, in the recording (ms). */
+  startMs: number;
+  endMs: number;
+}
+
 export interface ChunkRecorderOptions {
   /** A new chunk every… (30 s in the app). */
   chunkMs: number;
@@ -24,6 +40,11 @@ export interface ChunkRecorderOptions {
   overlapMs?: number;
   mimeType?: string;
   onChunk: (chunk: RecordedChunk) => void;
+  /** Pieces of the current chunk every `timesliceMs` (none without it). */
+  timesliceMs?: number;
+  onPart?: (part: RecordedPart) => void;
+  /** Going on with a recording: its next chunk number and where it ended (ms). */
+  from?: { seq: number; ms: number };
   /** For tests. */
   now?: () => number;
   MediaRecorderImpl?: unknown;
@@ -40,9 +61,21 @@ export class ChunkRecorder {
     return false;
   }
 
+  get paused(): boolean {
+    return false;
+  }
+
   start(_stream: MediaStream): void {
     void this.options;
     throw new Error('Recording in chunks on the iPhone waits for expo-audio (Lea’s OK).');
+  }
+
+  async pause(): Promise<void> {}
+
+  resume(_stream?: MediaStream): void {}
+
+  elapsedMs(): number {
+    return 0;
   }
 
   async stop(): Promise<void> {}

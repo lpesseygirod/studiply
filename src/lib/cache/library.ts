@@ -14,7 +14,7 @@ import { useEffect, useRef } from 'react';
 
 import { supabase } from '../supabase';
 import { onBackOnline } from '../connectivity';
-import type { SegmentRow } from '../cloudRows';
+import { SEGMENT_COLUMNS, withChunkPlaces, type SegmentRow } from '../cloudRows';
 import { cursorColumn, fetchAllSegments, pullTable, PULL_TABLES, transcriptsToFetch } from './pull';
 import {
   cacheEnabled,
@@ -71,18 +71,21 @@ async function pullTranscripts(userId: string): Promise<number> {
   const lectures = await readRows<{ id: string; status: string; updated_at: string }>('lectures');
   const ids = transcriptsToFetch(lectures, await segmentsFetchedAt(), RECENT_TRANSCRIPTS);
   for (const id of ids) {
-    const segments = await fetchAllSegments(id, async (lectureId, from, to) => {
+    const read = await fetchAllSegments(id, async (lectureId, from, to) => {
       const { data, error } = await supabase
         .from('transcript_segments')
-        .select('start_ms, end_ms, text, confidence')
+        .select(SEGMENT_COLUMNS)
         .eq('lecture_id', lectureId)
         .order('start_ms', { ascending: true })
         .order('id', { ascending: true })
         .range(from, to);
       if (error) throw error;
-      return data as SegmentRow[];
+      return data as (SegmentRow & { chunk_id: string | null })[];
     });
-    await saveSegments(id, userId, segments);
+    // With their chunks' places, so the transcript read offline is joined like the online one.
+    const { data: chunks, error } = await supabase.from('audio_chunks').select('id, seq, start_ms, duration_ms').eq('lecture_id', id);
+    if (error) throw error;
+    await saveSegments(id, userId, withChunkPlaces(read as (SegmentRow & { chunk_id: string | null })[], chunks));
   }
   return ids.length;
 }

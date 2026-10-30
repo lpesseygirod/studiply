@@ -699,43 +699,61 @@ registerSyncHandler<UploadChunkPayload>('upload_chunk', {
 
     if (!(await pendingFileExists(p.uri))) {
       // Uploaded just before the app was closed (the file is deleted after).
-      const { data, error } = await supabase
-        .from('audio_chunks')
-        .select('id')
-        .eq('lecture_id', p.lectureId)
-        .eq('seq', p.seq)
-        .not('storage_path', 'is', null)
-        .maybeSingle();
-      if (error) throw syncError(error, 'Could not save the recording.');
-      if (data) return;
+      if (await chunkOnServer(p.lectureId, p.seq)) return;
       throw new PermanentSyncError('This part of the recording is no longer on this iPhone.', p.uri);
     }
 
-    const { mimeType, ext } = await audioFormat(p.uri);
-    const { path } = await uploadFile({
-      bucket: Buckets.audioChunks,
-      path: `${p.lectureId}/${String(p.seq).padStart(4, '0')}.${ext}`,
-      uri: p.uri,
-      contentType: mimeType,
-      upsert: true,
-      onProgress: ctx.progress,
-    });
-    const { error } = await supabase.from('audio_chunks').upsert(
-      {
-        lecture_id: p.lectureId,
-        seq: p.seq,
-        start_ms: Math.max(0, Math.round(p.startMs)),
-        duration_ms: Math.max(1, Math.round(p.durationMs)),
-        storage_path: path,
-        status: 'uploaded',
-      },
-      { onConflict: 'lecture_id,seq' },
-    );
-    if (error) throw syncError(error, 'Could not save the recording.');
+    await sendRecordingChunk(p, ctx.progress);
     // Only now: until the row exists, the file is the only copy.
     await removePendingFile(p.uri);
   },
 });
+
+/**
+ * A recorded chunk to `audio-chunks` and its `audio_chunks` row, for the
+ * queues (the iPhone's above, the web recorder's in services/recorder):
+ * errors as the queue understands them. Returns its path in the bucket.
+ */
+export async function sendRecordingChunk(
+  p: { lectureId: string; seq: number; startMs: number; durationMs: number; uri: string },
+  onProgress?: (fraction: number) => void,
+): Promise<string> {
+  const { mimeType, ext } = await audioFormat(p.uri);
+  const { path } = await uploadFile({
+    bucket: Buckets.audioChunks,
+    path: `${p.lectureId}/${String(p.seq).padStart(4, '0')}.${ext}`,
+    uri: p.uri,
+    contentType: mimeType,
+    upsert: true,
+    onProgress,
+  });
+  const { error } = await supabase.from('audio_chunks').upsert(
+    {
+      lecture_id: p.lectureId,
+      seq: p.seq,
+      start_ms: Math.max(0, Math.round(p.startMs)),
+      duration_ms: Math.max(1, Math.round(p.durationMs)),
+      storage_path: path,
+      status: 'uploaded',
+    },
+    { onConflict: 'lecture_id,seq' },
+  );
+  if (error) throw syncError(error, 'Could not save the recording.');
+  return path;
+}
+
+/** Whether the server already has a chunk's audio (sent just before the device's copy went). */
+export async function chunkOnServer(lectureId: string, seq: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('audio_chunks')
+    .select('id')
+    .eq('lecture_id', lectureId)
+    .eq('seq', seq)
+    .not('storage_path', 'is', null)
+    .maybeSingle();
+  if (error) throw syncError(error, 'Could not save the recording.');
+  return !!data;
+}
 
 registerSyncHandler<UploadMediaPayload>('upload_media', {
   timeoutMs: UPLOAD_TIMEOUT_MS,

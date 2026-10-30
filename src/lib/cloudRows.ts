@@ -14,13 +14,20 @@
 
 import type { Json, Tables } from '../types/supabase';
 import type { Folder, Note, Project, Session, Transcript } from '../types/database';
+import { joinSegmentRows, placeSegments, type ChunkPlace } from '../../supabase/functions/_shared/transcriptJoin';
 
 export type CourseRow = Tables<'courses'>;
 export type FolderRow = Tables<'folders'>;
 export type FileRow = Tables<'files'>;
 export type LectureRow = Tables<'lectures'>;
 export type SummaryRow = Tables<'summaries'>;
-export type SegmentRow = Pick<Tables<'transcript_segments'>, 'start_ms' | 'end_ms' | 'text' | 'confidence'>;
+/** A segment, with where its chunk sits in the recording when known (for joining overlapping chunks). */
+export type SegmentRow = Pick<Tables<'transcript_segments'>, 'start_ms' | 'end_ms' | 'text' | 'confidence'> & {
+  chunk?: ChunkPlace | null;
+};
+
+/** The columns segments are read with: the chunk's id, to place it with `withChunkPlaces`. */
+export const SEGMENT_COLUMNS = 'start_ms, end_ms, text, confidence, chunk_id';
 
 /** A lecture file with its lecture row, as `files.select('*, lectures(*)')` returns it. */
 export type LectureFileRow = FileRow & { lectures: LectureRow | null };
@@ -263,12 +270,30 @@ export function summaryToNote(row: SummaryRow): Note | null {
 // Transcripts, from the lecture's segments
 // -------------------------------------------------------------------
 
+/**
+ * Segments as read (SEGMENT_COLUMNS) with their chunk's place in the
+ * recording, from the lecture's audio_chunks rows. A segment whose chunk
+ * isn't there stays unplaced (kept as it is when joined).
+ */
+export function withChunkPlaces(
+  segments: (Omit<SegmentRow, 'chunk'> & { chunk_id?: string | null })[],
+  chunks: { id: string; seq: number; start_ms: number; duration_ms: number }[],
+): SegmentRow[] {
+  return placeSegments(segments, chunks);
+}
+
+/**
+ * The transcript, assembled: each chunk's segments as stored, joined with
+ * the shared rule (supabase/functions/_shared/transcriptJoin), so the words
+ * of the 500 ms overlap between two chunks appear once.
+ */
 export function segmentsToTranscript(
   lecture: Pick<LectureRow, 'id' | 'user_id' | 'language' | 'created_at'>,
   segments: SegmentRow[],
 ): Transcript | null {
   if (segments.length === 0) return null;
-  const ordered = [...segments].sort((a, b) => a.start_ms - b.start_ms);
+  const ordered = joinSegmentRows(segments);
+  if (ordered.length === 0) return null;
   const confidences = ordered.map((s) => s.confidence).filter((c): c is number => c !== null);
   return {
     id: lecture.id,

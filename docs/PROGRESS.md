@@ -53,7 +53,7 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **4.8b (.docx import and export):** waits for Lea's OK on the libraries (mammoth, BSD-2-Clause; docx, MIT).
 - **Lea's iPhone tests:** G, H, I, J, K, L, M, N, plus the remote migrations listed under Things Lea must do.
 
-Phase 5 is not started.
+Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 
 ## Phase 5 — Recording with live notes and marks (`phase-5-recording`)
 - [ ] 5.1 — Spike: recording in pieces (expo-audio + MediaRecorder, chunk joins) — **web half done** 30 Oct on branch `phase-5-recording`; the iPhone half waits for Lea's OK on expo-audio (1.0.16, MIT) and her phone.
@@ -61,7 +61,37 @@ Phase 5 is not started.
   - **Checked:** Jest `chunkRecorder.test.ts` (4); Chrome `spike.mjs` 3/3 (the advisor's run, no paid calls: the joins measured with a synthetic signal, transcription answered in the page).
   - **Measured (Chrome, WebM / Opus):** restarting the recorder every 30 s loses audio at every join, **gaps of 56.0, 6.0 and 6.0 ms**. Overlapping by 500 ms leaves **no gap**: **overlaps of 464, 494 and 494 ms**.
   - **Decision (Lea's advisor, 30 Oct):** the web records with a **500 ms overlap**; the duplicated words at each join are removed in 5.2.
-- [ ] 5.2 — Recorder service (start/pause/resume/stop, queue, recovery, tests)
+- [ ] 5.2 — Recorder service (start/pause/resume/stop, queue, recovery, tests) — **shared service + web done and checked** 30 Oct on branch `phase-5-recording`; the iPhone implementation waits for Lea's OK on expo-audio (`platform.ts` is a stub behind the same interface).
+  - **Verified (Lea's advisor, 30 Oct):**
+    - `recorder.mjs` 7/7 twice; `spike.mjs` 3/3, `flows.mjs` 19/19, `documents.mjs` 9/9 and the other suites pass;
+    - `npm run check` 1792;
+    - `npm run check:claude` against the local functions: real Anthropic, "All Claude checks passed", with summarize and assistant-chat on the shared join.
+  - **Lea's deploy list** gains summarize and assistant-chat (Things Lea must do).
+  - **Built:** `src/services/recorder/` (the service, shared; the web's MediaRecorder + IndexedDB + Web Locks; the iPhone's stub). It works like this:
+    - **Saved on the device first:** every chunk, and the current chunk every second, in pieces.
+    - **Two queue lanes on `createSyncQueue`:** uploads, and transcription once a chunk is uploaded. A refused transcription doesn't block.
+    - **The live transcript:** in order, the 500 ms overlaps de-duplicated.
+    - **Recovery:** the unfinished chunk is rebuilt from its pieces; Continue or Finish.
+  - **Also built:** pause / resume and the pieces in `chunkRecorder.web.ts`; `sendRecordingChunk` / `chunkOnServer` shared with the iPhone's `upload_chunk`; `/dev/recorder` (development only).
+  - **Checked:** Jest (23 new: chunk order and pause, the upload queue offline and online, transcription lanes, overlap de-duplication, recovery). Chrome `recorder.mjs` 7/7 (Lea, 30 Oct):
+    - offline chunks uploaded 6.3 s after reconnecting;
+    - the pause is clean;
+    - the reload lost 13 ms.
+  - **Decisions (Lea's advisor, 30 Oct):**
+    1. **transcribe-chunk is unchanged:** each chunk's raw text stays as stored, and the overlap duplicates are removed where the transcript is assembled. Built:
+       - the shared pure `supabase/functions/_shared/transcriptJoin.ts`;
+       - `segmentsToTranscript` uses it (the Transcript tab and every full transcript in the app);
+       - segments read with their chunk's place.
+
+       8 more Jest tests: rows out of order, a missing chunk, unplaced segments.
+    2. **The microphone closes on Pause** and reopens on Resume. `recorder.mjs` now asserts the track is stopped while paused.
+  - **Found by Lea's run (5/7, a 52 ms "hole" at the pause join), fixed in the app:** the paused time ended when Resume was asked, not when the new recorder really started (a reopened microphone takes about 50 ms, which nothing records).
+    - **The fix:** the paused time now runs from the last chunk's end to the next recorder's start, so the chunk after a pause starts exactly where the one before ended.
+    - **Checks:** a Jest test with a slow-starting recorder. The installed `recorder.mjs` passes 7/7 (the pause join exact, 32967 → 32967 ms; the reload lost 0 ms). The new copy checks the joins with no tolerance.
+  - **The summarize and assistant-chat functions** (`_shared/lecture-content.ts`) now assemble the transcript with the same shared module (local code; deploying is on Lea's list).
+  - **Not yet:**
+    - background audio in app.json (with expo-audio);
+    - the recording screen (5.3).
 - [ ] 5.3 — Recording screen (iPhone + laptop strip)
 - [ ] 5.4 — Live notes with timestamps
 - [ ] 5.5 — Marks with a 1–10 level
@@ -705,6 +735,11 @@ Phase 5 is not started.
 
 ## Things Lea must do
 
+- **Step 5.2 — deploy `summarize` and `assistant-chat` to the remote (your step; 5.2 is committed).**
+  - **What changed:** both now read the transcript through `_shared/lecture-content.ts`, which joins the chunks' 500 ms overlaps with `_shared/transcriptJoin.ts`, as the app does.
+  - **Tested locally:** `npm run check:claude` passed against the local functions (30 Oct).
+  - **No migration, no secret:** `supabase functions deploy summarize` and `supabase functions deploy assistant-chat`.
+  - **transcribe-chunk is unchanged.**
 - **Docker Desktop must be running** before `supabase start` (and before anything that uses the local database, including `npm run test:db` and `npm run gen:types`).
 - **Never apply migrations to the remote project yourself** (`supabase db push`, or anything with `--linked`). The CLI is still linked to the remote project; the schema goes there in step 1.7.
 - **Old-app backup** is at `~/Documents/Projects/Apps/Studiply-backup-2026-10-23/` (outside the repo, private permissions): schema, all rows including the 15 old accounts, roles, and the 17 empty files. It may contain other people's personal data (emails), so delete it once you're sure nothing in it is needed (suggestion: at the end of Phase 1).

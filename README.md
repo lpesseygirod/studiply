@@ -195,6 +195,39 @@ Recording in chunks (step 5.1, the spike): `src/lib/chunkRecorder.web.ts` rotate
 - **The dev screen:** `/dev/recording-spike` (development only) uploads each chunk through `createSourceFile` and `transcribe-chunk` and shows the live transcript.
 - **The check:** `spike.mjs` measures the joins with a synthetic signal.
 
+The recorder service (step 5.2), `src/services/recorder/`, records with 30-second chunks overlapping by 500 ms. **`service.ts` is the same on every platform**:
+- `start` / `pause` / `resume` / `stop`;
+- `recover`, `continueRecording` and `finish`;
+- `snapshot`, which gives the chunks and the live transcript.
+
+**What `service.ts` does:**
+- **Saves on the device first:** every chunk, plus a piece of the current chunk every second.
+- **Sends through two `createSyncQueue` lanes:**
+  - `upload_chunk` (`sendRecordingChunk`, shared with the iPhone's queue);
+  - `transcribe_chunk`, queued once the chunk is uploaded.
+
+  A refused transcription is noted on its chunk and blocks nothing.
+- **Recovers:** a recording nobody holds any more has its unfinished chunk rebuilt from its pieces, and is marked interrupted.
+
+**The other files:**
+- **The overlap de-duplication** is one shared, pure module without imports, `supabase/functions/_shared/transcriptJoin.ts`, so the app and the Edge Functions can both use it:
+  - `joinTranscript`: the live transcript;
+  - `joinSegmentRows`: the full transcript.
+
+  Each chunk's raw text stays in `transcript_segments` as transcribe-chunk stored it; the duplicates are removed where the transcript is assembled.
+  - **In the app:** `segmentsToTranscript` (`lib/cloudRows.ts`), which the Transcript tab, notes and clarifications read.
+  - **On the server:** `lectureTranscript` (`_shared/lecture-content.ts`), which summarize and assistant-chat read.
+  - **The segments it reads** carry their chunk's place: `withChunkPlaces`, in `transcript.service` and the iPhone's transcript pull.
+
+  Rows may come in any order; a missing chunk leaves its neighbours alone.
+- **`platform.web.ts`:**
+  - MediaRecorder (`chunkRecorder.web.ts`, with pause and one-second pieces); the microphone is closed while paused and opened again on Resume;
+  - IndexedDB `studiply-recorder` (the recordings, the chunks, the pieces, the two lanes);
+  - Web Locks (who holds a recording, and one tab sending).
+- **`platform.ts`:** the iPhone's stub until expo-audio.
+
+**The dev screen:** `/dev/recorder` (development only; Chrome check `recorder.mjs`).
+
 Earlier notes (step 4.9) live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
 - **`run.ts`** converts only when the tab has no document, and only reads the old row.

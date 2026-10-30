@@ -263,3 +263,12 @@ Check results in the database with `admin` (service role, local only), not just 
 `scripts/notes.mjs` (step 4.9, 8 steps): seeds an earlier-format note (legacy-note-v1) with a JPEG photo and a PDF, opens the lecture's Summary tab and checks the converted document (every section, KaTeX formulas, Definition callouts, highlights as quote + Added context, Attachments, each block's author), the old row unchanged, no second conversion on reload, the student's typing kept, a regenerated note not reaching the tab, a lecture with its own Summary kept, "This lecture has no summary.", dark and 390 px. Screenshots `notes-*.png` (taken after the splash is gone).
 
 `scripts/spike.mjs` (step 5.1 web, about 2.5 min): a synthetic microphone (1 kHz tone + a 5 ms click every 500 ms) recorded in chunks on `/dev/recording-spike`, each chunk decoded and placed in time from its clicks; prints `RESULT` lines per chunk and per join (GAP / overlap in ms). Restart mode vs overlap 500 ms (overlap must show no gap). transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. Screenshots `spike-*.png`.
+
+`scripts/recorder.mjs` (step 5.2 web, about 2.5 min): the recorder service on `/dev/recorder?chunk=5&overlap=500`, with a synthetic microphone (a 1 kHz tone).
+- **Offline for 16 s** (Chrome's own network emulation): the chunks are kept in IndexedDB `studiply-recorder`, not uploaded.
+- **Back online:** they upload in order and the transcript fills in.
+- **Pause and resume:** the microphone track is stopped while paused, and a new one opens on Resume.
+- **A reload mid-chunk:** the chunk is rebuilt from its one-second pieces, at most about 1 s is lost, and the file decodes.
+- **Continue and Stop;** every `audio_chunks` file is decoded to its length.
+
+transcribe-chunk is answered by the page itself; the check fails if any request reaches it, OpenAI or ElevenLabs. It prints `RESULT` lines and saves screenshots `recorder-*.png`.

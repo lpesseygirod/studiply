@@ -1,5 +1,12 @@
 import { supabase } from '../lib/supabase';
-import { segmentsToTranscript, serviceError, type LectureRow, type SegmentRow } from '../lib/cloudRows';
+import {
+  SEGMENT_COLUMNS,
+  segmentsToTranscript,
+  serviceError,
+  withChunkPlaces,
+  type LectureRow,
+  type SegmentRow,
+} from '../lib/cloudRows';
 import { readRow, readSegments, readThrough, saveSegments } from '../lib/cache';
 import type { Transcript } from '../types/database';
 
@@ -74,19 +81,26 @@ export async function getTranscriptBySession(sessionId: string): Promise<Transcr
       if (error) throw serviceError(error, 'Could not load the transcript.');
       if (!lecture) return { transcript: null };
 
-      const segments: SegmentRow[] = [];
+      const read: (SegmentRow & { chunk_id: string | null })[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data, error: pageError } = await supabase
           .from('transcript_segments')
-          .select('start_ms, end_ms, text, confidence')
+          .select(SEGMENT_COLUMNS)
           .eq('lecture_id', sessionId)
           .order('start_ms', { ascending: true })
           .order('id', { ascending: true })
           .range(from, from + PAGE - 1);
         if (pageError) throw serviceError(pageError, 'Could not load the transcript.');
-        segments.push(...data);
+        read.push(...data);
         if (data.length < PAGE) break;
       }
+      // Where each segment's chunk sits, so the chunks' overlaps are joined (cached with them).
+      const { data: chunks, error: chunkError } = await supabase
+        .from('audio_chunks')
+        .select('id, seq, start_ms, duration_ms')
+        .eq('lecture_id', sessionId);
+      if (chunkError) throw serviceError(chunkError, 'Could not load the transcript.');
+      const segments = withChunkPlaces(read, chunks);
 
       saveSegments(sessionId, lecture.user_id, segments).catch(() => {});
       return { transcript: segmentsToTranscript(lecture, segments) };
