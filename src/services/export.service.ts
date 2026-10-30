@@ -5,6 +5,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { generateNoteHTML } from '../utils/pdf-template';
 import { pdfFileName } from '../utils/fileNames';
 import type { Note, Session, Transcript } from '../types/database';
+import type { PrintOptions, PrintResult, PrintTab } from '../editor/export/printPages';
+
+declare global {
+  interface Window {
+    /** The laptop's last print document (the PDF export), for the Chrome check (export.mjs). */
+    studiplyPrint?: { title: string; html: string; pages: number };
+  }
+}
 
 // -------------------------------------------------------------------
 // exportNoteToPDF
@@ -26,25 +34,69 @@ export async function exportNoteToPDF(params: {
 
   if (Platform.OS === 'web') {
     // "Save as PDF" proposes the printed document's title as the file name.
-    printInBrowser(html, fileName.replace(/\.pdf$/, ''));
+    await printInBrowser(html, fileName.replace(/\.pdf$/, ''));
     return;
   }
 
   const { uri } = await Print.printToFileAsync({ html, base64: false });
+  await shareNamedPdf(uri, fileName, `Export: ${note.title}`);
+}
 
+// -------------------------------------------------------------------
+// exportDocumentPdf (step 4.8a)
+// A document's tabs as a PDF with its page setup, pages as the page view
+// shows them (editor/export/printPages.ts). Laptop: the print dialog,
+// where "Save as PDF" writes the file. iPhone: `build` is the PdfRenderer's
+// (the editor bundle in a WebView); expo-print writes the PDF at the
+// paper's size and the share sheet opens.
+// -------------------------------------------------------------------
+export async function exportDocumentPdf(params: {
+  title: string;
+  tabs: PrintTab[];
+  options: Omit<PrintOptions, 'target'>;
+  build?: (tabs: PrintTab[], options: PrintOptions, title: string) => Promise<PrintResult>;
+}): Promise<void> {
+  const { title, tabs, options, build } = params;
+  const fileName = pdfFileName(title);
+
+  if (Platform.OS === 'web') {
+    const { buildPrint } = await import('../editor/export/printPages');
+    const result = await buildPrint(tabs, { ...options, target: 'browser' }, title);
+    window.studiplyPrint = { title, html: result.html, pages: result.pages };
+    await printInBrowser(result.html, fileName.replace(/\.pdf$/, ''));
+    return;
+  }
+
+  if (!build) throw new Error('Could not make the PDF.');
+  const result = await build(tabs, { ...options, target: 'ios' }, title);
+  const { uri } = await Print.printToFileAsync({
+    html: result.html,
+    width: result.width,
+    height: result.height,
+    margins: { left: 0, top: 0, right: 0, bottom: 0 },
+    base64: false,
+  });
+  await shareNamedPdf(uri, fileName, `Export: ${title}`);
+}
+
+// -------------------------------------------------------------------
+// shareNamedPdf
+// expo-print names the file at random; the share sheet shows the title
+// instead.
+// -------------------------------------------------------------------
+async function shareNamedPdf(uri: string, fileName: string, dialogTitle: string): Promise<void> {
   const canShare = await Sharing.isAvailableAsync();
   if (!canShare) {
     throw new Error('Sharing is not available on this device.');
   }
 
-  // expo-print names the file at random; the share sheet shows the title instead.
   const named = `${FileSystem.cacheDirectory}${fileName}`;
   await FileSystem.deleteAsync(named, { idempotent: true });
   await FileSystem.moveAsync({ from: uri, to: named });
   try {
     await Sharing.shareAsync(named, {
       mimeType: 'application/pdf',
-      dialogTitle: `Export: ${note.title}`,
+      dialogTitle,
       UTI: 'com.adobe.pdf',
     });
   } finally {
@@ -55,11 +107,12 @@ export async function exportNoteToPDF(params: {
 // -------------------------------------------------------------------
 // printInBrowser
 // Browsers have no share sheet, and expo-print on web only prints the
-// current page. The note's HTML goes into a hidden iframe and the print
-// dialog opens, where "Save as PDF" makes the file. (An iframe, not a new
-// window, so popup blockers don't stop it.)
+// current page. The HTML goes into a hidden iframe and the print dialog
+// opens, where "Save as PDF" makes the file. (An iframe, not a new
+// window, so popup blockers don't stop it.) Photos and fonts load first,
+// so the PDF never has an empty frame.
 // -------------------------------------------------------------------
-function printInBrowser(html: string, title: string): void {
+async function printInBrowser(html: string, title: string): Promise<void> {
   const frame = document.createElement('iframe');
   frame.style.position = 'fixed';
   frame.style.width = '0';
@@ -78,6 +131,16 @@ function printInBrowser(html: string, title: string): void {
   doc.write(html);
   doc.close();
   doc.title = title;
+
+  const loaded = (img: HTMLImageElement) =>
+    img.complete
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        });
+  const ready = Promise.all([...Array.from(doc.images).map(loaded), doc.fonts?.ready.catch(() => undefined)]);
+  await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, 10000))]);
 
   const cleanUp = () => setTimeout(() => frame.remove(), 1000);
   win.addEventListener('afterprint', cleanUp, { once: true });

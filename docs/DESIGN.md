@@ -140,6 +140,18 @@ As built in step 4.4:
     - **iPhone:** a sheet from the bottom, which closes after a tap.
     - With no headings it says "Headings you add appear here."
   - **Sheet tabs** have none of these: the menu shows only Version history, there is no status line or outline, and ⌘F is the browser's own find.
+- **Export PDF (step 4.8a):** the document menu's **Page** group → **Export PDF…** (both devices; a sheet tab's menu too).
+  - **The dialog:**
+    - **This tab / All tabs**, only when the document has more than one tab;
+    - **Page numbers**, on by default, numbered through the whole file and placed where the page setup puts them (bottom centre when the page setup has them Off);
+    - **Cancel · Export**.
+
+    A centred dialog on the laptop, a sheet on the iPhone; "Preparing the PDF…" while it works.
+  - **The pages are the page view's.** Same paper, margins and orientation (Page setup), same breaks (a page break starts a page, headings stay with the next line, widows and orphans, photos and display formulas whole, tables split between rows). Graphs, formulas, callouts, chips and photos look as on screen. Comment highlights, find marks and the selection don't print.
+  - **All tabs:** each tab starts on a new page with its name as a Heading 1.
+  - **Sheet tabs:** print as a table of their values, as the grid shows them (numbers right-aligned, bold kept), over the area that has something in it, with no column letters or row numbers.
+  - **Laptop:** the browser's print window opens at the paper's size; **Save as PDF** writes the file, named after the document.
+  - **iPhone:** the PDF is made at the paper's size and the share sheet opens (save to Files, send…).
 - **Paste** from Google Docs or Word keeps headings, B/I/U/S, colours, highlights (snapped to our highlight colours), lists (Word's too, nested and numbered), links and tables; fonts and sizes become the document's own.
 
 ## Recording flow

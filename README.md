@@ -188,6 +188,12 @@ Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, s
 
 Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
 
+The PDF export (step 4.8a) lives in `src/editor/export`:
+- **`printPages.ts`** runs in a page (the laptop's own, or the iPhone's WebView). It puts each tab in a hidden editor with the document's page setup, Pages on, at 100 % and no gap. The page view lays it out (`pageLayout.ts`, so the PDF's pages are the page view's). Then each page becomes a box of the paper's size holding its blocks where they were placed, with numbers through the file.
+- **`sheetTable.ts`** turns a sheet tab into a table of its values.
+
+The dialog is `components/editor/ExportPdfDialog.tsx` (the document menu's Export PDF…). `services/export.service.ts` (`exportDocumentPdf`) prints on the laptop (the browser's print window, Save as PDF; the last print document is `window.studiplyPrint` for the Chrome check). On the iPhone it asks `editor/PdfRenderer.tsx`, the editor bundle in a small WebView of its own, through the export bridge (`bridges/export.ts`). It then writes the PDF with expo-print at the paper's size in points (the pages drawn at 3/4, as expo-print lays CSS px out as points) and opens the share sheet.
+
 The writing tools (step 4.7) live in `src/editor/writing`, inside the shared editor, so both devices use the same code:
 - `find.ts` is the find & replace plugin: the matches, the highlights and the `find` format command. Replace all is one transaction.
 - `counts.ts` counts words and characters the way Google Docs does.

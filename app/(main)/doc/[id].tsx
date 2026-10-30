@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import StudiplyEditor from '../../../src/editor/StudiplyEditor';
-import type { CommentCommand, StudiplyEditorHandle } from '../../../src/editor/types';
+import type { CommentCommand, DocJSON, StudiplyEditorHandle } from '../../../src/editor/types';
 import { PAGE_COLORS } from '../../../src/editor/editorCss';
 import { DocumentHeader } from '../../../src/components/editor/DocumentHeader';
 import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
@@ -13,6 +13,7 @@ import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCar
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
 import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
+import { ExportPdfDialog } from '../../../src/components/editor/ExportPdfDialog';
 import { MiniPlayer, type PlayRequest } from '../../../src/components/editor/MiniPlayer';
 import { SheetTab, type SheetHandle } from '../../../src/components/sheet/SheetTab';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
@@ -330,6 +331,16 @@ export default function DocumentScreen() {
   const [phoneView, setPhoneView] = useViewPrefs('iphone');
   // Page setup (after test D): saved on the document; both devices.
   const [pageSetupOpen, setPageSetupOpen] = useState(false);
+  // Export PDF… (step 4.8a): this tab or all, with the page setup; the open tab as it is now (unsaved edits too).
+  const [exportOpen, setExportOpen] = useState(false);
+  const docLanguage = session?.language && session.language !== 'auto' ? session.language : accountLanguage;
+  const loadTabContent = async (t: TabInfo): Promise<DocJSON> => {
+    if (t.tab === tab && showEditor) {
+      const now = await (isSheet ? sheetRef.current?.getJSON() : editorRef.current?.getJSON());
+      if (now) return now;
+    }
+    return (await openDocument(id, t.tab)).content;
+  };
   // A tap on a timestamp chip plays the lecture's recording from there (step 4.6).
   const [play, setPlay] = useState<PlayRequest | null>(null);
   const menuButton = useRef<View>(null);
@@ -337,8 +348,11 @@ export default function DocumentScreen() {
     if (!item) return;
     editorRef.current?.blur();
     const extra: DialogButton[] = showEditor && isSheet
-      ? // A spreadsheet tab (step 4.7e): no comments, page setup or print layout yet.
-        [{ text: 'Version history', icon: 'time-outline', section: 'Review', onPress: () => setHistoryOpen(true) }]
+      ? // A spreadsheet tab (step 4.7e): no comments, page setup or print layout yet; its PDF is a table of values (4.8a).
+        [
+          { text: 'Version history', icon: 'time-outline', section: 'Review', onPress: () => setHistoryOpen(true) },
+          { text: 'Export PDF…', icon: 'download-outline', section: 'Page', onPress: () => setExportOpen(true) },
+        ]
       : showEditor
       ? [
           // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
@@ -349,12 +363,14 @@ export default function DocumentScreen() {
           { text: 'Outline', icon: 'list-outline', onPress: () => editorRef.current?.tool('outline') },
           { text: 'Word count', icon: 'stats-chart-outline', onPress: () => editorRef.current?.tool('wordCount') },
           { text: 'Page setup…', icon: 'document-text-outline', section: 'Page', onPress: () => setPageSetupOpen(true) },
+          { text: 'Export PDF…', icon: 'download-outline', onPress: () => setExportOpen(true) },
           ...(Platform.OS !== 'web'
             ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]
             : []),
         ]
       : [];
-    itemMenu.open(item, await anchorBelow(menuButton), { skip: ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined });
+    // With a document open, Export PDF… (4.8a) takes the place of the lecture's earlier-notes export (still in the library's menu).
+    itemMenu.open(item, await anchorBelow(menuButton), { skip: showEditor ? ['open', 'export'] : ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined });
   };
 
   const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : 'Document'} · ${metaDate(file.created_at)}` : '';
@@ -461,7 +477,7 @@ export default function DocumentScreen() {
         view={nativeEditor ? phoneView : undefined}
         pageSetup={sync.pageSetup}
         onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
-        language={session?.language && session.language !== 'auto' ? session.language : accountLanguage}
+        language={docLanguage}
         footer={
           play ? <MiniPlayer lectureId={isLecture ? id : null} recording={lectureStatus === 'recording'} request={play} onClose={() => setPlay(null)} /> : null
         }
@@ -555,6 +571,18 @@ export default function DocumentScreen() {
         onApply={(setup) => void sync.setPageSetup(setup).catch((err) => showAlert('Could not save the page setup', errorMessage(err, 'Please try again.')))}
         onSetDefault={saveDefaultPageSetup}
       />
+      {file && tabs && (
+        <ExportPdfDialog
+          visible={exportOpen}
+          onClose={() => setExportOpen(false)}
+          title={file.title}
+          tabs={tabs}
+          current={tab}
+          setup={sync.pageSetup}
+          language={docLanguage}
+          loadTab={loadTabContent}
+        />
+      )}
       {file && (
         <VersionHistory
           visible={historyOpen}

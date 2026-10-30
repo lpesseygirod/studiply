@@ -141,14 +141,17 @@ function pageLayer(pages: number, sheet: SheetGeometry) {
   };
 }
 
+/** A gap's height in a widget's key: to the hundredth, so a gap that changes by a fraction of a pixel is drawn again (ProseMirror keeps a widget whose key is the same). */
+const px2 = (n: number) => n.toFixed(2);
+
 function decorationsFor(doc: PMNode, gaps: DrawnGap[], layout: PageLayout, sheet: SheetGeometry): DecorationSet {
-  const decos = gaps.map((g) => Decoration.widget(g.at, gapWidget(g), { side: -1, key: `gap-${g.page}-${g.at}-${Math.round(g.height)}-${g.place}`, ignoreSelection: true }));
+  const decos = gaps.map((g) => Decoration.widget(g.at, gapWidget(g), { side: -1, key: `gap-${g.page}-${g.at}-${px2(g.height)}-${g.place}`, ignoreSelection: true }));
   decos.push(Decoration.widget(0, pageLayer(layout.pages, sheet), { side: -1, key: `pages-${layout.pages}-${JSON.stringify(sheet)}`, ignoreSelection: true }));
   // The rest of the last page.
   decos.push(
     Decoration.widget(doc.content.size, gapWidget({ unit: -1, at: doc.content.size, place: 'block', height: layout.tail, page: layout.pages + 1 }), {
       side: 1,
-      key: `tail-${layout.pages}-${Math.round(layout.tail)}`,
+      key: `tail-${layout.pages}-${px2(layout.tail)}`,
       ignoreSelection: true,
     }),
   );
@@ -176,13 +179,18 @@ function linesOf(el: HTMLElement): { top: number; bottom: number; left: number }
 const TEXTBLOCKS_KEEP_WITH_NEXT = ['heading', 'title'];
 const CONTAINERS = ['bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'blockquote'];
 
-/** Measures the document (no gaps shown) into units for the layout, in CSS px from the first page's text top. */
-/** `textHeight`: a page's text area (a callout that fits moves whole; a longer one splits between lines). */
-function measure(view: EditorView, textHeight: number): { units: PageUnit[]; scale: number; sheetLeft: number; end: number } | null {
+/**
+ * Measures the document (no gaps shown) into units for the layout, in CSS px from the first page's text top.
+ * `textHeight`: a page's text area (a callout that fits moves whole; a longer one splits between lines).
+ * `scale`: the CSS zoom the editor is shown at (shownZoom), exactly. Not box.width / offsetWidth:
+ * offsetWidth is whole pixels, and an A4 sheet is 793.7 px wide, so that ratio is 0.99962 at
+ * 100 %, every position came out 0.04 % too far down (1 px by the third page), the gaps that
+ * much short, and the pages started off their top margin (step 4.8a's PDF check found it).
+ */
+function measure(view: EditorView, textHeight: number, scale: number): { units: PageUnit[]; scale: number; sheetLeft: number; end: number } | null {
   const dom = view.dom as HTMLElement;
   const box = dom.getBoundingClientRect();
-  if (!dom.offsetWidth || !box.width) return null;
-  const scale = box.width / dom.offsetWidth;
+  if (!dom.offsetWidth || !box.width || !scale) return null;
   const style = getComputedStyle(dom);
   const top0 = box.top + parseFloat(style.paddingTop) * scale + parseFloat(style.borderTopWidth) * scale;
   const y = (v: number) => (v - top0) / scale;
@@ -319,6 +327,8 @@ class PageViewController {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private observer: ResizeObserver | null = null;
   private lastWidth = 0;
+  /** The document's height (CSS px, to the hundredth), to notice a block that grows after the pages were drawn. */
+  private lastHeight = 0;
   private pinchFrom = 1;
   private label: HTMLElement | null = null;
   private labelTimer: ReturnType<typeof setTimeout> | null = null;
@@ -327,10 +337,21 @@ class PageViewController {
     if (typeof ResizeObserver !== 'undefined') {
       this.observer = new ResizeObserver(() => {
         // CSS px: zooming changes nothing here, a narrower window or column does.
-        const w = (this.view.dom as HTMLElement).offsetWidth;
+        const dom = this.view.dom as HTMLElement;
+        const w = dom.offsetWidth;
         if (Math.abs(w - this.lastWidth) > 0.5) {
           this.lastWidth = w;
           this.schedule(0);
+        }
+        // A block that changes size after the pages were drawn (a graph drawn late, a font, a photo
+        // sized by its frame), even by a fraction of a pixel: measured again, or every page after it
+        // would start that much off its top margin (and the PDF export, 4.8a, would differ). Drawing
+        // the gaps changes the height too; the measure after that finds the same layout and stops.
+        const s = pageViewOf(this.view.state);
+        const h = s ? dom.getBoundingClientRect().height / shownZoom(s) : 0;
+        if (Math.abs(h - this.lastHeight) > 0.01) {
+          this.lastHeight = h;
+          if (s?.pages) this.schedule();
         }
         this.fitScreen();
       });
@@ -339,6 +360,8 @@ class PageViewController {
     }
     view.dom.addEventListener('load', this.onLoad, true);
     document.fonts?.ready.then(() => this.schedule(0)).catch(() => {});
+    // Fonts asked for later (KaTeX's, when a formula is first drawn) change sizes after the first measure.
+    document.fonts?.addEventListener?.('loadingdone', this.onLoad);
     document.addEventListener('gesturestart', this.onPinchStart as EventListener, { passive: false });
     document.addEventListener('gesturechange', this.onPinch as EventListener, { passive: false });
     // The page or a box inside it, whichever scrolls (scroll events don't bubble).
@@ -425,7 +448,7 @@ class PageViewController {
     }
     const dom = view.dom as HTMLElement;
     dom.classList.add(MEASURING_CLASS);
-    const measured = measure(view, state.sheet.height - state.sheet.marginTop - state.sheet.marginBottom);
+    const measured = measure(view, state.sheet.height - state.sheet.marginTop - state.sheet.marginBottom, shownZoom(state));
     if (!measured) {
       dom.classList.remove(MEASURING_CLASS);
       return;
@@ -440,11 +463,15 @@ class PageViewController {
       gaps.push({ ...g, at, cols: g.place === 'row' ? columnsAt(view.state.doc, at) : undefined });
     }
     dom.classList.remove(MEASURING_CLASS);
+    // Drawn again whenever a gap moves at all (to the hundredth of a pixel): a gap kept from an earlier
+    // measure that differs by a fraction of a pixel moves everything after it, and the differences add
+    // up page after page (the PDF export, 4.8a, lays the pages out once, from the last measure).
+    // Measuring hides the gaps, so drawing them doesn't change the next measure: no loop.
     const same =
       state.layout &&
       state.layout.pages === layout.pages &&
-      Math.abs(state.layout.tail - layout.tail) < 1 &&
-      JSON.stringify(state.layout.gaps.map((g) => [g.at, Math.round(g.height)])) === JSON.stringify(gaps.map((g) => [g.at, Math.round(g.height)]));
+      px2(state.layout.tail) === px2(layout.tail) &&
+      JSON.stringify(state.layout.gaps.map((g) => [g.at, px2(g.height)])) === JSON.stringify(gaps.map((g) => [g.at, px2(g.height)]));
     if (same) return;
     view.dispatch(view.state.tr.setMeta(pageViewKey, { layout: { ...layout, gaps }, gaps } satisfies Meta).setMeta('addToHistory', false));
   }
@@ -453,6 +480,7 @@ class PageViewController {
     if (this.timer) clearTimeout(this.timer);
     this.observer?.disconnect();
     this.view.dom.removeEventListener('load', this.onLoad, true);
+    document.fonts?.removeEventListener?.('loadingdone', this.onLoad);
     document.removeEventListener('gesturestart', this.onPinchStart as EventListener);
     document.removeEventListener('gesturechange', this.onPinch as EventListener);
     document.removeEventListener('scroll', this.onScroll, { capture: true });

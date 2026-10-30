@@ -54,8 +54,11 @@ declare module '@tiptap/core' {
   }
 }
 
+/** What a photo says until its picture is found (the PDF export, 4.8a, waits for it to go). */
+export const PHOTO_LOADING = 'Loading photo…';
+
 const NOTES: Record<'loading' | 'offline' | 'missing' | 'broken', string> = {
-  loading: 'Loading photo…',
+  loading: PHOTO_LOADING,
   offline: 'Photo — shows when online',
   // Its row isn't there (yet): another device may still be uploading it; asked again every RETRY_MS.
   missing: 'Photo not uploaded yet',

@@ -498,6 +498,10 @@ Step 4.8: import a Word document (.docx) as a new document in the open course or
 
 **Check:** import a real Word file from your courses and compare it with Word; export it again as .docx and PDF and open both on the Mac: page breaks start new pages and the pages are numbered.
 
+**Split (Lea's advisor, 30 Oct):**
+- **4.8a, PDF export (no new dependency):** any document on both devices (laptop: the print window's Save as PDF; iPhone: the share sheet), with its page setup, the page view's pages (pageLayout.ts), page numbers (an option, on by default), This tab / All tabs; sheet tabs as a table of values; graphs, formulas, callouts and photos as they look. Built 30 Oct.
+- **4.8b, .docx import and export:** after Lea chooses the libraries (comparison in the 4.8a report: mammoth for import, docx for export).
+
 **Step 4.9 — Convert old notes**
 
 ```markdown

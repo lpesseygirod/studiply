@@ -5,6 +5,7 @@ import { boot, sendMessage } from '@10play/tentap-editor/src/web/runtime.ts';
 
 import { studiplyBridges } from '../src/editor/bridges';
 import { PHOTO_NEED } from '../src/editor/bridges/photo';
+import { buildPrint } from '../src/editor/export/printPages';
 import { setPhotoResolver } from '../src/editor/media/photoSource';
 import { PHOTO_CLASS } from '../src/editor/schema/photo';
 
@@ -12,8 +13,12 @@ declare global {
   interface Window {
     /** The editor, for the Chrome check (editor-spike.mjs), which runs this bundle without the app. */
     studiplyEditor?: ReturnType<typeof useTenTap>;
+    /** The PDF export's pages (step 4.8a, the export bridge's), for the Chrome check (export.mjs). */
+    studiplyBuildPrint?: typeof buildPrint;
   }
 }
+
+window.studiplyBuildPrint = buildPrint;
 
 // Photos (`media:<id>`): native has them (the phone's copy, or a signed
 // link) and answers through the photo bridge.
