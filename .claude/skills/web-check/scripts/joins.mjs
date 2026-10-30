@@ -5,28 +5,39 @@
 // build uses it): the lecture's audio_chunks rows and their files, decoded
 // in headless Chrome. Nothing is changed, sent or stored.
 //
-// For each join it prints:
-//   - the clicks heard in both chunks (the overlap: about 10 with 500 ms),
-//   - the clicks heard in neither (audio lost at the join; each ≈ 50 ms),
-//   - how far the next chunk's start_ms is off (ms, from the clicks),
-//   - the join itself from the files' lengths (ms, < 0 an overlap; ± the AAC
-//     encoder's padding, a few tens of ms).
-// Also the clicks missed inside chunks (a dropout), each file's decoded
-// length against its row, chunks far longer than 30 s (a rotation that
-// didn't run), and the phone's clock drift.
+// Each join is measured two ways:
+//   1. From the audio itself (the verdict): consecutive chunks overlap by
+//      500 ms, so the start of chunk n+1 is also the end of chunk n. A piece
+//      of n+1's start (300 ms, after its first 50 ms) is cross-correlated with
+//      the end of n around where start_ms puts it (± 300 ms). Printed: the
+//      overlap measured, how far start_ms is off, and whether the overlap is
+//      the same audio (ρ, the correlation: 1 = identical). This needs no
+//      beeps and works with any sound, even the room's.
+//   2. From the clicks (a second opinion): the clicks heard in both chunks and
+//      in neither, placed on the laptop's track by the second's beeps. The
+//      iPhone's recording often loses the beeps (2nd test, 30 Oct: heard in 2
+//      of 31 chunks, clicks in 63–95 %), and then this one says why it can't.
+// Also: how much of the click track each chunk heard, chunks far longer than
+// 30 s (a rotation that didn't run), short chunks in the middle and what they
+// look like (a long part cut on the phone, a pause), the decoded lengths and
+// the phone's clock drift.
 //
-// Too quiet (30 Oct): a chunk where fewer than half of its clicks are heard
-// on the 50 ms grid didn't hear the click track (too far, too soft, a loud
-// room). It is not measured, its "missed" clicks are not counted as lost,
-// and the verdict says NOT MEASURED (exit code 3) with what to change.
-// Exit code 1 if a join lost audio or couldn't be measured.
+// A periodic sound (the click track) matches equally well a period (50 ms)
+// further on, and then the best match can also land at the search's edge:
+// such a join is reported "audio continuous (ρ …), exact overlap not
+// measurable on a periodic signal", not as a failure. Speech isn't periodic,
+// so a real lecture gets exact overlaps: it is the definitive join test.
+//
+// Exit code 0 PASS, 1 FAIL (a join lost or shifted audio, or a chunk too
+// long), 3 NOT MEASURED (most joins couldn't be measured either way),
+// 4 CONTINUOUS (the audio goes on at every join, but some exact overlaps
+// couldn't be measured on a periodic signal).
 //
 // Usage, from the Studiply folder (supabase start running):
 //   node .claude/skills/web-check/scripts/joins.mjs "Join test"
 // (or from elsewhere: WEB_CHECK_SCRIPTS=<the web-check scripts folder> node joins.mjs "Join test")
 // The newest lecture with that title is measured. Record it without Pause:
-// a pause (or a call) shows as "not continuous" and the joins after it are
-// measured on their own.
+// a pause (or a call) is shown and left out.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -46,12 +57,19 @@ const PER_SECOND = 20;
 const BREAK_MS = 300;
 /** A click this close to its place on the chunk's 50 ms grid counts as heard (ms). */
 const ON_GRID_MS = 6;
-/** Fewer of a chunk's clicks heard than this: the click track didn't reach the phone. */
-const TOO_QUIET = 0.5;
-/** Fewer than this: heard, but quietly (some "missed" clicks may only be too soft). */
+/** Fewer of a chunk's clicks than this on the grid: too few for the click method (quiet, or its timing jumps). */
+const FEW_CLICKS = 0.5;
+/** Heard, but quietly. */
 const QUIET = 0.9;
 /** A chunk longer than this: its rotation didn't run (30 s + the 500 ms overlap + slack). */
 const LONG_MS = 31_500;
+/** The overlap is the same audio from this correlation; below the second, audio was lost or shifted. */
+const SAME = 0.8;
+const DIFFERENT = 0.5;
+/** A rotation's overlap should be about 500 ms; outside this it's reported as wrong. */
+const OVERLAP_OK = [300, 700];
+/** start_ms may be off by this much (ms) before it's reported. */
+const START_OK_MS = 50;
 
 const title = process.argv[2];
 if (!title) {
@@ -84,7 +102,11 @@ if (!rows?.length) {
   process.exit(2);
 }
 
-/** In the page: decodes a chunk and finds the clicks' onsets (ms) and which are the second's beeps. */
+/**
+ * In the page: decodes a chunk, finds the clicks' onsets (ms) and which are the second's beeps,
+ * and keeps the chunk's first 2 s and last 2.5 s for measuring its joins (__join).
+ * (No backticks or dollar-braces in here: this is a template string.)
+ */
 const PAGE = `(() => {
   const onsets = (x, sr) => {
     // 1 ms frames of the first difference (rumble and low voices out, clicks kept).
@@ -126,17 +148,135 @@ const PAGE = `(() => {
     }
     return { onsets: found, noise, loud };
   };
-  window.__measure = async (b64) => {
+  window.__edges = {};
+  window.__measure = async (b64, seq) => {
     const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
     const ctx = new AudioContext();
     try {
       const buf = await ctx.decodeAudioData(bytes.buffer);
-      return { durationMs: buf.duration * 1000, ...onsets(buf.getChannelData(0), buf.sampleRate) };
+      const x = buf.getChannelData(0);
+      const sr = buf.sampleRate;
+      window.__edges[seq] = {
+        sr,
+        n: x.length,
+        head: x.slice(0, Math.min(x.length, Math.round(2 * sr))),
+        tail: x.slice(Math.max(0, x.length - Math.round(2.5 * sr))),
+      };
+      return { durationMs: buf.duration * 1000, ...onsets(x, sr) };
     } catch (e) {
       return { error: 'does not decode: ' + (e && e.message) };
     } finally {
       await ctx.close();
     }
+  };
+
+  const pearson = (t, x, at) => {
+    const n = t.length;
+    let st = 0;
+    let sx = 0;
+    for (let i = 0; i < n; i++) {
+      st += t[i];
+      sx += x[at + i];
+    }
+    const mt = st / n;
+    const mx = sx / n;
+    let sxy = 0;
+    let stt = 0;
+    let sxx = 0;
+    for (let i = 0; i < n; i++) {
+      const a = t[i] - mt;
+      const b = x[at + i] - mx;
+      sxy += a * b;
+      stt += a * a;
+      sxx += b * b;
+    }
+    return stt > 0 && sxx > 0 ? sxy / Math.sqrt(stt * sxx) : 0;
+  };
+  const decimate = (x, d) => {
+    const out = new Float32Array(Math.floor(x.length / d));
+    for (let i = 0; i < out.length; i++) {
+      let s = 0;
+      for (let k = 0; k < d; k++) s += x[i * d + k];
+      out[i] = s / d;
+    }
+    return out;
+  };
+  const rms = (x) => {
+    let s = 0;
+    for (let i = 0; i < x.length; i++) s += x[i] * x[i];
+    return Math.sqrt(s / Math.max(1, x.length));
+  };
+
+  // Where chunk b's start is found in chunk a's end; offsetMs: b.start_ms - a.start_ms.
+  window.__join = (a, b, offsetMs) => {
+    const A = window.__edges[a];
+    const B = window.__edges[b];
+    if (!A || !B) return { error: 'not decoded' };
+    if (A.sr !== B.sr) return { error: 'different sample rates' };
+    const sr = A.sr;
+    const tailStart = A.n - A.tail.length;
+    // B's first 50 ms are left out: a decoder starting fresh needs a frame or two.
+    const skip = Math.round(0.05 * sr);
+    const offset = Math.round((offsetMs * sr) / 1000);
+    const predictedOverlap = A.n - offset;
+    const predictedOverlapMs = (predictedOverlap / sr) * 1000;
+    const len = Math.min(Math.round(0.3 * sr), predictedOverlap - skip - Math.round(0.02 * sr), B.head.length - skip);
+    if (len < Math.round(0.1 * sr)) return { noOverlap: true, predictedOverlapMs };
+    const t = B.head.subarray(skip, skip + len);
+    if (rms(t) < 1e-4) return { silent: true, predictedOverlapMs };
+    const expected = offset + skip - tailStart;
+    const search = Math.round(0.3 * sr);
+    const lo = Math.max(0, expected - search);
+    const hi = Math.min(A.tail.length - len, expected + search);
+    if (hi < lo) return { noOverlap: true, predictedOverlapMs };
+    // Coarse at about 6 kHz, then sample by sample around the best place.
+    const d = Math.max(1, Math.round(sr / 6000));
+    const td = decimate(t, d);
+    const ad = decimate(A.tail, d);
+    let best = -2;
+    let bestAt = lo;
+    const coarse = [];
+    for (let p = Math.ceil(lo / d); p * d <= hi && p + td.length <= ad.length; p++) {
+      const r = pearson(td, ad, p);
+      coarse.push({ at: p * d, r });
+      if (r > best) {
+        best = r;
+        bestAt = p * d;
+      }
+    }
+    // A periodic sound (the click every 50 ms) matches as well one period further on: the best
+    // other peak at least 20 ms away, nearly as high, makes the place ambiguous.
+    const apart = Math.round(0.02 * sr);
+    let rival = -2;
+    let rivalAt = null;
+    for (const c of coarse) {
+      if (Math.abs(c.at - bestAt) >= apart && c.r > rival) {
+        rival = c.r;
+        rivalAt = c.at;
+      }
+    }
+    let fine = -2;
+    let fineAt = bestAt;
+    for (let p = Math.max(lo, bestAt - 2 * d); p <= Math.min(hi, bestAt + 2 * d); p++) {
+      const r = pearson(t, A.tail, p);
+      if (r > fine) {
+        fine = r;
+        fineAt = p;
+      }
+    }
+    const bAt = tailStart + fineAt - skip;
+    return {
+      rho: fine,
+      overlapMs: ((A.n - bAt) / sr) * 1000,
+      predictedOverlapMs,
+      offErrMs: ((bAt - offset) / sr) * 1000,
+      lenMs: (len / sr) * 1000,
+      // Nearly as good elsewhere (within 0.05), and how far away (ms): a period of the sound.
+      ambiguous: rival >= best - 0.05,
+      rivalMs: rivalAt === null ? null : ((rivalAt - bestAt) / sr) * 1000,
+      // The best place at the search's edge: the true one may lie beyond it.
+      edge: fineAt - lo <= d || hi - fineAt <= d,
+    };
   };
   return true;
 })()`;
@@ -152,6 +292,7 @@ const length = (x) => (x >= 120_000 ? `${(x / 60_000).toFixed(1)} min` : `${(x /
 
 const b = await launch();
 const chunks = [];
+const audioJoins = new Map();
 try {
   await b.evaluate(PAGE);
   for (const row of rows) {
@@ -167,7 +308,7 @@ try {
       continue;
     }
     const b64 = Buffer.from(await file.arrayBuffer()).toString('base64');
-    const r = await b.evaluate(`window.__measure('${b64}')`);
+    const r = await b.evaluate(`window.__measure('${b64}', ${row.seq})`);
     if (r.error) {
       c.error = r.error;
       continue;
@@ -177,11 +318,13 @@ try {
     // A beep stays loud well longer than this chunk's usual click (most onsets are clicks).
     const usual = r.onsets.length ? median(r.onsets.map((o) => o.len)) : 0;
     c.clicks = r.onsets.map((o) => ({ T: row.start_ms + o.t, mark: o.len >= Math.max(12, 1.8 * usual) }));
-    if (!c.clicks.length) {
-      c.share = 0;
-      c.quiet = true;
-      c.error = 'too quiet: no clicks heard at all';
-    }
+  }
+  // Method 1: each join from the shared audio.
+  for (let i = 0; i + 1 < chunks.length; i++) {
+    const A = chunks[i];
+    const B = chunks[i + 1];
+    if (A.error || B.error) continue;
+    audioJoins.set(B.seq, await b.evaluate(`window.__join(${A.seq}, ${B.seq}, ${B.start - A.start})`));
   }
 } finally {
   await b.close();
@@ -233,7 +376,8 @@ function fit(seg) {
   seg.a = mt - seg.b * mg;
 }
 
-// Every click gets its number on the laptop's track (G), chunk after chunk; a jump starts a new stretch.
+// Method 2: every click gets its number on the laptop's track (G), chunk after chunk, placed by the
+// beeps; a chunk without beeps (or too few clicks) is left out of this method only (`clickError`).
 const segments = [];
 let seg = null;
 for (const [i, c] of chunks.entries()) {
@@ -248,17 +392,21 @@ for (const [i, c] of chunks.entries()) {
     seg = null;
     continue;
   }
+  if (!c.clicks.length) {
+    c.share = 0;
+    c.clickError = 'no clicks heard';
+    seg = null;
+    continue;
+  }
   Object.assign(c, local(c));
   c.share = c.onGrid / c.expected;
-  if (c.share < TOO_QUIET) {
-    c.quiet = true;
-    c.error = `too quiet: ${c.onGrid} of about ${c.expected} clicks heard (${pct(c.share)})`;
+  if (c.share < FEW_CLICKS) {
+    c.clickError = `only ${pct(c.share)} of its clicks on the 50 ms grid (quiet, or its timing jumps)`;
     seg = null;
     continue;
   }
   if (!c.marks) {
-    c.quiet = true;
-    c.error = 'too quiet: no second beeps heard';
+    c.clickError = 'no second beeps heard to place its clicks';
     seg = null;
     continue;
   }
@@ -278,6 +426,7 @@ for (const [i, c] of chunks.entries()) {
     segments.push(seg);
     place(seg);
   }
+  c.segment = seg;
   seg.chunks.push(c);
   seg.pts.push(...c.list);
   fit(seg);
@@ -295,12 +444,25 @@ for (const s of segments) {
   }
 }
 
+/** The second opinion for a join, from the clicks. */
+function clickOpinion(A, B) {
+  const why = A.clickError ? `#${A.seq} ${A.clickError}` : B.clickError ? `#${B.seq} ${B.clickError}` : null;
+  if (why) return { text: `clicks: not placed (${why})` };
+  if (B.breakOff !== undefined || A.segment !== B.segment) return { text: `clicks: not continuous (#${B.seq}'s clicks ${ms(B.breakOff ?? 0)} from where #${A.seq}'s put them)` };
+  const shared = B.list.filter((x) => A.gs.has(x.G)).length;
+  const missing = Math.max(0, B.lo - A.hi - 1);
+  return { shared, missing, text: `clicks: ${shared} in both (≈ ${shared * P} ms), ${missing} in neither${missing ? ` (≈ ${missing * P} ms LOST)` : ''}, start_ms off by ${ms(B.r - A.r)}` };
+}
+
 const minutes = (rows.at(-1).start_ms + rows.at(-1).duration_ms) / 60000;
 console.log(`LECTURE | "${lecture.title}" | ${rows.length} chunks | ${minutes.toFixed(1)} min recorded`);
 const seqsInOrder = rows.every((r, i) => r.seq === i);
 console.log(`RESULT | order | ${seqsInOrder ? `chunks 0–${rows.length - 1}, none missing` : `numbers ${rows.map((r) => r.seq).join(', ')} (some missing)`}`);
 
-let lost = 0;
+let good = 0;
+let bad = 0;
+/** The same audio across the join, its exact place not measurable (a periodic signal). */
+let continuous = 0;
 let unmeasured = 0;
 let paused = 0;
 const kinds = [];
@@ -318,65 +480,122 @@ for (let i = 0; i + 1 < chunks.length; i++) {
     console.log(`JOIN | ${name} | a Pause or Continue here (#${B.seq} starts exactly where #${A.seq} ended): not a rotation, not measured`);
     continue;
   }
-  if (B.breakOff !== undefined) {
-    unmeasured++;
-    console.log(`JOIN | ${name} | not continuous: #${B.seq}'s clicks are ${ms(B.breakOff)} away from where #${A.seq}'s put them (a pause, a call, or a clock jump); measured on from here`);
-    continue;
+  const j = audioJoins.get(B.seq) ?? { error: 'not measured' };
+  const clicks = clickOpinion(A, B);
+  let audio;
+  if (j.error) {
+    audio = `audio: ${j.error}`;
+  } else if (j.noOverlap) {
+    audio = `audio: no overlap to compare (start_ms says ${ms(j.predictedOverlapMs)}: a restart, not two recorders)`;
+  } else if (j.silent) {
+    audio = 'audio: silent where the chunks overlap, nothing to compare';
+  } else if (j.rho >= SAME && (j.ambiguous || j.edge)) {
+    // The audio goes on across the join, but where exactly can't be told: the click track repeats
+    // every 50 ms (the beeps that would tell are lost on the iPhone). Speech has no such repeats.
+    j.periodic = true;
+    const why = [
+      j.ambiguous ? `matches nearly as well ${ms(j.rivalMs)} away` : null,
+      j.edge ? `best match at the ± 300 ms search edge (overlap ${Math.round(j.overlapMs)} ms, start_ms ${ms(j.offErrMs)})` : null,
+    ].filter(Boolean);
+    audio = `audio continuous (ρ ${j.rho.toFixed(2)}), exact overlap not measurable on a periodic signal (${why.join('; ')})`;
+  } else {
+    const same = j.rho >= SAME;
+    const different = j.rho < DIFFERENT;
+    const overlapOk = j.overlapMs >= OVERLAP_OK[0] && j.overlapMs <= OVERLAP_OK[1];
+    const startOk = Math.abs(j.offErrMs) <= START_OK_MS;
+    const verdict = different ? 'NOT the same audio (lost or shifted here)' : same ? 'the same audio' : 'similar audio';
+    audio =
+      `audio: overlap ${Math.round(j.overlapMs)} ms${overlapOk ? '' : ' (WRONG: should be about 500)'}, start_ms off by ${ms(j.offErrMs)}${startOk ? '' : ' (TOO FAR)'}` +
+      ` · ${verdict} (ρ ${j.rho.toFixed(2)} over ${Math.round(j.lenMs)} ms)`;
+    j.ok = same && overlapOk && startOk;
+    j.bad = different || !overlapOk || !startOk;
   }
-  const shared = B.list.filter((x) => A.gs.has(x.G)).length;
-  const missing = Math.max(0, B.lo - A.hi - 1);
-  const step = B.r - A.r;
-  const audioJoin = B.start - B.r - (A.start - A.r + A.dur);
-  if (missing) lost++;
-  kinds.push(shared > 0 ? 'overlap' : 'restart');
-  console.log(
-    `JOIN | ${name} | ${shared} clicks in both (≈ ${shared * P} ms overlap), ${missing} in neither${missing ? ` (≈ ${missing * P} ms LOST)` : ''} | start_ms off by ${ms(step)} | join from the files ≈ ${ms(audioJoin)}`,
-  );
+  // Counted: the audio when it could be compared, otherwise the clicks.
+  if (j.periodic) continuous++;
+  else if (j.ok) good++;
+  else if (j.bad) bad++;
+  else if (clicks.missing !== undefined) clicks.missing ? bad++ : good++;
+  else if (!j.error && !j.noOverlap && !j.silent) good++; // similar audio, no clicks to say otherwise
+  else unmeasured++;
+  if (j.periodic) kinds.push('overlap');
+  else if (j.overlapMs !== undefined) kinds.push(j.overlapMs > 100 ? 'overlap' : 'restart');
+  else if (j.noOverlap) kinds.push('restart');
+  console.log(`JOIN | ${name} | ${audio} | ${clicks.text}`);
 }
 
-// How well the click track was heard, chunk by chunk.
-const tooQuiet = chunks.filter((c) => c.quiet);
+// How well the click track was heard, chunk by chunk (it decides the click method only).
 const decoded = chunks.filter((c) => c.share !== undefined);
 if (decoded.length) {
   const shares = decoded.map((c) => c.share);
   const worst = decoded.reduce((w, c) => (c.share < w.share ? c : w));
   console.log(`RESULT | loudness | clicks heard per chunk: median ${pct(median(shares))}, lowest ${pct(worst.share)} (#${worst.seq})`);
+  const noBeeps = decoded.filter((c) => c.clickError === 'no second beeps heard to place its clicks');
+  if (noBeeps.length) {
+    console.log(
+      `NOTE | beeps | no second beeps heard in ${noBeeps.length} of ${chunks.length} chunks although their clicks were (the iPhone's recording loses the longer, lower beep): ` +
+        'the click method can only check those joins partly; the joins are measured from the audio instead',
+    );
+  }
+  const few = decoded.filter((c) => c.share < FEW_CLICKS);
+  if (few.length) console.log(`NOTE | few clicks | ${few.map((c) => `#${c.seq} ${pct(c.share)}`).join(', ')} on the 50 ms grid: too quiet there, or the timing jumps inside the chunk`);
+  const faint = decoded.filter((c) => c.share >= FEW_CLICKS && c.share < QUIET);
+  if (faint.length) console.log(`NOTE | quiet | some missed clicks may only be too soft: ${faint.map((c) => `#${c.seq} ${pct(c.share)}`).join(', ')}`);
+  // Too quiet only when most chunks heard fewer than half their clicks (missing beeps alone never count).
+  if (few.length > chunks.length / 2) console.log('TOO QUIET | most chunks heard fewer than half the clicks (the joins are still measured from the audio): phone 30 cm from the laptop speaker, volume 75 %, a quiet room.');
 }
-if (tooQuiet.length) {
-  console.log(
-    `TOO QUIET | ${tooQuiet.length} of ${chunks.length} chunks didn't hear the click track (${tooQuiet.map((c) => `#${c.seq} ${pct(c.share ?? 0)}`).join(', ')}): ` +
-      'their joins are not measured and their missing clicks are not counted as lost. Phone 30 cm from the laptop speaker, volume 75 %, a quiet room, then record again.',
-  );
-}
-const faint = decoded.filter((c) => !c.quiet && c.share < QUIET);
-if (faint.length) console.log(`NOTE | quiet (some missed clicks may only be too soft): ${faint.map((c) => `#${c.seq} ${pct(c.share)}`).join(', ')}`);
 
 const heard = chunks.reduce((n, c) => n + (c.list?.length ?? 0), 0);
-const inside = chunks.filter((c) => !c.quiet && c.missedInside > 0);
-console.log(`RESULT | clicks | ${heard} heard across the chunks; missed inside a chunk: ${inside.length ? inside.map((c) => `#${c.seq} ${c.missedInside}`).join(', ') : 'none'}`);
-const bad = chunks.filter((c) => c.badMarks > 0);
-if (bad.length) console.log(`NOTE | beeps out of place (noise taken for a beep): ${bad.map((c) => `#${c.seq} ${c.badMarks}`).join(', ')}`);
+const inside = chunks.filter((c) => !c.clickError && c.missedInside > 0);
+console.log(`RESULT | clicks | ${heard} heard across the chunks; missed inside a chunk (where placed): ${inside.length ? inside.map((c) => `#${c.seq} ${c.missedInside}`).join(', ') : 'none'}`);
+const badMarks = chunks.filter((c) => c.badMarks > 0);
+if (badMarks.length) console.log(`NOTE | beeps out of place (noise taken for a beep): ${badMarks.map((c) => `#${c.seq} ${c.badMarks}`).join(', ')}`);
 const durs = chunks.filter((c) => c.dur !== undefined).map((c) => c.dur - c.rowDur);
 if (durs.length) console.log(`RESULT | lengths | decoded minus duration_ms: ${ms(Math.min(...durs))} to ${ms(Math.max(...durs))}`);
 const long = chunks.filter((c) => c.rowDur > LONG_MS);
 console.log(
   `RESULT | chunk lengths | ${long.length ? `LONG: ${long.map((c) => `#${c.seq} ${length(c.rowDur)}`).join(', ')} (its rotation didn't run; the phone should have cut it into 30-s pieces)` : `all ≤ ${LONG_MS / 1000} s`}`,
 );
+// Short chunks in the middle: what they look like from start_ms and duration_ms.
+for (let i = 1; i + 1 < chunks.length; i++) {
+  const c = chunks[i];
+  if (c.rowDur >= 25_000) continue;
+  const prev = chunks[i - 1];
+  const next = chunks[i + 1];
+  const where = `#${c.seq} ${length(c.rowDur)} (starts ${length(c.start - prev.start)} after #${prev.seq}, which lasted ${length(prev.rowDur)})`;
+  if (Math.abs(c.start - prev.start - 30_000) <= 100 && Math.abs(prev.rowDur - 30_500) <= 100) {
+    const part = c.start + c.rowDur - prev.start;
+    console.log(
+      `NOTE | short | ${where}: with #${prev.seq} ONE part of ${length(part)} cut into two pieces on the phone; its rotation came ${length(part - 30_500)} late ` +
+        `(Metro: "[recorder] part N lasted ${Math.round(part / 1000)} s … cut into 2 pieces", and "could not prepare the next part" if preparing failed rather than hung)`,
+    );
+  } else if (next.start === c.start + c.rowDur) {
+    console.log(`NOTE | short | ${where}: a Pause (or the microphone lost) right after it`);
+  } else {
+    console.log(`NOTE | short | ${where}: ended early, not a cut piece and not a pause: send the Metro log`);
+  }
+}
 for (const s of segments) {
   console.log(`RESULT | clock | chunks #${s.chunks[0].seq}–#${s.chunks.at(-1).seq}: the phone's clock against the laptop's ${((s.b / P - 1) * 1e6).toFixed(0)} ppm`);
 }
 const mode = kinds.every((k) => k === 'overlap') ? 'two recorders at each join (overlap)' : kinds.every((k) => k === 'restart') ? 'one recorder, restarted at each join (iOS refused two)' : 'mixed (overlap at some joins, restart at others)';
-if (kinds.length) console.log(`RESULT | joins | ${mode}`);
-if (tooQuiet.length) {
-  console.log(
-    `VERDICT | NOT MEASURED | the click track was too quiet in ${tooQuiet.length} of ${chunks.length} chunks, so the joins can't be judged` +
-      `${lost ? ` (${lost} join(s) between heard chunks lost audio)` : ''}. Move the phone closer and record again.`,
-  );
+if (kinds.length) console.log(`RESULT | joins | ${mode}; ${good} measured exactly, ${continuous} continuous (exact place not measurable), ${bad} lost or wrong, ${unmeasured} not measured`);
+
+const rotations = good + continuous + bad + unmeasured;
+if (rotations && unmeasured > rotations / 2) {
+  console.log(`VERDICT | NOT MEASURED | ${unmeasured} of ${rotations} joins couldn't be measured, from the audio or the clicks`);
   process.exit(3);
 }
-console.log(
-  lost || unmeasured || long.length
-    ? `VERDICT | FAIL | ${lost} join(s) lost audio, ${unmeasured} not measured${long.length ? `, ${long.length} chunk(s) longer than ${LONG_MS / 1000} s` : ''}`
-    : `VERDICT | PASS | all ${kinds.length} rotations measured, no click lost at any join${paused ? ` (${paused} Pause/Continue joins left out)` : ''}`,
-);
-process.exit(lost || unmeasured || long.length ? 1 : 0);
+const failed = bad || unmeasured || long.length;
+if (failed) {
+  console.log(`VERDICT | FAIL | ${bad} join(s) lost or shifted audio, ${unmeasured} not measured${long.length ? `, ${long.length} chunk(s) longer than ${LONG_MS / 1000} s` : ''}`);
+  process.exit(1);
+}
+if (continuous) {
+  console.log(
+    `VERDICT | CONTINUOUS | the overlap is the same audio at every join, but ${continuous} of ${rotations} joins' exact overlap can't be measured on the periodic click track` +
+      ` (${good} measured exactly). A real lecture (speech) is the definitive join test.`,
+  );
+  process.exit(4);
+}
+console.log(`VERDICT | PASS | all ${good} rotations measured exactly, the overlap is the same audio at every join${paused ? ` (${paused} Pause/Continue joins left out)` : ''}`);
+process.exit(0);

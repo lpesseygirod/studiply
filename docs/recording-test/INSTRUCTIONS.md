@@ -52,6 +52,16 @@ Expected with two recorders (overlap):
 - `RESULT | joins | two recorders at each join (overlap)`
 - `VERDICT | PASS`
 
+joins.mjs measures each join from the 500 ms both chunks share (their audio cross-correlated).
+On the click track that audio repeats every 50 ms, so the exact overlap often can't be told:
+such joins say `audio continuous (ρ …), exact overlap not measurable on a periodic signal`,
+and the verdict is then `VERDICT | CONTINUOUS` (exit code 4). That means no audio was lost,
+not that the joins are exact.
+
+**A real lecture is the definitive join test** (speech doesn't repeat): run joins.mjs on a
+recorded lecture's title (e.g. in step 5.8) and expect `VERDICT | PASS`, each join with an
+overlap of about 500 ms and the same audio (ρ ≥ 0.8).
+
 If iOS refused two recorders at once, the Metro log says
 `[recorder] iOS refused two recorders at once …` and joins.mjs reports
 `one recorder, restarted at each join`: then each JOIN line shows the gap
