@@ -1,10 +1,11 @@
 /**
  * The app's recording flow (step 5.3, ./recording-flow) with its real parts:
- * the recorder service, the browser's microphone question, transcription
- * consent, the lecture's row. One per app, like the recorder.
+ * the recorder service, the microphone question (the browser's or the
+ * iPhone's), transcription consent, the lecture's row. One per app, like the
+ * recorder.
  */
 
-import { recorder } from './recorder';
+import { recorder, requestMicrophone } from './recorder';
 import { createRecordingFlow, type RecordingFlow } from './recording-flow';
 import { createSession, getSession, updateSession } from './session.service';
 import { ConsentDeclinedError, ensureConsent } from './consent.service';
@@ -13,16 +14,11 @@ import { isMockAiForced } from '../lib/aiMode';
 
 export type { FlowState, InterruptedRecording } from './recording-flow';
 
-async function openMicrophone(): Promise<void> {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  stream.getTracks().forEach((t) => t.stop());
-}
-
 const shared = globalThis as { __studiplyRecordingFlow?: RecordingFlow };
 export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= createRecordingFlow({
   recorder,
-  openMicrophone,
+  // The browser's or the iPhone's own question, before a lecture is made.
+  openMicrophone: requestMicrophone,
   allowTranscription: async () => {
     // EXPO_PUBLIC_MOCK_AI (development): nothing is sent, nothing asked (as the rest of the app).
     if (isMockAiForced()) return true;

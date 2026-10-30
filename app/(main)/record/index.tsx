@@ -195,7 +195,8 @@ export default function RecordSetupScreen() {
     if (!profile?.id || !title.trim()) return;
     setIsStarting(true);
 
-    // The recorder service (web now; the iPhone once expo-audio is in): record, then write in the lecture's My notes.
+    // The recorder service (web; the iPhone with expo-audio in its build): record, then write in the lecture's My notes.
+    // A build without expo-audio's native module keeps the earlier screen below (record/active, expo-av).
     if (recorder.supported) {
       try {
         const lectureId = await recordingFlow.start({
@@ -209,12 +210,19 @@ export default function RecordSetupScreen() {
         router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
       } catch (err) {
         const denied = err instanceof Error && err.name === 'NotAllowedError';
-        showAlert(
-          denied ? 'Microphone access needed' : 'Could not start recording',
-          denied
-            ? 'Allow the microphone for Studiply (the icon in the address bar), then press Start again.'
-            : errorMessage(err, 'Please try again.'),
-        );
+        if (denied && Platform.OS !== 'web') {
+          showAlert('Microphone Access Required', 'Studiply needs microphone access to record lectures. Please enable it in Settings.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]);
+        } else {
+          showAlert(
+            denied ? 'Microphone access needed' : 'Could not start recording',
+            denied
+              ? 'Allow the microphone for Studiply (the icon in the address bar), then press Start again.'
+              : errorMessage(err, 'Please try again.'),
+          );
+        }
       } finally {
         setIsStarting(false);
       }

@@ -43,6 +43,8 @@
     "@tiptap/react": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
     "expo": "~54.0.37",
+    "expo-asset": "~12.0.14",
+    "expo-audio": "~1.1.1",
     "expo-av": "~16.0.8",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.14",

@@ -19,7 +19,7 @@ export as a PDF — filed under the project and folder it belongs to.
 - **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
 - **ElevenLabs Scribe v2** — speech-to-text with word times, called only by the `transcribe-chunk` Edge Function (the default since 29 Oct 2026; `TRANSCRIBE_PROVIDER=openai` still selects OpenAI's `whisper-1` until it shuts down on 26 Feb 2027, but only with consent text naming OpenAI)
 - **Anthropic Claude** (`claude-opus-5-5`) — notes and clarifications, called only by the `summarize` and `assistant-chat` Edge Functions
-- **expo-av / expo-print** — recording and PDF export
+- **expo-audio / expo-print** — recording and playback on the iPhone (since step 5.1–5.4's iPhone half; expo-av stays only for builds without expo-audio and the web's player), and PDF export
 
 ### The backend (since step 1.7)
 
@@ -191,7 +191,7 @@ Since test D the pages sit on the app's gradient (the editor is transparent; a l
 Recording in chunks (step 5.1, the spike): `src/lib/chunkRecorder.web.ts` rotates the browser's MediaRecorder every 30 s on one microphone stream, so each chunk is a standalone WebM / Opus file.
 - **Two modes:** restart (stop and start in one task) or overlap (the next chunk starts `overlapMs` before the previous one stops).
 - **Order:** chunks are handed over in their order.
-- **The iPhone's:** `chunkRecorder.ts` is a stub until expo-audio is approved.
+- **The iPhone's:** `nativeChunkRecorder.ts` (expo-audio, below); the spike's `chunkRecorder.ts` stays a stub (the spike screen is the web's).
 - **The dev screen:** `/dev/recording-spike` (development only) uploads each chunk through `createSourceFile` and `transcribe-chunk` and shows the live transcript.
 - **The check:** `spike.mjs` measures the joins with a synthetic signal.
 
@@ -224,7 +224,12 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
   - MediaRecorder (`chunkRecorder.web.ts`, with pause and one-second pieces); the microphone is closed while paused and opened again on Resume;
   - IndexedDB `studiply-recorder` (the recordings, the chunks, the pieces, the two lanes);
   - Web Locks (who holds a recording, and one tab sending).
-- **`platform.ts`:** the iPhone's stub until expo-audio.
+- **`platform.ts`** (the iPhone; both platforms' service is built by `build.ts`):
+  - `lib/nativeChunkRecorder.ts`: two expo-audio recorders in turn, 30-second .m4a chunks overlapping by 500 ms (if iOS refuses two at once, it restarts instead and logs it once); pause, metering, a recorder stopped by iOS reported as a lost microphone;
+  - each finished chunk moved to the app's documents (`recorder/`) and deleted once uploaded; the recordings and the two lanes in AsyncStorage (`nativeStore.ts`);
+  - recording with the screen locked: app.json's expo-audio plugin (`enableBackgroundRecording`) and `lib/audioSession.ts`;
+  - **recovery** keeps every finished chunk; the one being recorded is lost (at most 30 s: an unfinished .m4a can't be read, so there are no pieces);
+  - `supported` is false in a build without expo-audio's native module (`lib/expoAudio.ts`).
 
 **The dev screen:** `/dev/recorder` (development only; Chrome check `recorder.mjs`).
 
@@ -244,7 +249,9 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
   - `useRecordingFlow()` gives the saving and interrupted states.
 - **The setup's folder picker:** `utils/folderTree.ts`.
 
-**The iPhone** keeps `record/active` (expo-av) until the recorder's `platform.ts` gets expo-audio; then the setup sends it through the same flow.
+**The iPhone** goes through the same flow and screens. `record/active` (expo-av) is kept only as the fallback for a build without expo-audio's native module.
+
+**Playback** (`lib/audioPlayer.ts`) uses expo-audio's player on the iPhone: expo-av's audio mode would switch the session away from recording and stop the recorder. The player leaves the session to `lib/audioSession.ts` (the recording mode while recording; iOS then plays through the earpiece unless headphones are in). The web's player is `audioPlayer.web.ts`.
 
 Earlier notes (step 4.9) live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.

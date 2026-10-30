@@ -154,6 +154,24 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **The fix:** a tap on a chip is now counted by the chip extension itself (`CHIP_TAP`) and plays every time; the selection that follows doesn't play twice.
     - **Checked:** Jest 1 new; `notes-live.mjs` 6/6 and `blocks.mjs` 8/8 (my runs).
     - **The iPhone bundle** needs `npm run editor:build` again.
+- **5.1–5.4 + Pause, iPhone half (expo-audio) — built 30 Oct, waiting for the device checks.** expo-audio ~1.1.1 and expo-asset ~12.0.14 installed by Lea's advisor (Lea: "yes expo-audio").
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check:bundle` passes (no key, secret or SQLite where it mustn't be); `npm run check` 1839; all seventeen Chrome suites pass.
+  - **Waiting for:**
+    1. the EAS builds (`development-simulator` and `development`; expo-audio has native code, so Expo Go and today's dev build can't run it);
+    2. the iOS Simulator list (`docs/recording-test/DEVICE-CHECKS.md`);
+    3. Lea's 15-minute locked test on her iPhone, with the click track: `docs/recording-test/` (`INSTRUCTIONS.md`, `click-track.html`) and `.claude/skills/web-check/scripts/joins.mjs`.
+  - **Known issue:** a crash on iOS loses the chunk being recorded (see Known issues).
+  - **Recorder** (`src/lib/nativeChunkRecorder.ts`, pure; `src/services/recorder/platform.ts`):
+    - two expo-audio recorders in turn: 30 s chunks overlapping by 500 ms, the next one prepared ahead;
+    - **if iOS refuses two at once:** it falls back for good to restarting (a short gap at each join) and says so once in the Metro log ("iOS refused two recorders at once");
+    - each finished chunk is moved to the app's documents (`recorder/`), kept in AsyncStorage (`nativeStore.ts`) and uploaded through the same two queue lanes as the web; the file is deleted once uploaded;
+    - pause / resume (the chunk ends, the microphone is let go), metering for the waveform, a recorder stopped by iOS (a call) pauses as "Microphone disconnected";
+    - **crash recovery keeps every finished chunk; the chunk being recorded is lost (at most 30 s):** an .m4a being written can't be read before it's finished, so the iPhone has no one-second pieces like the web.
+  - **Background with the screen locked:** app.json's expo-audio plugin (`enableBackgroundRecording`, `microphonePermission`); the audio session is set for recording in `src/lib/audioSession.ts`.
+  - **Screens:** the iPhone now uses the 5.3 recording screen and the 5.4 live stamps (shared code). `record/active` (expo-av) stays only as the fallback for a build without expo-audio's native module (today's dev build, until rebuilt).
+  - **Playback:** expo-av and expo-audio did fight over the iOS audio session (expo-av's `setAudioModeAsync` switches the session to playback, which stops expo-audio's recorders: a chip tapped during the lecture would have stopped the recording). `src/lib/audioPlayer.ts` now plays through expo-audio's player on the iPhone (expo-av only in a build without it); the web's player is `audioPlayer.web.ts`, unchanged. While recording, iOS plays through the earpiece unless headphones are in (the headphones hint covers it).
+  - **Checked:** Jest 9 new (`nativeChunkRecorder.test.ts` 7: order, overlap, refusal fallback, pause, lost, level, after a crash; `nativeRecovery.test.ts` 2: killed mid-chunk offline on the AsyncStorage store, then pause); `npm run check` 1839; installed `recorder.mjs` 7/7, `recording.mjs` 10/10, `notes-live.mjs` 6/6 (the web unchanged).
+  - **Not yet checked:** everything on a device (the Simulator and iPhone lists in `docs/recording-test/DEVICE-CHECKS.md`; the locked test in `docs/recording-test/INSTRUCTIONS.md`).
 - [ ] 5.5 — Marks with a 1–10 level
 - [ ] 5.6 — Board photos
 - [ ] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct
@@ -961,9 +979,11 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   3. Both devices show the same cards; in Pages a card never splits.
 - **Step 4.5b — the page-setup migration on the remote project.** `20261029151759_document_page_setup.sql` (adds `documents.page_setup`) is applied locally only. When you're ready: `supabase db push --linked --dry-run` (it should list only this one, plus the recent-colours one if that isn't pushed yet), then `supabase db push --linked`. Until then, page setup can't be saved against the remote project.
 - **Step 4.5 — the recent-colours migration on the remote project.** `20261026090900_profile_preferences.sql` is applied locally only; the dry run shows only it, and Lea said OK to push (28 Oct). The push was blocked by Claude Code's safety check, so Lea runs it: `supabase db push --linked`, then `supabase migration list --linked`.
-- **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch. With the upgrade, switch playback from expo-av to expo-audio: only `src/lib/audioPlayer.ts` changes (step 4.6; recording moves off expo-av in Phase 5).
+- **Before step 10.4 (TestFlight):** upgrade to the latest Expo SDK and re-run `npm audit --omit=dev`, so the `query-string` / `decode-uri-component` issue (see Known issues) is fixed before launch. The iPhone already records and plays through expo-audio (step 5.1–5.4, iPhone half); with the upgrade, remove expo-av: the web's player (`src/lib/audioPlayer.web.ts`), the fallback in `audioPlayer.ts`, and `record/index.tsx` / `record/active` (the fallback recording path) are its last users.
 
 ## Known issues
+
+- **iPhone: a crash during a recording loses the chunk being recorded, up to 30 s** (step 5.1–5.4, iPhone half, 30 Oct). An .m4a that AVAudioRecorder is still writing has no index yet and can't be read, so the iPhone can't save one-second pieces as the web does (the web loses at most about a second). Every finished chunk is kept and sent after the restart, and Continue records on after the last one. A shorter loss would need shorter chunks or a recorder that writes a streamable format (not in expo-audio 1.1).
 
 - **Audio isn't deleted after 3 days yet** (found 29 Oct 2026). New lectures are marked `delete_3_days`, but no deletion date is set, the review screen after a recording starts on "Delete manually" (and saves it), and no scheduled job deletes audio whose date has passed. The privacy policy draft already promises deletion 3 days after transcription; build it before launch (BUILD-PLAN 10.1b, docs/legal/README.md).
 

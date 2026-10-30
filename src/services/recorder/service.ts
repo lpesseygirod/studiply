@@ -24,6 +24,7 @@ import { joinTranscript } from './transcriptJoin';
 import type {
   AudioSource,
   ChunkInfo,
+  AudioData,
   ChunkRef,
   PlaybackSource,
   RecorderQueue,
@@ -114,7 +115,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
     }
   }
 
-  function chunkOf(meta: RecordingMeta, c: { seq: number; blob: Blob; mimeType: string; startMs: number; durationMs: number }, recovered: boolean): StoredChunk {
+  function chunkOf(meta: RecordingMeta, c: { seq: number; blob: AudioData; mimeType: string; startMs: number; durationMs: number }, recovered: boolean): StoredChunk {
     return {
       lectureId: meta.lectureId,
       seq: c.seq,

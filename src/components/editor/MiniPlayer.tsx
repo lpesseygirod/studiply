@@ -33,8 +33,9 @@ export interface PlayRequest {
  * While the lecture is being recorded (step 5.4) it plays from this
  * device's own copy (recorder.playback), never touching the recording
  * (CLAUDE.md), and says once to use headphones (the microphone would record
- * the sound again). Where the recorder can't (the iPhone until expo-audio),
- * it says when it can play.
+ * the sound again). Where the recorder can't (a build without expo-audio),
+ * it says when it can play; the iPhone's chunk being recorded plays once
+ * it's finished (an unfinished .m4a can't be read).
  */
 export function MiniPlayer({
   lectureId,
@@ -117,6 +118,11 @@ export function MiniPlayer({
           }
           chunks.current = playback.chunks;
           setLength(recordingLength(playback.chunks));
+          // The iPhone's chunk being recorded can't play until it's finished (at most 30 s).
+          if (request.ms >= recordingLength(playback.chunks)) {
+            setMessage('This moment is still being recorded. It plays once its part is saved, within 30 seconds.');
+            return;
+          }
           void showHintOnce(setHint);
         } else if (!chunks.current || live.current) {
           // After the recording: from Storage (the device's copies are let go).

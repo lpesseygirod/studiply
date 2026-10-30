@@ -1,43 +1,178 @@
 /**
- * The recorder on the iPhone: A STUB until expo-audio (a new dependency that
- * waits for Lea's OK). It has the same interface as the web's
- * (./platform.web) and says it isn't supported yet.
+ * The recorder on the iPhone (steps 5.1–5.4, iPhone half): expo-audio in
+ * 30-second chunks overlapping by 500 ms (lib/nativeChunkRecorder), on with
+ * the screen locked (the background audio mode, app.json); each finished
+ * chunk moved to the app's documents, then uploaded and transcribed through
+ * the recorder's two queue lanes (./nativeStore, AsyncStorage); the
+ * waveform from expo-audio's metering. The service is the web's (./service,
+ * ./build).
  *
- * When expo-audio comes, this file gets:
- *  - an AudioSource over two expo-audio recorders, rotated like the web's
- *    (30-second chunks, the next started 500 ms before the previous stops),
- *    measured on Lea's phone with the screen locked (5.1, iPhone half);
- *  - the store in SQLite, the chunks' files kept with keepRecordingChunk
- *    (lib/pendingFiles), and the uploads through the iPhone's own sync queue
- *    (lib/sync: upload_chunk is already registered in source-file.service);
- *  - the background audio mode in app.json (expo-audio's config plugin), so
- *    recording goes on with the screen locked; it needs an EAS development
- *    build (Expo Go can't).
- * The service itself (./service) is shared and doesn't change.
+ * A build without expo-audio's native module (one made before it was added)
+ * isn't `supported`: the setup then keeps the earlier recording screen
+ * (`record/active`, expo-av) as before.
  */
 
-import type { RecorderService } from './types';
+import * as FileSystem from 'expo-file-system/legacy';
+import { AppState, Platform } from 'react-native';
 
-const NOT_YET = 'Recording in chunks on the iPhone waits for expo-audio (Lea’s OK).';
+import { expoAudio } from '../../lib/expoAudio';
+import { endRecordingSession, startRecordingSession } from '../../lib/audioSession';
+import { NativeChunkRecorder, type NativeRecorderLike } from '../../lib/nativeChunkRecorder';
+import { createNativeQueueStore, createNativeStore } from './nativeStore';
+import { isAudioFile, type AudioData, type AudioSource, type RecorderService, type StoredChunk } from './types';
 
-export const recorder: RecorderService = {
-  supported: false,
-  start: async () => {
-    throw new Error(NOT_YET);
+/** AAC in an .m4a, mono, 64 kbit/s (about 240 KB per 30-second chunk). */
+function recordingOptions() {
+  const audio = expoAudio()!;
+  const common = { extension: '.m4a', sampleRate: 44100, numberOfChannels: 1, bitRate: 64000, isMeteringEnabled: true };
+  return Platform.OS === 'ios'
+    ? { ...common, outputFormat: audio.IOSOutputFormat.MPEG4AAC, audioQuality: audio.AudioQuality.MEDIUM }
+    : { ...common, outputFormat: 'mpeg4', audioEncoder: 'aac' };
+}
+
+function createRecorder(): NativeRecorderLike {
+  const audio = expoAudio()!;
+  return new audio.AudioModule.AudioRecorder(recordingOptions() as never) as unknown as NativeRecorderLike;
+}
+
+/** Finished chunks wait for upload in the app's documents (iOS may empty the caches). */
+const KEEP_DIR = `${FileSystem.documentDirectory ?? ''}recorder/`;
+
+async function keep(uri: string, seq: number): Promise<{ uri: string; size: number }> {
+  try {
+    await FileSystem.makeDirectoryAsync(KEEP_DIR, { intermediates: true }).catch(() => {});
+    const target = `${KEEP_DIR}${Date.now()}-${seq}.m4a`;
+    await FileSystem.moveAsync({ from: uri, to: target });
+    uri = target;
+  } catch (err) {
+    // Left where it is: uploaded from there.
+    console.warn('[recorder] could not move a chunk', err);
+  }
+  const info = await FileSystem.getInfoAsync(uri).catch(() => null);
+  return { uri, size: info && info.exists && 'size' in info ? (info.size ?? 0) : 0 };
+}
+
+function nativeSource({ chunkMs, overlapMs }: { chunkMs: number; overlapMs: number }): AudioSource {
+  let recorder: NativeChunkRecorder | null = null;
+  let fromMs = 0;
+  // Chunks are moved and measured one after another, so they reach the service in order.
+  let chain: Promise<void> = Promise.resolve();
+  return {
+    async start(from, on) {
+      fromMs = from.ms;
+      await startRecordingSession();
+      recorder = new NativeChunkRecorder({
+        chunkMs,
+        overlapMs,
+        from,
+        createRecorder,
+        onLost: on.lost,
+        onOverlapRefused: () => console.warn('[recorder] iOS refused two recorders at once: chunks now restart (a short gap at each join)'),
+        onChunk: (c) => {
+          chain = chain.then(async () => {
+            const file = await keep(c.uri, c.seq);
+            on.chunk({ seq: c.seq, blob: file, mimeType: 'audio/m4a', startMs: c.startMs, durationMs: c.durationMs });
+          });
+        },
+      });
+      try {
+        await recorder.start();
+      } catch (err) {
+        recorder = null;
+        await endRecordingSession();
+        throw err;
+      }
+    },
+    async pause() {
+      await recorder?.pause();
+      await chain;
+    },
+    async resume() {
+      // After a call iOS has deactivated the session: set it for recording again first.
+      await startRecordingSession();
+      await recorder?.resume();
+    },
+    async stop() {
+      await recorder?.stop();
+      await chain;
+      recorder = null;
+      await endRecordingSession();
+    },
+    elapsedMs: () => recorder?.elapsedMs() ?? fromMs,
+    level: () => recorder?.level() ?? 0,
+  };
+}
+
+async function upload(chunk: StoredChunk & { blob: AudioData }, onProgress: (fraction: number) => void): Promise<string> {
+  if (!isAudioFile(chunk.blob)) throw new Error('No file for this part of the recording.');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { sendRecordingChunk } = require('../source-file.service') as typeof import('../source-file.service');
+  return sendRecordingChunk({ lectureId: chunk.lectureId, seq: chunk.seq, startMs: chunk.startMs, durationMs: chunk.durationMs, uri: chunk.blob.uri }, onProgress);
+}
+
+async function discard(audio: AudioData): Promise<void> {
+  if (isAudioFile(audio)) await FileSystem.deleteAsync(audio.uri, { idempotent: true });
+}
+
+/** The iPhone asks for the microphone before a lecture is made. */
+export async function requestMicrophone(): Promise<void> {
+  const audio = expoAudio();
+  if (!audio) return;
+  const { granted } = await audio.requestRecordingPermissionsAsync();
+  if (!granted) throw Object.assign(new Error('Microphone access is off for Studiply.'), { name: 'NotAllowedError' });
+}
+
+// One app at a time records on an iPhone: a recording is held while this app makes it.
+const held = new Set<string>();
+
+let built: RecorderService | null = null;
+function real(): RecorderService {
+  // Loaded here, not at import: screens and tests that only read `recorder.state()` don't load Supabase.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { buildRecorder } = require('./build') as typeof import('./build');
+  return (built ??= buildRecorder({
+    store: createNativeStore(),
+    queueStore: createNativeQueueStore,
+    createSource: nativeSource,
+    upload,
+    discard,
+    claim: async (id) => {
+      if (held.has(id)) return true;
+      held.add(id);
+      return true;
+    },
+    release: (id) => {
+      held.delete(id);
+    },
+    // Back in the foreground: send what waited.
+    onWake: (send) => {
+      AppState.addEventListener('change', (state) => {
+        if (state === 'active') send();
+      });
+    },
+  }));
+}
+
+const IDLE = { lectureId: null, status: 'idle', microphoneLost: false } as const;
+
+/** Built on first use (not at import), so screens and tests that never record don't start it. */
+const shared = globalThis as { __studiplyRecorder?: RecorderService };
+export const recorder: RecorderService = (shared.__studiplyRecorder ??= {
+  get supported() {
+    return expoAudio() !== null;
   },
-  pause: async () => {},
-  resume: async () => {},
-  stop: async () => {},
-  recover: async () => [],
-  recordings: async () => [],
-  playback: async () => [],
-  continueRecording: async () => {
-    throw new Error(NOT_YET);
-  },
-  finish: async () => {},
-  state: () => ({ lectureId: null, status: 'idle', microphoneLost: false }),
-  elapsedMs: () => 0,
-  level: () => 0,
-  snapshot: async () => ({ meta: null, chunks: [], transcript: [] }),
-  subscribe: () => () => {},
-};
+  start: (p) => real().start(p),
+  pause: () => (built ? built.pause() : Promise.resolve()),
+  resume: () => (built ? built.resume() : Promise.resolve()),
+  stop: () => (built ? built.stop() : Promise.resolve()),
+  recover: () => real().recover(),
+  recordings: () => real().recordings(),
+  playback: (id) => real().playback(id),
+  continueRecording: (id) => real().continueRecording(id),
+  finish: (id) => real().finish(id),
+  state: () => (built ? built.state() : { ...IDLE }),
+  elapsedMs: () => (built ? built.elapsedMs() : 0),
+  level: () => (built ? built.level() : 0),
+  snapshot: (id) => real().snapshot(id),
+  subscribe: (fn) => real().subscribe(fn),
+});

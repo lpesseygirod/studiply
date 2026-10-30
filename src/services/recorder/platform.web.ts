@@ -14,16 +14,10 @@
  */
 
 import { ChunkRecorder } from '../../lib/chunkRecorder';
-import { isMockAiForced } from '../../lib/aiMode';
-import { getConnection, onBackOnline } from '../../lib/connectivity';
-import { callFunction } from '../../lib/functions';
-import { newId } from '../../lib/mappers';
-import { supabase } from '../../lib/supabase';
-import { createSyncQueue, type QueueStore, type SyncOp } from '../../lib/sync/queue';
-import { chunkOnServer, sendRecordingChunk } from '../source-file.service';
-import { transcribeChunkHandler, uploadChunkHandler } from './handlers';
-import { createRecorderService } from './service';
-import type { AudioSource, RecorderService, RecordingMeta, RecordingStore, Segment, StoredChunk, StoredPart } from './types';
+import type { QueueStore, SyncOp } from '../../lib/sync/queue';
+import { sendRecordingChunk } from '../source-file.service';
+import { buildRecorder } from './build';
+import { isAudioFile, type AudioData, type AudioSource, type RecorderService, type RecordingMeta, type RecordingStore, type StoredChunk, type StoredPart } from './types';
 
 /** A piece of the current chunk is saved this often: at most this much is lost in a crash. */
 const PIECE_MS = 1000;
@@ -261,74 +255,30 @@ function webSource({ chunkMs, overlapMs }: { chunkMs: number; overlapMs: number 
 // Sending
 // -------------------------------------------------------------------
 
-async function upload(chunk: StoredChunk & { blob: Blob }, onProgress: (fraction: number) => void): Promise<string> {
-  const uri = URL.createObjectURL(chunk.blob);
+async function upload(chunk: StoredChunk & { blob: AudioData }, onProgress: (fraction: number) => void): Promise<string> {
+  const uri = isAudioFile(chunk.blob) ? chunk.blob.uri : URL.createObjectURL(chunk.blob);
   try {
     return await sendRecordingChunk({ lectureId: chunk.lectureId, seq: chunk.seq, startMs: chunk.startMs, durationMs: chunk.durationMs, uri }, onProgress);
   } finally {
-    URL.revokeObjectURL(uri);
+    if (!isAudioFile(chunk.blob)) URL.revokeObjectURL(uri);
   }
 }
 
-async function transcribe(p: { lectureId: string; seq: number; storagePath: string; startMs: number; durationMs: number }): Promise<Segment[]> {
-  // EXPO_PUBLIC_MOCK_AI (development): nothing is sent.
-  if (isMockAiForced()) return [{ startMs: p.startMs, endMs: p.startMs + p.durationMs, text: `(Simulated transcript, part ${p.seq + 1}.)` }];
-  const { segments } = await callFunction<{ segments: Segment[] }>('transcribe-chunk', {
-    lectureId: p.lectureId,
-    seq: p.seq,
-    storagePath: p.storagePath,
-    startMs: p.startMs,
-  });
-  return segments;
-}
-
-function build(): RecorderService {
-  let user: string | null = null;
-  const lane = (name: 'uploads' | 'transcriptions', kind: string, handler: ReturnType<typeof uploadChunkHandler>) =>
-    createSyncQueue({
-      store: idbQueueStore(name),
-      handlers: { [kind]: handler },
-      userId: () => user,
-      canSync: () => getConnection() !== 'offline',
-      refresh: async () => !(await supabase.auth.refreshSession()).error,
-      newId,
-      log: __DEV__ ? (message) => console.log(`[recorder ${name}] ${message}`) : undefined,
-      exclusive: exclusive(`studiply-recorder-${name}`),
-    });
-  const uploads = lane('uploads', 'upload_chunk', uploadChunkHandler({ store: idbStore, upload, onServer: (r) => chunkOnServer(r.lectureId, r.seq) }));
-  const transcriptions = lane('transcriptions', 'transcribe_chunk', transcribeChunkHandler({ store: idbStore, transcribe }));
-  const sendNow = () => {
-    uploads.flush({ now: true }).catch(() => {});
-    transcriptions.flush({ now: true }).catch(() => {});
-  };
-
-  const setUser = (id: string | null) => {
-    const was = user;
-    user = id;
-    if (id && id !== was) sendNow();
-  };
-  const known = supabase.auth
-    .getSession()
-    .then(({ data }) => setUser(data.session?.user.id ?? null))
-    .catch(() => {});
-  // Not inside the callback itself: Supabase calls made there wait for it.
-  supabase.auth.onAuthStateChange((_event, session) => {
-    setTimeout(() => setUser(session?.user.id ?? null), 0);
-  });
-  onBackOnline(sendNow);
-
-  return createRecorderService({
-    store: idbStore,
-    createSource: webSource,
-    uploads,
-    transcriptions,
-    userId: () => user,
-    ready: () => known,
-    claim,
-    release,
-  });
+/** The browser asks for the microphone now (before a lecture is made), then lets it go. */
+export async function requestMicrophone(): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  stream.getTracks().forEach((t) => t.stop());
 }
 
 /** One per page, also across development reloads (a second would send the same chunks). */
 const shared = globalThis as { __studiplyRecorder?: RecorderService };
-export const recorder: RecorderService = (shared.__studiplyRecorder ??= build());
+export const recorder: RecorderService = (shared.__studiplyRecorder ??= buildRecorder({
+  store: idbStore,
+  queueStore: idbQueueStore,
+  createSource: webSource,
+  upload,
+  claim,
+  release,
+  exclusive,
+}));

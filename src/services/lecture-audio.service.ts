@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { serviceError } from '../lib/cloudRows';
 import { Buckets, getSignedUrl } from './cloud-storage.service';
-import type { PlaybackSource } from './recorder/types';
+import { isAudioFile, type PlaybackSource } from './recorder/types';
 
 /**
  * A lecture's recording for the mini player (step 4.6): its 30-second chunks
@@ -33,16 +33,18 @@ export async function getLecturePlayback(lectureId: string): Promise<LecturePlay
 }
 
 /**
- * While the lecture records (step 5.4, web): its audio as this device has it (recorder.playback):
- * a chunk not uploaded yet and the chunk being recorded play from the browser's own copy, an
- * uploaded one from Storage. `release` frees the browser copies' links when they're done with.
+ * While the lecture records (step 5.4): its audio as this device has it (recorder.playback):
+ * a chunk not uploaded yet (and on the web the chunk being recorded) plays from the device's own
+ * copy (the browser's Blob, the iPhone's file), an uploaded one from Storage. `release` frees
+ * the browser copies' links when they're done with.
  */
 export async function getLivePlayback(list: PlaybackSource[]): Promise<LecturePlayback & { release: () => void }> {
   const local: string[] = [];
   const chunks = await Promise.all(
     list.map(async (s) => {
       let url = '';
-      if (s.blob) {
+      if (s.blob && isAudioFile(s.blob)) url = s.blob.uri;
+      else if (s.blob) {
         url = URL.createObjectURL(s.blob);
         local.push(url);
       } else if (s.storagePath) url = await getSignedUrl(Buckets.audioChunks, s.storagePath);

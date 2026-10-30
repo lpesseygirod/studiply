@@ -105,8 +105,12 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   // Live notes (step 5.4): the WebView counts the recording time from what it is told twice a second.
   useEffect(() => {
     if (!recordingClock) return;
+    // "Nothing records" is said once, not twice a second.
+    let idleSaid = false;
     const tell = () => {
       const ms = recordingClock();
+      if (ms === null && idleSaid) return;
+      idleSaid = ms === null;
       editor.setRecordingClock({ ms, running: ms !== null, at: Date.now() });
     };
     tell();

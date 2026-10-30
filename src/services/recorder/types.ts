@@ -31,6 +31,18 @@ export interface RecordingMeta {
   updatedAt: string;
 }
 
+/** A recorded file on the iPhone (the web keeps a Blob instead). */
+export interface AudioFile {
+  uri: string;
+  size: number;
+}
+
+/** A chunk's audio on this device: the browser's Blob, or the iPhone's file. */
+export type AudioData = Blob | AudioFile;
+
+export const isAudioFile = (d: AudioData): d is AudioFile => typeof (d as AudioFile).uri === 'string';
+export const sizeOf = (d: AudioData): number => d.size;
+
 export interface StoredChunk {
   lectureId: string;
   seq: number;
@@ -39,7 +51,7 @@ export interface StoredChunk {
   mimeType: string;
   sizeBytes: number;
   /** The audio, until it is uploaded (then the server has it). */
-  blob: Blob | null;
+  blob: AudioData | null;
   /** Its path in `audio-chunks` once uploaded. */
   storagePath: string | null;
   /** Its transcript once transcribed. */
@@ -82,7 +94,7 @@ export interface RecordingStore {
 
 export interface SourceChunk {
   seq: number;
-  blob: Blob;
+  blob: AudioData;
   mimeType: string;
   startMs: number;
   durationMs: number;
@@ -130,7 +142,7 @@ export interface PlaybackSource {
   seq: number;
   startMs: number;
   durationMs: number;
-  blob: Blob | null;
+  blob: AudioData | null;
   storagePath: string | null;
 }
 

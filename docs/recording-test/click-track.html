@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Click Track</title>
+<style>
+  :root { --bg: #f7f6fb; --fg: #24223a; --muted: #6b6884; --accent: #5b55b8; --card: #ffffff; --line: #dcd9ec; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17161f; --fg: #ecebf5; --muted: #a29fba; --accent: #9d97f0; --card: #221f2e; --line: #3a3650; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .clock { font-size: 56px; font-variant-numeric: tabular-nums; letter-spacing: 1px; margin: 4px 0 16px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 10px 22px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+  button[disabled] { opacity: .4; cursor: default; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  label { color: var(--muted); font-size: 14px; }
+  input[type=range] { width: 160px; }
+  .note { margin-top: 16px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Click track for the join test</h1>
+  <p>A click every 50 ms and a longer, lower beep on each whole second, for as long as it runs. joins.mjs finds them in the iPhone's chunks to measure each join.</p>
+  <div class="card">
+    <div class="clock" id="clock">00:00</div>
+    <div class="row">
+      <button id="start">Start</button>
+      <button id="stop" class="secondary" disabled>Stop</button>
+      <label>Volume <input id="volume" type="range" min="0.05" max="1" step="0.05" value="0.5"></label>
+    </div>
+    <div class="note" id="note">Keep this tab in front and the laptop plugged in, lid open. Start this first, then the recording on the iPhone.</div>
+  </div>
+</main>
+<script>
+  const PERIOD_S = 0.05; // a click every 50 ms (joins.mjs expects this)
+  let ctx = null;
+  let source = null;
+  let gain = null;
+  let startedAt = 0;
+  let wakeLock = null;
+
+  /** One second of track: the beep at 0, then 19 clicks; looped by the audio clock (no timers). */
+  function oneSecond(c) {
+    const sr = c.sampleRate;
+    const buf = c.createBuffer(1, sr, sr);
+    const x = buf.getChannelData(0);
+    const tone = (at, ms, hz) => {
+      const n = Math.round((sr * ms) / 1000);
+      const from = Math.round(at * sr);
+      for (let i = 0; i < n; i++) {
+        // A smooth window: no click of its own at either end.
+        const w = Math.sin((Math.PI * i) / n) ** 2;
+        x[from + i] = 0.9 * w * Math.sin((2 * Math.PI * hz * i) / sr);
+      }
+    };
+    tone(0, 25, 1500);
+    for (let k = 1; k < Math.round(1 / PERIOD_S); k++) tone(k * PERIOD_S, 3, 3000);
+    return buf;
+  }
+
+  const pad = (n) => String(n).padStart(2, '0');
+  function tick() {
+    if (!ctx) return;
+    const s = Math.floor(ctx.currentTime - startedAt);
+    document.getElementById('clock').textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+    requestAnimationFrame(tick);
+  }
+
+  document.getElementById('start').onclick = async () => {
+    ctx = new AudioContext();
+    await ctx.resume();
+    gain = ctx.createGain();
+    gain.gain.value = Number(document.getElementById('volume').value);
+    gain.connect(ctx.destination);
+    source = ctx.createBufferSource();
+    source.buffer = oneSecond(ctx);
+    source.loop = true;
+    source.connect(gain);
+    startedAt = ctx.currentTime + 0.1;
+    source.start(startedAt);
+    try {
+      wakeLock = await navigator.wakeLock?.request('screen');
+    } catch {
+      document.getElementById('note').textContent = 'The screen may sleep: keep it awake (System Settings › Lock Screen, or run caffeinate -d in Terminal).';
+    }
+    document.getElementById('start').disabled = true;
+    document.getElementById('stop').disabled = false;
+    tick();
+  };
+
+  document.getElementById('stop').onclick = async () => {
+    source?.stop();
+    await ctx?.close();
+    ctx = null;
+    wakeLock?.release?.();
+    document.getElementById('start').disabled = false;
+    document.getElementById('stop').disabled = true;
+  };
+
+  document.getElementById('volume').oninput = (e) => {
+    if (gain) gain.gain.value = Number(e.target.value);
+  };
+</script>
+</body>
+</html>

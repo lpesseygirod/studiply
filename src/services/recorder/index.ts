@@ -3,6 +3,6 @@
  * IndexedDB) or the iPhone's (a stub until expo-audio). See ./service.
  */
 
-export { recorder } from './platform';
+export { recorder, requestMicrophone } from './platform';
 export { CHUNK_MS, OVERLAP_MS } from './service';
 export type { ChunkInfo, PlaybackSource, RecorderService, RecorderState, RecordingMeta, RecordingSnapshot, Segment } from './types';

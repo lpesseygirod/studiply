@@ -1,11 +1,20 @@
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 
+import { forPlayback } from './audioSession';
+import { expoAudio } from './expoAudio';
+
 /**
- * Playing audio (step 4.6, the mini player), in one place: the only file
- * that uses expo-av to play. expo-av is deprecated in Expo SDK 54; when the
- * SDK is upgraded before TestFlight (and when Phase 5 moves recording off
- * expo-av), this file alone switches to expo-audio. Works on iOS and in the
- * browser (expo-av plays through an HTML audio element there).
+ * Playing audio (step 4.6, the mini player), in one place. On the iPhone
+ * (since step 5.4's iPhone half) through expo-audio, the recorder's own
+ * library: expo-av sets its own audio mode when it plays, which switched the
+ * session away from recording and stopped expo-audio's recorders, so a chip
+ * tapped during a lecture would have stopped the recording. The player keeps
+ * the session active and leaves its mode to lib/audioSession (the recording
+ * mode while recording). A build without expo-audio still plays through
+ * expo-av, as before. The browser's is ./audioPlayer.web.ts.
+ *
+ * While recording, iOS sends playback to the earpiece unless headphones are
+ * in (its record-and-play mode); the player says once to use headphones.
  */
 
 export interface PlayerStatus {
@@ -26,7 +35,58 @@ export interface AudioPlayer {
   unload: () => Promise<void>;
 }
 
+const LOAD_WAIT_MS = 8000;
+
 export function createAudioPlayer(onStatus: (status: PlayerStatus) => void): AudioPlayer {
+  const audio = expoAudio();
+  return audio ? expoAudioPlayer(audio, onStatus) : expoAvPlayer(onStatus);
+}
+
+function expoAudioPlayer(audio: NonNullable<ReturnType<typeof expoAudio>>, onStatus: (status: PlayerStatus) => void): AudioPlayer {
+  type Player = ReturnType<typeof audio.createAudioPlayer>;
+  let player: Player | null = null;
+  let subscription: { remove: () => void } | null = null;
+  const unload = async () => {
+    subscription?.remove();
+    subscription = null;
+    const old = player;
+    player = null;
+    old?.pause();
+    old?.release();
+  };
+  return {
+    load: async (uri, startMs, play) => {
+      await unload();
+      await forPlayback();
+      const created = audio.createAudioPlayer({ uri }, { updateInterval: 250, keepAudioSessionActive: true });
+      player = created;
+      subscription = created.addListener('playbackStatusUpdate', (s) => {
+        if (player !== created || !s.isLoaded) return;
+        onStatus({ positionMs: s.currentTime * 1000, durationMs: s.duration ? s.duration * 1000 : null, playing: s.playing, finished: s.didJustFinish });
+      });
+      // A seek before the file is loaded is lost.
+      const until = Date.now() + LOAD_WAIT_MS;
+      while (!created.isLoaded && Date.now() < until && player === created) await new Promise((r) => setTimeout(r, 50));
+      if (player !== created) return;
+      if (startMs > 0) await created.seekTo(startMs / 1000);
+      if (play) created.play();
+    },
+    play: async () => {
+      await forPlayback();
+      player?.play();
+    },
+    pause: async () => {
+      player?.pause();
+    },
+    seek: async (ms) => {
+      await player?.seekTo(Math.max(0, ms) / 1000);
+    },
+    unload,
+  };
+}
+
+/** A build without expo-audio's native module: as before step 5.4's iPhone half. */
+function expoAvPlayer(onStatus: (status: PlayerStatus) => void): AudioPlayer {
   let sound: Audio.Sound | null = null;
   const report = (s: AVPlaybackStatus) => {
     if (!s.isLoaded) return;
