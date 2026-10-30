@@ -1,33 +1,43 @@
 /**
- * assistant-chat — the study assistant during class, streamed (skeleton).
+ * assistant-chat — the study assistant during class, streamed (step 6.1).
  *
- * POST { lectureId, message } with the user's access token. The checks in
- * _shared/anthropic.ts run first and answer JSON errors (401, 400, 404,
- * 403 consent_required, 429 daily_limit). Then the answer is Server-Sent
- * Events:
+ * POST { lectureId, message?, quickPrompt?, nowMs? } with the user's access
+ * token: a typed question (`message`), a quick prompt (`quickPrompt`:
+ * last_10_min, just_said, last_term, missing; with an optional `message`),
+ * and the recording's clock when asked (`nowMs`; without it, the end of
+ * the transcript). The checks in _shared/anthropic.ts run first and answer
+ * JSON errors (401, 400, 404, 403 consent_required, 429 daily_limit). Then
+ * the answer is Server-Sent Events:
+ *   event: meta   { questionId, answerId, window: { startMs, endMs }, knownUpToMs }
  *   event: delta  { text }                          a piece of the answer
  *   event: done   { model, stopReason, usage, costUsd }
  *   event: error  { code, error }                   instead of done
  * After `error`, the app discards the deltas it got.
  *
- * Step 1.6 skeleton: the message goes to Claude with a fixed test prompt.
- * Phase 6 adds the lecture's time windows and saves assistant_messages.
+ * The answer is based on the lecture's transcript so far (joined like the
+ * app's), notes and marks in the question's window, and the last three
+ * questions and answers (_shared/assistant.ts, _shared/assistant-answer.ts).
+ * It is in the lecture's language and cites times as [m:ss]. The question
+ * and the answer are saved to assistant_messages with their window; the
+ * answer row is `streaming` until it ends `done` or `error`.
  *
  * { lectureId, mode: 'clarify', highlightedParts, summary } (step 1.7): the
  * old app's "clarify" — a tutor explains the highlighted parts of a note.
  * The app sends the note's summary (it may not be saved yet); the server
- * adds the start of the transcript. Same events as above.
+ * adds the start of the transcript. Same events, without meta; not saved.
  *
  * The cost is logged once, when Claude finishes. If the student closes the
- * connection, the answer still runs to the end and is still logged:
+ * connection, the answer still runs to the end, is saved and is logged:
  * Anthropic bills it either way. Never logs the message, the answer or keys.
  */
 
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import { claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
-import { ASSISTANT_TEST_SYSTEM, CLAUDE_MODELS, sseEvent, validateChatBody, validateSummarizeBody } from '../_shared/claude.ts';
+import { validateAssistantBody, type AssistantRequest } from '../_shared/assistant.ts';
+import { prepareQuestion, streamAnswer, type AnswerFields, type ClaudeStream, type FinalMessage, type Meta } from '../_shared/assistant-answer.ts';
+import { ASSISTANT_MAX_TOKENS, CLAUDE_MODELS, sseEvent, validateSummarizeBody } from '../_shared/claude.ts';
 import { corsHeaders, fail } from '../_shared/http.ts';
-import { lectureLanguage, lectureTranscript } from '../_shared/lecture-content.ts';
+import { lectureLanguage, lectureReads, lectureTranscript, messageStore } from '../_shared/lecture-content.ts';
 import {
   CLARIFY_MAX_TOKENS,
   CLARIFY_TRANSCRIPT_CHARS,
@@ -50,19 +60,21 @@ function log(event: string, details: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: 'assistant-chat', event, ...details }));
 }
 
-/** A chat message, or with mode 'clarify' the parts to explain (no message needed). */
+type Body = { lectureId: string; question: AssistantRequest | null; clarify: ClarifyFields | null };
+
+/** A question (typed or quick), or with mode 'clarify' the parts to explain. */
 function validateBody(body: unknown) {
   const fields = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   if (fields.mode === undefined) {
-    const chat = validateChatBody(body);
-    return chat.ok ? { ok: true as const, value: { ...chat.value, clarify: null as ClarifyFields | null } } : chat;
+    const question = validateAssistantBody(body);
+    return question.ok ? { ok: true as const, value: { lectureId: question.value.lectureId, question: question.value, clarify: null } as Body } : question;
   }
   if (fields.mode !== 'clarify') return { ok: false as const, status: 400 as const, code: 'invalid_request' as const, error: 'mode must be clarify.' };
   const base = validateSummarizeBody(body);
   if (!base.ok) return base;
   const clarify = validateClarifyFields(fields);
   if (!clarify.ok) return clarify;
-  return { ok: true as const, value: { lectureId: base.value.lectureId, message: '', clarify: clarify.value as ClarifyFields | null } };
+  return { ok: true as const, value: { lectureId: base.value.lectureId, question: null, clarify: clarify.value as ClarifyFields } as Body };
 }
 
 Deno.serve(async (req) => {
@@ -70,22 +82,33 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
 
   let ready;
-  let system = ASSISTANT_TEST_SYSTEM;
-  let prompt = '';
+  let system = '';
+  let messages: Anthropic.Beta.BetaMessageParam[] = [];
   let maxTokens: number | undefined;
+  let meta: Meta | undefined;
+  let finish: ((fields: AnswerFields) => Promise<void>) | undefined;
   try {
     ready = await readyForClaude(req, validateBody, log);
     if (!ready.ok) return ready.response;
     const { db, value } = ready;
-    prompt = value.message;
     if (value.clarify) {
       const [language, transcript] = await Promise.all([
         lectureLanguage(db, value.lectureId),
         lectureTranscript(db, value.lectureId, CLARIFY_TRANSCRIPT_CHARS),
       ]);
       system = clarifySystemPrompt(language);
-      prompt = clarifyUserText(value.clarify.summary, value.clarify.highlightedParts, transcript);
+      messages = [{ role: 'user', content: clarifyUserText(value.clarify.summary, value.clarify.highlightedParts, transcript) }];
       maxTokens = CLARIFY_MAX_TOKENS;
+    } else if (value.question) {
+      // Read, window, prompt, and the question saved before anything is sent to Claude.
+      const store = messageStore(db, value.lectureId);
+      const prepared = await prepareQuestion(value.question, lectureReads(db, value.lectureId), store, MODEL);
+      system = prepared.system;
+      messages = prepared.messages;
+      maxTokens = ASSISTANT_MAX_TOKENS;
+      meta = prepared.meta;
+      const answerId = prepared.meta.answerId;
+      finish = (fields) => store.finish(answerId, fields);
     }
   } catch (err) {
     log('error', { message: (err as { message?: string })?.message ?? String(err) });
@@ -106,7 +129,7 @@ Deno.serve(async (req) => {
       log('client_closed', { lectureId });
     },
   });
-  const send = (name: 'delta' | 'done' | 'error', data: unknown) => {
+  const send = (name: 'meta' | 'delta' | 'done' | 'error', data: unknown) => {
     if (!open) return;
     try {
       controller.enqueue(encoder.encode(sseEvent(name, data)));
@@ -124,46 +147,18 @@ Deno.serve(async (req) => {
     }
   };
 
-  const work = (async () => {
-    const started = Date.now();
-    const stream = claude.beta.messages.stream(claudeParams(MODEL, system, [{ role: 'user', content: prompt }], { maxTokens }));
-    stream.on('text', (text) => send('delta', { text }));
-
-    let final: Anthropic.Beta.BetaMessage;
-    try {
-      final = await stream.finalMessage();
-    } catch (err) {
-      const failure = claudeFailure(err);
-      log('claude_failed', { lectureId, ...failure, ms: Date.now() - started });
-      // Whatever Claude had already written is billed; log it if the stream got that far
-      const partial = stream.currentMessage;
-      if (partial) await logClaudeCost('assistant', userId, lectureId, MODEL, partial).catch(() => {});
-      send('error', { code: 'assistant_failed', error: 'The assistant could not answer. Please try again.' });
-      close();
-      return;
-    }
-
-    let costUsd: number | null = null;
-    let usage = { input: 0, output: 0 };
-    try {
-      const cost = await logClaudeCost('assistant', userId, lectureId, MODEL, final);
-      costUsd = cost.costUsd;
-      usage = { input: cost.tokensInput, output: cost.tokensOutput };
-    } catch (err) {
-      log('usage_log_failed', { lectureId, message: (err as { message?: string })?.message ?? String(err) });
-    }
-
-    // With fallbacks on, a refusal here means every model in the chain declined
-    if (final.stop_reason === 'refusal') {
-      log('refused', { lectureId, model: final.model });
-      send('error', { code: 'refused', error: 'The assistant can’t answer that. Try asking another way.' });
-    } else {
-      log('answered', { lectureId, model: final.model, ...usage, costUsd, ms: Date.now() - started });
-      send('done', { model: final.model, stopReason: final.stop_reason, usage, costUsd });
-    }
-    close();
-  })();
-  // Keeps the worker alive until the answer is finished and logged, even after the student disconnects
+  const work = streamAnswer({
+    lectureId,
+    stream: claude.beta.messages.stream(claudeParams(MODEL, system, messages, { maxTokens })) as unknown as ClaudeStream,
+    send,
+    close,
+    logCost: (message: FinalMessage) => logClaudeCost('assistant', userId, lectureId, MODEL, message as unknown as Anthropic.Beta.BetaMessage),
+    failure: claudeFailure,
+    log,
+    meta,
+    finish,
+  });
+  // Keeps the worker alive until the answer is finished, saved and logged, even after the student disconnects
   EdgeRuntime.waitUntil(work);
 
   return new Response(body, {

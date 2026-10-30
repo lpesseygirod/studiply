@@ -273,7 +273,40 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 - [ ] 5.8 — A real lecture (dogfood + fixes)
 
 ## Phase 6 — Study assistant during class (`phase-6-assistant`)
-- [ ] 6.1 — The assistant's brain (`assistant-chat` with time windows, tests)
+- [x] 6.1 — The assistant's brain (`assistant-chat` with time windows, tests). Done 30 Oct.
+  - **Real check (you, 30 Oct):** `npm run check:claude` passed ("All Claude checks passed"), for about $0.08 in real calls. Everything 6.1 requires held:
+    - "Explain the last 10 min" talked only about its window;
+    - its citations were all inside the window;
+    - the answers were in Spanish;
+    - the instruction said in class was not obeyed;
+    - the question not in the lecture was answered as required.
+  - **Speed:** the first piece arrived after 1.1–1.7 s on Sonnet 5.5.
+  - **Request:** `POST assistant-chat { lectureId, message?, quickPrompt?, nowMs? }`.
+    - `quickPrompt` is `last_10_min`, `just_said`, `last_term` or `missing`.
+    - `nowMs` is the recording's clock; without it, the end of the transcript.
+  - **What the answer is based on**, read by the server as the student:
+    - the transcript so far, joined like the app's (`_shared/transcriptJoin.ts`), each line stamped `[m:ss]`;
+    - the notes and marks in the window;
+    - the last 3 questions and answers.
+  - **Windows** (`_shared/assistant.ts`):
+    - Explain the last 10 min: the last 10 min;
+    - What did she just say?: the last 60 s;
+    - Define the last term: the last 3 min;
+    - Am I missing something?: the last 10 min (your 6.1 decision);
+    - a typed question: the whole lecture so far, its most recent 150,000 characters when longer.
+  - **How Claude answers:**
+    - in the lecture's language;
+    - it cites `[m:ss]` / `[h:mm:ss]` (tappable in 6.2);
+    - it says first when something isn't in the transcript;
+    - it says when the end of the stretch isn't transcribed yet.
+  - **Untrusted transcript text:** it goes in its own tags, with `<` and `>` replaced, and is never treated as instructions.
+  - **Events:** `meta` (ids, window, `knownUpToMs` for "Knows this lecture up to mm:ss"), then `delta`s, then `done` or `error`.
+  - **Saving:** the question and the answer are saved to `assistant_messages` with the window. The answer is `streaming` until it ends `done` or `error`, also if the student hangs up. No migration.
+  - **The model:** `CLAUDE_MODELS.assistant` is `claude-sonnet-5-5` (Lea, 30 Oct; see Decisions). Summaries stay on `claude-opus-5-5`.
+  - **Tests:**
+    - Jest `assistant.test.ts` (windows and prompt rules);
+    - Jest `assistantAnswer.test.ts` (the flow with Claude faked);
+    - new 6.1 steps in `check:claude` (real calls, run by you).
 - [ ] 6.2 — Chat interface (web panel + iPhone sheet, streaming, quick prompts)
 - [ ] 6.3 — Assistant actions + Ask Claude in the document
 
@@ -357,9 +390,17 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 - **Edge Functions live outside the app's tooling (step 1.5).** `supabase/functions/` is excluded from `tsconfig.json` and eslint (Deno globals, `npm:` imports). Pure rules live in `_shared/transcript.ts` with no Deno code, so Jest tests them from `src/lib/__tests__/transcript.test.ts`. Local secrets go in `supabase/functions/.env` (git-ignored; template `supabase/functions/.env.example`), and `supabase functions serve` reads it only when it starts.
 - **Edge Functions are type-checked by Deno (step 1.6).** `npm run typecheck:functions` (`deno check` on every `supabase/functions/*/index.ts`, and through their imports every `_shared/` file) is part of `npm run check`, so of the pre-commit hook. It needs no Docker; the first run needs a connection to download the packages into Deno's cache. `--node-modules-dir=none` makes Deno resolve `npm:` imports from its own cache, as the edge runtime does, instead of the app's `node_modules` (the root `package.json` would otherwise make it look there). Supabase's `edge-runtime.d.ts` doesn't load under Deno 2.9, so `assistant-chat` declares the one `EdgeRuntime` function it uses itself.
 - **Shared checks for AI functions (step 1.6).** `_shared/guard.ts` holds sign-in, own lecture, consent and usage-today (read page by page, so the 1000-row API cap no longer matters) and the one service-role write, the `ai_usage` insert. `transcribe-chunk` uses it with unchanged checks, codes and messages (`check:transcribe` re-run). The consent version moved to `_shared/policy.ts`.
-- **Claude model and settings (step 1.6).** `CLAUDE_MODELS` in `supabase/functions/_shared/claude.ts` is the one config place, one entry per function; both are `claude-opus-5-5`, Anthropic's recommended default (Oct 2026, $4 / $20 per million input / output tokens). Thinking is always on for this model; the skeletons use `effort: low` and `max_tokens` 4096. The SDK is `npm:@anthropic-ai/sdk@0.135.0` (the latest 0.x; 1.0 was only days old), pinned in the import. The SDK retries connection errors, 429 and 5xx twice.
+- **Claude model and settings (step 1.6).** `CLAUDE_MODELS` in `supabase/functions/_shared/claude.ts` is the one config place, one entry per function; both were `claude-opus-5-5`, Anthropic's recommended default (Oct 2026, $4 / $20 per million input / output tokens), until the study assistant moved to Sonnet 5.5 in step 6.1 (next decision). Thinking is always on for Opus 5.5; the skeletons use `effort: low` and `max_tokens` 4096. The SDK is `npm:@anthropic-ai/sdk@0.135.0` (the latest 0.x; 1.0 was only days old), pinned in the import. The SDK retries connection errors, 429 and 5xx twice.
+- **The study assistant runs on Claude Sonnet 5.5; summaries stay on Opus 5.5 (Lea, 30 Oct 2026, step 6.1).** `CLAUDE_MODELS.assistant` is `claude-sonnet-5-5`; it covers `assistant-chat`'s questions and quick prompts, and its clarify mode. `CLAUDE_MODELS.summary` stays `claude-opus-5-5` for `summarize` (notes now, the summary engine in Phase 7).
+  - **Why:** half the price ($2 / $10 per million input / output tokens, against $4 / $20; a cache read is $0.20 on both), and quicker answers in class. The answers are short and based on the transcript.
+  - **Estimated per question:**
+    - "What did she just say?": about $0.006;
+    - "Explain the last 10 min": about $0.012;
+    - a typed question at 90 min: about $0.05 ($0.01 with the transcript cached).
+  - **Checked against the Claude API reference (30 Oct):** the prices in `PRICES`, and that the same request settings are valid for Sonnet 5.5 (no thinking parameter, `effort: low`, no temperature, `fallbacks: "default"`).
+  - **Switching back** is one line in `CLAUDE_MODELS`. `claude.test.ts` ("match the decisions in docs/PROGRESS.md") and `npm run check:claude` (which reads the models from that file) follow it.
 - **Server-side fallbacks on (step 1.6).** Every Claude call sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): if Claude declines a request for policy reasons, Anthropic re-runs it on its recommended model for that kind of refusal inside the same call. The cost is priced per attempt from `usage.iterations`, each at its own model's price (a model missing from the price table is priced like the dearest one, so a limit is never undercounted), and `ai_usage.model` records the model that answered. Only a refusal by the whole chain reaches the student: an `error` event `refused` (assistant) or 422 `refused` (summarize).
-- **`assistant-chat` and `summarize` (step 1.6).** `POST /functions/v1/assistant-chat` `{ lectureId, message }` (max 4000 characters) and `POST /functions/v1/summarize` `{ lectureId }`, with the user's token. Order of checks: signed in (401) → server has the key (500 `not_configured`) → valid body (400) → own lecture (404) → `assistant_summary` consent (403 `consent_required`) → daily limit (429 `daily_limit`). Nothing reaches Anthropic before all of them pass. Both still answer a fixed test prompt; Phase 6 / 7 bring the real prompts, and `assistant_messages` isn't written yet. Logs hold ids, status, timings and token counts only, never the message, the answer or keys.
+- **`assistant-chat` and `summarize` (step 1.6).** `POST /functions/v1/assistant-chat` `{ lectureId, message }` (max 4000 characters) and `POST /functions/v1/summarize` `{ lectureId }`, with the user's token. Order of checks: signed in (401) → server has the key (500 `not_configured`) → valid body (400) → own lecture (404) → `assistant_summary` consent (403 `consent_required`) → daily limit (429 `daily_limit`). Nothing reaches Anthropic before all of them pass. `summarize` still answers a fixed test prompt (Phase 7). `assistant-chat` has its real prompts and saves `assistant_messages` since step 6.1 (see Phase 6 above). Logs hold ids, status, timings and token counts only, never the message, the answer or keys.
 - **Streaming format (step 1.6).** `assistant-chat` answers `text/event-stream`: `event: delta` `{ text }` for each piece, then `event: done` `{ model, stopReason, usage, costUsd }`, or `event: error` `{ code, error }` instead of done, after which the app discards the pieces it got. Errors found before streaming starts stay plain JSON like the other functions. `summarize` answers JSON `{ text, model, stopReason, usage, costUsd }`, but streams from Anthropic itself because real summaries will be long.
 - **Claude's cost is logged once, when the answer ends (step 1.6).** If the student hangs up mid-answer, the answer still runs to the end (kept alive with `EdgeRuntime.waitUntil`) and is logged, because Anthropic bills it either way. If Claude fails mid-answer, the part already written is logged. `check:claude` proves one row per answer, also after hanging up.
 - **Daily Claude limit: $3 per rolling 24 h (step 1.6).** It is the sum of `ai_usage.cost_usd` for `assistant` + `summary`, checked before each call; a placeholder until plans arrive in step 10.2. Consent scope for both functions is `assistant_summary`; transcription consent alone doesn't allow them.
@@ -1164,7 +1205,7 @@ Schema pieces step 1.2 deliberately left out; each comes as its own migration in
 
 - ~~**Storage buckets and policies**~~ — done in step 1.4.
 - **PowerPoint (.pptx) slides in the media tray, with text extraction** — Phase 7. Needs the pptx MIME type (`application/vnd.openxmlformats-officedocument.presentationml.presentation`) added to the `slides` bucket in a new migration.
-- **Choose the Claude model per function** — Phase 6 / 7. Consider a faster, cheaper model (Sonnet) for `assistant-chat` during class (latency and cost) and keep Opus for `summarize`; compare quality and speed on real lectures before deciding. Keep one config place per function (`CLAUDE_MODELS` in `supabase/functions/_shared/claude.ts`), and add the chosen model's price to the table there.
+- ~~**Choose the Claude model per function**~~ — decided 30 Oct 2026 (Decisions): Sonnet 5.5 for `assistant-chat`, Opus 5.5 for `summarize`. Worth a second look at Phase 7 on the golden lectures, with the speed and cost from `check:claude` and real classes.
 - **Course glossary and professor's name as a Whisper prompt** — step 5.2 / Phase 7. Pass them to `transcribe-chunk` as Whisper's `prompt` (max 224 tokens), so technical terms and names are spelled right (SUMMARY-SPEC "The lecture input"). `course_settings.professor` exists; the glossary comes with the summary engine.
 - **Resumable uploads (TUS)** — only if step 5.2 shows audio chunks failing on bad connections.
 - ~~**Sync columns**~~ — done differently in step 1.8: per-block times in the note itself plus `document_versions.file_id` and reason `conflict` (migration `20261025010000_document_version_conflicts`), no revision columns.

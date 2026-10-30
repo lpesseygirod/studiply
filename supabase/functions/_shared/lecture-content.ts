@@ -1,11 +1,15 @@
 /**
  * lecture-content.ts
- * What the notes and clarify requests read from a lecture, as the student
- * (RLS applies): its language, its transcript, and its photos and PDFs.
+ * What the notes, clarify and assistant requests read from a lecture, as
+ * the student (RLS applies): its language, its transcript, its photos and
+ * PDFs, and for the assistant (step 6.1) its notes, marks and earlier
+ * questions; also where the assistant saves its questions and answers.
  */
 
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { HISTORY_TURNS, type MarkAt, type MessageRow, type TimedSegment } from './assistant.ts';
+import type { LectureReads, MessageStore } from './assistant-answer.ts';
 import { MAX_MEDIA_BYTES, toBase64 } from './legacy-notes.ts';
 import { joinSegmentRows, placeSegments } from './transcriptJoin.ts';
 
@@ -33,6 +37,18 @@ interface SegmentRead {
  * 500 ms overlap between two chunks kept once.
  */
 export async function lectureTranscript(db: SupabaseClient, lectureId: string, maxChars = Infinity): Promise<string> {
+  return (await joinedSegments(db, lectureId, maxChars))
+    .map((row) => row.text.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** The transcript so far with its times (the assistant's windows), joined as above. */
+export async function lectureSegments(db: SupabaseClient, lectureId: string): Promise<TimedSegment[]> {
+  return (await joinedSegments(db, lectureId, Infinity)).map((row) => ({ startMs: row.start_ms, endMs: row.end_ms, text: row.text }));
+}
+
+async function joinedSegments(db: SupabaseClient, lectureId: string, maxChars: number) {
   const rows: SegmentRead[] = [];
   let length = 0;
   for (let from = 0; length < maxChars; from += PAGE_SIZE) {
@@ -50,14 +66,67 @@ export async function lectureTranscript(db: SupabaseClient, lectureId: string, m
     }
     if (data.length < PAGE_SIZE) break;
   }
-  if (rows.length === 0) return '';
+  if (rows.length === 0) return [];
   // Where each segment's chunk sits in the recording, to join the chunks' overlaps.
   const { data: chunks, error } = await db.from('audio_chunks').select('id, seq, start_ms, duration_ms').eq('lecture_id', lectureId);
   if (error) throw error;
-  return joinSegmentRows(placeSegments(rows, chunks ?? []))
-    .map((row) => row.text.trim())
-    .filter(Boolean)
-    .join(' ');
+  return joinSegmentRows(placeSegments(rows, chunks ?? []));
+}
+
+/** What the study assistant reads of a lecture (step 6.1), as the student. */
+export function lectureReads(db: SupabaseClient, lectureId: string): LectureReads {
+  return {
+    segments: () => lectureSegments(db, lectureId),
+    language: () => lectureLanguage(db, lectureId),
+    async notes() {
+      const { data, error } = await db.from('note_lines').select('t_ms, text').eq('lecture_id', lectureId).order('position').limit(PAGE_SIZE);
+      if (error) throw error;
+      return (data ?? []).map((n) => ({ tMs: (n.t_ms as number | null) ?? null, text: String(n.text ?? '') }));
+    },
+    async marks() {
+      const { data, error } = await db.from('marks').select('type, level, t_ms, note').eq('lecture_id', lectureId).order('t_ms').limit(PAGE_SIZE);
+      if (error) throw error;
+      return (data ?? []).map((m) => ({ type: m.type as MarkAt['type'], level: m.level as number, tMs: m.t_ms as number, note: (m.note as string | null) ?? null }));
+    },
+    async history() {
+      const { data, error } = await db
+        .from('assistant_messages')
+        .select('id, role, content, reply_to, status')
+        .eq('lecture_id', lectureId)
+        .order('created_at', { ascending: false })
+        .limit(4 * HISTORY_TURNS);
+      if (error) throw error;
+      return ((data ?? []) as MessageRow[]).reverse();
+    },
+  };
+}
+
+/** The lecture's assistant_messages: a question and its answer, each with the window. */
+export function messageStore(db: SupabaseClient, lectureId: string): MessageStore {
+  return {
+    async start({ question, quickPrompt, askedAtMs, window, model }) {
+      const common = {
+        lecture_id: lectureId,
+        quick_prompt: quickPrompt,
+        asked_at_ms: askedAtMs,
+        window_start_ms: window.startMs,
+        window_end_ms: window.endMs,
+      };
+      const asked = await db.from('assistant_messages').insert({ ...common, role: 'user', content: question, status: 'done' }).select('id').single();
+      if (asked.error) throw asked.error;
+      const answer = await db
+        .from('assistant_messages')
+        .insert({ ...common, role: 'assistant', content: '', reply_to: asked.data.id, model, status: 'streaming' })
+        .select('id')
+        .single();
+      if (answer.error) throw answer.error;
+      return { questionId: asked.data.id as string, answerId: answer.data.id as string };
+    },
+    async finish(answerId, { content, status, model }) {
+      const { error } = await db.from('assistant_messages').update({ content, status, ...(model && { model }) }).eq('id', answerId);
+      if (error) throw error;
+    },
+  };
 }
 
 export type MediaResult =

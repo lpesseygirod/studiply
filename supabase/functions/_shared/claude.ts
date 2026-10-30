@@ -5,23 +5,29 @@
  */
 
 /**
- * The one place each function's Claude model is set. claude-opus-5-5 is
- * Anthropic's recommended default (Oct 2026). Phase 6/7 compare a faster,
- * cheaper model for assistant-chat on real lectures (docs/PROGRESS.md, Left to later).
+ * The one place each function's Claude model is set (server-side; the app
+ * never chooses). claude-opus-5-5 is Anthropic's recommended default (Oct
+ * 2026). assistant-chat uses claude-sonnet-5-5 (Lea, 30 Oct 2026, step 6.1:
+ * half the price, quicker in class); summaries stay on Opus. Every model here
+ * must be in PRICES below.
  */
-export const CLAUDE_MODELS = {
-  assistant: 'claude-opus-5-5',
+export const CLAUDE_MODELS: { assistant: string; summary: string } = {
+  assistant: 'claude-sonnet-5-5',
   summary: 'claude-opus-5-5',
-} as const;
+};
 
 /**
- * Thinking is always on for Opus 5.5; effort sets how much (its default is
- * medium). Low is enough for the skeleton's test prompts.
+ * Effort sets how much the model thinks (Opus 5.5 always thinks; its default
+ * is medium). Low for both models: valid for Sonnet 5.5 too (checked against
+ * the Claude API reference, 30 Oct 2026), and quick enough in class.
  */
 export const CLAUDE_EFFORT = 'low';
 
 /** Room for thinking plus the answer; the real limits come with the real prompts. */
 export const MAX_TOKENS = 4096;
+
+/** The study assistant's answers are short (read on a phone in class): thinking plus about 400 words. */
+export const ASSISTANT_MAX_TOKENS = 2048;
 
 /**
  * Re-runs a request Claude declines on Anthropic's recommended fallback
@@ -35,9 +41,7 @@ export const DAILY_CLAUDE_LIMIT_USD = 3;
 /** The longest message a student can send the assistant. */
 export const MAX_MESSAGE_CHARS = 4000;
 
-// The test prompts below are replaced by the real ones in Phase 6 (assistant) and Phase 7 (summary).
-export const ASSISTANT_TEST_SYSTEM =
-  "You are Studiply's study assistant. This is a connection test: answer the student's message briefly and plainly.";
+// The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
 export const SUMMARIZE_TEST_PROMPT =
   "This is a connection test of Studiply's summary engine. Reply with one short sentence saying you received it.";
 
@@ -134,21 +138,6 @@ const invalid = (error: string): Invalid => ({ ok: false, status: 400, code: 'in
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export interface ChatRequest {
-  lectureId: string;
-  message: string;
-}
-
-/** Checks an assistant-chat body: { lectureId, message }. */
-export function validateChatBody(body: unknown): { ok: true; value: ChatRequest } | Invalid {
-  if (!body || typeof body !== 'object') return invalid('Send lectureId and message as JSON.');
-  const { lectureId, message } = body as Record<string, unknown>;
-  if (typeof lectureId !== 'string' || !UUID.test(lectureId)) return invalid('lectureId must be a lecture id.');
-  if (typeof message !== 'string' || !message.trim()) return invalid('message must be some text.');
-  if (message.length > MAX_MESSAGE_CHARS) return invalid(`message must be at most ${MAX_MESSAGE_CHARS} characters.`);
-  return { ok: true, value: { lectureId, message: message.trim() } };
-}
-
 /** Checks a summarize body: { lectureId }. */
 export function validateSummarizeBody(body: unknown): { ok: true; value: { lectureId: string } } | Invalid {
   if (!body || typeof body !== 'object') return invalid('Send lectureId as JSON.');
@@ -158,10 +147,11 @@ export function validateSummarizeBody(body: unknown): { ok: true; value: { lectu
 }
 
 /**
- * One Server-Sent Events frame. assistant-chat sends `delta` { text } for
- * each piece of the answer, then `done` { model, usage, costUsd }, or
- * `error` { code, error } if Claude fails after the stream has started.
+ * One Server-Sent Events frame. assistant-chat sends `meta` first (a
+ * question: its saved ids and window, step 6.1), `delta` { text } for each
+ * piece of the answer, then `done` { model, usage, costUsd }, or `error`
+ * { code, error } if Claude fails after the stream has started.
  */
-export function sseEvent(name: 'delta' | 'done' | 'error', data: unknown): string {
+export function sseEvent(name: 'meta' | 'delta' | 'done' | 'error', data: unknown): string {
   return `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`;
 }

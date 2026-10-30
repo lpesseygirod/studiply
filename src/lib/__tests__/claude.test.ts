@@ -1,11 +1,9 @@
 import {
   CLAUDE_MODELS,
   DAILY_CLAUDE_LIMIT_USD,
-  MAX_MESSAGE_CHARS,
   claudeCost,
   priceOf,
   sseEvent,
-  validateChatBody,
   validateSummarizeBody,
 } from '../../../supabase/functions/_shared/claude';
 
@@ -69,25 +67,6 @@ describe('priceOf', () => {
   });
 });
 
-describe('validateChatBody', () => {
-  it('accepts a lecture id and a message, trimmed', () => {
-    expect(validateChatBody({ lectureId: LECTURE, message: '  What is GDP? ' })).toEqual({
-      ok: true,
-      value: { lectureId: LECTURE, message: 'What is GDP?' },
-    });
-  });
-
-  it.each([
-    ['no body', null],
-    ['a bad lecture id', { lectureId: 'nope', message: 'hi' }],
-    ['an empty message', { lectureId: LECTURE, message: '   ' }],
-    ['a message that is not text', { lectureId: LECTURE, message: 42 }],
-    ['a message that is too long', { lectureId: LECTURE, message: 'x'.repeat(MAX_MESSAGE_CHARS + 1) }],
-  ])('refuses %s with 400', (_label, body) => {
-    expect(validateChatBody(body)).toMatchObject({ ok: false, status: 400, code: 'invalid_request' });
-  });
-});
-
 describe('validateSummarizeBody', () => {
   it('accepts a lecture id', () => {
     expect(validateSummarizeBody({ lectureId: LECTURE })).toEqual({ ok: true, value: { lectureId: LECTURE } });
@@ -106,7 +85,11 @@ describe('sseEvent', () => {
 
 describe('constants', () => {
   it('match the decisions in docs/PROGRESS.md', () => {
-    expect(CLAUDE_MODELS).toEqual({ assistant: 'claude-opus-5-5', summary: 'claude-opus-5-5' });
+    // The study assistant on Sonnet 5.5, summaries on Opus 5.5 (Lea, 30 Oct 2026)
+    expect(CLAUDE_MODELS).toEqual({ assistant: 'claude-sonnet-5-5', summary: 'claude-opus-5-5' });
+    // Every configured model has its own price (none falls back to the dearest)
+    for (const model of Object.values(CLAUDE_MODELS)) expect(priceOf(model)).not.toBe(priceOf('claude-not-in-the-table'));
+    expect(priceOf('claude-sonnet-5-5')).toEqual({ input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 });
     expect(DAILY_CLAUDE_LIMIT_USD).toBe(3);
   });
 });
