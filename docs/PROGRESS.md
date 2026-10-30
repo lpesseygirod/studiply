@@ -173,6 +173,19 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **Not yet checked:** everything on a device (the Simulator and iPhone lists in `docs/recording-test/DEVICE-CHECKS.md`; the locked test in `docs/recording-test/INSTRUCTIONS.md`).
 - [x] 5.5 — Marks with a 1–10 level — **done and checked on the web 30 Oct** (laptop, 390 px; the iPhone in the shared code) on branch `phase-5-recording`.
   - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1855; all eighteen Chrome suites pass (marks 10/10, recording 10/10 with the updated copy). `editorHtml.js` rebuilt by the advisor.
+  - **The panel made to match the mockups (Lea, 30 Oct, after comparing). Verified 30 Oct** by Lea's advisor: `npm run check` 1908, all twenty-two Chrome suites; the composites match desktop-01 and iphone-03 (seen by Lea). Committed locally with `marks.mjs` and `notes-live.mjs` (it waits until the editor has the focus before typing).
+    - **Laptop (desktop-01):** one slim row the window's width under the strip (time and question · the slider with "1 · …", "n / 10", "10 · …" above it · the salmon note · Cancel / Save mark), the hint below.
+    - **iPhone and below 1024 px (iphone-03):** a sheet with a drag handle, a large "n / 10", the ends under the slider, the hint in a grey box, one full-width Save mark; closed by dragging it down or tapping above (`components/DragSheet.tsx`, also the editor's chip sheet).
+    - **Slider:** accent track and thumb, no stop dots.
+    - **Words:** the ends in lower case.
+    - **Checks:** `npm run check` passes; `marks.mjs` updated (layout assertions, both ways of closing the sheet, a composite of the screenshots beside the mockups), to be installed and run by Lea.
+    - **Lea's run: 9/11.**
+      - **App, the sheet's drag on the web:** a mouse drag selected the sheet's text instead of closing it. It now drags by the handle's strip with pointer events (the iPhone keeps its touch drag).
+      - **App, the Exam question:** it wrapped in the laptop row. The column is wider, one line.
+      - **Check, the "old" Exam sheet:** a screenshot left from an earlier run stood in for the one the failed step never took. The composites now use only the run's own screenshots.
+      - **Check, the Stop failure:** it followed from the sheet left open at 390 px. The step now closes it and restores the width whatever happens.
+      - **Check, the focus ring:** the ring in the laptop screenshots came from the check's keys. It is Chrome's keyboard-only ring (`:focus-visible`), so the screenshot levels are now set by a click, and the check asserts no ring on opening or after a click and a ring with the keyboard.
+      - **My run of the installed copy with the app fixes: 11/11.**
   - **On Lea's device list** (`docs/recording-test/DEVICE-CHECKS.md`, with the EAS build): the sheet over the keyboard, the light haptic on Save mark, VoiceOver adjusting the slider, a mark while writing and with the keyboard down, a mark made offline (its row arrives once the edit is sent).
   - **Decisions (Lea's advisor, 30 Oct):**
     1. A: a chip deleted by typing deletes its mark when My notes is saved; Undo brings it back.

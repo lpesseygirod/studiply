@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,6 +17,7 @@ import { useConnectivity } from '../../lib/connectivity';
 import { closeWebcam, PHOTO_OFFLINE_NOTE, photoBoardUsable, useWebcam } from './boardPhoto';
 import { startBoardPhoto } from './photoBoard';
 import { WebcamPanel } from './WebcamPanel';
+import { DragSheet } from '../DragSheet';
 
 /**
  * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
@@ -213,21 +214,12 @@ function WebcamSheet({ moment }: { moment: Moment | null }) {
   );
 }
 
-/** The new-mark panel as a small sheet over the bottom of the screen; tapping above it closes it. */
+/** The new-mark panel as a small sheet over the bottom of the screen (iphone-03); dragging it down or tapping above it closes it. */
 function MarkSheet({ draft }: { draft: MarkDraft | null }) {
-  const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={!!draft} transparent animationType="slide" onRequestClose={closeMarkPanel}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap}>
-        <Pressable style={styles.sheetFill} onPress={closeMarkPanel} accessibilityRole="button" accessibilityLabel="Close the mark" />
-        {draft && (
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
-            <MarkPanel kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />
-          </View>
-        )}
-      </KeyboardAvoidingView>
-    </Modal>
+    <DragSheet visible={!!draft} onClose={closeMarkPanel} closeLabel="Close the mark">
+      {draft && <MarkPanel kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />}
+    </DragSheet>
   );
 }
 

@@ -18,9 +18,9 @@ describe('mark hints', () => {
   });
 
   it('each mark has its question and labelled ends (DESIGN)', () => {
-    expect(MARK_TEXT.important).toMatchObject({ question: 'How important is this?', low: 'Worth noting', high: 'Key idea' });
-    expect(MARK_TEXT.confused).toMatchObject({ question: 'How lost are you?', low: 'A bit unsure', high: 'Completely lost' });
-    expect(MARK_TEXT.exam).toMatchObject({ question: 'How likely on the exam?', low: 'Maybe', high: 'Certain' });
+    expect(MARK_TEXT.important).toMatchObject({ question: 'How important is this?', low: 'worth noting', high: 'key idea' });
+    expect(MARK_TEXT.confused).toMatchObject({ question: 'How lost are you?', low: 'a bit unsure', high: 'completely lost' });
+    expect(MARK_TEXT.exam).toMatchObject({ question: 'How likely on the exam?', low: 'maybe', high: 'certain' });
   });
 });
 

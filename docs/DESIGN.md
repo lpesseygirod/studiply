@@ -184,12 +184,15 @@ As built in step 4.4:
   - Exam: "How likely on the exam?" (1 maybe → 10 certain).
   - What each level does in the summary (low 1–3 / mid 4–7 / high 8–10, adjusted by the Follow my marks slider) is defined in SUMMARY-SPEC.md, "What each mark does". The panel shows a one-line hint of the effect.
   - **As built (step 5.5):**
-    - **Where:** the laptop's panel opens under the strip, on the buttons' side, and pushes the page down. On the iPhone (and the web below 1024 px) it's a small sheet.
+    - **Where (as the mockups draw it, Lea 30 Oct):**
+      - **Laptop (desktop-01):** one slim row the window's width under the strip; the page moves down only by that row. Left: "CONFUSED · AT 34:12" (small capitals, accent) and the question. Middle: "1 · a bit unsure", "7 / 10" and "10 · completely lost" above the slider. Right: "Note (optional)" (a salmon field), Cancel / Save mark. The hint on a line below.
+      - **iPhone and the web below 1024 px (iphone-03):** a sheet with a drag handle: "CONFUSED · AT 34:12" in the accent, the question large, a large "7 / 10", the slider with the ends' words under it, the hint in a light grey box, the salmon note field, one full-width Save mark. No Cancel: it closes by dragging it down or tapping above it.
+      - **The slider:** an accent track and thumb for every mark (the mark buttons keep their own colours).
     - **The time** is the moment the button was pressed (while paused, the paused moment).
     - **The slider** starts at 5. It works by drag, a tap on the track, VoiceOver's adjust, or the arrow keys, Home and End on the laptop.
     - **The note** is one line of up to 500 characters.
-    - **The hint** reads "In the summary: …" for the level's band, at Follow my marks 7.
-    - **Colours:** the mark buttons and the panel use the chips' colours (Important and Exam amber, Confused salmon), with their labels.
+    - **The hint** reads "In the summary: …" for the level's band, at Follow my marks 7 (the mockups' "At 7 or more …" is an example; the bands are 1–3 / 4–7 / 8–10). On the laptop it goes on: "You can change the level later by tapping the mark in your notes."
+    - **Colours:** the mark buttons use the chips' colours (Important and Exam amber, Confused salmon); the panel uses the accent.
     - **Haptic:** a light tap on Save mark (iPhone).
 - Saved marks appear in My notes as chips, e.g. `Confused 7/10`; tapping the chip edits the level.
   - **Where the chip goes (step 5.5):**

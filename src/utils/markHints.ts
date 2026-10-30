@@ -10,11 +10,18 @@ import type { MarkKind } from '../editor/schema/markChip';
 
 export const MARK_LEVEL_DEFAULT = 5;
 
-export const MARK_TEXT: Record<MarkKind, { name: string; glyph: string; question: string; low: string; high: string }> = {
-  important: { name: 'Important', glyph: '★', question: 'How important is this?', low: 'Worth noting', high: 'Key idea' },
-  confused: { name: 'Confused', glyph: '?', question: 'How lost are you?', low: 'A bit unsure', high: 'Completely lost' },
-  exam: { name: 'Exam', glyph: '!', question: 'How likely on the exam?', low: 'Maybe', high: 'Certain' },
+/**
+ * Per mark: its name, question, the slider's end words (lower case, as DESIGN and the mockups write
+ * them: "1 · a bit unsure") and the laptop note field's example (the mockup's is the lecture's own word).
+ */
+export const MARK_TEXT: Record<MarkKind, { name: string; glyph: string; question: string; low: string; high: string; noteExample: string }> = {
+  important: { name: 'Important', glyph: '★', question: 'How important is this?', low: 'worth noting', high: 'key idea', noteExample: 'e.g. why it matters' },
+  confused: { name: 'Confused', glyph: '?', question: 'How lost are you?', low: 'a bit unsure', high: 'completely lost', noteExample: 'e.g. what you didn’t follow' },
+  exam: { name: 'Exam', glyph: '!', question: 'How likely on the exam?', low: 'maybe', high: 'certain', noteExample: 'e.g. what the professor said' },
 };
+
+/** The laptop's hint line goes on with this (docs/design desktop-01). */
+export const MARK_HINT_LATER = 'You can change the level later by tapping the mark in your notes.';
 
 export type MarkBand = 'low' | 'mid' | 'high';
 

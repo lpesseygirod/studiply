@@ -22,8 +22,8 @@ import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel } from './mark
  * The laptop's recording strip (step 5.3, docs/design desktop-01): under the
  * top bar on every screen while a lecture records, so leaving the lecture
  * never stops it. "● Recording · 34:12" (back to the lecture), the live
- * waveform, the mark buttons (step 5.5: each opens its panel inline under
- * the strip), Photo board (step 5.6: webcam or files; greyed out offline)
+ * waveform, the mark buttons (step 5.5: each opens its panel as one slim row
+ * under the strip, as desktop-01 draws it), Photo board (step 5.6: webcam or files; greyed out offline)
  * and Stop & summarize. After
  * Stop it says what is still being sent; a recording the page lost offers
  * Continue and Finish.
@@ -166,10 +166,8 @@ export function RecordingStrip() {
         </View>
       )}
       {draft && draft.lectureId === lectureId && markable && (
-        <View style={styles.panelRow}>
-          <View style={styles.panel}>
-            <MarkPanel kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />
-          </View>
+        <View style={styles.markRow}>
+          <MarkPanel layout="row" kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />
         </View>
       )}
       {webcam && webcam.lectureId === lectureId && markable && (
@@ -225,7 +223,9 @@ const makeStyles = (c: ThemeColors) =>
     quiet: { backgroundColor: c.white, borderColor: c.recordingStrip.border, opacity: 0.55 },
     quietText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.secondary },
     markText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
-    // The mark panel, inline under the strip at the buttons' side (it pushes the page down, never covers it).
+    // The mark panel (desktop-01): one slim row the window's width under the strip; it pushes the page down by its height, never covers it.
+    markRow: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: c.border },
+    // The webcam panel, inline under the strip at the buttons' side.
     panelRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: c.recordingStrip.bg, borderBottomWidth: 1, borderBottomColor: c.recordingStrip.border },
     panel: { width: 460, maxWidth: '100%', padding: 16, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
     // The laptop offline: why Photo board is greyed out (step 5.6), a slim line under the strip.

@@ -21,6 +21,8 @@
 //      and across a chunk join the time never goes back (the 500 ms overlap
 //      isn't heard twice);
 //   6. no paid request.
+// Before typing, the check waits until the editor really has the focus
+// (Tiptap's focus() moves it a frame later; keys sent before go to the page).
 // Screenshots (each after the splash): notes-live-1280, notes-live-1280-dark,
 // notes-live-390, notes-live-390-dark, notes-live-playing-1280.
 // About 3 minutes. PASS/FAIL per step; exit 1 on a FAIL.
@@ -134,7 +136,15 @@ const dark = async (on) => {
   await b.send('Emulation.setEmulatedMedia', { features: on ? [{ name: 'prefers-color-scheme', value: 'dark' }] : [] });
   await b.sleep(600);
 };
-const toEnd = () => b.evaluate(`${EDITOR}.commands.focus('end')`);
+/**
+ * The cursor at the end of My notes, ready for keys. Tiptap's focus() moves the browser's focus in the
+ * next animation frame (Chrome): keys sent before that go to the page (the first run lost its first
+ * keys, 3/6). So it waits until the editor really has the focus, as record-in-doc.mjs does.
+ */
+const toEnd = async () => {
+  await b.evaluate(`${EDITOR}.commands.focus('end')`);
+  await waitFor(() => b.evaluate(`${EDITOR}.view.hasFocus()`), 'the editor focused', 5000);
+};
 const noteRows = async (lectureId) => (await admin.from('note_lines').select('block_id, t_ms, text, content, position').eq('lecture_id', lectureId).order('position')).data ?? [];
 
 let lectureId = null;
