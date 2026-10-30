@@ -4,6 +4,7 @@ import type { JSONContent } from '@tiptap/core';
 import type { PasteReport } from './pasteReport';
 import type { FormatCommand } from './format';
 import type { CommentInfo } from './schema/comments';
+import type { LinkedMark, MarkPlace } from './schema/markChip';
 import type { ViewPrefs } from '../lib/viewPrefs';
 import type { PageSetup } from './page/pageSetup';
 
@@ -33,6 +34,8 @@ export type StudiplyEditorHandle = {
   blur: () => void;
   /** Writing tools (step 4.7), from the document menu: the find bar (with Replace), the outline, the word count. */
   tool: (which: WritingTool) => void;
+  /** A format command from the screen (step 5.5: a mark made while recording goes in, or comes back after Remove). */
+  run: (cmd: FormatCommand) => void;
 };
 
 export type WritingTool = 'find' | 'replace' | 'outline' | 'wordCount';
@@ -80,4 +83,6 @@ export type StudiplyEditorProps = {
    * nothing records. Given for a lecture's My notes; each new line then starts with that time.
    */
   recordingClock?: () => number | null;
+  /** A mark made while recording was removed from its chip's panel (step 5.5): the screen offers Undo. */
+  onMarkRemoved?: (mark: LinkedMark, at: MarkPlace) => void;
 };

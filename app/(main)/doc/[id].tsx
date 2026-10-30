@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import StudiplyEditor from '../../../src/editor/StudiplyEditor';
 import type { CommentCommand, DocJSON, StudiplyEditorHandle } from '../../../src/editor/types';
@@ -29,6 +29,7 @@ import { saveLabel, useDocumentSync } from '../../../src/hooks/useDocumentSync';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecorder';
+import { registerMarkTarget } from '../../../src/services/mark-placement';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
@@ -268,6 +269,15 @@ export default function DocumentScreen() {
     editorReady: showEditor && readyKey === editorKey,
   });
   const status = showEditor ? saveLabel(sync.state) : null;
+  // Marks made while recording (step 5.5) go into this lecture's My notes through its editor while it is
+  // on screen here (not while another screen is in front of it: then they're saved as a new last line).
+  const marksHere = isLecture && tab === 'notes' && !isSheet && showEditor && readyKey === editorKey;
+  useFocusEffect(
+    useCallback(() => {
+      if (!marksHere || !id) return;
+      return registerMarkTarget(id, { place: (mark) => editorRef.current?.run({ type: 'markChip', action: 'place', mark }) });
+    }, [marksHere, id]),
+  );
 
   const rename = useCallback(
     async (title: string) => {
@@ -517,6 +527,7 @@ export default function DocumentScreen() {
         }
         plain={recordingScreen}
         recordingClock={isLecture && tab === 'notes' ? recordingClock : undefined}
+        onMarkRemoved={(mark, at) => showUndo('Mark removed', () => editorRef.current?.run({ type: 'markChip', action: 'place', mark, at }))}
         commentRoom={commentRoom}
         onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}

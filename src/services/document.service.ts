@@ -20,6 +20,7 @@ import { getDeviceId } from '../lib/deviceId';
 import { newId } from '../lib/mappers';
 import { enqueue, pendingSyncFor, PermanentSyncError, registerSyncHandler, syncEnabled } from '../lib/sync';
 import { syncNoteLines } from './note-lines.service';
+import { syncMarks } from './marks.service';
 import { syncError } from '../lib/sync/errors';
 import { combineDocEdits, makeDocEdit, mergeDocEdit, type DocConflict, type DocConflictVersion, type DocEdit } from '../editor/docBlocks';
 import { newBlockId } from '../editor/schema/blockMeta';
@@ -296,9 +297,10 @@ export async function saveDocument(params: {
 
   try {
     const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit);
-    // A lecture's My notes: its note_lines follow (step 5.4). The document is saved either way;
-    // lines that couldn't be written are written with the next save.
+    // A lecture's My notes: its note_lines (step 5.4) and its marks (5.5) follow. The document is saved
+    // either way; what couldn't be written is written with the next save.
     await syncNoteLines(row).catch((err) => console.warn('[document] note lines not saved yet', err));
+    await syncMarks(row).catch((err) => console.warn('[document] marks not saved yet', err));
     return { content: asDoc(row.content), updatedAt: row.updated_at, queued: false, lost: lostBlocks(conflicts), revived };
   } catch (err) {
     if (isNetworkError(err)) throw err;
@@ -712,8 +714,9 @@ registerSyncHandler<DocumentEditPayload>('document_edit', {
   run: async ({ fileId, tab, localId, edit }) => {
     await ensureDocumentOnServer(fileId);
     const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit, localId);
-    // A lecture's My notes: its note_lines follow (step 5.4); a failure retries the whole edit (safe twice).
+    // A lecture's My notes: its note_lines (step 5.4) and marks (5.5) follow; a failure retries the whole edit (safe twice).
     await syncNoteLines(row);
+    await syncMarks(row);
     await refreshSyncedDocument(row, localId, fileId, tab);
     const lost = lostBlocks(conflicts);
     if (lost.length > 0) await setMeta(conflictKey(fileId, tab), JSON.stringify(lost));

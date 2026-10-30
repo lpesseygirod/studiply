@@ -25,7 +25,7 @@ import { setNativePhotoResolver, type PhotoBridgeInstance } from './bridges/phot
 import type { TimestampChipInstance, TimestampChipState } from './bridges/timestampChip';
 import type { LiveStampsInstance } from './bridges/liveStamps';
 import { editorCss, PAGE_COLORS } from './editorCss';
-import { cleanUrl, type FormatCommand, type TableAction } from './format';
+import { cleanUrl, linkedMarkOf, type FormatCommand, type TableAction } from './format';
 import { promptText, showActionSheet, showAlert } from '../components/dialogs/dialogs';
 import { AA_PANEL, AaKeyboard, COLOR_PANEL, ColorKeyboard } from './iphone/FormatPanels';
 import { KeyboardToolbar, type Panel } from './iphone/KeyboardToolbar';
@@ -73,7 +73,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language, recordingClock },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language, recordingClock, onMarkRemoved },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -404,7 +404,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     }
     seenMarkPress.current = markPress;
     const m = stateRef.current.format?.markChip;
-    if (m) setMarkDraft({ kind: m.kind, level: m.level, existing: true });
+    // A mark made while recording (step 5.5) opens its mark panel (an older editor bundle has no markId: the 4.6 form).
+    const mark = linkedMarkOf(m);
+    if (m) setMarkDraft({ kind: m.kind, level: m.level, existing: true, linked: mark && m.at ? { mark, at: m.at } : null });
   }, [markPress]);
 
   // Tapping a formula (in the WebView) opens the sheet on it.
@@ -462,6 +464,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       insertTimestampChip: (ms) => editor.insertTimestampChip(ms),
       comments: async () => stateRef.current.format?.comments ?? [],
       comment: (cmd) => run(cmd),
+      run: (cmd) => run(cmd),
       focus: () => editor.focus(),
       blur: () => editor.blur(),
       tool: (which) => {
@@ -606,8 +609,13 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           run(markDraft?.existing ? { type: 'markChip', action: 'update', kind, level } : { type: 'markChip', action: 'insert', kind, level });
           setMarkDraft(null);
         }}
+        onSaveLinked={(level, note) => {
+          run({ type: 'markChip', action: 'update', level, note });
+          setMarkDraft(null);
+        }}
         onRemove={() => {
           run({ type: 'markChip', action: 'delete' });
+          if (markDraft?.linked) onMarkRemoved?.(markDraft.linked.mark, markDraft.linked.at);
           setMarkDraft(null);
         }}
       />

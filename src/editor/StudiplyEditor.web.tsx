@@ -59,7 +59,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, plain = false, recordingClock },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, plain = false, recordingClock, onMarkRemoved },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -162,6 +162,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       focus: () => editor.commands.focus(),
       blur: () => editor.commands.blur(),
       tool: (which) => openTool(which),
+      run: (cmd) => void runFormat(editor, cmd),
     }),
     // openTool only sets state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +338,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
               {editable && <TableMenus editor={editor} />}
               {editable && <FormulaPopover editor={editor} />}
               {editable && <PhotoMenu editor={editor} />}
-              {editable && <BlockMenus editor={editor} />}
+              {editable && <BlockMenus editor={editor} onMarkRemoved={onMarkRemoved} />}
               {editable && <GraphPopover editor={editor} />}
               {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
             </View>

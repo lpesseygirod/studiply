@@ -109,6 +109,12 @@ const light = {
     confused: { bg: '#EAE8F7', text: '#4F43B0' },
     exam: { bg: '#F5E0D8', text: '#8A3B22' },
   },
+  /** The recording screen's mark buttons and panel (step 5.5): the mark chips' colours (Important and Exam amber, Confused salmon). */
+  markButton: {
+    important: { bg: '#FFE4B5', text: '#7A4A00' },
+    confused: { bg: '#F5E0D8', text: '#8A3B22' },
+    exam: { bg: '#FFE4B5', text: '#7A4A00' },
+  },
   fromNotes: { bg: '#E8F5EE', text: '#1F6B45' },
 
   /** A highlighted sentence (clarify). */
@@ -240,6 +246,11 @@ export const DarkColors: ThemeColors = {
     important: { bg: '#4A3815', text: '#FFD98A' },
     confused: { bg: '#2F2A4A', text: '#C9C2FA' },
     exam: { bg: '#4A3530', text: '#F5B8A3' },
+  },
+  markButton: {
+    important: { bg: '#4A3815', text: '#FFD98A' },
+    confused: { bg: '#4A3530', text: '#F5B8A3' },
+    exam: { bg: '#4A3815', text: '#FFD98A' },
   },
   fromNotes: { bg: '#1B3328', text: '#9BE3BF' },
 

@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
@@ -8,6 +9,8 @@ import { clock, useRecorder, useRecorderState, useRecordingFlow } from '../../ho
 import { useRecordingActions } from './useRecordingActions';
 import { savingText } from './savingText';
 import { Waveform } from './Waveform';
+import { MarkPanel } from './MarkPanel';
+import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel, type MarkDraft } from './markPanelState';
 
 /**
  * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
@@ -102,6 +105,7 @@ export function RecordingPhoneBar() {
   const live = useRecorderState();
   const flow = useRecordingFlow();
   const actions = useRecordingActions();
+  const draft = useMarkPanel();
 
   if (flow.saving) {
     return (
@@ -112,22 +116,24 @@ export function RecordingPhoneBar() {
       </View>
     );
   }
+  const markable = live.status === 'recording' || live.status === 'paused';
   return (
     <View style={styles.bar} {...{ dataSet: { recording: 'bar' } }}>
-      {/* The marks (5.5) and board photos (5.6) come next: shown, disabled, all equally quiet. */}
+      {/* The marks (step 5.5): each opens its small sheet; the recording goes on. Board photos (5.6) come next. */}
       <View style={styles.tiles}>
         {MARKS.map((m) => (
           <Pressable
             key={m.key}
-            disabled
-            aria-disabled
-            style={[styles.tile, { backgroundColor: c.marks[m.key].bg }, styles.off]}
+            onPress={() => openMarkPanel(m.key)}
+            disabled={!markable}
+            aria-disabled={!markable}
+            style={({ pressed }) => [styles.tile, { backgroundColor: c.markButton[m.key].bg }, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
             accessibilityLabel={m.label}
+            {...{ dataSet: { markButton: m.key } }}
           >
-            <Text style={[styles.tileGlyph, { color: c.marks[m.key].text }]}>{m.glyph}</Text>
-            <Text style={[styles.tileLabel, { color: c.marks[m.key].text }]}>{m.label}</Text>
+            <Text style={[styles.tileGlyph, { color: c.markButton[m.key].text }]}>{m.glyph}</Text>
+            <Text style={[styles.tileLabel, { color: c.markButton[m.key].text }]}>{m.label}</Text>
           </Pressable>
         ))}
         <Pressable disabled aria-disabled style={[styles.tile, styles.photo, styles.off]} accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel="Photo">
@@ -151,7 +157,26 @@ export function RecordingPhoneBar() {
           <Text style={styles.stopText}>Stop & summarize</Text>
         </Pressable>
       </View>
+      <MarkSheet draft={draft && markable && draft.lectureId === live.lectureId ? draft : null} />
     </View>
+  );
+}
+
+/** The new-mark panel as a small sheet over the bottom of the screen; tapping above it closes it. */
+function MarkSheet({ draft }: { draft: MarkDraft | null }) {
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={!!draft} transparent animationType="slide" onRequestClose={closeMarkPanel}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap}>
+        <Pressable style={styles.sheetFill} onPress={closeMarkPanel} accessibilityRole="button" accessibilityLabel="Close the mark" />
+        {draft && (
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
+            <MarkPanel kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -198,4 +223,15 @@ const makeStyles = (c: ThemeColors) =>
     pressed: { opacity: 0.85 },
     saving: { minHeight: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, backgroundColor: c.recordingStrip.bg },
     savingText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, textAlign: 'center' },
+    sheetWrap: { flex: 1 },
+    sheetFill: { flex: 1 },
+    sheet: {
+      backgroundColor: c.card,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
   });

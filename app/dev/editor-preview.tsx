@@ -53,7 +53,7 @@ export default function EditorPreview() {
       {show === 'formula' && (
         <FormulaSheet draft={{ latex: '', display: false, existing: false }} onChange={() => {}} onDone={() => {}} onRemove={() => {}} onLibrary={() => {}} />
       )}
-      {show === 'mark' && <MarkSheet draft={{ kind: 'confused', level: 7, existing: true }} onSubmit={() => {}} onRemove={() => {}} onClose={() => {}} />}
+      {show === 'mark' && <MarkSheet draft={{ kind: 'confused', level: 7, existing: true }} onSubmit={() => {}} onSaveLinked={() => {}} onRemove={() => {}} onClose={() => {}} />}
       {show === 'pagesetup' && (
         <PageSetupDialog visible setup={setup} pageless={false} onClose={() => {}} onApply={setSetup} onSetDefault={async () => {}} />
       )}

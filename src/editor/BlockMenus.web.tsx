@@ -9,20 +9,25 @@ import { PopoverDivider, PopoverHeading, PopoverRow, ToolbarPopover } from '../c
 import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { useThemedStyles } from '../theme/ThemeProvider';
-import { formatState, runFormat, type FormatCommand } from './format';
+import { MarkPanel } from '../components/recording/MarkPanel';
+import { formatState, linkedMarkOf, runFormat, type FormatCommand } from './format';
 import { CALLOUT_EVENT } from './schema/callout';
 import { MARK_CHIP_EVENT } from './schema/markChip';
+import type { StudiplyEditorProps } from './types';
 
 /**
  * The laptop's menus for Studiply's blocks (step 4.6): a click on a
  * callout's label opens its menu (change to another kind, its level for
  * "You were confused here", Remove callout: the text stays); a click on a
- * mark chip opens its kind and level, and Remove.
+ * mark chip opens its kind and level, and Remove. A mark made while
+ * recording (step 5.5) opens its mark panel: level, note, Done, Remove mark
+ * (the screen offers Undo).
  */
-export function BlockMenus({ editor }: { editor: Editor }) {
+export function BlockMenus({ editor, onMarkRemoved }: { editor: Editor; onMarkRemoved?: StudiplyEditorProps['onMarkRemoved'] }) {
   const styles = useThemedStyles(makeStyles);
   const [menu, setMenu] = useState<{ kind: 'callout' | 'mark'; anchor: Anchor } | null>(null);
   const s = formatState(editor);
+  const linked = linkedMarkOf(s.markChip);
 
   useEffect(() => {
     const dom = editor.view.dom;
@@ -77,9 +82,26 @@ export function BlockMenus({ editor }: { editor: Editor }) {
           </>
         )}
       </ToolbarPopover>
-      <ToolbarPopover anchor={menu?.kind === 'mark' && s.markChip ? menu.anchor : null} onClose={close} width={300} label="Mark">
-        {s.markChip && (
-          <>
+      <ToolbarPopover anchor={menu?.kind === 'mark' && s.markChip ? menu.anchor : null} onClose={close} width={linked ? 380 : 300} label="Mark">
+        {linked ? (
+          // A mark made while recording (step 5.5): its panel, to change the level or note, or remove it.
+          <View style={styles.form}>
+            <MarkPanel
+              editing
+              kind={linked.kind}
+              ms={linked.ms}
+              level={linked.level}
+              note={linked.note}
+              onSave={(level, note) => run({ type: 'markChip', action: 'update', level, note })}
+              onCancel={close}
+              onRemove={() => {
+                run({ type: 'markChip', action: 'delete' });
+                onMarkRemoved?.(linked, s.markChip!.at);
+              }}
+            />
+          </View>
+        ) : (
+          s.markChip && (
             <View style={styles.form}>
               <MarkForm
                 kind={s.markChip.kind}
@@ -89,7 +111,7 @@ export function BlockMenus({ editor }: { editor: Editor }) {
                 onRemove={() => run({ type: 'markChip', action: 'delete' })}
               />
             </View>
-          </>
+          )
         )}
       </ToolbarPopover>
     </>

@@ -172,7 +172,28 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **Playback:** expo-av and expo-audio did fight over the iOS audio session (expo-av's `setAudioModeAsync` switches the session to playback, which stops expo-audio's recorders: a chip tapped during the lecture would have stopped the recording). `src/lib/audioPlayer.ts` now plays through expo-audio's player on the iPhone (expo-av only in a build without it); the web's player is `audioPlayer.web.ts`, unchanged. While recording, iOS plays through the earpiece unless headphones are in (the headphones hint covers it).
   - **Checked:** Jest 9 new (`nativeChunkRecorder.test.ts` 7: order, overlap, refusal fallback, pause, lost, level, after a crash; `nativeRecovery.test.ts` 2: killed mid-chunk offline on the AsyncStorage store, then pause); `npm run check` 1839; installed `recorder.mjs` 7/7, `recording.mjs` 10/10, `notes-live.mjs` 6/6 (the web unchanged).
   - **Not yet checked:** everything on a device (the Simulator and iPhone lists in `docs/recording-test/DEVICE-CHECKS.md`; the locked test in `docs/recording-test/INSTRUCTIONS.md`).
-- [ ] 5.5 — Marks with a 1–10 level
+- [x] 5.5 — Marks with a 1–10 level — **done and checked on the web 30 Oct** (laptop, 390 px; the iPhone in the shared code) on branch `phase-5-recording`.
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1855; all eighteen Chrome suites pass (marks 10/10, recording 10/10 with the updated copy). `editorHtml.js` rebuilt by the advisor.
+  - **On Lea's device list** (`docs/recording-test/DEVICE-CHECKS.md`, with the EAS build): the sheet over the keyboard, the light haptic on Save mark, VoiceOver adjusting the slider, a mark while writing and with the keyboard down, a mark made offline (its row arrives once the edit is sent).
+  - **Decisions (Lea's advisor, 30 Oct):**
+    1. A: a chip deleted by typing deletes its mark when My notes is saved; Undo brings it back.
+    2. No marks outside a recording.
+  - **The panel** (`components/recording/MarkPanel.tsx`, `LevelSlider.tsx`, `utils/markHints.ts`): inline under the laptop's strip, a small sheet on the iPhone and below 1024 px.
+    - It shows the time of the press, the mark's question, the 1–10 slider with labelled ends (starting at 5; drag, tap, VoiceOver, arrow keys), the optional note (500 characters), the one-line hint from SUMMARY-SPEC by band, and Cancel / Save mark.
+    - Save gives a light haptic on the iPhone (expo-haptics, already installed).
+    - The mark buttons are enabled, in the chips' colours (new `markButton` tokens). Photo board stays disabled until 5.6.
+  - **The chip:** 4.6's `markChip` gains `ms` and `note`, plus `markId` for these marks.
+    - `placeMark` puts it at the end of the line being written, or on a new last line stamped with its time.
+    - Placement goes through the open editor (`services/mark-placement.ts`; the document screen registers while focused), or is saved straight into My notes from another screen.
+    - Tapping a linked chip opens the panel (Done, Remove mark with Undo) on both editors, also after the recording.
+  - **The rows:** `services/marks.service.ts` `syncMarks` runs after each save of a lecture's My notes, beside `syncNoteLines`, on the laptop's save and the iPhone's queued edit (offline: when it's sent).
+    - Each linked chip is its row; a row whose chip is gone is deleted; a chip copied from another lecture is left to that lecture.
+    - No migration. The `marks` table's comment is updated in `20261023155314_lecture_data.sql` (comment lines only; nothing to push).
+  - **Checked:**
+    - `npm run check`: 151 suites, 1855 tests. 16 new: `marks.test` 4, `linkedMarks.test` 7, `markHints.test` 5; `studyBlocks` updated.
+    - Installed `blocks.mjs` 8/8 (the first run failed once on the 4.6 playback step, +10 s; then passed) and `notes-live.mjs` 6/6.
+    - New `marks.mjs` and an updated `recording.mjs` (the marks are no longer greyed out): for Lea to install and run.
+  - **The iPhone bundle** needs `npm run editor:build` (the chip's attributes, `placeMark` and the chip's state cross the bridge).
 - [ ] 5.6 — Board photos
 - [ ] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct
 - [ ] 5.8 — A real lecture (dogfood + fixes)

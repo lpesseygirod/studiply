@@ -112,7 +112,7 @@ describe('mark chips', () => {
     });
     expect(chip).toBeGreaterThan(0);
     editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, chip)));
-    expect(formatState(editor).markChip).toEqual({ kind: 'important', level: 8 });
+    expect(formatState(editor).markChip).toMatchObject({ kind: 'important', level: 8, markId: null, ms: null, note: null });
     runFormat(editor, { type: 'markChip', action: 'update', kind: 'confused', level: 3 });
     expect(editor.getHTML()).toContain('Confused 3/10');
     runFormat(editor, { type: 'markChip', action: 'delete' });

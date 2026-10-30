@@ -89,7 +89,7 @@ As built in step 4.4:
   - **Callouts:** a box with a 4 px coloured left border, a light fill and 8 px corners, and a small label in capitals, so meaning never depends on colour: **Definition** (lavender), **Example** (blue), **Exam signal** (amber), **Common mistake** (red; the spec's Warning), **From your notes · 4:12** (green), **You were confused here · 7/10 · 18:30** (salmon), **Added context · not from the lecture** (warm grey). Inside: any text, lists, formulas, photos, tables. Enter on an empty last line leaves the box; Backspace in an empty box removes it.
   - **Adding:** laptop: Insert ▾ → Study blocks → **Callout** (the seven, drawn in their colours); the selected lines go into the box, or an empty one goes in at the cursor. iPhone: **Callout** in the keyboard toolbar's second row (Insert), an action sheet.
   - **Changing:** a click or tap on the label opens its menu: **Change to** (the seven), **Level** 1–10 (You were confused here), **Remove callout (keep the text)**.
-  - **Mark chips:** "Important 8/10", "Confused 7/10", "Exam 9/10" in the text (Important and Exam amber, Confused salmon, as the spec's colours; the recording screen's own mark buttons still use their earlier colours until Phase 5). Insert ▾ → **Mark** (laptop) or **Mark** in the second row (iPhone), both with a flag icon (✦ stays the assistant's): the kind and the level 1–10; a click or tap on a chip opens the same with **Done** and **Remove**.
+  - **Mark chips:** "Important 8/10", "Confused 7/10", "Exam 9/10" in the text (Important and Exam amber, Confused salmon, as the spec's colours; since step 5.5 the recording screen's mark buttons use them too). Insert ▾ → **Mark** (laptop) or **Mark** in the second row (iPhone), both with a flag icon (✦ stays the assistant's): the kind and the level 1–10; a click or tap on a chip opens the same with **Done** and **Remove**.
   - **Timestamp chips:** "4:12" in the accent colour. Insert ▾ → **Timestamp** (laptop) or **Time** (iPhone) asks for the time; during a recording they come on their own (Phase 5). **Tap one to play the lecture's recording from that moment** in a **mini player** under the document (laptop: under the pages; iPhone: above the keyboard toolbar): −10 s · ▶/❚❚ · +10 s · the time and the length · ✕. It plays piece after piece (the recording is stored in 30-second pieces). A document with no recording says so; deleted audio (its keep-or-delete setting) says so; while the lecture is being recorded it waits until the recording stops; it needs a connection for now.
   - **Page view:** a callout that fits on a page moves to the next page whole (as in the PDF); a longer one splits between lines.
 - **Selection bar (after test B):** selected words get a small bar right there: **Comment · B · I · Highlight · Link │ Callout ▸ · Mark ▸ · Time ▸** (the last three after 4.6, each a small picture and a word). Laptop: above the selection, once the mouse is released. iPhone: below the selection, so iOS's own Copy / Paste menu above it stays (adding to that menu would remove Copy and Paste); on a phone's width the last three make a second row. Not for cells, photos or formulas (they have their own bars).
@@ -172,7 +172,22 @@ As built in step 4.4:
   - Confused: "How lost are you?" (1 a bit unsure → 10 completely lost).
   - Exam: "How likely on the exam?" (1 maybe → 10 certain).
   - What each level does in the summary (low 1–3 / mid 4–7 / high 8–10, adjusted by the Follow my marks slider) is defined in SUMMARY-SPEC.md, "What each mark does". The panel shows a one-line hint of the effect.
+  - **As built (step 5.5):**
+    - **Where:** the laptop's panel opens under the strip, on the buttons' side, and pushes the page down. On the iPhone (and the web below 1024 px) it's a small sheet.
+    - **The time** is the moment the button was pressed (while paused, the paused moment).
+    - **The slider** starts at 5. It works by drag, a tap on the track, VoiceOver's adjust, or the arrow keys, Home and End on the laptop.
+    - **The note** is one line of up to 500 characters.
+    - **The hint** reads "In the summary: …" for the level's band, at Follow my marks 7.
+    - **Colours:** the mark buttons and the panel use the chips' colours (Important and Exam amber, Confused salmon), with their labels.
+    - **Haptic:** a light tap on Save mark (iPhone).
 - Saved marks appear in My notes as chips, e.g. `Confused 7/10`; tapping the chip edits the level.
+  - **Where the chip goes (step 5.5):**
+    - If the student has been writing in My notes, at the end of the line they were on, after a space.
+    - Otherwise on a new last line that starts with the mark's time.
+    - From another screen (the laptop's strip is on every screen), saved there the same way.
+  - **Tapping the chip** opens the same panel with **Done** and **Remove mark**; Remove offers Undo. This works after the recording too.
+  - **My notes is what the marks are** (Lea's advisor, 30 Oct): a chip deleted by typing deletes its mark, and Undo brings it back.
+  - **No marks outside a recording:** the buttons are only on the recording screens. Insert ▾ → Mark stays the display-only chip of 4.6.
 - **My notes** is a normal rich-text document; every line typed is stamped with the recording time (shown as a small purple chip; tapping it replays the audio).
 - The assistant panel shows a "Recording continues" badge.
 

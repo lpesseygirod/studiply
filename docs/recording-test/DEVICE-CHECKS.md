@@ -47,3 +47,10 @@ Keep Metro's log for both lists.
 6. **Offline:** Airplane mode for 2 min while recording, then off. The chunks upload afterwards, in order.
 7. **Kill the app** from the app switcher mid-recording, then reopen: Continue works and at most 30 s is lost (Known issues in PROGRESS).
 8. **After the lecture:** play the recording across a join. The time never goes back and nothing is heard twice.
+9. **Marks (step 5.5,** after `npm run editor:build`**):**
+   - each of Important, Confused and Exam opens its small sheet, also over the keyboard while writing;
+   - Save mark gives a light haptic;
+   - VoiceOver adjusts the slider one step at a time ("5 of 10");
+   - a mark while writing goes at the end of the line; with the keyboard down, on a new last line with its time;
+   - a tap on the chip changes its level; Remove mark, then Undo;
+   - with Airplane mode on, a mark's chip shows at once; its row in `marks` (Supabase Studio) arrives once the phone is online and the edit is sent.

@@ -17,7 +17,8 @@ const kinds = new Map<string, boolean>();
 /** What was last written per document (its lines as JSON). */
 const written = new Map<string, string>();
 
-async function isLecture(fileId: string): Promise<boolean> {
+/** Whether the file is a lecture (kept per file; also the marks', step 5.5). */
+export async function isLectureFile(fileId: string): Promise<boolean> {
   const known = kinds.get(fileId);
   if (known !== undefined) return known;
   const { data, error } = await supabase.from('files').select('kind').eq('id', fileId).maybeSingle();
@@ -28,7 +29,7 @@ async function isLecture(fileId: string): Promise<boolean> {
 }
 
 export async function syncNoteLines(row: { id: string; file_id: string; tab: string; content: unknown }): Promise<void> {
-  if (row.tab !== 'notes' || !(await isLecture(row.file_id))) return;
+  if (row.tab !== 'notes' || !(await isLectureFile(row.file_id))) return;
   const lines = noteLinesOf(row.content as DocJSON);
   const json = JSON.stringify(lines);
   if (written.get(row.id) === json) return;

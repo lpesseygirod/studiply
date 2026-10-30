@@ -306,3 +306,20 @@ node .claude/skills/web-check/scripts/joins.mjs "Join test"
 - **Pause / Continue joins** (a chunk starting exactly where the one before ended) are left out; a jump in the clicks (a call) starts a new stretch.
 - Exit code 1 if a join lost audio or couldn't be measured. The whole test, step by step: `docs/recording-test/INSTRUCTIONS.md`.
 - It can't be checked without a recording from the phone: there is no browser half.
+
+## Check marks while recording (step 5.5)
+
+`scripts/marks.mjs` records with a synthetic microphone (transcription answered in the page, no paid call) and checks each part:
+- **The panels:** ★ Important, ? Confused and Exam from the laptop's strip, each with its time, question, labelled ends and hint.
+- **Setting levels:** the slider by click and by keyboard.
+- **Saving:** a note, Save mark. The chip goes at the end of the line being written, and its `marks` row has the panel's time.
+- **Editing a chip:** a click on it changes its level and note. Remove mark, then Undo, brings back the same row.
+- **Special cases:** a mark while paused (at the paused moment), and a mark from another screen (a new stamped last line). Offline, the row arrives once back online.
+- **390 px:** each mark's sheet.
+- **After Stop:** a chip still edits its level. The recording never stopped meanwhile.
+
+```bash
+node .claude/skills/web-check/scripts/marks.mjs
+```
+
+Screenshots: `mark-panel-*-1280(-dark)`, `mark-sheet-*-390(-dark)`, `mark-edit-1280`, `mark-removed-1280`, `mark-paused-1280`, `marks-chips-1280(-dark)`, `marks-chips-390`.

@@ -108,10 +108,13 @@ create table public.note_lines (
 -- ---------------------------------------------------------------------
 -- Marks — the source of truth
 -- ---------------------------------------------------------------------
--- This table is the source of truth for marks (Important, Confused, Exam).
--- A mark chip in a document stores only the mark's id (markId node
--- attribute); its type, level and note are always read from here.
--- Changing the level from the chip updates this row, never the document.
+-- The marks (Important, Confused, Exam) made while recording.
+-- Comment updated in step 5.5 (Lea's advisor, 30 Oct; comment only, the
+-- table is unchanged): a lecture's My notes is what its marks are. Each
+-- mark is a chip there (markId, kind, level, ms, note); after each save of
+-- My notes these rows follow the chips (services/marks.service.ts), so a
+-- chip deleted by typing deletes its row and Undo brings it back. The
+-- summary reads its marks from here.
 
 create table public.marks (
   id         uuid primary key default gen_random_uuid(),

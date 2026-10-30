@@ -15,7 +15,7 @@ import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '..
 import { formulaEntry } from '../formulas/library';
 import type { GraphData } from '../graph/data';
 import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/graph';
-import { markChipKey, selectedMarkChip, type MarkChipRequest, type MarkKind as ChipKind } from '../schema/markChip';
+import { markChipKey, selectedMarkChip, type LinkedMark, type MarkChipRequest, type MarkKind as ChipKind, type MarkPlace } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
 import { TextSelection } from '@tiptap/pm/state';
@@ -112,8 +112,11 @@ export interface FormatState {
   /** The callout the cursor is in (step 4.6), and the last click on a callout's label (the iPhone opens its menu). */
   callout: { kind: CalloutKind; level: number | null; ms: number | null } | null;
   calloutRequest: CalloutRequest | null;
-  /** The selected mark chip (step 4.6), and the last tap on one (the iPhone opens its menu). */
-  markChip: { kind: ChipKind; level: number | null } | null;
+  /**
+   * The selected mark chip (step 4.6), and the last tap on one (the iPhone opens its menu). A
+   * linked chip (step 5.5, a mark made while recording) also has its mark, time, note and place.
+   */
+  markChip: { kind: ChipKind; level: number | null; markId: string | null; ms: number | null; note: string | null; at: MarkPlace } | null;
   markChipRequest: MarkChipRequest | null;
   /** The selected graph's data (step 4.7d), only while one is selected: the rest of the time nothing big crosses to the iPhone. */
   graph: GraphData | null;
@@ -161,8 +164,10 @@ export type FormatCommand =
   | { type: 'callout'; action: 'remove' }
   /** Mark chips (step 4.6): put one in, or change or remove the selected one. */
   | { type: 'markChip'; action: 'insert'; kind: ChipKind; level: number | null }
-  | { type: 'markChip'; action: 'update'; kind?: ChipKind; level?: number | null }
+  | { type: 'markChip'; action: 'update'; kind?: ChipKind; level?: number | null; note?: string | null }
   | { type: 'markChip'; action: 'delete' }
+  /** A mark made while recording (step 5.5): on the line being written, or a new stamped last line; `at`: back where it was. */
+  | { type: 'markChip'; action: 'place'; mark: LinkedMark; at?: MarkPlace }
   /** Graphs (step 4.7d): a new one (selected, its form asked for), the selected one's data, or delete it. */
   | { type: 'graph'; action: 'insert' }
   | { type: 'graph'; action: 'set'; graph: GraphData }
@@ -286,9 +291,15 @@ function calloutOf(editor: Editor): FormatState['callout'] {
   return c && { kind: c.kind, level: c.level, ms: c.ms };
 }
 
+/** The selected chip's mark, when it is one made while recording (step 5.5). */
+export function linkedMarkOf(chip: FormatState['markChip'] | undefined): LinkedMark | null {
+  if (!chip?.markId || chip.ms === null || chip.ms === undefined) return null;
+  return { markId: chip.markId, kind: chip.kind, level: chip.level ?? 5, ms: chip.ms, note: chip.note ?? null };
+}
+
 function markChipOf(editor: Editor): FormatState['markChip'] {
   const c = selectedMarkChip(editor.state);
-  return c && { kind: c.kind, level: c.level };
+  return c && { kind: c.kind, level: c.level, markId: c.markId, ms: c.ms, note: c.note, at: c.at };
 }
 
 function viewOf(editor: Editor): FormatState['view'] {
@@ -495,7 +506,9 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().deleteGraph().run();
     case 'markChip':
       if (cmd.action === 'insert') return chain().insertMarkChip({ kind: cmd.kind, level: cmd.level }).run();
-      if (cmd.action === 'update') return chain().updateMarkChip({ kind: cmd.kind, level: cmd.level }).run();
+      if (cmd.action === 'update') return chain().updateMarkChip({ kind: cmd.kind, level: cmd.level, note: cmd.note }).run();
+      // Not focusing the text: the student pressed a mark button, maybe away from the editor.
+      if (cmd.action === 'place') return editor.chain().placeMark(cmd.mark, cmd.at).run();
       return chain().deleteMarkChip().run();
     case 'timestamp':
       return chain().insertTimestampChip(cmd.ms).run();
