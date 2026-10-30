@@ -140,7 +140,8 @@ export default function DocumentScreen() {
   }, [tabs, tab]);
 
   // This lecture is recording (step 5.3): on the iPhone (and below 1024 px) the
-  // recording screen of iphone-02 around My notes; the laptop has the strip.
+  // recording header and bar of iphone-02 around the document screen as it is
+  // outside a recording (Lea, 30 Oct: its tabs, toolbar and page view); the laptop has the strip.
   const live = useRecorderState();
   const recordingFlowState = useRecordingFlow();
   const recordingHere =
@@ -151,9 +152,6 @@ export default function DocumentScreen() {
     const now = recorder.state();
     return now.lectureId === id && (now.status === 'recording' || now.status === 'paused') ? recorder.elapsedMs() : null;
   }, [id]);
-  useEffect(() => {
-    if (recordingScreen && tab !== 'notes') setTab('notes');
-  }, [recordingScreen, tab]);
 
   const leave = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -431,8 +429,10 @@ export default function DocumentScreen() {
         selectTitle={created}
         compact={!wide}
         inset={inset}
-        // Pages (laptop) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b); a sheet's is on its card.
-        onGradient={!onCard && (wide ? margin.pages : nativeEditor && !!phoneView?.pages)}
+        // Pages (the web, any width) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b); a sheet's is on its card.
+        onGradient={!onCard && (nativeEditor ? !!phoneView?.pages : margin.pages)}
+        // The phone's recording screen shows the title in its header above (once).
+        showTitle={!recordingScreen}
       />
     ) : null;
 
@@ -508,32 +508,21 @@ export default function DocumentScreen() {
     </View>
   ) : showEditor ? (
     // Print layout: no white card; the pages sit on the gradient (step 4.5b).
-    <View style={[styles.editorWrap, !wide && nativeEditor && (recordingScreen || !phoneView?.pages) && styles.pageCard]}>
+    <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
       {keptNotice}
       {lostNotice}
       <StudiplyEditor
         key={editorKey}
         ref={editorRef}
         fileId={id}
-        // The recording screen (iphone-02): the title is in its header above; here only "MY NOTES".
-        header={
-          recordingScreen ? (
-            <Text style={[styles.notesLabel, nativeEditor && styles.notesLabelInset]} {...{ dataSet: { recording: 'notes-label' } }}>
-              MY NOTES
-            </Text>
-          ) : (
-            makeHeader(nativeEditor)
-          )
-        }
-        plain={recordingScreen}
+        header={makeHeader(nativeEditor)}
         recordingClock={isLecture && tab === 'notes' ? recordingClock : undefined}
         onMarkRemoved={(mark, at) => showUndo('Mark removed', () => editorRef.current?.run({ type: 'markChip', action: 'place', mark, at }))}
         commentRoom={commentRoom}
         onCommentMargin={setCommentMarginShown}
         onReady={() => setReadyKey(editorKey)}
         onChange={sync.onChange}
-        // While recording, My notes is pageless (Print layout stays as the student set it for later).
-        view={nativeEditor ? (recordingScreen && phoneView ? { ...phoneView, pages: false } : phoneView) : undefined}
+        view={nativeEditor ? phoneView : undefined}
         pageSetup={sync.pageSetup}
         onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
         language={docLanguage}
@@ -580,6 +569,7 @@ export default function DocumentScreen() {
       </View>
     </View>
   ) : recordingScreen ? (
+    // The recording header (iphone-02), then the document's own status and tabs, as outside a recording (Lea, 30 Oct).
     <View onStartShouldSetResponder={() => true} onResponderRelease={() => editorRef.current?.blur()} style={[styles.phoneTop, { paddingTop: insets.top + 6 }]}>
       <RecordingPhoneHeader
         backLabel={courseName ?? 'Library'}
@@ -587,7 +577,14 @@ export default function DocumentScreen() {
         onBack={leave}
         crumbs={chain.length ? chain.map((b) => b.name).join(' › ') : (courseName ?? 'My library')}
         title={file?.title ?? ''}
+        menu={
+          <View ref={menuButton} collapsable={false}>
+            <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
+          </View>
+        }
       />
+      {status && <Text style={styles.status}>{status}</Text>}
+      {tabRow(true)}
     </View>
   ) : (
     // Above the page: a tap on its empty space closes the keyboard (buttons answer their own taps).
@@ -705,12 +702,4 @@ const makeStyles = (c: ThemeColors) =>
     backText: { fontSize: Typography.size.md, fontWeight: Typography.weight.medium },
     status: { fontSize: Typography.size.xs, color: c.text.onGradient, marginTop: -6, marginLeft: 6 },
     phoneBody: { flex: 1, paddingHorizontal: 12 },
-    notesLabel: {
-      marginBottom: 10,
-      fontSize: Typography.size.xs,
-      fontWeight: Typography.weight.bold,
-      letterSpacing: Typography.tracking.wider,
-      color: PAGE_COLORS.text.secondary,
-    },
-    notesLabelInset: { marginHorizontal: 16, marginTop: 14 },
   });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,9 +15,11 @@ import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel, type MarkDraf
 
 /**
  * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
- * around the lecture's My notes when that lecture is recording: the header
- * (back, the red timer chip, Course › folder, the title, the waveform) and
- * the bottom bar. Also the web below 1024 px.
+ * around the lecture's document when that lecture is recording: the header
+ * (back, ❚❚, the red timer chip, the ⋯ menu, Course › folder, the title, the
+ * waveform) and the bottom bar. Between them the document screen as it is
+ * outside a recording (Lea, 30 Oct): its tabs, toolbar and page view. Also
+ * the web below 1024 px.
  */
 export function RecordingPhoneHeader({
   backLabel,
@@ -24,12 +27,15 @@ export function RecordingPhoneHeader({
   onBack,
   crumbs,
   title,
+  menu,
 }: {
   backLabel: string;
   backColor: string;
   onBack: () => void;
   crumbs: string;
   title: string;
+  /** The document's ⋯ menu (Lea, 30 Oct: the same document screen as outside a recording). */
+  menu?: ReactNode;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -67,6 +73,7 @@ export function RecordingPhoneHeader({
               {clock(live.elapsedMs)}
             </Text>
           </View>
+          {menu}
         </View>
       </View>
       {!!crumbs && (

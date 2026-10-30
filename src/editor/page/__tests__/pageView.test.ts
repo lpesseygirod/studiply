@@ -25,12 +25,14 @@ it('Pages, zoom and fit in one change; the document and Undo untouched', () => {
   expect(editor.can().undo()).toBe(false);
 });
 
-it('zoom stays within 50–200 %; fit multiplies it only in Pages', () => {
+it('zoom stays within 25–200 % (below 50 % only for Fit at phone width); fit multiplies it only in Pages', () => {
   editor = new Editor({ extensions: studiplyExtensions() });
   runFormat(editor, { type: 'view', zoom: 5 });
   expect(pageViewOf(editor.state)!.zoom).toBe(2);
+  runFormat(editor, { type: 'view', zoom: 0.38 });
+  expect(pageViewOf(editor.state)!.zoom).toBe(0.38);
   runFormat(editor, { type: 'view', zoom: 0.1 });
-  expect(pageViewOf(editor.state)!.zoom).toBe(0.5);
+  expect(pageViewOf(editor.state)!.zoom).toBe(0.25);
   const s = { ...pageViewOf(editor.state)!, zoom: 1, fit: true, factor: 0.47 };
   expect(shownZoom({ ...s, pages: true })).toBeCloseTo(0.47);
   expect(shownZoom({ ...s, pages: false })).toBe(1);

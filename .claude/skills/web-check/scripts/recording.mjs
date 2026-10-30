@@ -21,8 +21,11 @@
 //   4b. Pause beside the timer (Lea, 30 Oct): "Paused", the clock and the
 //      waveform still, the microphone closed, at 1280 and 390; ▶ goes on, and
 //      the chunk after the pause starts exactly where the one before ended;
-//   5. at 390 px: the iPhone recording screen around My notes (timer chip,
-//      waveform, bottom bar); back to the course: the red pill leads back;
+//   5. at 390 px: the recording header (timer chip, waveform, the title once)
+//      and the bottom bar around the lecture's document as it is outside a
+//      recording (Lea, 30 Oct): its tabs (My notes · Summary · Transcript, +),
+//      the formatting toolbar and the status line; another tab opens while
+//      it records; text typed; back to the course: the red pill leads back;
 //   6. a reload asks first (the browser's question), then the strip offers the
 //      interrupted recording; Continue records on into the same lecture;
 //   7. Stop & summarize asks, saves, and opens today's after-recording step;
@@ -32,12 +35,12 @@
 //      "transcribing" with its length, nothing shown;
 //   9. no paid request.
 // Also: Photo board (and ✦ Ask) are truly disabled (aria-disabled), the marks
-// are not (step 5.5); at 390 px the title shows once and My notes is
-// pageless, without the toolbar card, page sheets or word-count line.
+// are not (step 5.5).
 // Screenshots (each after the splash): rec-setup-folders-1280(-dark),
 // rec-setup-1280, rec-setup-folders-390(-dark), rec-strip-lecture-1280,
 // rec-strip-course-1280(-dark), rec-strip-other-doc-1280, rec-mic-lost-1280,
-// rec-phone-390(-dark), rec-pill-390, rec-interrupted-1280, rec-saving-1280,
+// rec-phone-390(-dark) (nothing typed), rec-phone-390-typed(-dark),
+// rec-phone-390-summary, rec-pill-390, rec-interrupted-1280, rec-saving-1280,
 // rec-saving-closed-1280, rec-paused-1280(-dark), rec-paused-390(-dark).
 // About 4 minutes (the app's chunks are 30 s). PASS/FAIL per step; exit 1 on a FAIL.
 // Run from elsewhere (a copy): WEB_CHECK_SCRIPTS=<the web-check scripts folder> node recording.mjs
@@ -152,6 +155,30 @@ const lectureRow = async (title = TITLE) => {
   return { ...file, ...lecture };
 };
 const chunkRows = async (id) => (await admin.from('audio_chunks').select('seq, start_ms, duration_ms, storage_path').eq('lecture_id', id).order('seq')).data ?? [];
+/**
+ * The page's scroll area sideways (Pages): how much is wider than the area, how far it is scrolled, the
+ * sheet's room left and right, and the meta line ("… · Lecture · …") whole inside it.
+ */
+const sideways = () => b.evaluate(`(() => {
+  const dom = window.studiplyEditor.view.dom;
+  let sc = dom.parentElement;
+  while (sc && !/auto|scroll/.test(getComputedStyle(sc).overflowX)) sc = sc.parentElement;
+  if (!sc) return { pageless: true };
+  const box = sc.getBoundingClientRect(), page = dom.getBoundingClientRect();
+  const meta = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && / · (Lecture|Document) · /.test(d.textContent));
+  const m = meta ? meta.getBoundingClientRect() : null;
+  return {
+    zoom: Math.round((page.width / dom.offsetWidth) * 100) / 100,
+    overflow: sc.scrollWidth - sc.clientWidth,
+    scrolled: sc.scrollLeft,
+    left: Math.round(page.left - box.left),
+    right: Math.round(box.left + sc.clientWidth - page.right),
+    meta: meta ? meta.textContent : null,
+    metaWhole: !!m && m.left >= box.left - 1 && m.right <= box.left + sc.clientWidth + 1 && meta.scrollWidth <= meta.clientWidth + 1,
+  };
+})()`);
+const fitsWidth = (s, when) =>
+  expect(!s.pageless && s.overflow <= 1 && s.scrolled === 0 && s.left >= 8 && Math.abs(s.left - s.right) <= 4 && s.metaWhole, `${when}: ${JSON.stringify(s)}`);
 const openPicker = async () => {
   await b.clickSelector('[aria-label^="Folder:"]');
   await b.waitText('Select folder', { timeout: 5000 });
@@ -299,7 +326,21 @@ try {
     report.push(`RESULT | pause | paused at ${pausedAtS} s, 3 s still, on again`);
   });
 
-  await step('390 px: the iPhone recording screen around My notes; back to the course, the red pill leads back', async () => {
+  await step('390 px: the recording header and bar around the lecture’s normal document screen (tabs, toolbar, status line, the title once); another tab while recording; back to the course, the red pill leads back', async () => {
+    // Back at 1280 and at the lecture afterwards even if a check here fails (the next steps use the laptop strip).
+    try {
+      await phoneScreen();
+    } finally {
+      // Not a page load (that would interrupt the recording): the strip's own way back to the lecture.
+      await b.resize(1280, 900);
+      await waitFor(() => has('[data-recording="strip"]'), 'the strip again', 15000).catch(() => {});
+      if (!(await path()).includes(lectureId) && (await has('[aria-label^="Recording,"]'))) await b.clickSelector('[aria-label^="Recording,"]');
+    }
+    await waitFor(() => has('[data-recording="strip"]'), 'the strip again', 15000);
+    await waitFor(async () => (await path()).includes(lectureId), 'at the lecture', 10000);
+  });
+
+  async function phoneScreen() {
     await b.resize(390, 844);
     await waitFor(() => has('[data-recording="bar"]'), 'the bottom bar', 10000);
     expect(!(await has('[data-recording="strip"]')), 'the laptop strip at 390 px');
@@ -308,25 +349,54 @@ try {
     for (const label of ['Important', 'Confused', 'Exam']) expect(!(await disabled(label)), `${label} is greyed out (usable since step 5.5)`);
     for (const label of ['Photo', 'Ask the study assistant']) expect(await disabled(label), `${label} is not greyed out`);
     expect(await b.hasText('Math › Tema 3', true), 'no Course › folder');
-    // As iphone-02: the title once (in the header), then My notes pageless, no toolbar card, no page sheets.
-    await waitFor(() => has('[data-recording="notes-label"]'), 'MY NOTES above the notes', 10000);
+    // As outside a recording (Lea, 30 Oct): the document's tabs, its formatting toolbar and its status line; no "MY NOTES" card.
+    // At 390 px the toolbar is the compact one: Undo, Redo, the style ("Normal text") and ▾ (More tools, where Bold is).
+    await waitFor(async () => (await b.hasText('Normal text', true)) && (await has('[aria-label="More tools"]')) && (await has('[aria-label="Undo"]')), 'the formatting toolbar', 10000);
+    for (const t of ['My notes', 'Summary', 'Transcript']) expect(await has(`[aria-label="${t}"]`), `no ${t} tab`);
+    expect(await has('[aria-label="Add tab"]'), 'no + (Add tab)');
+    expect(await has('[aria-label="Document menu"]'), 'no ⋯ document menu');
+    expect(await has('[data-status="line"]'), 'no status line under the page (as outside a recording)');
+    expect(!(await has('[data-recording="notes-label"]')), 'the old MY NOTES card is shown');
+    // The title once: in the recording header, not again on the page (its meta line stays).
     const titles = await b.evaluate(`[...document.querySelectorAll('*')].filter((e) => e.offsetParent !== null && (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA' ? e.value === 'Rec check' : e.childElementCount === 0 && e.textContent.trim() === 'Rec check')).length`);
     expect(titles === 1, `the title is shown ${titles} times`);
-    expect(!(await b.hasText('Normal text', true)), 'the formatting toolbar is shown');
-    expect(!(await has('.studiply-page-layer-sheet')), 'My notes is in pages');
-    expect(!(await has('[data-status="line"]')), 'the word-count line is shown');
+    expect(await b.hasText('Math · Lecture ·'), 'no meta line on the page');
+    // Pages at Fit (30 Oct): the page fits the width with equal margins, nothing sideways, the meta line whole.
+    fitsWidth(await sideways(), '390 px, opened');
     await shot('rec-phone-390');
     await dark(true);
     await shot('rec-phone-390-dark');
     await dark(false);
+    // Text typed: each new line stamped (step 5.4), in the normal document.
+    await b.clickSelector('.ProseMirror');
+    await b.type('La sinapsis: unión entre dos neuronas');
+    await b.press('Enter');
+    await b.type('Neurotransmisores: dopamina, serotonina');
+    await b.sleep(800);
+    const stamped = await b.evaluate(`(window.studiplyEditor.getJSON().content || []).filter((n) => n.content && n.content[0] && n.content[0].type === 'timestampChip').length`);
+    expect(stamped >= 2, `${stamped} stamped lines`);
+    // Typing (the caret kept in view) never scrolls the page sideways.
+    fitsWidth(await sideways(), '390 px, after typing');
+    await shot('rec-phone-390-typed');
+    await dark(true);
+    await shot('rec-phone-390-typed-dark');
+    await dark(false);
+    // Another tab while recording: the header and bar stay, the clock goes on; back to My notes, the text is there.
+    const before = await timer();
+    await b.clickSelector('[aria-label="Summary"]');
+    await b.sleep(1500);
+    expect(await has('[data-recording="bar"]') && await has('[data-recording="timer"]'), 'the recording screen left with the tab');
+    expect(!(await b.hasText('Neurotransmisores: dopamina')), 'still on My notes');
+    await shot('rec-phone-390-summary');
+    expect((await timer()) > before, 'the clock stopped on another tab');
+    await b.clickSelector('[aria-label="My notes"]');
+    await waitFor(() => b.hasText('Neurotransmisores: dopamina'), 'My notes again with its text', 10000);
     await b.clickSelector('[aria-label^="Back to"]');
     await waitFor(() => has('[data-recording="pill"]'), async () => `the pill (at ${await path()})`, 10000);
     await shot('rec-pill-390');
     await b.clickSelector('[data-recording="pill"]');
     await waitFor(async () => (await path()).includes(lectureId), 'back at the lecture from the pill', 10000);
-    await b.resize(1280, 900);
-    await waitFor(() => has('[data-recording="strip"]'), 'the strip again', 10000);
-  });
+  }
 
   await step('a reload asks first; then the interrupted recording is offered; Continue records on into the same lecture', async () => {
     const asked = b.dialogs.length;
@@ -371,6 +441,8 @@ try {
 
   await step('the tab closed during "Saving…": on the next load the lecture is handed off in the background (never left "recording")', async () => {
     const title = 'Rec check 2';
+    // The laptop's strip is what this step watches.
+    await b.resize(1280, 900);
     await b.nav(`${BASE}/record?projectId=${data.course.id}&folderId=${tema3}`);
     await b.waitText('New Recording', { timeout: 30000 });
     await waitFor(async () => (await text('[data-record="folder"]')) === 'Math › Tema 3', 'the folder preset', 15000);

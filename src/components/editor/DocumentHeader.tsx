@@ -24,6 +24,7 @@ export function DocumentHeader({
   compact = false,
   inset = false,
   onGradient = false,
+  showTitle = true,
 }: {
   title: string;
   meta: string;
@@ -38,6 +39,8 @@ export function DocumentHeader({
   inset?: boolean;
   /** On the app's gradient, not the white page. */
   onGradient?: boolean;
+  /** False on the phone's recording screen (Lea, 30 Oct): its header above shows the title, so it isn't shown twice. */
+  showTitle?: boolean;
 }) {
   const { colors } = useTheme();
   const [draft, setDraft] = useState(title);
@@ -70,26 +73,29 @@ export function DocumentHeader({
 
   return (
     <View style={[styles.header, compact && styles.headerCompact, inset && styles.headerInset]}>
-      {!onGradient && <LinearGradient colors={gradientStops(PAGE_COLORS)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.accent} />}
-      <TextInput
-        ref={input}
-        value={draft}
-        onChangeText={setDraft}
-        onFocus={() => (editing.current = true)}
-        onBlur={commit}
-        onSubmitEditing={() => input.current?.blur()}
-        editable={editable}
-        selectTextOnFocus={selectTitle}
-        returnKeyType="done"
-        blurOnSubmit
-        multiline={false}
-        maxLength={200}
-        placeholder="Untitled document"
-        placeholderTextColor={onGradient ? colors.text.onGradient : PAGE_COLORS.text.placeholder}
-        style={[styles.title, compact && styles.titleCompact, onGradient && { color: colors.text.onGradientStrong }]}
-        accessibilityLabel="Document title"
-      />
-      {meta ? <Text style={[styles.meta, onGradient && { color: colors.text.onGradient }]}>{meta}</Text> : null}
+      {/* The accent line belongs to the title: none without it (the phone's recording screen). */}
+      {!onGradient && showTitle && <LinearGradient colors={gradientStops(PAGE_COLORS)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.accent} />}
+      {showTitle && (
+        <TextInput
+          ref={input}
+          value={draft}
+          onChangeText={setDraft}
+          onFocus={() => (editing.current = true)}
+          onBlur={commit}
+          onSubmitEditing={() => input.current?.blur()}
+          editable={editable}
+          selectTextOnFocus={selectTitle}
+          returnKeyType="done"
+          blurOnSubmit
+          multiline={false}
+          maxLength={200}
+          placeholder="Untitled document"
+          placeholderTextColor={onGradient ? colors.text.onGradient : PAGE_COLORS.text.placeholder}
+          style={[styles.title, compact && styles.titleCompact, onGradient && { color: colors.text.onGradientStrong }]}
+          accessibilityLabel="Document title"
+        />
+      )}
+      {meta ? <Text style={[styles.meta, !showTitle && styles.metaAlone, onGradient && { color: colors.text.onGradient }]}>{meta}</Text> : null}
     </View>
   );
 }
@@ -109,4 +115,5 @@ const styles = StyleSheet.create({
   },
   titleCompact: { fontSize: Typography.size.xl },
   meta: { marginTop: 6, fontSize: Typography.size.sm, color: PAGE_COLORS.text.secondary },
+  metaAlone: { marginTop: 0 },
 });

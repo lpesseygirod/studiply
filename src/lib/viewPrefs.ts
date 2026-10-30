@@ -31,11 +31,19 @@ export function stepZoom(current: number, direction: 1 | -1): number {
   return [...ZOOM_STEPS].reverse().find((z) => z < current - 0.001) ?? ZOOM_STEPS[0];
 }
 
+/**
+ * How small Fit may make the sheet: below the zoom steps' 50 %, so at phone
+ * width (an A4 sheet in about 300 px is 38 %) the page fits the width with
+ * equal margins instead of overflowing sideways. The editor's page view
+ * allows the same (editor/page/pageView `clampZoom`).
+ */
+export const FIT_MIN_ZOOM = 0.25;
+
 /** The zoom shown: Fit is the column's width for the sheet, never above 100 %. */
 export function effectiveZoom(zoom: ZoomSetting, pages: boolean, room: number, sheet: number): number {
   if (zoom !== 'fit') return zoom;
   if (!pages || room <= 0) return 1;
-  return Math.max(0.5, Math.min(1, Math.floor((room / sheet) * 100) / 100));
+  return Math.max(FIT_MIN_ZOOM, Math.min(1, Math.floor((room / sheet) * 100) / 100));
 }
 
 function clean(raw: unknown, device: ViewDevice): ViewPrefs {

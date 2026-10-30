@@ -54,3 +54,7 @@ Keep Metro's log for both lists.
    - a mark while writing goes at the end of the line; with the keyboard down, on a new last line with its time;
    - a tap on the chip changes its level; Remove mark, then Undo;
    - with Airplane mode on, a mark's chip shows at once; its row in `marks` (Supabase Studio) arrives once the phone is online and the edit is sent.
+10. **The recording screen is the normal document (Lea, 30 Oct):**
+    - the recording header (with ⋯) above the lecture's usual tabs, keyboard toolbar and Print layout / pageless setting; the title shown once;
+    - typing with the keyboard open, then closed;
+    - Summary opened while recording, then back to My notes; the recording goes on.

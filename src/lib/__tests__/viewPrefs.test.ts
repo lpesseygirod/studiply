@@ -33,7 +33,9 @@ describe('viewPrefs (step 4.5b)', () => {
   it('Fit: the sheet as wide as the column, never above 100 % (or below 50 %); Pageless is 100 %', () => {
     expect(effectiveZoom('fit', true, 588, 794)).toBe(0.74);
     expect(effectiveZoom('fit', true, 1200, 794)).toBe(1);
-    expect(effectiveZoom('fit', true, 200, 794)).toBe(0.5);
+    // Phone width (390 px: about 302 px for the sheet): the A4 page fits, below the steps' 50 %.
+    expect(effectiveZoom('fit', true, 302, 794)).toBe(0.38);
+    expect(effectiveZoom('fit', true, 100, 794)).toBe(0.25);
     expect(effectiveZoom('fit', false, 588, 794)).toBe(1);
     expect(effectiveZoom(1.5, true, 588, 794)).toBe(1.5);
   });

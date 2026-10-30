@@ -242,7 +242,7 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
 - **The shell (`app/(main)/_layout.tsx`):**
   - `RecordingStrip` (laptop) and `RecordingPill` (iPhone layout) show on every screen;
   - `RecordingHost` runs the recovery at sign-in and the browser's "leave?" question while recording.
-- **The iPhone recording screen** is the lecture's own document: `doc/[id].tsx` draws `RecordingPhoneHeader` and `RecordingPhoneBar` around My notes when its lecture records at phone width.
+- **The iPhone recording screen** is the lecture's own document: `doc/[id].tsx` draws `RecordingPhoneHeader` (with the ⋯ menu) and `RecordingPhoneBar` around its normal document screen (tabs, toolbar, page view; Lea, 30 Oct) when its lecture records at phone width. The page's header then leaves out the title (`DocumentHeader showTitle={false}`).
 - **`hooks/useRecorder.ts`:**
   - `useRecorder()` gives the clock and the waveform, 10 times a second, for the strip and the header only;
   - `useRecorderState()` gives just the state, for screens that must not redraw that often;

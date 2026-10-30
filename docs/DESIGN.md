@@ -35,6 +35,17 @@ The iPhone app is the main recording device (App Store). Same data, same feature
 **Recording screen (portrait):**
 - Top: course › lecture title, red dot + timer, live waveform.
 - Middle: My notes editor (each new line gets a timestamp chip). The keyboard toolbar sits above the keyboard.
+- **The same document as outside a recording (Lea, 30 Oct: "the document where I am doing notes is the same as the document one").**
+  - **Top:** the recording header (back, ❚❚, the timer chip, the ⋯ document menu, Course › folder, the title once, the waveform).
+  - **Middle:** the lecture's normal document screen:
+    - the save status and the tab row (My notes · Summary · Transcript and added tabs, +);
+    - the formatting toolbar;
+    - the student's own page / pageless setting and zoom (Print layout on the iPhone, Pages on the web);
+    - the page with its meta line (the title isn't repeated there).
+  - **No simplified "MY NOTES" card** any more.
+  - **Bottom:** the bar (Important · Confused · Exam · Photo · ✦ Ask · Stop & summarize).
+  - **Another tab** can be opened while recording; the recording goes on. New lines are stamped only in My notes, and a mark made from another tab goes into My notes as a new stamped last line.
+  - **The same on the web below 1024 px.**
 - Bottom bar, large thumb targets (≥ 56 px): ★ Important · ? Confused · Exam · Camera · Stop & summarize. Tapping a mark opens a small sheet: question, 1–10 slider with labeled ends, optional note, Save mark (light haptic on save).
 - Assistant button opens the chat as a **half-height sheet** so notes stay visible; "Recording continues" badge; drag up for full height.
 - Recording keeps running with the screen locked, in the background, during calls to the assistant, and without internet (chunks upload later).

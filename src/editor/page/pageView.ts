@@ -44,6 +44,8 @@ const LABEL_CLASS = 'studiply-page-label';
 const NUMBER_LINE = 16;
 export const MIN_ZOOM = 0.5;
 export const MAX_ZOOM = 2;
+/** Fit at phone width goes below the zoom steps' 50 % (lib/viewPrefs FIT_MIN_ZOOM; not imported: the WebView bundle has no storage). */
+const FIT_MIN_ZOOM = 0.25;
 
 export interface PageViewState {
   pages: boolean;
@@ -71,7 +73,7 @@ declare module '@tiptap/core' {
     pageView: {
       /** Pages (true) or Pageless. */
       setPageView: (pages: boolean) => ReturnType;
-      /** 0.5–2 (1 is 100 %). */
+      /** 0.5–2 (1 is 100 %); Fit at phone width down to 0.25. */
       setPageZoom: (zoom: number) => ReturnType;
       /** The iPhone's Print layout: the sheet fits the screen's width, the zoom multiplies it. */
       setPageFit: (fit: boolean) => ReturnType;
@@ -81,7 +83,8 @@ declare module '@tiptap/core' {
   }
 }
 
-export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(z * 100) / 100));
+// The student's steps stay 0.5–2 (lib/viewPrefs); only Fit asks for less.
+export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(FIT_MIN_ZOOM, Math.round(z * 100) / 100));
 
 export const pageViewOf = (state: EditorState): PageViewState | undefined => pageViewKey.getState(state);
 

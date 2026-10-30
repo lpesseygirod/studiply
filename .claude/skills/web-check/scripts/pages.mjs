@@ -8,6 +8,10 @@
 //     zoom menu's Fit; at 150 % a real click lands on the letter under it
 //     and typing goes there; still every line inside its page;
 //   - the table's hover handles on a later page sit on the table;
+//   - the web at 390 px (the phone layout in a browser), Pages at Fit: the
+//     page fits the width with equal margins (Fit goes below 50 % there),
+//     nothing scrolled or overflowing sideways, the meta line whole, also
+//     after typing; light and dark (30 Oct);
 //   - the iPhone bundle (390 px, touch): Print layout fits the screen's
 //     width, the label shows while scrolling, a pinch zooms.
 // Prints PASS/FAIL per step. Exit code 1 on any FAIL.
@@ -125,6 +129,29 @@ const tool = async (label) => {
   await b.clickSelector(`[aria-label="${label}"]`);
 };
 const cmd = (key, code, keyCode) => b.chord({ code, key, meta: true, keyCode });
+/**
+ * The page's scroll area sideways: the zoom shown, how much is wider than the area, how far it
+ * is scrolled, the sheet's room left and right, and the meta line ("… · Document · …") whole inside it.
+ */
+const sideways = () => b.evaluate(`(() => {
+  const dom = ${EDITOR}.view.dom;
+  let sc = dom.parentElement;
+  while (sc && !/auto|scroll/.test(getComputedStyle(sc).overflowX)) sc = sc.parentElement;
+  const box = sc.getBoundingClientRect(), page = dom.getBoundingClientRect();
+  const meta = [...document.querySelectorAll('div')].find((d) => d.childElementCount === 0 && / · (Lecture|Document) · /.test(d.textContent));
+  const m = meta ? meta.getBoundingClientRect() : null;
+  return {
+    zoom: Math.round((page.width / dom.offsetWidth) * 100) / 100,
+    overflow: sc.scrollWidth - sc.clientWidth,
+    scrolled: sc.scrollLeft,
+    left: Math.round(page.left - box.left),
+    right: Math.round(box.left + sc.clientWidth - page.right),
+    meta: meta ? meta.textContent : null,
+    metaWhole: !!m && m.left >= box.left - 1 && m.right <= box.left + sc.clientWidth + 1 && meta.scrollWidth <= meta.clientWidth + 1,
+  };
+})()`);
+const fitsWidth = (s, when) =>
+  expect(s.overflow <= 1 && s.scrolled === 0 && s.left >= 8 && Math.abs(s.left - s.right) <= 4 && s.metaWhole, `${when}: ${JSON.stringify(s)}`);
 
 const user = await makeUser();
 const { data: file } = await user.client.from('files').insert({ kind: 'document', title: 'Páginas' }).select().single();
@@ -355,6 +382,33 @@ try {
     await admin.from('documents').update({ page_setup: null }).eq('file_id', file.id).eq('tab', 'notes');
     await openDoc();
     await waitPages();
+  });
+
+  await step('the web at 390 px, Pages at Fit: the page fits the width with equal margins, the meta line whole, nothing sideways (also after typing; light and dark)', async () => {
+    try {
+      for (const look of ['light', 'dark']) {
+        const suffix = look === 'dark' ? '-dark' : '';
+        await b.send('Emulation.setEmulatedMedia', { features: look === 'dark' ? [{ name: 'prefers-color-scheme', value: 'dark' }] : [] });
+        await b.resize(390, 844);
+        await openDoc();
+        await waitPages();
+        await b.sleep(500);
+        let s = await sideways();
+        expect(s.zoom < 0.5, `Fit at 390 px (${look}): ${s.zoom}`);
+        fitsWidth(s, `390 px, ${look}, opened`);
+        await b.shot(`pages-390-fit${suffix}`);
+        // Typing at the end of a long line: the caret's line must not scroll the page sideways.
+        await b.evaluate(`(() => { const e = ${EDITOR}, d = e.state.doc; let pos = 0; for (let i = 0; i < 3; i++) pos += d.child(i).nodeSize; e.commands.focus(pos - 1); })()`);
+        await b.type(' Escribo al final de la línea para ver que nada se desplaza de lado.');
+        await b.sleep(700);
+        s = await sideways();
+        fitsWidth(s, `390 px, ${look}, after typing`);
+        await b.shot(`pages-390-fit-typed${suffix}`);
+      }
+    } finally {
+      await b.send('Emulation.setEmulatedMedia', { features: [] });
+      await b.resize(1280, 900);
+    }
   });
 
   await step('iPhone (390 px, touch): Print layout fits the width, the label while scrolling, a pinch zooms', async () => {
