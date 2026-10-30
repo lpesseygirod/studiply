@@ -6,6 +6,8 @@ import { confirmAction } from '../../utils/confirm';
 import { errorMessage } from '../../utils/errors';
 import { recorder } from '../../services/recorder';
 import { recordingFlow } from '../../services/recording.service';
+import type { StartInParams } from '../../services/recording-flow';
+import { showStartError } from './startError';
 
 /**
  * What the strip, the iPhone screen's bottom bar and the interrupted banner
@@ -64,6 +66,20 @@ export function useRecordingActions() {
     [openLecture],
   );
 
+  /**
+   * Step 5.7: Record inside a document (a lecture, or a plain document that becomes one). True when
+   * it records; the student is told why when it doesn't (and nothing changed).
+   */
+  const recordHere = useCallback(async (p: StartInParams): Promise<boolean> => {
+    try {
+      await recordingFlow.startIn(p);
+      return true;
+    } catch (err) {
+      showStartError(err);
+      return false;
+    }
+  }, []);
+
   const finish = useCallback(
     async (lectureId: string) => {
       try {
@@ -75,5 +91,5 @@ export function useRecordingActions() {
     [afterRecording],
   );
 
-  return { openLecture, stop, pause, resume, continueRecording, finish };
+  return { openLecture, stop, pause, resume, continueRecording, finish, recordHere };
 }

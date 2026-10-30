@@ -38,6 +38,7 @@ import { useRecorderState } from '../../../src/hooks/useRecorder';
 import type { Folder } from '../../../src/types/database';
 import { folderPath, folderTree } from '../../../src/utils/folderTree';
 import { errorMessage } from '../../../src/utils/errors';
+import { showStartError } from '../../../src/components/recording/startError';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -209,20 +210,7 @@ export default function RecordSetupScreen() {
         });
         router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
       } catch (err) {
-        const denied = err instanceof Error && err.name === 'NotAllowedError';
-        if (denied && Platform.OS !== 'web') {
-          showAlert('Microphone Access Required', 'Studiply needs microphone access to record lectures. Please enable it in Settings.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]);
-        } else {
-          showAlert(
-            denied ? 'Microphone access needed' : 'Could not start recording',
-            denied
-              ? 'Allow the microphone for Studiply (the icon in the address bar), then press Start again.'
-              : errorMessage(err, 'Please try again.'),
-          );
-        }
+        showStartError(err);
       } finally {
         setIsStarting(false);
       }

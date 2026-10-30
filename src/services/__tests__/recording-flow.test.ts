@@ -30,12 +30,14 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     onWait: (() => {}) as () => void,
     clock: 0,
     offline: opts.offline ?? false,
+    /** Where the lecture's audio already ends on the server (step 5.7). */
+    audioEnd: null as { seq: number; ms: number } | null,
   };
   const recorder: RecorderService = {
     supported: true,
-    start: async ({ lectureId, transcribe }) => {
+    start: async ({ lectureId, transcribe, after }) => {
       if (opts.startFails) throw new Error('Permission denied');
-      calls.push(`recorder.start ${lectureId} transcribe=${transcribe}`);
+      calls.push(`recorder.start ${lectureId} transcribe=${transcribe}${after ? ` after ${after.seq}/${after.ms}` : ''}`);
       state = { lectureId, status: 'recording', microphoneLost: false };
     },
     pause: async () => {},
@@ -77,6 +79,16 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     createLecture: async (p) => {
       calls.push(`create ${p.title} in ${p.courseId}/${p.folderId}`);
       return L;
+    },
+    convertToLecture: async (id, language) => {
+      calls.push(`convert ${id} ${language}`);
+      return async () => {
+        calls.push(`put back ${id}`);
+      };
+    },
+    audioEnd: async (id) => {
+      calls.push(`audio end ${id}`);
+      return world.audioEnd;
     },
     setStatus: async (id, status, seconds) => {
       calls.push(`status ${id} ${status}${seconds !== undefined ? ` ${seconds}s` : ''}`);
@@ -221,5 +233,43 @@ describe('the recording flow', () => {
     // The recording ends where its last chunk ends: 29.5 s + 12 s.
     expect(r.calls.slice(-2)).toEqual(['recorder.finish b', 'status b transcribing 42s']);
     expect(r.flow.getState().interrupted).toEqual([]);
+  });
+});
+
+describe('step 5.7: Record inside a document', () => {
+  it('a plain document: the microphone, consent, then it becomes a lecture, "recording", the recorder', async () => {
+    const r = rig();
+    await r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' });
+    expect(r.calls).toEqual(['microphone', 'consent', 'convert doc-1 es', 'status doc-1 recording', 'recorder.start doc-1 transcribe=true']);
+  });
+
+  it('cancelled at the microphone: nothing changes, it stays a plain document', async () => {
+    const r = rig({ micRefused: true });
+    await expect(r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' })).rejects.toThrow('Permission denied');
+    expect(r.calls).toEqual(['microphone']);
+  });
+
+  it('the recorder can’t start after it became a lecture: it is put back', async () => {
+    const r = rig({ startFails: true });
+    await expect(r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' })).rejects.toThrow('Permission denied');
+    expect(r.calls).toEqual(['microphone', 'consent', 'convert doc-1 es', 'status doc-1 recording', 'put back doc-1']);
+  });
+
+  it('a lecture records again after the audio Studiply already has; refused, it gets its status back', async () => {
+    const r = rig();
+    r.world.audioEnd = { seq: 4, ms: 121_000 };
+    await r.flow.startIn({ fileId: L, isLecture: true, language: 'es' });
+    expect(r.calls).toEqual(['microphone', 'consent', `audio end ${L}`, `status ${L} recording`, `recorder.start ${L} transcribe=true after 4/121000`]);
+
+    const refused = rig({ startFails: true });
+    refused.world.serverStatus[L] = 'completed';
+    await expect(refused.flow.startIn({ fileId: L, isLecture: true, language: 'es' })).rejects.toThrow();
+    expect(refused.calls.slice(-1)).toEqual([`status ${L} completed`]);
+  });
+
+  it('refused while something already records', async () => {
+    const r = rig();
+    await r.flow.start(params);
+    await expect(r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' })).rejects.toThrow('already running');
   });
 });

@@ -14,6 +14,8 @@
  *    after-recording step.
  *  - recover: a recording the page lost (a reload, a crash) is offered with
  *    its title: Continue records on, Finish hands it off like Stop.
+ *  - startIn (step 5.7): the Record button inside a document; a plain
+ *    document becomes a lecture only once the student has really started.
  *
  * Everything it uses is passed in (tested with fakes); the app's flow is
  * ./recording.service.
@@ -41,6 +43,16 @@ export interface StartParams {
   language: string;
 }
 
+/** A lecture's status as the flow sets it (and puts back): the app's session names (session.service). */
+export type LectureStatus = 'draft' | 'recording' | 'transcribing' | 'processing' | 'review' | 'completed' | 'failed';
+
+/** Step 5.7: recording from inside a document: a lecture, or a plain document that becomes one. */
+export interface StartInParams {
+  fileId: string;
+  isLecture: boolean;
+  language: string;
+}
+
 export interface FlowDeps {
   recorder: RecorderService;
   /** Asks for the microphone before anything is made (web: getUserMedia, then closed again). */
@@ -48,7 +60,14 @@ export interface FlowDeps {
   /** True when the student allows transcription (asked once). */
   allowTranscription: () => Promise<boolean>;
   createLecture: (p: StartParams) => Promise<string>;
-  setStatus: (lectureId: string, status: 'draft' | 'recording' | 'transcribing', durationSeconds?: number) => Promise<void>;
+  /**
+   * Step 5.7: turns a plain document into a lecture (its first tab becomes My notes); returns how to
+   * put it back if the recording can't start.
+   */
+  convertToLecture: (fileId: string, language: string) => Promise<() => Promise<void>>;
+  /** Where a lecture's audio already ends on Studiply (recording again into it); throws when that can't be known. */
+  audioEnd: (lectureId: string) => Promise<{ seq: number; ms: number } | null>;
+  setStatus: (lectureId: string, status: LectureStatus, durationSeconds?: number) => Promise<void>;
   titleOf: (lectureId: string) => Promise<string>;
   /** The lecture's status on the server ('recording', 'transcribing'…). */
   statusOf: (lectureId: string) => Promise<string>;
@@ -140,6 +159,35 @@ export function createRecordingFlow(deps: FlowDeps) {
         throw err;
       }
       return lectureId;
+    },
+
+    /**
+     * Step 5.7: the Record button inside a document. A lecture records again (after the audio it already
+     * has); a plain document becomes a lecture, but only once the microphone and the consent question
+     * are answered: cancelled before, nothing changes. If the recorder then can't start, everything is
+     * put back (a document stays a document; a lecture gets its status back).
+     */
+    async startIn(p: StartInParams): Promise<void> {
+      if (recorder.state().status !== 'idle' || state.saving) throw new Error('A recording is already running.');
+      await deps.openMicrophone();
+      const transcribe = await deps.allowTranscription();
+      const lectureId = p.fileId;
+      let putBack: () => Promise<void>;
+      let after: { seq: number; ms: number } | null = null;
+      if (p.isLecture) {
+        const before = (await deps.statusOf(lectureId).catch(() => 'draft')) as LectureStatus;
+        after = await deps.audioEnd(lectureId);
+        putBack = () => deps.setStatus(lectureId, before);
+      } else {
+        putBack = await deps.convertToLecture(lectureId, p.language);
+      }
+      try {
+        await deps.setStatus(lectureId, 'recording');
+        await recorder.start({ lectureId, transcribe, after });
+      } catch (err) {
+        await putBack().catch((e) => console.warn('[recording] could not put the document back', e));
+        throw err;
+      }
     },
 
     /** Stops and hands the recording off; resolves with the lecture once it can be processed. */

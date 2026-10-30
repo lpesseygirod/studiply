@@ -259,6 +259,10 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
 - **The `marks` rows follow My notes:** `services/marks.service.ts` runs after each save of the notes tab, beside `note-lines.service`. A chip deleted by typing deletes its row; Undo brings it back.
 - **Tapping a linked chip** opens the same panel inside both editors (`BlockMenus.web.tsx`, `iphone/MarkSheet.tsx`).
 
+**Record inside a document (step 5.7):** `components/recording/RecordButton.tsx` in the document screen calls `recordingFlow.startIn`.
+- **In a lecture:** it records again after its audio on Studiply (`audioEnd`, the recorder's `after`).
+- **In a plain document:** `services/lecture-conversion.service.ts` turns it into a lecture (a `lectures` row with its id, then `files.kind`; the iPhone queues `convert_to_lecture`), and `makeFirstTabMyNotes` makes its first tab My notes. The rest of the document stays as it was.
+
 **Board photos (step 5.6)** reuse 4.5's photos.
 - **Taking:** `components/recording/photoBoard.ts` is the iPhone's camera; `photoBoard.web.ts` is the laptop's menu, with the webcam (`WebcamPanel.web.tsx`) or files.
 - **Saving:** `boardPhoto.ts` `saveBoardPhoto` calls `addDocPhoto(lectureId, picked, { moment })`, which writes a `media` row with `lecture_id` and `t_ms` (on the iPhone through `upload_doc_photo`).

@@ -281,6 +281,12 @@ async function createLectureRows(
       { onConflict: 'id', ignoreDuplicates: true },
     );
   if (error) throw syncError(error, 'Could not create the lecture.');
+  // A document turned into a lecture on this iPhone (step 5.7) whose turning hasn't been sent yet:
+  // the file is there as a document; it is a lecture now (the queued turning would do it later).
+  if (file.kind === 'lecture' && (await pendingSyncFor(file.id)).some((op) => op.kind === 'convert_to_lecture')) {
+    const { error: kindError } = await supabase.from('files').update({ kind: 'lecture' }).eq('id', file.id).eq('kind', 'document');
+    if (kindError) throw syncError(kindError, 'Could not create the lecture.');
+  }
 
   const { error: lectureError } = await supabase.from('lectures').upsert(
     {

@@ -228,7 +228,36 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - New `photos-live.mjs` and an updated `recording.mjs` (Photo board and Photo now usable), for Lea to install.
   - **Found while writing the check, fixed:** two photos at one moment while writing a line went in reverse order. Covered by a Jest test.
   - **The iPhone bundle** needs `npm run editor:build` (`placePhotoLine` runs in the WebView).
-- [ ] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct
+- [x] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct — **done and checked on the web 30 Oct** (laptop, 390 px; the iPhone in the shared code with its offline queue) on branch `phase-5-recording`.
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1879; all twenty Chrome suites pass (record-in-doc 8/8).
+  - **On Lea's device list:** item 11 in `docs/recording-test/DEVICE-CHECKS.md` (online, Airplane mode, the microphone refused).
+  - **Decisions (Lea's advisor, 30 Oct):**
+    1. A renamed first tab becomes My notes; the old name goes in the name of a version of its text.
+    2. A first tab deleted earlier: My notes starts empty; the deleted text is saved first as the version "Before recording".
+  - **No migration, no new dependency;** `editorHtml.js` doesn't change.
+  - **The button** (`components/recording/RecordButton.tsx`): in the laptop's row above the page and the iPhone's header, in lectures and plain documents. Greyed out while another lecture records, and on the laptop offline.
+  - **The flow** (`recording-flow.ts` `startIn`):
+    - the microphone, consent, then (a plain document) `convertToLecture`, then "recording" and the recorder;
+    - cancelled before the conversion, nothing changes; the recorder refused after it, everything is put back;
+    - a lecture records again after its audio on Studiply (`audioEnd`; the recorder's new `after`, so chunk numbers never repeat); offline, only a lecture never recorded can.
+  - **The turning** (`services/lecture-conversion.service.ts`):
+    - a `lectures` row with the file's id, then `files.kind` → `lecture` (both safe to repeat);
+    - then `makeFirstTabMyNotes` (document-tabs.service: the two decisions; `saveVersion` takes a name now);
+    - the iPhone changes its copy and queues `convert_to_lecture` (`revert_to_document` to put back); a chunk upload that runs first finishes it (`createLectureRows`, only while that job waits);
+    - `isLectureFile` is forgotten so note lines and marks follow at once.
+  - **Also:** the setup's "couldn't start" alert is shared (`startError.ts`).
+  - **Checked:**
+    - Jest: 14 new (`lecture-conversion` 5, `lecture-conversion-offline` 3, `recording-flow` 5, `recorder` 1); `npm run check` 1879.
+    - Installed `recording.mjs` 10/10 and `tabs.mjs` 8/8 on the new code; their screenshots show the Record button at 1280 (dark) and 390.
+    - New `record-in-doc.mjs` for Lea to install.
+  - **After Lea's run (record-in-doc 5/8):**
+    - **One app bug, fixed:** after Record, the tab row could keep a plain document's order and names. An older reading of the tabs (as a document) finished after the new one (as a lecture) and overwrote it. The document screen now drops a tab list read for a kind the file no longer has, and doesn't read it twice. Seen fixed in Chrome: My notes · Summary · Transcript · Tab 2 · Sheet 1.
+    - **Two check bugs, fixed:** the tab names also picked up the hidden bottom navigation (Library, Search…). The new-line test looked only at the page's top-level blocks, while the new line was correctly a stamped list item.
+  - **After Lea's second run (7/8 twice, "the new line has no time"): the check, not the app.**
+    - **The cause:** Tiptap's `focus()` gives the browser's focus to the editor in the next animation frame (Chrome; `@tiptap/core` commands/focus.ts). The check pressed Enter before that, so the key went to the page; the text typed afterwards landed at the end of the last line. The first run's two Enters fit the same explanation: one was lost.
+    - **The fix:** the check waits until the editor has the focus.
+    - **Added:** an assertion that the conversion keeps the same editor (not re-mounted, its page not swapped).
+  - **Not checked in Chrome:** the transcript appearing in its tab after Stop. The checks answer transcription in the page, so no transcript rows reach the server; `ai-flow.mjs` covers the transcript path.
 - [ ] 5.8 — A real lecture (dogfood + fixes)
 
 ## Phase 6 — Study assistant during class (`phase-6-assistant`)

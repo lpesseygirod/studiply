@@ -566,6 +566,8 @@ interface SaveVersionPayload {
   tab: DocTab;
   content: DocJSON;
   reason: VersionReason;
+  /** A name given with it (step 5.7: "Before recording"); named versions are never thinned. */
+  name?: string | null;
 }
 
 /**
@@ -573,8 +575,8 @@ interface SaveVersionPayload {
  * AI generation, the text before a restore). The iPhone queues it after the
  * edits waiting for the same tab; insert-or-ignore, so safe to send twice.
  */
-export async function saveVersion(fileId: string, tab: DocTab, content: DocJSON, reason: VersionReason): Promise<string> {
-  const payload: SaveVersionPayload = { id: newId(), fileId, tab, content, reason };
+export async function saveVersion(fileId: string, tab: DocTab, content: DocJSON, reason: VersionReason, name?: string): Promise<string> {
+  const payload: SaveVersionPayload = { id: newId(), fileId, tab, content, reason, ...(name ? { name: name.slice(0, MAX_VERSION_NAME) } : {}) };
   if (syncEnabled) {
     await enqueue<SaveVersionPayload>({ kind: 'save_version', key: editKey(fileId, tab), payload });
     return payload.id;
@@ -594,6 +596,7 @@ async function insertVersion(payload: SaveVersionPayload, fail: ErrorOf = syncEr
       file_id: payload.fileId,
       reason: payload.reason,
       content: payload.content as unknown as NonNullable<Json>,
+      ...(payload.name ? { name: payload.name } : {}),
     },
     { onConflict: 'id', ignoreDuplicates: true },
   );

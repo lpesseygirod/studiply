@@ -149,6 +149,54 @@ export async function listTabs(fileId: string, isLecture: boolean): Promise<TabI
 }
 
 // -------------------------------------------------------------------
+// Step 5.7: a document turned into a lecture. Its first tab (`notes`)
+// becomes My notes, untouched: the same row, content and versions. Two
+// cases first (Lea's advisor, 30 Oct):
+//  - renamed ("Week 3"): it takes the name My notes; the old name is in the
+//    name of a version of the text saved first, so nothing is hidden;
+//  - deleted earlier (4.7b keeps it, deleted, while other tabs remain): My
+//    notes starts empty; the deleted text is saved first as a version named
+//    "Before recording".
+// -------------------------------------------------------------------
+
+export const BEFORE_RECORDING = 'Before recording';
+
+/** The version's name when the first tab had its own name. */
+export function renamedVersionName(title: string): string {
+  return `${BEFORE_RECORDING} · the tab was “${title}”`.slice(0, 100);
+}
+
+/** Makes the first tab My notes; returns how to put it back (the recording couldn't start). */
+export async function makeFirstTabMyNotes(
+  fileId: string,
+  deps: {
+    openNotes: () => Promise<DocJSON>;
+    saveVersion: (content: DocJSON, name: string) => Promise<unknown>;
+    replaceNotes: (base: DocJSON, next: DocJSON) => Promise<unknown>;
+  },
+): Promise<() => Promise<void>> {
+  const row = (await tabRows(fileId)).find((r) => r.tab === 'notes');
+  const title = row?.title?.trim() || null;
+  if (!row || (!row.deleted_at && !title)) return async () => {};
+  const content = await deps.openNotes();
+  if (row.deleted_at) {
+    await deps.saveVersion(content, BEFORE_RECORDING);
+    await writeTabMeta(fileId, 'notes', { deleted_at: null, title: null });
+    const empty = blankDoc();
+    await deps.replaceNotes(content, empty);
+    return async () => {
+      await deps.replaceNotes(empty, content);
+      await writeTabMeta(fileId, 'notes', { deleted_at: row.deleted_at, title });
+    };
+  }
+  await deps.saveVersion(content, renamedVersionName(title!));
+  await writeTabMeta(fileId, 'notes', { title: null });
+  return async () => {
+    await writeTabMeta(fileId, 'notes', { title });
+  };
+}
+
+// -------------------------------------------------------------------
 // Adding
 // -------------------------------------------------------------------
 
@@ -254,7 +302,8 @@ async function createTabRow(payload: CreateTabPayload, fail: ErrorOf): Promise<D
 // -------------------------------------------------------------------
 
 export interface TabMeta {
-  title?: string;
+  /** null: the default name (step 5.7: the first tab of a document turned into a lecture is My notes). */
+  title?: string | null;
   position?: number;
   deleted_at?: string | null;
 }

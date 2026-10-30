@@ -466,6 +466,19 @@ describe('the recorder service', () => {
     await service.stop();
   });
 
+  it('step 5.7: recording again into a lecture recorded elsewhere goes on after the audio Studiply already has', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false, after: { seq: 4, ms: 121_000 } });
+    expect(r.source().from).toEqual({ seq: 4, ms: 121_000 });
+    r.source().tick(2);
+    await service.stop();
+    // And after this device's own chunks when those end later.
+    await service.start({ lectureId: L, transcribe: false, after: { seq: 2, ms: 60_000 } });
+    expect(r.source().from).toEqual({ seq: 5, ms: 123_000 });
+    await service.stop();
+  });
+
   it('a microphone that can’t start leaves nothing behind', async () => {
     const r = rig();
     r.failMic(true);

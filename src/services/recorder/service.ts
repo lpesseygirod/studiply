@@ -211,7 +211,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
   const service: RecorderService = {
     supported: true,
 
-    async start({ lectureId, transcribe, chunkMs = CHUNK_MS, overlapMs = OVERLAP_MS }) {
+    async start({ lectureId, transcribe, chunkMs = CHUNK_MS, overlapMs = OVERLAP_MS, after = null }) {
       if (active) throw new Error('A recording is already running.');
       await deps.ready?.();
       const userId = deps.userId();
@@ -232,8 +232,11 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
         updatedAt: at,
       };
       await store.saveRecording(meta);
+      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier, step 5.7).
+      const here = earlier ? await endOf(lectureId) : { seq: 0, ms: 0 };
+      const from = after ? { seq: Math.max(here.seq, after.seq), ms: Math.max(here.ms, after.ms) } : here;
       try {
-        await begin(meta, earlier ? await endOf(lectureId) : { seq: 0, ms: 0 });
+        await begin(meta, from);
       } catch (err) {
         if (earlier) await store.saveRecording(earlier);
         else await store.removeRecording(lectureId);

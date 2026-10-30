@@ -12,3 +12,4 @@ import './document.service';
 import './document-tabs.service';
 import './preferences.service';
 import './doc-photo.service';
+import './lecture-conversion.service';

@@ -11,8 +11,29 @@ import { createSession, getSession, updateSession } from './session.service';
 import { ConsentDeclinedError, ensureConsent } from './consent.service';
 import { isOffline } from '../lib/connectivity';
 import { isMockAiForced } from '../lib/aiMode';
+import { isNetworkError, serviceError } from '../lib/cloudRows';
+import { supabase } from '../lib/supabase';
+import { convertToLecture } from './lecture-conversion.service';
 
 export type { FlowState, InterruptedRecording } from './recording-flow';
+
+/**
+ * Where a lecture's audio already ends on Studiply (step 5.7: recording again into it), so the new
+ * chunks never reuse a number. Offline it can't be read: fine for a lecture never recorded (draft);
+ * otherwise the student is asked to connect first.
+ */
+async function audioEnd(lectureId: string): Promise<{ seq: number; ms: number } | null> {
+  if (!isOffline()) {
+    const { data, error } = await supabase.from('audio_chunks').select('seq, start_ms, duration_ms').eq('lecture_id', lectureId);
+    if (!error) {
+      if (!data.length) return null;
+      return { seq: Math.max(...data.map((c) => c.seq)) + 1, ms: Math.max(...data.map((c) => c.start_ms + c.duration_ms)) };
+    }
+    if (!isNetworkError(serviceError(error, ''))) throw serviceError(error, 'Could not start the recording.');
+  }
+  if ((await getSession(lectureId).catch(() => null))?.status === 'draft') return null;
+  throw new Error('Recording again into this lecture needs a connection: its earlier recording is on Studiply.');
+}
 
 const shared = globalThis as { __studiplyRecordingFlow?: RecordingFlow };
 export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= createRecordingFlow({
@@ -42,6 +63,8 @@ export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= 
         language: p.language,
       })
     ).id,
+  convertToLecture,
+  audioEnd,
   setStatus: async (lectureId, status, durationSeconds) => {
     await updateSession(lectureId, { status, ...(durationSeconds !== undefined && { duration_seconds: durationSeconds }) });
   },

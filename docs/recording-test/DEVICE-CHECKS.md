@@ -80,3 +80,11 @@ If step 3 fails (the recording pauses or a gap shows), stop testing photos and t
     - the recording header (with ⋯) above the lecture's usual tabs, keyboard toolbar and Print layout / pageless setting; the title shown once;
     - typing with the keyboard open, then closed;
     - Summary opened while recording, then back to My notes; the recording goes on.
+11. **Record inside a document (step 5.7):**
+    - **Online:** in a plain document with a few formatted lines (its first tab renamed, plus a second tab), tap **● Record** in the header.
+      - After the microphone and consent, it records.
+      - It's a lecture with My notes · Summary · Transcript · your other tab.
+      - My notes has the old lines as they were, and the old name is in version history.
+      - New lines get their time.
+    - **In Airplane mode:** the same in another document. It shows as a lecture on the phone at once, and on the laptop once the phone is online again.
+    - **Deny the microphone the first time:** it stays a plain document.

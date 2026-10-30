@@ -173,7 +173,11 @@ export interface RecorderState {
 export interface RecorderService {
   /** False on the iPhone until expo-audio. */
   readonly supported: boolean;
-  start(params: { lectureId: string; transcribe: boolean; chunkMs?: number; overlapMs?: number }): Promise<void>;
+  /**
+   * `after`: where the lecture's audio already ends on Studiply (step 5.7, recording again into a lecture
+   * recorded elsewhere or earlier): the new chunks are numbered and timed after it, as after this device's own.
+   */
+  start(params: { lectureId: string; transcribe: boolean; chunkMs?: number; overlapMs?: number; after?: { seq: number; ms: number } | null }): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<void>;

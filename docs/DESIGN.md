@@ -199,6 +199,14 @@ As built in step 4.4:
   - **Tapping the chip** opens the same panel with **Done** and **Remove mark**; Remove offers Undo. This works after the recording too.
   - **My notes is what the marks are** (Lea's advisor, 30 Oct): a chip deleted by typing deletes its mark, and Undo brings it back.
   - **No marks outside a recording:** the buttons are only on the recording screens. Insert ▾ → Mark stays the display-only chip of 4.6.
+- **Record inside a document (step 5.7).** A **● Record** button in the laptop's row above the page (before ⋯) and in the iPhone's document header (beside ⋯), in lectures and plain documents.
+  - **When it's greyed out:** while another lecture records ("A recording is already running"), and on the laptop while offline ("Recording needs a connection on the laptop").
+  - **In a lecture:** it records again; the new audio goes on after what the lecture already has.
+  - **In a plain document:** it becomes a lecture once the microphone and the consent question are answered. Cancelled before that, nothing changes; if the recorder then can't start, it is put back.
+    - **Nothing moves:** the file keeps its title and place. Its first tab is My notes (the same text, formatting and version history), and the other tabs follow My notes · Summary · Transcript.
+    - **A renamed first tab** takes the name My notes; its old name is in the name of a version of its text ("Before recording · the tab was “Week 3”").
+    - **A first tab deleted earlier:** My notes starts empty, and the deleted text is first saved as a version, "Before recording" (Lea's advisor, 30 Oct).
+    - **New lines get their time;** the old ones don't.
 - **Board photos (step 5.6).**
   - **Taking one:**
     - **iPhone:** **Photo** in the bar opens the camera at once (the permission text: "Studiply needs camera access to take photos of whiteboards and slides.").

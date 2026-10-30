@@ -17,6 +17,11 @@ const kinds = new Map<string, boolean>();
 /** What was last written per document (its lines as JSON). */
 const written = new Map<string, string>();
 
+/** A document just turned into a lecture (step 5.7): asked again at its next save. */
+export function forgetLectureKind(fileId: string): void {
+  kinds.delete(fileId);
+}
+
 /** Whether the file is a lecture (kept per file; also the marks', step 5.5). */
 export async function isLectureFile(fileId: string): Promise<boolean> {
   const known = kinds.get(fileId);

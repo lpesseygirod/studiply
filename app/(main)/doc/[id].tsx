@@ -30,6 +30,9 @@ import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecorder';
 import { registerMomentTarget } from '../../../src/services/moment-placement';
+import { RecordButton } from '../../../src/components/recording/RecordButton';
+import { useRecordingActions } from '../../../src/components/recording/useRecordingActions';
+import { useConnectivity } from '../../../src/lib/connectivity';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
@@ -123,9 +126,14 @@ export default function DocumentScreen() {
   const [tabsKnown, setTabsKnown] = useState(false);
   // Tabs deleted on another device that an edit here kept (shown once).
   const [keptTabs, setKeptTabs] = useState<string[]>([]);
+  // The file as shown now: a list read for an older kind (a document that just became a lecture,
+  // step 5.7) arrives too late to be shown.
+  const shownKind = useRef(file?.kind);
+  shownKind.current = file?.kind;
   const loadTabs = useCallback(async () => {
     if (!id || !file) return;
     const list = await listTabs(id, file.kind === 'lecture').catch(() => null);
+    if (shownKind.current !== file.kind) return;
     setTabsKnown(true);
     if (list) setTabs(list);
     const kept = await takeKeptTabs(id).catch(() => []);
@@ -267,6 +275,37 @@ export default function DocumentScreen() {
     editorReady: showEditor && readyKey === editorKey,
   });
   const status = showEditor ? saveLabel(sync.state) : null;
+
+  // Record inside the document (step 5.7): a lecture records again; a plain document becomes a lecture
+  // (its first tab is My notes, its other tabs follow). Not while this one records, or in other kinds of file.
+  const actions = useRecordingActions();
+  const connection = useConnectivity();
+  const recordable = !!file && (file.kind === 'lecture' || file.kind === 'document') && recorder.supported && !recordingHere;
+  const recordBlocked =
+    live.status !== 'idle' || recordingFlowState.saving
+      ? 'A recording is already running'
+      : Platform.OS === 'web' && connection === 'offline'
+        ? 'Recording needs a connection on the laptop'
+        : null;
+  const [startingRecord, setStartingRecord] = useState(false);
+  const onRecord = async () => {
+    if (!file || startingRecord || recordBlocked) return;
+    setStartingRecord(true);
+    try {
+      // What was just typed is saved first (the first tab may become My notes).
+      await sync.flush().catch(() => {});
+      editorRef.current?.blur();
+      if (await actions.recordHere({ fileId: file.id, isLecture, language: docLanguage ?? 'auto' })) {
+        setTab('notes');
+        notifyLibraryUpdated();
+        // The file as it is now (a lecture); its tabs are read again for it once it's shown.
+        await load();
+      }
+    } finally {
+      setStartingRecord(false);
+    }
+  };
+  const recordButton = recordable ? <RecordButton onPress={() => void onRecord()} blocked={recordBlocked} starting={startingRecord} /> : null;
   // Marks (step 5.5) and board photos (5.6) made while recording go into this lecture's My notes through its
   // editor while it is on screen here (not while another screen is in front of it: then they're saved as a new last line).
   const momentsHere = isLecture && tab === 'notes' && !isSheet && showEditor && readyKey === editorKey;
@@ -569,6 +608,7 @@ export default function DocumentScreen() {
         </Text>
       )}
       <View style={styles.spacer} />
+      {recordButton}
       <View ref={menuButton} collapsable={false}>
         <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={c.text.onGradientStrong} />
       </View>
@@ -601,8 +641,11 @@ export default function DocumentScreen() {
             {courseName ?? 'Library'}
           </Text>
         </Pressable>
-        <View ref={menuButton} collapsable={false}>
-          <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
+        <View style={styles.headerActions}>
+          {recordButton}
+          <View ref={menuButton} collapsable={false}>
+            <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
+          </View>
         </View>
       </View>
       {status && <Text style={styles.status}>{status}</Text>}
@@ -707,4 +750,5 @@ const makeStyles = (c: ThemeColors) =>
     backText: { fontSize: Typography.size.md, fontWeight: Typography.weight.medium },
     status: { fontSize: Typography.size.xs, color: c.text.onGradient, marginTop: -6, marginLeft: 6 },
     phoneBody: { flex: 1, paddingHorizontal: 12 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   });
