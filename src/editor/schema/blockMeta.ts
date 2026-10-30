@@ -36,6 +36,13 @@ export const BLOCK_TYPES = ['paragraph', 'heading', 'image', 'bulletList', 'orde
 /** Transaction meta: a change the student didn't type (load, remote, restore, generated). */
 export const SYSTEM_META = 'studiplySystem';
 
+/**
+ * Transaction meta (step 6.3): ids of new blocks the student put in that keep the origin they come
+ * with: the study assistant's boxes (`ai`), added by the student's press, so in Undo like any edit.
+ * Every other block of that transaction is the student's as usual (an accepted rewrite is hers).
+ */
+export const KEEP_ORIGIN_META = 'studiplyKeepOrigin';
+
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     blockMeta: {
@@ -280,6 +287,7 @@ export function blockMetaFix(
   for (const tr of transactions) for (const map of tr.mapping.maps) back.appendMap(map);
   const inverted = back.invert();
 
+  const keep = new Set<string>(transactions.flatMap((tr) => (tr.getMeta(KEEP_ORIGIN_META) as string[] | undefined) ?? []));
   const seen = new Set<string>();
   const changes: BlockChange[] = [];
   newDoc.forEach((node, pos, index) => {
@@ -308,7 +316,8 @@ export function blockMetaFix(
     }
     seen.add(id);
 
-    if (!system) {
+    // A new box of the assistant's (KEEP_ORIGIN_META) keeps `ai`, not touched since it came in.
+    if (!system && !(keep.has(id) && !previous)) {
       const studentChange = !previous || !sameBlock(previous, node);
       if (studentChange && (node.attrs.origin !== 'student' || node.attrs.editedAt !== now)) {
         attrs.origin = 'student';

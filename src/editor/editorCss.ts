@@ -9,6 +9,7 @@ import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CLASS, PHOTO_WIDE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
 import { CALLOUT_CLASS } from './schema/callout';
+import { SUGGESTION_CLASS } from './schema/suggestion';
 import { FORMULA_CARD_CLASS } from './schema/formulaCard';
 import { GRAPH_CLASS } from './schema/graph';
 import { SELECTION_BAR_CLASS } from './format/selectionBar';
@@ -87,6 +88,8 @@ ${pm} .${GRAPH_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent};
 ${Object.entries(DocColors.callout)
   .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)
   .join('\n')}
+/* Ask Claude (step 6.3): the text a pending suggestion is about, until it is accepted or rejected. */
+${pm} .${SUGGESTION_CLASS} { background: ${c.accentLight}; box-shadow: 0 2px 0 ${c.accent}; }
 ${pm} .${MARK_CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }
 ${Object.entries(DocColors.markChip)
   .map(([kind, k]) => `${pm} .${MARK_CHIP_CLASS}[data-mark='${kind}'] { background: ${k.bg}; color: ${k.text}; }`)
@@ -124,8 +127,8 @@ ${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame, ${photo}[data-wrap='right'] .$
 ${photo}[data-wrap='left'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='right'] .${PHOTO_CLASS}-frame.sized, ${photo}[data-wrap='inline'] .${PHOTO_CLASS}-frame.sized { width: 100%; }
 ${bar}.${SELECTION_BAR_CLASS} .${SELECTION_BAR_CLASS}-split { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: ${c.border}; }
 ${bar}.${SELECTION_BAR_CLASS} .${SELECTION_BAR_CLASS}-more { margin-left: -3px; font-size: 10px; opacity: 0.6; }
-${bar}.${SELECTION_BAR_CLASS}-touch { flex-wrap: wrap; }
-${bar}.${SELECTION_BAR_CLASS}-touch .${SELECTION_BAR_CLASS}-split { flex-basis: 100%; width: auto; height: 1px; align-self: auto; margin: 2px 0; }
+${bar}.${SELECTION_BAR_CLASS}-touch, ${bar}.${SELECTION_BAR_CLASS}-wrap { flex-wrap: wrap; }
+${bar}.${SELECTION_BAR_CLASS}-touch .${SELECTION_BAR_CLASS}-split, ${bar}.${SELECTION_BAR_CLASS}-wrap .${SELECTION_BAR_CLASS}-split { flex-basis: 100%; width: auto; height: 1px; align-self: auto; margin: 2px 0; }
 ${bar} .${PHOTO_BAR_CLASS}-divider { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: ${c.border}; }
 ${bar} button:disabled { opacity: 0.35; cursor: default; }
 ${`${scope} .${MATH_CHIP_CLASS}`.trim()} { padding: 6px 10px; gap: 6px; color: ${c.accentDark}; font: 600 13px/1 -apple-system, system-ui, sans-serif; cursor: pointer; white-space: pre; }

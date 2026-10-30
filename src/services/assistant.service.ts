@@ -37,6 +37,8 @@ export interface AssistantWindow {
 export interface ChatTurn {
   /** The question's id (a local one until the server has saved it). */
   id: string;
+  /** The answer's saved id (Flashcards from it, step 6.3); known once `meta` arrived. */
+  answerId?: string;
   question: string;
   quickPrompt: QuickPrompt | null;
   window: AssistantWindow | null;
@@ -72,6 +74,7 @@ export function turnsFromRows(rows: MessageRow[]): ChatTurn[] {
     const a = answers.get(q.id);
     const turn: ChatTurn = {
       id: q.id,
+      ...(a && { answerId: a.id }),
       question: q.content,
       quickPrompt: asQuick(q.quick_prompt),
       window: q.window_start_ms !== null && q.window_end_ms !== null ? { startMs: q.window_start_ms, endMs: q.window_end_ms } : null,

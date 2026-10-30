@@ -26,7 +26,7 @@ export const CALLOUT_CLASS = 'studiply-callout';
 /** Laptop: `detail` is { x, y } (where to open the callout's menu). */
 export const CALLOUT_EVENT = 'studiply-callout';
 
-export type CalloutKind = 'definition' | 'example' | 'exam' | 'warning' | 'fromNotes' | 'confused' | 'addedContext';
+export type CalloutKind = 'definition' | 'example' | 'exam' | 'warning' | 'fromNotes' | 'confused' | 'addedContext' | 'fromAssistant';
 
 /** Each kind: its name in menus, and the label the box shows. */
 export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[] = [
@@ -37,7 +37,12 @@ export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[]
   { kind: 'fromNotes', name: 'From your notes', label: 'From your notes' },
   { kind: 'confused', name: 'You were confused here', label: 'You were confused here' },
   { kind: 'addedContext', name: 'Added context', label: 'Added context · not from the lecture' },
+  // Step 6.3: an answer added to My notes, or a suggestion put below its text; only the assistant makes it.
+  { kind: 'fromAssistant', name: 'From the study assistant', label: 'From the study assistant' },
 ];
+
+/** The kinds a student can choose in the Callout menus (the assistant's own box isn't one). */
+export const MENU_CALLOUT_KINDS = CALLOUT_KINDS.filter((k) => k.kind !== 'fromAssistant');
 
 const isKind = (v: unknown): v is CalloutKind => CALLOUT_KINDS.some((k) => k.kind === v);
 /** A level 1–10, or null. */
@@ -57,7 +62,7 @@ export function calloutLabel(attrs: { kind?: unknown; level?: unknown; ms?: unkn
   const level = cleanLevel(attrs.level);
   const ms = cleanMs(attrs.ms);
   if (kind === 'confused' && level !== null) parts.push(`${level}/10`);
-  if ((kind === 'confused' || kind === 'fromNotes') && ms !== null) parts.push(chipLabel(ms));
+  if ((kind === 'confused' || kind === 'fromNotes' || kind === 'fromAssistant') && ms !== null) parts.push(chipLabel(ms));
   return parts.join(' · ');
 }
 

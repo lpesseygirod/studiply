@@ -18,7 +18,7 @@ import {
   claudeCost,
   type Cost,
 } from './claude.ts';
-import { hasConsent, logUsage, ownLecture, signedIn, usedToday } from './guard.ts';
+import { hasConsent, logUsage, ownFile, ownLecture, signedIn, usedToday } from './guard.ts';
 import { fail } from './http.ts';
 
 const TIMEOUT_MS = 120_000;
@@ -30,11 +30,12 @@ export type Ready<T> =
   | { ok: false; response: Response };
 
 /**
- * In order: signed in → server has a key → valid body → own lecture →
- * assistant/summary consent → under today's limit. Nothing reaches
+ * In order: signed in → server has a key → valid body → own lecture (or,
+ * with `fileId`, own document) → assistant/summary consent → under today's
+ * limit. Nothing reaches
  * Anthropic unless all of them pass.
  */
-export async function readyForClaude<T extends { lectureId: string }>(
+export async function readyForClaude<T extends { lectureId: string; fileId?: string | null }>(
   req: Request,
   validate: (body: unknown) => { ok: true; value: T } | { ok: false; status: number; code: string; error: string },
   log: (event: string, details: Record<string, unknown>) => void,
@@ -52,9 +53,12 @@ export async function readyForClaude<T extends { lectureId: string }>(
   const body = await req.json().catch(() => null);
   const valid = validate(body);
   if (!valid.ok) return { ok: false, response: fail(valid.status, valid.code, valid.error) };
-  const { lectureId } = valid.value;
+  const { lectureId, fileId } = valid.value;
 
-  if (!(await ownLecture(db, lectureId))) {
+  // A document of any kind (step 6.3, Ask Claude on a selection), else a lecture.
+  if (fileId) {
+    if (!(await ownFile(db, fileId))) return { ok: false, response: fail(404, 'file_not_found', 'That document was not found.') };
+  } else if (!(await ownLecture(db, lectureId))) {
     return { ok: false, response: fail(404, 'lecture_not_found', 'That lecture was not found.') };
   }
 
@@ -110,7 +114,8 @@ export function claudeParams(
 export async function logClaudeCost(
   operation: Operation,
   userId: string,
-  lectureId: string,
+  /** null: a plain document's (step 6.3), not a lecture's. */
+  lectureId: string | null,
   requestedModel: string,
   message: Anthropic.Beta.BetaMessage,
 ): Promise<Cost> {

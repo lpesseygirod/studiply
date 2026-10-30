@@ -5,6 +5,8 @@ import type { PasteReport } from './pasteReport';
 import type { FormatCommand } from './format';
 import type { CommentInfo } from './schema/comments';
 import type { LinkedMark, MarkPlace } from './schema/markChip';
+import type { SuggestionInfo } from './schema/suggestion';
+import type { AskClaudeAnchor } from './format/selectionBar';
 import type { ViewPrefs } from '../lib/viewPrefs';
 import type { PageSetup } from './page/pageSetup';
 
@@ -36,6 +38,8 @@ export type StudiplyEditorHandle = {
   tool: (which: WritingTool) => void;
   /** A format command from the screen (step 5.5: a mark made while recording goes in, or comes back after Remove). */
   run: (cmd: FormatCommand) => void;
+  /** Ask Claude's pending range (step 6.3): what to send, and whether its text changed since; null when none. */
+  suggestion: () => Promise<SuggestionInfo | null>;
 };
 
 export type WritingTool = 'find' | 'replace' | 'outline' | 'wordCount';
@@ -80,4 +84,9 @@ export type StudiplyEditorProps = {
   recordingClock?: () => number | null;
   /** A mark made while recording was removed from its chip's panel (step 5.5): the screen offers Undo. */
   onMarkRemoved?: (mark: LinkedMark, at: MarkPlace) => void;
+  /**
+   * The selection bar's "✦ Ask Claude" (step 6.3): the selection is now the suggestion's range;
+   * the screen offers the actions (`anchor`: the button and the editor as seen, the laptop's window coordinates).
+   */
+  onAskClaude?: (anchor?: AskClaudeAnchor) => void;
 };

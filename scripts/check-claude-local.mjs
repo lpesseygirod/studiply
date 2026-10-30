@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (steps 1.6, 1.7, 6.1).
+ * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (steps 1.6, 1.7, 6.1, 6.3).
  *
  * Calls the real local Edge Functions, which call Anthropic (four short
- * answers, two short study notes, one clarification and three study-assistant
- * questions at low effort, about $0.10–0.20 per run: the assistant on
- * Sonnet 5.5, notes and summaries on Opus 5.5; the models are read from
- * CLAUDE_MODELS in supabase/functions/_shared/claude.ts):
+ * answers, two short study notes, one clarification, three study-assistant
+ * questions and three step-6.3 actions at low effort, about $0.12–0.25 per
+ * run: the assistant on Sonnet 5.5, notes and summaries on Opus 5.5; the
+ * models are read from CLAUDE_MODELS in supabase/functions/_shared/claude.ts):
  *   1. checks the Anthropic key is in no tracked file;
  *   2. creates two throwaway users, A and B, and a lecture for A;
  *   3. checks login, request checks, consent (and its scope), that
@@ -18,7 +18,10 @@
  *      instruction said in class; "Explain the last 10 min" only talks about
  *      that window and cites times inside it, "What did she just say?", a
  *      question the lecture doesn't answer, and both rows saved with their
- *      window), the daily limit, and withdrawing consent;
+ *      window), Ask Claude and Flashcards (step 6.3: Explain simpler on a
+ *      plain document, in Spanish, the formula kept; Make flashcard; cards
+ *      from a saved answer; each logged once; B can't use A's document), the
+ *      daily limit, and withdrawing consent;
  *   4. deletes both users and their rows, even when a check fails.
  *
  * Local only: refuses to run unless Supabase is on 127.0.0.1 / localhost.
@@ -481,6 +484,44 @@ try {
   console.log('    ↑ Read it: it should say plainly, first, that the transcript doesn’t mention it.');
   const assistantCost = last10.cost + justSaid.cost + notThere.cost;
   console.log(`    The three step-6.1 questions cost $${assistantCost.toFixed(4)} on ${MODELS.assistant}.`);
+
+  console.log('\nAsk Claude and Flashcards (step 6.3): JSON answers, checked against their shape');
+  const { data: plainDoc, error: plainError } = await a.client.from('files').insert({ kind: 'document', title: 'Ask check' }).select('id').single();
+  if (plainError) throw new Error(`Could not create the plain document: ${plainError.message}`);
+  const PARAGRAPH = 'La mitocondria rompe la glucosa en varias etapas y obtiene ATP; la energía liberada se puede relacionar con $E = mc^2$, aunque en la célula se mide en kilocalorías.';
+  /** Times one JSON call and prints it. */
+  const timed = async (label, body, token = a.token) => {
+    const started = Date.now();
+    const r = await call(CHAT_URL, token, body);
+    console.log(`    ${label}: ${r.status} after ${Date.now() - started} ms, ${r.body.usage?.input ?? '?'} in / ${r.body.usage?.output ?? '?'} out, $${r.body.costUsd ?? '?'} (${r.body.model ?? r.body.code ?? '?'})`);
+    return r;
+  };
+  const usageBefore = (await usageRows(a.id)).length;
+
+  const simpler = await timed('Explain simpler (a plain document)', { mode: 'selection', fileId: plainDoc.id, action: 'simpler', text: PARAGRAPH, context: PARAGRAPH });
+  console.log(`      "${String(simpler.body.suggestion ?? '').replace(/\s+/g, ' ')}"`);
+  check(simpler.status === 200 && typeof simpler.body.suggestion === 'string' && simpler.body.suggestion.trim().length > 0, 'Explain simpler answers { suggestion } (structured outputs, checked)');
+  check(looksSpanish(simpler.body.suggestion ?? ''), 'in Spanish, the language of the selected text');
+  check(/\$[^$]*E\s*=\s*mc\^2[^$]*\$/.test(simpler.body.suggestion ?? ''), 'the formula kept as $E = mc^2$');
+
+  const card = await timed('Make flashcard (the Spanish lecture)', { mode: 'selection', fileId: esLecture, action: 'flashcard', text: PARAGRAPH, context: '' });
+  const cards = card.body.cards ?? [];
+  cards.forEach((c) => console.log(`      card: "${c.front}" → "${c.back}"`));
+  check(card.status === 200 && cards.length >= 1 && cards.length <= 5 && cards.every((c) => c.front?.trim() && c.back?.trim()), `Make flashcard answers 1–5 cards with a front and a back (${cards.length})`);
+
+  const fromAnswer = await timed('Flashcards from the saved "Explain the last 10 min" answer', { mode: 'flashcards', lectureId: esLecture, answerId: last10.answer?.id ?? randomUUID() });
+  (fromAnswer.body.cards ?? []).forEach((c) => console.log(`      card: "${c.front}" → "${c.back}"`));
+  check(fromAnswer.status === 200 && (fromAnswer.body.cards ?? []).length >= 1, `Flashcards from an answer (${(fromAnswer.body.cards ?? []).length} cards)`);
+
+  const rowsAfterActions = await usageRows(a.id);
+  const actionRows = rowsAfterActions.slice(usageBefore);
+  check(actionRows.length === 3 && actionRows.every((r) => r.operation === 'assistant' && r.model === MODELS.assistant), `each logged once as an assistant answer (${actionRows.length} rows)`);
+  check(actionRows.some((r) => r.lecture_id === null) && actionRows.filter((r) => r.lecture_id === esLecture).length === 2, 'the plain document’s without a lecture, the lecture’s with it');
+  const notMine = await call(CHAT_URL, b.token, { mode: 'selection', fileId: plainDoc.id, action: 'simpler', text: 'x' });
+  check(notMine.status === 404 && notMine.body.code === 'file_not_found', `B can't use A's document (got ${notMine.status} ${notMine.body.code ?? ''})`);
+  check((await usageRows(b.id)).length === 0, 'and nothing was charged to B');
+  const actionsCost = [simpler, card, fromAnswer].reduce((sum, r) => sum + Number(r.body.costUsd ?? 0), 0);
+  console.log(`    The three step-6.3 calls cost $${actionsCost.toFixed(4)} on ${MODELS.assistant}.`);
 
   console.log('\nDaily limit');
   const rowsBeforeLimit = (await usageRows(a.id)).length;

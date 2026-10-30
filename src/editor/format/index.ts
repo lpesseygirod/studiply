@@ -6,6 +6,7 @@ import { selectedPhoto, type PhotoAlign, type PhotoInfo, type PhotoWrap } from '
 import { formulaRequest, mathSuggestion, selectedFormula, type FormulaRequest } from '../schema/formula';
 import { canComment, commentsAt, listComments, type CommentInfo } from '../schema/comments';
 import { selectionBarKey, type SelectionBarRequest } from './selectionBar';
+import { suggestionInfo, type AssistantNote, type BelowKind, type SuggestionInfo } from '../schema/suggestion';
 import { clampCols, clampRows, filledLines, resizeTable, tableSize } from '../table/resize';
 import { selectedTable } from '../table/selection';
 import { tableBarKey, type TableBarRequest } from '../table/tableBar';
@@ -106,6 +107,8 @@ export interface FormatState {
   comments: CommentInfo[];
   /** The last press on the selection bar's Comment or Link (the iPhone asks with its prompts). */
   selectionRequest: SelectionBarRequest | null;
+  /** Ask Claude's pending range (step 6.3): what to send, and whether it changed since; null when none. */
+  suggestion: SuggestionInfo | null;
   /** Maths typed as text before the cursor, offered as a formula (its LaTeX); null when none. */
   mathSuggestion: { latex: string } | null;
   /** The last press on the photo bar's Layout… (a phone: the iPhone opens its layout sheet). */
@@ -171,6 +174,14 @@ export type FormatCommand =
   | { type: 'markChip'; action: 'place'; mark: LinkedMark; at?: MarkPlace }
   /** A board photo taken while recording (step 5.6): a thumbnail on a stamped line of its own. */
   | { type: 'photoLine'; mediaId: string; ms: number }
+  /**
+   * Ask Claude's suggestion (step 6.3): accepted in the range's place (`replace`; below if the text
+   * changed since) or below it in a box of `kind`; or rejected (`clear`), nothing changes.
+   */
+  | { type: 'suggestion'; action: 'replace' | 'below'; text: string; kind?: BelowKind }
+  | { type: 'suggestion'; action: 'clear' }
+  /** Add to notes (step 6.3): the assistant's answer in a "From the study assistant" box at the end. */
+  | { type: 'assistantNote'; note: AssistantNote }
   /** Graphs (step 4.7d): a new one (selected, its form asked for), the selected one's data, or delete it. */
   | { type: 'graph'; action: 'insert' }
   | { type: 'graph'; action: 'set'; graph: GraphData }
@@ -274,6 +285,7 @@ export function formatState(editor: Editor): FormatState {
     formulaRequest: formulaRequest(editor),
     ...commentState(editor),
     selectionRequest: selectionBarKey.getState(editor.state) ?? null,
+    suggestion: suggestionInfo(editor.state),
     mathSuggestion: mathSuggestionOf(editor),
     photoRequest: photoBarKey.getState(editor.state) ?? null,
     callout: calloutOf(editor),
@@ -518,6 +530,13 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
     case 'photoLine':
       // Not focusing the text: the student pressed Photo, maybe away from the editor.
       return editor.chain().placePhotoLine(mediaSrc(cmd.mediaId), cmd.ms).run();
+    case 'suggestion':
+      // Not focusing the text: the student pressed Accept or Reject in the card (sheet).
+      if (cmd.action === 'clear') return editor.chain().clearSuggestion().run();
+      return editor.chain().acceptSuggestion(cmd.action, cmd.text, cmd.kind).run();
+    case 'assistantNote':
+      // Not focusing the text: the student pressed Add to notes in the assistant.
+      return editor.chain().addAssistantNote(cmd.note).run();
     case 'view': {
       // Not focusing the text: it only changes how the document is shown.
       let c = editor.chain();

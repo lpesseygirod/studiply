@@ -42,7 +42,7 @@ import { OutlineSheet } from './iphone/OutlineSheet';
 import type { Counts } from './writing/counts';
 import { cleanLang, LANG_EVENT } from './schema/graph';
 import type { GraphData } from './graph/data';
-import { CALLOUT_KINDS, type CalloutKind } from './schema/callout';
+import { CALLOUT_KINDS, MENU_CALLOUT_KINDS, type CalloutKind } from './schema/callout';
 import { parseClock } from './schema/timestampChip';
 import { requestCameraPermission, requestMediaLibraryPermission } from '../utils/permissions';
 
@@ -73,7 +73,7 @@ const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
  * Docs. Needs the development build (react-native-webview).
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language, recordingClock, onMarkRemoved },
+  { initialContent, fileId, editable = true, header, onReady, onChange, onChipPress, onPaste, view, onZoom, pageSetup, footer, language, recordingClock, onMarkRemoved, onAskClaude },
   ref,
 ) {
   const { scheme, colors } = useTheme();
@@ -330,6 +330,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     else if (button === 'callout') pickCallout(state.format?.callout?.kind);
     else if (button === 'mark') setMarkDraft({ kind: 'important', level: null, existing: false });
     else if (button === 'time') void askTimestamp();
+    // Step 6.3: the screen offers Ask Claude's actions (an action sheet); the range is kept in the WebView.
+    else if (button === 'ask') onAskClaude?.();
     // Only a new press asks; the format state changes all the time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionPress]);
@@ -354,7 +356,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const pickCallout = (current?: CalloutKind | null) =>
     showActionSheet(
       current ? 'Change to' : 'Callout',
-      CALLOUT_KINDS.map((k) => ({ text: current === k.kind ? `${k.name} ✓` : k.name, onPress: () => run({ type: 'callout', action: 'set', kind: k.kind }) })),
+      MENU_CALLOUT_KINDS.map((k) => ({ text: current === k.kind ? `${k.name} ✓` : k.name, onPress: () => run({ type: 'callout', action: 'set', kind: k.kind }) })),
     );
   const askTimestamp = async () => {
     const text = await promptText('Timestamp', { message: 'The time in the recording, for example 4:12.', placeholder: '4:12', confirmLabel: 'Insert', keyboard: 'ascii-capable' });
@@ -465,6 +467,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       comments: async () => stateRef.current.format?.comments ?? [],
       comment: (cmd) => run(cmd),
       run: (cmd) => run(cmd),
+      suggestion: async () => stateRef.current.format?.suggestion ?? null,
       focus: () => editor.focus(),
       blur: () => editor.blur(),
       tool: (which) => {

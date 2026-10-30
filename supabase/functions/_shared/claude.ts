@@ -29,6 +29,9 @@ export const MAX_TOKENS = 4096;
 /** The study assistant's answers are short (read on a phone in class): thinking plus about 400 words. */
 export const ASSISTANT_MAX_TOKENS = 2048;
 
+/** Ask Claude on a selection and Flashcards (step 6.3): room for a rewrite of a 6,000-character selection. */
+export const ACTION_MAX_TOKENS = 4096;
+
 /**
  * Re-runs a request Claude declines on Anthropic's recommended fallback
  * model for that kind of refusal, inside the same call.

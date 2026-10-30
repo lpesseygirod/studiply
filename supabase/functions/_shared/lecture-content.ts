@@ -101,6 +101,28 @@ export function lectureReads(db: SupabaseClient, lectureId: string): LectureRead
   };
 }
 
+/**
+ * A finished answer of this lecture and its question (step 6.3, Flashcards from an answer), as the
+ * student; null when there is no such answer.
+ */
+export async function savedAnswer(db: SupabaseClient, lectureId: string, answerId: string): Promise<{ question: string; answer: string } | null> {
+  const { data, error } = await db
+    .from('assistant_messages')
+    .select('content, reply_to, role, status')
+    .eq('id', answerId)
+    .eq('lecture_id', lectureId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data.role !== 'assistant' || data.status !== 'done' || !String(data.content ?? '').trim()) return null;
+  let question = '';
+  if (data.reply_to) {
+    const asked = await db.from('assistant_messages').select('content').eq('id', data.reply_to).maybeSingle();
+    if (asked.error) throw asked.error;
+    question = String(asked.data?.content ?? '');
+  }
+  return { question, answer: String(data.content) };
+}
+
 /** The lecture's assistant_messages: a question and its answer, each with the window. */
 export function messageStore(db: SupabaseClient, lectureId: string): MessageStore {
   return {

@@ -36,7 +36,7 @@ describe('turnsFromRows', () => {
         row('a1', 'assistant', 'La profesora explicó…', { reply_to: 'q1', window_start_ms: 1_452_000, window_end_ms: 2_052_000 }),
       ]),
     ).toEqual([
-      { id: 'q1', question: 'Explain the last 10 min', quickPrompt: 'last_10_min', window: { startMs: 1_452_000, endMs: 2_052_000 }, answer: 'La profesora explicó…', status: 'done', error: undefined },
+      { id: 'q1', answerId: 'a1', question: 'Explain the last 10 min', quickPrompt: 'last_10_min', window: { startMs: 1_452_000, endMs: 2_052_000 }, answer: 'La profesora explicó…', status: 'done', error: undefined },
     ]);
   });
 

@@ -167,13 +167,15 @@ export default function MainLayout() {
                 </Tabs>
               </View>
               {wide && <OfflineBanner bottom={16} />}
+              {/* In the centre column on the laptop, so a toast never covers the assistant's composer. */}
+              {wide && toast}
             </View>
             {showAssistant && <AssistantPanel onClose={() => setPrefs({ assistantOpen: false })} />}
           </View>
           {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
           {!wide && <RecordingPill />}
           <RecordingHost />
-          {toast}
+          {!wide && toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}
           {__DEV__ && <SimulatedAiBadge top={wide ? Layout.topBarHeight + 6 : insets.top + 2} />}

@@ -42,6 +42,13 @@ export async function ownLecture(db: SupabaseClient, lectureId: string) {
   return data;
 }
 
+/** The caller's own document (RLS): any kind, not in the Trash (step 6.3: Ask Claude in any document). */
+export async function ownFile(db: SupabaseClient, fileId: string) {
+  const { data, error } = await db.from('files').select('id, kind').eq('id', fileId).is('deleted_at', null).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Whether the caller has consent for this scope under the current policy, not withdrawn. */
 export async function hasConsent(db: SupabaseClient, scope: ConsentScope): Promise<boolean> {
   const { data, error } = await db

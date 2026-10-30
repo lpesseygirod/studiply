@@ -12,10 +12,12 @@
 
 import { withMarkLine, type LinkedMark } from '../editor/schema/markChip';
 import { withPhotoLine } from '../editor/schema/photo';
+import { withAssistantNote, type AssistantNote } from '../editor/schema/suggestion';
 import { mediaSrc } from '../editor/media/photoSource';
 import { openDocument, saveDocument } from './document.service';
 
-export type MomentItem = { kind: 'mark'; mark: LinkedMark } | { kind: 'photo'; mediaId: string; ms: number };
+/** A mark (5.5), a board photo (5.6), or a study-assistant answer added to the notes (6.3: a box at the end). */
+export type MomentItem = { kind: 'mark'; mark: LinkedMark } | { kind: 'photo'; mediaId: string; ms: number } | { kind: 'answer'; note: AssistantNote };
 
 export interface MomentTarget {
   place: (item: MomentItem) => void;
@@ -38,6 +40,11 @@ export async function placeAtMoment(lectureId: string, item: MomentItem): Promis
     return;
   }
   const opened = await openDocument(lectureId, 'notes');
-  const next = item.kind === 'mark' ? withMarkLine(opened.content, item.mark) : withPhotoLine(opened.content, mediaSrc(item.mediaId), item.ms);
+  const next =
+    item.kind === 'mark'
+      ? withMarkLine(opened.content, item.mark)
+      : item.kind === 'photo'
+        ? withPhotoLine(opened.content, mediaSrc(item.mediaId), item.ms)
+        : withAssistantNote(opened.content, item.note);
   await saveDocument({ fileId: lectureId, tab: 'notes', base: opened.content, next });
 }

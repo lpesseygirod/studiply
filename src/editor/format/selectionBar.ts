@@ -8,6 +8,7 @@ import { canComment, COMMENT_EVENT } from '../schema/comments';
 import { nameButton } from '../barHint';
 import { TOOLS, type ToolKey, type ToolName } from '../toolNames';
 import { TABLE_BAR_CLASS } from '../table/tableBar';
+import { startSuggestion } from '../schema/suggestion';
 
 /**
  * The selection bar (after test B, Lea): selected words get a small bar
@@ -30,7 +31,20 @@ import { TABLE_BAR_CLASS } from '../table/tableBar';
  */
 
 export const SELECTION_BAR_CLASS = 'studiply-selection-bar';
-export type SelectionBarButton = 'comment' | 'link' | 'callout' | 'mark' | 'time';
+export type SelectionBarButton = 'comment' | 'link' | 'callout' | 'mark' | 'time' | 'ask';
+/**
+ * Step 6.3, "✦ Ask Claude ▸": the laptop's screen opens the actions under the button (`detail` is
+ * { x, y }); the iPhone sees the press in the format state. Either way the selection is kept as the
+ * suggestion's range (schema/suggestion) when the bar is pressed.
+ */
+export const ASK_CLAUDE_EVENT = 'studiply-ask-claude';
+/** Where the laptop's suggestion card goes: under the button (`x`, `y`) or above the bar (`above`), inside `bounds` (the editor as seen). */
+export interface AskClaudeAnchor {
+  x: number;
+  y: number;
+  above: number;
+  bounds: { left: number; right: number; top: number; bottom: number };
+}
 export interface SelectionBarRequest {
   id: number;
   button: SelectionBarButton;
@@ -52,6 +66,8 @@ const ICONS = {
   callout: svg('<rect x="2.5" y="3" width="13" height="12" rx="2"/><line x1="5.5" y1="3.5" x2="5.5" y2="14.5" stroke-width="2.4"/><line x1="8.5" y1="7" x2="12.5" y2="7"/><line x1="8.5" y1="11" x2="11.5" y2="11"/>'),
   mark: svg('<path d="M4.5 16V2.5h9l-2.2 3.5 2.2 3.5h-9"/>'),
   time: svg('<circle cx="9" cy="9" r="6.5"/><path d="M9 5.5V9l2.5 1.6"/>'),
+  // The study assistant's sparkle (✦), as in its panel.
+  ask: svg('<path d="M9 2.5l1.6 4.9L15.5 9l-4.9 1.6L9 15.5l-1.6-4.9L2.5 9l4.9-1.6z"/>'),
 };
 
 /** The selection is in a table: a callout would take the whole table. */
@@ -59,6 +75,24 @@ function inTable(editor: Editor): boolean {
   const { $from } = editor.state.selection;
   for (let d = $from.depth; d > 0; d--) if ($from.node(d).type.spec.tableRole) return true;
   return false;
+}
+
+/** The part of `el` that is on screen: inside the window and every scrolling or clipping box around it. */
+export function visibleBox(el: HTMLElement): { left: number; right: number; top: number; bottom: number } {
+  const r = el.getBoundingClientRect();
+  const seen = { left: Math.max(0, r.left), right: Math.min(window.innerWidth, r.right), top: Math.max(0, r.top), bottom: Math.min(window.innerHeight, r.bottom) };
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const s = getComputedStyle(a);
+    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+    const o = a.getBoundingClientRect();
+    seen.left = Math.max(seen.left, o.left);
+    seen.right = Math.min(seen.right, o.left + (a.clientWidth || o.width));
+    seen.top = Math.max(seen.top, o.top);
+    seen.bottom = Math.min(seen.bottom, o.top + (a.clientHeight || o.height));
+  }
+  // Never less than nothing (the editor scrolled out of sight).
+  if (seen.right < seen.left) seen.right = seen.left;
+  return seen;
 }
 
 /** Text is selected that the bar is for (not cells, a photo or a formula). */
@@ -121,6 +155,8 @@ class SelectionBarView {
     add('Callout from the selection', ICONS.callout + more('Callout'), () => this.ask('callout'), undefined, '', 'callout', () => !inTable(this.editor));
     add('Mark after the selection', ICONS.mark + more('Mark'), () => this.ask('mark'), undefined, '', 'mark');
     add('Time after the selection', ICONS.time + more('Time'), () => this.ask('time'), undefined, '', 'timestamp');
+    // Step 6.3: the study assistant's actions on the selection (Explain simpler, Give an example…).
+    add('Ask Claude about the selection', ICONS.ask + more('Ask Claude'), () => this.ask('ask'), undefined, '', 'askClaude');
     view.dom.addEventListener('mousedown', this.down);
     window.addEventListener('mouseup', this.up);
     view.dom.addEventListener('focus', this.refresh);
@@ -141,7 +177,17 @@ class SelectionBarView {
   };
 
   private ask(button: SelectionBarButton) {
-    if (button === 'comment' || button === 'link') {
+    if (button === 'ask') {
+      // The selection becomes the suggestion's range now: the actions are picked after this.
+      this.view.dispatch(startSuggestion(this.view.state.tr, this.view.state));
+      const r = (this.buttons.find((b) => b.el.dataset.tool === 'askClaude')?.el ?? this.bar).getBoundingClientRect();
+      // The card may use the editor's whole pane (the page can be shorter than the card).
+      let pane = this.view.dom.parentElement;
+      while (pane && pane !== document.body && getComputedStyle(pane).overflowY === 'visible') pane = pane.parentElement;
+      const bounds = pane && pane !== document.body ? visibleBox(pane) : { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight };
+      const detail: AskClaudeAnchor = { x: r.left, y: r.bottom + 6, above: this.bar.getBoundingClientRect().top - 6, bounds };
+      this.view.dom.dispatchEvent(new CustomEvent(ASK_CLAUDE_EVENT, { bubbles: true, detail }));
+    } else if (button === 'comment' || button === 'link') {
       this.view.dom.dispatchEvent(new CustomEvent(button === 'comment' ? COMMENT_EVENT : LINK_EVENT, { bubbles: true }));
     } else {
       // The laptop opens its menu under the pressed button.
@@ -174,12 +220,22 @@ class SelectionBarView {
     const start = view.coordsAtPos(from);
     const end = view.coordsAtPos(to);
     const box = parent.getBoundingClientRect();
+    // As wide as the part of the editor that is seen (a page narrower than the bar, the panel beside it):
+    // in one row when it fits, else Callout ▸ … Ask Claude ▸ go to a second row as on a touch screen.
+    const seen = visibleBox(parent);
+    this.bar.style.maxWidth = `${seen.right - seen.left}px`;
+    // Measured at the left edge, where nothing but the width above narrows it.
+    this.bar.style.left = '0px';
+    this.bar.classList.remove(`${SELECTION_BAR_CLASS}-wrap`);
+    if (this.bar.scrollWidth > this.bar.clientWidth + 1) this.bar.classList.add(`${SELECTION_BAR_CLASS}-wrap`);
     const height = this.bar.offsetHeight;
-    const top = this.touch ? Math.max(start.bottom, end.bottom) + GAP : Math.min(start.top, end.top) - height - GAP;
+    const below = Math.max(start.bottom, end.bottom) + GAP;
+    const above = Math.min(start.top, end.top) - height - GAP;
+    // Above the selection with a mouse, unless that is out of sight.
+    const top = this.touch || above < seen.top ? below : above;
     this.bar.style.top = `${top - box.top}px`;
-    this.bar.style.maxWidth = `${box.width}px`;
-    const left = Math.min(start.left, end.left);
-    this.bar.style.left = `${Math.max(0, Math.min(left - box.left, box.width - this.bar.offsetWidth))}px`;
+    const left = Math.max(seen.left, Math.min(Math.min(start.left, end.left), seen.right - this.bar.offsetWidth));
+    this.bar.style.left = `${left - box.left}px`;
   }
 
   destroy() {

@@ -14,8 +14,11 @@
 //      time; bold, the numbered list, the time underlined; the recording goes on.
 //      The chips' scroll area: color-scheme dark in dark mode (its scrollbar
 //      was drawn light), the browser's own (normal) in light mode; also in 7.
-//   3. The time plays in the mini player; Copy says "Copied"; Retry asks the
-//      same again in its place; Add to notes / Flashcards / + say they come next.
+//   3. The time plays in the mini player; Copy says "Copied"; + says it comes
+//      later. Step 6.3: Add to notes puts a "From the study assistant · m:ss"
+//      box (ai) in My notes, then "Added ✓"; Flashcards proposes the cards
+//      (not editable), Save cards → "2 flashcards saved", flashcards rows only
+//      (no review schedule). Retry asks the same again in its place.
 //   4. Typing: Shift+Enter a new line, Enter sends the question as typed.
 //   5. Offline: the note, the chips and send disabled, the draft kept.
 //   6. The panel closed and opened again shows the conversation saved in
@@ -116,10 +119,15 @@ const PAGE_SETUP = `(() => {
     if (url && url.includes('/functions/v1/assistant-chat')) {
       if (window.__checkOffline) throw new TypeError('Failed to fetch');
       window.__assistantCalls.push(body);
+      // Step 6.3: Flashcards from an answer is a JSON answer, not a stream.
+      if (body.mode === 'flashcards') {
+        const cards = [{ front: '¿Cuáles son las 5 preguntas de la Psicobiología?', back: 'Estructuras, procesos, regulación, finalidad y evolución.' }, { front: '¿Qué estudia la Psicobiología?', back: 'La conducta como proceso biológico.' }];
+        return new Response(JSON.stringify({ cards, model: 'claude-sonnet-5-5', usage: { input: 1, output: 1 }, costUsd: 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       const n = window.__assistantCalls.length;
       const now = typeof body.nowMs === 'number' ? body.nowMs : 0;
       const start = body.quickPrompt ? Math.max(0, now - SPANS[body.quickPrompt]) : 0;
-      const pieces = [frame('meta', { questionId: 'q' + n, answerId: 'a' + n, window: { startMs: start, endMs: now }, knownUpToMs: 0 })];
+      const pieces = [frame('meta', { questionId: 'q' + n, answerId: crypto.randomUUID(), window: { startMs: start, endMs: now }, knownUpToMs: 0 })];
       for (let i = 0; i < ANSWER.length; i += 24) pieces.push(frame('delta', { text: ANSWER.slice(i, i + 24) }));
       pieces.push(frame('done', { model: 'claude-sonnet-5-5', stopReason: 'end_turn', usage: { input: 1, output: 1 }, costUsd: 0 }));
       const enc = new TextEncoder();
@@ -295,19 +303,48 @@ try {
     await expectChipsScheme(PANEL, false);
   });
 
-  await step('the time plays in the mini player; Copy says Copied; Add to notes, Flashcards and + say they come next', async () => {
+  await step('the time plays in the mini player; Copy says Copied; + says it comes later', async () => {
     await b.clickSelector(`${PANEL} [data-answer-time]`);
     await waitFor(() => has('[aria-label="Recording player"]'), 'the mini player', 8000);
     await b.clickSelector(`${PANEL} [data-assistant="copy"]`);
     await waitFor(async () => (await text(`${PANEL} [data-assistant="notice"]`)) === 'Copied', 'Copied', 4000);
     const clip = await b.evaluate('navigator.clipboard.readText().catch(() => null)');
     if (clip !== null) expect(clip.startsWith('La profesora explicó las 5 preguntas') && clip.includes('[0:20]'), `the clipboard: ${clip}`);
-    await b.clickSelector(`${PANEL} [data-assistant="add-to-notes"]`);
-    await waitFor(async () => (await text(`${PANEL} [data-assistant="notice"]`)) === 'Add to notes comes in the next step.', 'the Add to notes notice', 4000);
-    await b.clickSelector(`${PANEL} [data-assistant="flashcards"]`);
-    await waitFor(async () => (await text(`${PANEL} [data-assistant="notice"]`)) === 'Flashcards comes in the next step.', 'the Flashcards notice', 4000);
     await b.clickSelector(`${PANEL} [data-assistant="attach"]`);
     await waitFor(async () => (await text(`${PANEL} [data-assistant="notice"]`)) === 'Attaching files comes later.', 'the + notice', 4000);
+  });
+
+  await step('6.3 Add to notes: a "From the study assistant · m:ss" box (ai) at the end of My notes, the question first, the time a chip; then "Added ✓", not twice', async () => {
+    const before = await timer();
+    await b.clickSelector(`${PANEL} [data-assistant="add-to-notes"]`);
+    await waitFor(() => has('.studiply-callout[data-callout="fromAssistant"]'), 'the box in My notes', 6000);
+    const box = await b.evaluate(`(() => {
+      const all = document.querySelectorAll('.studiply-callout[data-callout="fromAssistant"]');
+      const e = all[all.length - 1];
+      return { count: all.length, origin: e.getAttribute('data-origin'), label: e.querySelector('.studiply-callout-label')?.textContent ?? '', text: e.textContent, chips: e.querySelectorAll('.ts-chip').length, italic: !!e.querySelector('em') };
+    })()`);
+    expect(box.count === 1 && box.origin === 'ai', `the box: ${JSON.stringify(box)}`);
+    const m = /From the study assistant · (\d+:\d\d)/i.exec(box.label);
+    expect(m && Math.abs(clockMs(m[1]) - before) < 5000, `its label (the recording's time, about ${before} ms): ${box.label}`);
+    expect(box.text.includes('Explain the last 10 min') && box.italic && box.text.includes('las 5 preguntas') && box.chips === 1, `its content: ${JSON.stringify(box)}`);
+    expect(await disabled(`${PANEL} [data-assistant="add-to-notes"]`), '"Added ✓" is not disabled');
+    expect((await text(`${PANEL} [data-assistant="add-to-notes"]`)).includes('Added'), 'no "Added ✓"');
+    expect(await has('[data-recording="strip"]'), 'the recording stopped');
+  });
+
+  await step('6.3 Flashcards: the proposed cards under the answer (not editable), Save cards → "2 flashcards saved", flashcards rows (source assistant), no review schedule', async () => {
+    await b.clickSelector(`${PANEL} [data-assistant="flashcards"]`);
+    await waitFor(() => has(`${PANEL} [data-assistant="cards"]`), 'the proposed cards', 6000);
+    expect((await count(`${PANEL} [data-assistant="card"]`)) === 2, 'not two cards');
+    expect((await count(`${PANEL} [data-assistant="cards"] input, ${PANEL} [data-assistant="cards"] textarea`)) === 0, 'the cards are editable');
+    expect((await calls()).at(-1)?.mode === 'flashcards', 'no flashcards request');
+    await b.clickSelector(`${PANEL} [data-assistant="save-cards"]`);
+    await waitFor(async () => (await text(`${PANEL} [data-assistant="notice"]`)) === '2 flashcards saved', 'the saved notice', 6000);
+    await b.waitText('2 flashcards saved', { timeout: 4000 });
+    const { data: rows } = await admin.from('flashcards').select('id, source, source_ref, file_id, course_id, deleted_at').eq('file_id', lectureId);
+    expect(rows?.length === 2 && rows.every((r) => r.source === 'assistant' && r.source_ref && r.course_id === data.course.id && !r.deleted_at), `rows: ${JSON.stringify(rows)}`);
+    const { count: scheduled } = await admin.from('review_schedule').select('id', { count: 'exact', head: true }).in('flashcard_id', rows.map((r) => r.id));
+    expect(scheduled === 0, `review_schedule rows: ${scheduled}`);
   });
 
   await step('Retry asks the same quick prompt again, its answer in the same place', async () => {

@@ -14,6 +14,13 @@ import { answerPlainText } from '../../utils/answerText';
 import { showActionSheet } from '../dialogs/dialogs';
 import UserAvatar from '../UserAvatar';
 import { AssistantAnswer } from './AssistantAnswer';
+import { CardsList } from './CardsList';
+import { useAppUndo } from '../../hooks/useAppUndo';
+import { recorder } from '../../services/recorder';
+import { placeAtMoment } from '../../services/moment-placement';
+import { cardsFromAnswer, type Card } from '../../services/assistant-actions.service';
+import { saveFlashcards, savedText } from '../../services/flashcards.service';
+import { errorMessage } from '../../utils/errors';
 
 /** How long a short notice ("comes in the next step", "Copied") stays. */
 const NOTICE_MS = 3000;
@@ -33,8 +40,9 @@ export function knownText(knownUpToMs: number | null): string {
  * bubble, "From 24:12 to 34:12", Copy and Retry icons, the composer box with
  * + and "Context: this lecture"), `sheet` the iPhone's sheet (iphone-04:
  * "24:12 → 34:12", Add to notes and Flashcards only, Copy and Retry on a
- * long-press, a rounded composer with a round send button). Add to notes,
- * Flashcards and + say they come next (step 6.3).
+ * long-press, a rounded composer with a round send button). Step 6.3: Add
+ * to notes puts the answer in My notes ("Added ✓" after); Flashcards
+ * proposes cards under the answer (Save cards · Discard); + says it comes later.
  */
 export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'panel' | 'sheet'; onTime: (ms: number) => void }) {
   const styles = useThemedStyles(makeStyles);
@@ -68,15 +76,64 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     await Clipboard.setStringAsync(answerPlainText(turn.answer)).catch(() => {});
     setNotice({ where: turn.id, text: 'Copied' });
   };
-  const comesNext = (turnId: string, what: string) => setNotice({ where: turnId, text: `${what} comes in the next step.` });
+  // Step 6.3. Add to notes: a "From the study assistant" box in My notes (at the recording's time while
+  // it records here, else the question's), then "Added ✓" so it isn't added twice. Works offline.
+  const [added, setAdded] = useState<Set<string>>(new Set());
+  const addToNotes = async (turn: ChatTurn) => {
+    if (!chat.lectureId) return;
+    const ms = chat.recordingHere ? recorder.elapsedMs() : (turn.window?.endMs ?? null);
+    try {
+      await placeAtMoment(chat.lectureId, { kind: 'answer', note: { ms, question: turn.question, answer: turn.answer } });
+      setAdded((s) => new Set(s).add(turn.id));
+      setNotice({ where: turn.id, text: 'Added to My notes' });
+    } catch (err) {
+      setNotice({ where: turn.id, text: errorMessage(err, 'Could not add it to My notes.') });
+    }
+  };
+  // Flashcards from the answer: proposed under it, Save cards · Discard; saved as flashcards rows only.
+  const [cards, setCards] = useState<{ turnId: string; list: Card[] | null; saving: boolean } | null>(null);
+  const showUndo = useAppUndo();
+  const proposeCards = async (turn: ChatTurn) => {
+    if (!chat.lectureId || !turn.answerId) return;
+    setCards({ turnId: turn.id, list: null, saving: false });
+    try {
+      const list = await cardsFromAnswer(chat.lectureId, turn.answerId, turn.answer);
+      setCards((cur) => (cur?.turnId === turn.id ? { ...cur, list } : cur));
+    } catch (err) {
+      setCards(null);
+      setNotice({ where: turn.id, text: errorMessage(err, 'Claude could not make flashcards. Please try again.') });
+    }
+  };
+  const saveCards = async (turn: ChatTurn) => {
+    if (!cards?.list || !chat.lectureId) return;
+    setCards({ ...cards, saving: true });
+    try {
+      const saved = await saveFlashcards(cards.list, { fileId: chat.lectureId, source: 'assistant', sourceRef: turn.answerId ?? null });
+      setCards(null);
+      setNotice({ where: turn.id, text: savedText(saved.count) });
+      showUndo(savedText(saved.count), () => void saved.undo().catch(() => {}));
+    } catch (err) {
+      setCards({ ...cards, saving: false });
+      setNotice({ where: turn.id, text: errorMessage(err, 'Could not save the flashcards.') });
+    }
+  };
   const turnMenu = (turn: ChatTurn) =>
     showActionSheet(undefined, [
       { text: 'Copy', onPress: () => void copy(turn) },
       { text: 'Retry', onPress: () => chat.retry(turn.id) },
     ]);
 
-  const pill = (label: string, onPress: () => void, key: string) => (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pill, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={label} {...{ dataSet: { assistant: key } }}>
+  const pill = (label: string, onPress: () => void, key: string, disabled = false) => (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      aria-disabled={disabled}
+      style={({ pressed }) => [styles.pill, disabled && styles.off, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      {...{ dataSet: { assistant: key } }}
+    >
       <Text style={styles.pillText}>{label}</Text>
     </Pressable>
   );
@@ -131,10 +188,19 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
               </Pressable>
             </>
           )}
-          {pill('Add to notes', () => comesNext(turn.id, 'Add to notes'), 'add-to-notes')}
-          {pill('Flashcards', () => comesNext(turn.id, 'Flashcards'), 'flashcards')}
+          {added.has(turn.id)
+            ? pill('Added ✓', () => {}, 'add-to-notes', true)
+            : pill('Add to notes', () => void addToNotes(turn), 'add-to-notes')}
+          {/* Flashcards need Claude (online) and the saved answer. */}
+          {pill('Flashcards', () => void proposeCards(turn), 'flashcards', offline || !turn.answerId || cards?.turnId === turn.id)}
         </View>
       )}
+      {cards?.turnId === turn.id &&
+        (cards.list ? (
+          <CardsList cards={cards.list} saving={cards.saving} onSave={() => void saveCards(turn)} onDiscard={() => setCards(null)} />
+        ) : (
+          <Text style={styles.thinking}>Making flashcards…</Text>
+        ))}
       {notice?.where === turn.id && (
         <Text style={styles.notice} {...{ dataSet: { assistant: 'notice' } }}>
           {notice.text}

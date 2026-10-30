@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { DocColors, type ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { CALLOUT_KINDS, type CalloutKind } from '../../editor/schema/callout';
+import { MENU_CALLOUT_KINDS, type CalloutKind } from '../../editor/schema/callout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 /**
@@ -16,7 +16,7 @@ export function CalloutKinds({ current, onPick }: { current?: CalloutKind | null
   const { colors: c } = useTheme();
   return (
     <View>
-      {CALLOUT_KINDS.map((k) => (
+      {MENU_CALLOUT_KINDS.map((k) => (
         <Pressable
           key={k.kind}
           onPress={() => onPick(k.kind)}

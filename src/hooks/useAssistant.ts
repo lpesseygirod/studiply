@@ -137,7 +137,7 @@ export function useAssistant(lectureId: string | null): AssistantChat {
         input,
         {
           meta: (m) => {
-            update((t) => ({ ...t, window: m.window }));
+            update((t) => ({ ...t, window: m.window, answerId: m.answerId }));
             setKnown((k) => Math.max(k ?? 0, m.knownUpToMs));
           },
           delta: (text) => update((t) => ({ ...t, answer: t.answer + text })),

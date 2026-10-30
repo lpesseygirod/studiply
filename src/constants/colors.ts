@@ -317,6 +317,10 @@ export const DocColors = {
     fromNotes: { bg: '#E8F5EE', border: '#8FD1AE', label: '#1F6B45' },
     confused: { bg: '#F5E0D8', border: '#E8B4A0', label: '#8A3B22' },
     addedContext: { bg: '#F3F1EC', border: '#CFCBC4', label: '#5A5A6A' },
+    /** From the study assistant (step 6.3): the assistant's accent purple, as the Definition box. */
+    get fromAssistant() {
+      return this.definition;
+    },
   },
   /** Mark chips in the document (step 4.6): Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
   markChip: {

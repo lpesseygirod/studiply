@@ -340,7 +340,32 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - Jest: the SSE reader, `streamFunction`, the answer parser, the service, the hook;
     - Chrome: `assistant.mjs` (new; canned streamed answer, no paid calls; composites beside desktop-01 and iphone-04).
   - **`recording.mjs`:** now expects ✦ Ask enabled.
-- [ ] 6.3 — Assistant actions + Ask Claude in the document
+- [x] 6.3 — Assistant actions + Ask Claude in the document. **Done (30 Oct), verified by the advisor:** `npm run check` 2,030 tests, `check:bundle`, all 33 Chrome suites (`ask-claude.mjs` 9/9, `assistant.mjs` 15/15), `check:claude` all passing (the 6.3 calls $0.0103).
+  - **Server:** `assistant-chat` has two new JSON modes, with the same consent, daily limit and cost log as 6.1, on Sonnet 5.5:
+    - **`selection`** `{ fileId, action, text, context }`: any of the student's documents; a plain document's cost is logged without a lecture.
+    - **`flashcards`** `{ lectureId, answerId }`: from a saved answer.
+    - **The answer's shape:** structured outputs (`output_config.format`, effort low, the fallback beta kept), checked against the shape (`_shared/assistant.ts` `parseSuggestion` / `parseCards`) before it's returned.
+    - **Errors, with nothing applied and the cost logged once:** a refusal, `max_tokens` and unreadable JSON (`_shared/assistant-actions.ts`).
+  - **The editor (shared; `editorHtml.js` needs `npm run editor:build`):**
+    - **`schema/suggestion.ts`:** the range kept from the selection bar's "✦ Ask Claude", highlighted and mapped through edits; Accept replace/below; the stale case goes below; Reject; Add to notes' box (also as JSON for My notes saved without the editor).
+    - **A new callout kind:** `fromAssistant` ("From the study assistant", the Definition box's colours), not in the Callout menus.
+    - **`blockMeta`'s `KEEP_ORIGIN_META`:** the assistant's new boxes stay `ai` inside an undoable edit.
+  - **App:**
+    - `services/assistant-actions` and `services/flashcards` (rows only, no `review_schedule`; Undo trashes them);
+    - `moment-placement` (an answer item);
+    - `AssistantChat` (Add to notes → Added ✓; Flashcards → the cards);
+    - `AskClaude` (the hook, the card / sheet);
+    - `CardsList`.
+  - **Tests:**
+    - **Jest:** `assistantActions` (server, Claude faked), `suggestion` (editor), `assistant-actions` (services), the selection bar.
+    - **Chrome:** `ask-claude.mjs` (new; with the panel open, the selection bar and the card are checked by bounding boxes to be inside the editor as seen), and `assistant.mjs` updated for the real Add to notes and Flashcards.
+    - **`check:claude` (3 calls):** Explain simpler on a plain document (Spanish, the formula kept), Make flashcard, cards from a saved answer; each logged once; B gets 404.
+  - **Fixes after the advisor's review:**
+    - **The laptop's app toast** sits in the centre column, so it no longer covers the assistant's composer.
+    - **The selection bar** fits the editor as seen: it wraps to rows and goes below the selection when there's no room above. Before, "Ask Claude" was cut off with the panel open and out of reach at 390.
+    - **The suggestion card** stays inside the editor pane.
+    - **Cards from a saved answer** use only what the answer says. `check:claude` had made a 5th card of general knowledge ("(información general)"). The tightened prompt is Jest-checked but **not yet seen against Claude: the next `check:claude` run covers it.**
+  - **No migration, no new dependency, no native build.**
 
 ## Phase 7 — The summary engine (`phase-7-summary`)
 - [ ] 7.1 — Test lectures first (3 fixtures)
@@ -431,6 +456,15 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - a typed question at 90 min: about $0.05 ($0.01 with the transcript cached).
   - **Checked against the Claude API reference (30 Oct):** the prices in `PRICES`, and that the same request settings are valid for Sonnet 5.5 (no thinking parameter, `effort: low`, no temperature, `fallbacks: "default"`).
   - **Switching back** is one line in `CLAUDE_MODELS`. `claude.test.ts` ("match the decisions in docs/PROGRESS.md") and `npm run check:claude` (which reads the models from that file) follow it.
+- **Step 6.3's choices (the advisor, 30 Oct 2026; reversible, for Lea to confirm or change):**
+  1. **Explain simpler and Rewrite:** Accept replaces the selected text. If the text changed after asking, Insert below instead.
+  2. **An accepted replacement makes its block `student`**, so regeneration never removes it. Example / Go deeper boxes are `ai` until she edits them.
+  3. **Add to notes:** a "From the study assistant · m:ss" box with the question first; at the recording's time while recording, at the end of My notes after class. It isn't a note line (coverage). "Added ✓" after.
+  4. **Flashcards:** `flashcards` rows only, no `review_schedule` (Phase 9 owns review). A toast says "N flashcards saved".
+  5. **iPhone:** Ask Claude is in Studiply's own selection bar; no native build.
+  6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
+
+  **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
 - **Server-side fallbacks on (step 1.6).** Every Claude call sends `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`): if Claude declines a request for policy reasons, Anthropic re-runs it on its recommended model for that kind of refusal inside the same call. The cost is priced per attempt from `usage.iterations`, each at its own model's price (a model missing from the price table is priced like the dearest one, so a limit is never undercounted), and `ai_usage.model` records the model that answered. Only a refusal by the whole chain reaches the student: an `error` event `refused` (assistant) or 422 `refused` (summarize).
 - **`assistant-chat` and `summarize` (step 1.6).** `POST /functions/v1/assistant-chat` `{ lectureId, message }` (max 4000 characters) and `POST /functions/v1/summarize` `{ lectureId }`, with the user's token. Order of checks: signed in (401) → server has the key (500 `not_configured`) → valid body (400) → own lecture (404) → `assistant_summary` consent (403 `consent_required`) → daily limit (429 `daily_limit`). Nothing reaches Anthropic before all of them pass. `summarize` still answers a fixed test prompt (Phase 7). `assistant-chat` has its real prompts and saves `assistant_messages` since step 6.1 (see Phase 6 above). Logs hold ids, status, timings and token counts only, never the message, the answer or keys.
 - **Streaming format (step 1.6).** `assistant-chat` answers `text/event-stream`: `event: delta` `{ text }` for each piece, then `event: done` `{ model, stopReason, usage, costUsd }`, or `event: error` `{ code, error }` instead of done, after which the app discards the pieces it got. Errors found before streaming starts stay plain JSON like the other functions. `summarize` answers JSON `{ text, model, stopReason, usage, costUsd }`, but streams from Anthropic itself because real summaries will be long.

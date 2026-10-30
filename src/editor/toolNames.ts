@@ -54,6 +54,8 @@ export const TOOLS = {
   callout: { name: 'Callout' },
   mark: { name: 'Mark' },
   timestamp: { name: 'Timestamp', short: 'Time' },
+  /** Step 6.3: the study assistant's actions on the selected text. */
+  askClaude: { name: 'Ask Claude' },
   view: { name: 'View' },
   zoomIn: { name: 'Zoom in', keys: '⌘+' },
   zoomOut: { name: 'Zoom out', keys: '⌘−' },

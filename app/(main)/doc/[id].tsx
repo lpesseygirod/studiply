@@ -36,6 +36,7 @@ import { useConnectivity } from '../../../src/lib/connectivity';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { AssistantSheet } from '../../../src/components/assistant/AssistantSheet';
+import { AskClaudeCard, useAskClaude } from '../../../src/components/assistant/AskClaude';
 import { setAssistantTarget } from '../../../src/components/assistant/assistantTarget';
 import { useAssistant } from '../../../src/hooks/useAssistant';
 import { onPlayRequest } from '../../../src/lib/playRequest';
@@ -319,7 +320,11 @@ export default function DocumentScreen() {
       return registerMomentTarget(id, {
         place: (item) =>
           editorRef.current?.run(
-            item.kind === 'mark' ? { type: 'markChip', action: 'place', mark: item.mark } : { type: 'photoLine', mediaId: item.mediaId, ms: item.ms },
+            item.kind === 'mark'
+              ? { type: 'markChip', action: 'place', mark: item.mark }
+              : item.kind === 'photo'
+                ? { type: 'photoLine', mediaId: item.mediaId, ms: item.ms }
+                : { type: 'assistantNote', note: item.note },
           ),
       });
     }, [momentsHere, id]),
@@ -452,6 +457,8 @@ export default function DocumentScreen() {
   useEffect(() => () => setAssistantTarget(null), []);
   const phoneChat = useAssistant(!wide && isLecture && id ? id : null);
   const [askOpen, setAskOpen] = useState(false);
+  // Ask Claude on a selection (step 6.3): any document; a suggestion to accept or reject.
+  const askClaude = useAskClaude({ fileId: id ?? null, courseId: file?.course_id ?? null, editorRef, showUndo });
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -592,6 +599,7 @@ export default function DocumentScreen() {
         view={nativeEditor ? phoneView : undefined}
         pageSetup={sync.pageSetup}
         onChipPress={(ms) => setPlay({ ms, id: Date.now() })}
+        onAskClaude={(anchor) => void askClaude.onAskClaude(anchor)}
         language={docLanguage}
         footer={
           play ? <MiniPlayer lectureId={isLecture ? id : null} recording={lectureStatus === 'recording'} request={play} onClose={() => setPlay(null)} /> : null
@@ -701,6 +709,13 @@ export default function DocumentScreen() {
       </View>
       {toast}
       {itemMenu.modal}
+      <AskClaudeCard
+        ask={askClaude.ask}
+        layout={wide ? 'card' : 'sheet'}
+        onAccept={askClaude.accept}
+        onReject={askClaude.reject}
+        onSaveCards={() => void askClaude.saveCards()}
+      />
       {!wide && (
         <AssistantSheet
           visible={askOpen}

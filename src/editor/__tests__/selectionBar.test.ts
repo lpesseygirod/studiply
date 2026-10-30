@@ -11,7 +11,8 @@ import { CellSelection } from '@tiptap/pm/tables';
 
 import { studiplyExtensions } from '../bridges';
 import { formatState, runFormat } from '../format';
-import { SELECTION_BAR_CLASS, SELECTION_MENU_EVENT, selectionBarKey, showsSelectionBar } from '../format/selectionBar';
+import { ASK_CLAUDE_EVENT, SELECTION_BAR_CLASS, SELECTION_MENU_EVENT, selectionBarKey, showsSelectionBar, visibleBox } from '../format/selectionBar';
+import { SUGGESTION_CLASS } from '../schema/suggestion';
 
 let editor: Editor;
 afterEach(() => editor?.destroy());
@@ -90,7 +91,7 @@ describe('selection bar', () => {
     const button = (label: string) => bar().querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
     const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
-    it('Comment, B, I, Highlight, Link, then Callout ▸, Mark ▸ and Time ▸ with a picture and a word', () => {
+    it('Comment, B, I, Highlight, Link, then Callout ▸, Mark ▸ and Time ▸ with a picture and a word, then ✦ Ask Claude ▸ (6.3)', () => {
       mount([p('La conducta humana')]);
       editor.commands.setTextSelection({ from: 4, to: 12 });
       expect(bar().style.display).toBe('flex');
@@ -103,7 +104,10 @@ describe('selection bar', () => {
         'Callout from the selection',
         'Mark after the selection',
         'Time after the selection',
+        'Ask Claude about the selection',
       ]);
+      expect(button('Ask Claude about the selection').querySelector('svg')).not.toBeNull();
+      expect(button('Ask Claude about the selection').textContent).toBe('Ask Claude▸');
       for (const [label, word] of [['Callout from the selection', 'Callout'], ['Mark after the selection', 'Mark'], ['Time after the selection', 'Time']]) {
         expect(button(label).querySelector('svg')).not.toBeNull();
         expect(button(label).textContent).toBe(`${word}▸`);
@@ -135,5 +139,34 @@ describe('selection bar', () => {
       }
       expect(seen).toEqual(['callout', 'mark', 'time']);
     });
+
+    it('✦ Ask Claude (6.3): the selection is kept as the suggestion’s range, highlighted; the laptop gets an event at the button, the iPhone the press and the text', () => {
+      mount([p('La conducta humana')]);
+      editor.commands.setTextSelection({ from: 4, to: 12 });
+      const anchors: unknown[] = [];
+      editor.view.dom.addEventListener(ASK_CLAUDE_EVENT, (e) => anchors.push((e as CustomEvent).detail));
+      button('Ask Claude about the selection').click();
+      expect(anchors).toHaveLength(1);
+      expect(anchors[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number), above: expect.any(Number), bounds: expect.any(Object) });
+      const s = formatState(editor);
+      expect(s.selectionRequest?.button).toBe('ask');
+      expect(s.suggestion).toMatchObject({ text: 'conducta', context: 'La conducta humana', stale: false });
+      expect(host.querySelector(`.${SUGGESTION_CLASS}`)?.textContent).toBe('conducta');
+    });
+  });
+
+  it('the editor as seen: the page cut by the pane that scrolls around it and by the window (the bar and the card stay inside)', () => {
+    const rect = (left: number, top: number, width: number, height: number) => () => ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+    const pane = document.createElement('div');
+    pane.style.overflowY = 'auto';
+    const page = document.createElement('div');
+    pane.appendChild(page);
+    document.body.appendChild(pane);
+    // The pane: 264–950 (the panel to its right), 56–900; the page wider than it and above its top.
+    pane.getBoundingClientRect = rect(264, 56, 686, 844);
+    page.getBoundingClientRect = rect(290, 20, 820, 1100);
+    // jsdom's window is 1024 × 768.
+    expect(visibleBox(page)).toEqual({ left: 290, right: 950, top: 56, bottom: 768 });
+    pane.remove();
   });
 });

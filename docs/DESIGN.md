@@ -103,7 +103,7 @@ As built in step 4.4:
   - **Mark chips:** "Important 8/10", "Confused 7/10", "Exam 9/10" in the text (Important and Exam amber, Confused salmon, as the spec's colours; since step 5.5 the recording screen's mark buttons use them too). Insert ▾ → **Mark** (laptop) or **Mark** in the second row (iPhone), both with a flag icon (✦ stays the assistant's): the kind and the level 1–10; a click or tap on a chip opens the same with **Done** and **Remove**.
   - **Timestamp chips:** "4:12" in the accent colour. Insert ▾ → **Timestamp** (laptop) or **Time** (iPhone) asks for the time; during a recording they come on their own (Phase 5). **Tap one to play the lecture's recording from that moment** in a **mini player** under the document (laptop: under the pages; iPhone: above the keyboard toolbar): −10 s · ▶/❚❚ · +10 s · the time and the length · ✕. It plays piece after piece (the recording is stored in 30-second pieces). A document with no recording says so; deleted audio (its keep-or-delete setting) says so; while the lecture is being recorded it waits until the recording stops; it needs a connection for now.
   - **Page view:** a callout that fits on a page moves to the next page whole (as in the PDF); a longer one splits between lines.
-- **Selection bar (after test B):** selected words get a small bar right there: **Comment · B · I · Highlight · Link │ Callout ▸ · Mark ▸ · Time ▸** (the last three after 4.6, each a small picture and a word). Laptop: above the selection, once the mouse is released. iPhone: below the selection, so iOS's own Copy / Paste menu above it stays (adding to that menu would remove Copy and Paste); on a phone's width the last three make a second row. Not for cells, photos or formulas (they have their own bars).
+- **Selection bar (after test B):** selected words get a small bar right there: **Comment · B · I · Highlight · Link │ Callout ▸ · Mark ▸ · Time ▸** (the last three after 4.6, each a small picture and a word). Laptop: above the selection, once the mouse is released (below it when there's no room above). iPhone: below the selection, so iOS's own Copy / Paste menu above it stays (adding to that menu would remove Copy and Paste); on a phone's width the last three make a second row. Wherever the bar doesn't fit the editor as seen (a narrow page, the assistant panel open, a zoomed-out page in a phone-wide window), it takes the same rows and stays inside it: nothing is cut off or scrolled away. Not for cells, photos or formulas (they have their own bars).
   - **Callout ▸** puts the selected paragraphs in a callout of the kind picked (the same list as Insert ▾ → Callout, opened under the button on the laptop; the action sheet on the iPhone; "Change to" inside a callout); the text stays inside. Not offered in a table (it would take the whole table).
   - **Mark ▸** (the mark form: kind and level) and **Time ▸** (the time asked, "4:12") put their chip **right after the selection**; the selected words stay. One Undo takes the chip away. Insert ▾ → Mark / Timestamp do the same when words are selected.
 - **Comments (step 4.5, inside the document):** commented words are tinted (pale amber, not one of the highlights; paler once resolved).
@@ -256,7 +256,25 @@ As built in step 4.4:
   - **The window label** is shown above each answer: "From 24:12 to 34:12" (laptop, small capitals), "24:12 → 34:12" (iPhone).
   - **Times in an answer** are underlined in the accent colour, without their brackets; a tap plays the lecture from there in the mini player. On the iPhone the sheet closes first; the conversation stays.
   - **Copy and Retry:** icons under each answer on the laptop; a long-press on the answer on the iPhone (iphone-04 shows Add to notes and Flashcards only).
-  - **Add to notes, Flashcards and +** are shown and say they come next, until step 6.3.
+  - **+** is shown and says attaching comes later.
+- **Built in step 6.3 (no mockup shows these; decided 30 Oct, reversible):**
+  - **Add to notes:** a **"From the study assistant · m:ss"** box at the end of My notes (`origin: ai`).
+    - The question is the first line, in italics; the answer follows with its bold, its lists and its times as tappable chips.
+    - The time is the recording's while it records here, else the question's.
+    - The button then reads **Added ✓** (disabled) for that answer.
+    - The box isn't a note line, so it never counts as her notes in the summary's coverage check.
+    - It works offline.
+  - **Flashcards:** the proposed cards under the answer (front and back, not editable), with **Save cards · Discard**.
+    - Saving makes `flashcards` rows only (Review is Phase 9), and a toast says **"3 flashcards saved"** with Undo.
+  - **Ask Claude on a selection:** **"✦ Ask Claude ▸"** at the end of the selection bar (laptop and iPhone; on the iPhone it's Studiply's own bar, not the iOS edit menu).
+    - The five actions come in a menu at the button (an action sheet on the iPhone): Explain simpler · Give an example · Go deeper · Make flashcard · Rewrite section.
+    - While Claude answers and until she decides, the asked text stays highlighted.
+    - **The suggestion:** a card under the selection (laptop) or a drag sheet (iPhone), with **Accept · Reject**. It's built from the app's existing styles. The laptop card stays inside the editor as seen (never under the assistant panel or past the window): shifted left to fit, and above the bar when there's no room under it.
+    - **Explain simpler / Rewrite:** Accept replaces the text, and the block is then hers (`student`); one Undo brings the old text back.
+    - **Give an example / Go deeper:** Accept puts an **Example** or **Added context · not from the lecture** box below (`ai` until she edits it).
+    - **If she changed the asked text meanwhile:** the card says so and Accept becomes **Insert below** (a "From the study assistant" box), so her edit is never overwritten.
+    - **Make flashcard:** the cards, with Save cards · Discard.
+    - **Reject** changes nothing. Offline, Ask Claude says it needs the internet and sends nothing.
   - **Placeholder:** "Ask about the lecture…" on both. The send arrow stays disabled (grey) until there's text, on both.
   - **The iPhone sheet** covers about two-thirds of the screen when it opens, with the recording header in sight above it; dragging the handle up gives full height. It opens from ✦ Ask while recording, and from ✦ in the document header after class.
   - **Offline:** the chips and send are disabled, with "The assistant needs the internet. Your question stays here."; the draft is kept and nothing is queued.

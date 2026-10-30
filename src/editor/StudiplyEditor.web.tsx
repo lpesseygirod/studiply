@@ -18,6 +18,8 @@ import { CommentMargin, CommentPopovers } from './Comments.web';
 import { setDocumentPages } from '../components/shell/commentMargin';
 import { COMMENT_EVENT, COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, listComments } from './schema/comments';
 import { runFormat } from './format';
+import { ASK_CLAUDE_EVENT, type AskClaudeAnchor } from './format/selectionBar';
+import { suggestionInfo } from './schema/suggestion';
 import { LinkBubble } from './LinkBubble.web';
 import { setPhotoResolver } from './media/photoSource';
 import { addPhotoFiles, pickPhotoFiles } from './photos.web';
@@ -59,7 +61,7 @@ const CSS = `${editorCss(`.${SCOPE}`)}
  * screen's `header` (title and meta line) above the text.
  */
 const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(function StudiplyEditor(
-  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, recordingClock, onMarkRemoved },
+  { initialContent, fileId, editable = true, header, commentRoom = false, onCommentMargin, onReady, onChange, onChipPress, onPaste, pageSetup, footer, language, recordingClock, onMarkRemoved, onAskClaude },
   ref,
 ) {
   const styles = useThemedStyles(makeStyles);
@@ -92,8 +94,8 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const lastPaste = useRef(0);
 
   // Callbacks change between renders; the editor reads the latest.
-  const handlers = useRef({ onReady, onChange, onChipPress, onPaste });
-  handlers.current = { onReady, onChange, onChipPress, onPaste };
+  const handlers = useRef({ onReady, onChange, onChipPress, onPaste, onAskClaude });
+  handlers.current = { onReady, onChange, onChipPress, onPaste, onAskClaude };
 
   const editor = useEditor({
     extensions,
@@ -127,6 +129,15 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       lastChip.current = ms;
     },
   });
+
+  // The selection bar's "✦ Ask Claude" (step 6.3): the screen offers the actions under the button.
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onAsk = (e: Event) => handlers.current.onAskClaude?.((e as CustomEvent<AskClaudeAnchor>).detail);
+    dom.addEventListener(ASK_CLAUDE_EVENT, onAsk);
+    return () => dom.removeEventListener(ASK_CLAUDE_EVENT, onAsk);
+  }, [editor]);
 
   // The editor exists from the first render (immediatelyRender); ready once mounted.
   // The page's language (step 4.7d): graphs write Spanish decimals with a comma; also the spellchecker's language.
@@ -163,6 +174,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       blur: () => editor.commands.blur(),
       tool: (which) => openTool(which),
       run: (cmd) => void runFormat(editor, cmd),
+      suggestion: async () => suggestionInfo(editor.state),
     }),
     // openTool only sets state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
