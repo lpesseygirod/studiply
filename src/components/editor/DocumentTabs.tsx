@@ -5,10 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import type { DocTab } from '../../services/document.service';
-import type { TabInfo } from '../../services/document-tabs.service';
-import { MAX_TABS } from '../../services/document-tabs.service';
+import { MAX_TABS, type TabInfo, type TabKind } from '../../services/document-tabs.service';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { menuTriggerProps, showActionSheet, type Anchor, type DialogButton } from '../dialogs/dialogs';
+import { anchorBelow, menuTriggerProps, showActionSheet, type Anchor, type DialogButton } from '../dialogs/dialogs';
 
 /** A second click on the open tab within this long renames it (laptop: a double-click). */
 const DOUBLE_MS = 400;
@@ -19,7 +18,7 @@ const DRAG_PX = 6;
  * A document's tabs (step 4.7b; laptop docs/design desktop-01, iPhone
  * iphone-06): a lecture's My notes · Summary · Transcript first and fixed,
  * then the added tabs, and "+" at the end. A plain document with one tab
- * shows only "+ Add tab".
+ * shows only "+ Add tab". "+" asks Document or Spreadsheet (step 4.7e).
  * - Laptop: a click opens a tab, a second click on the open one renames it,
  *   right-click → Rename · Delete, drag along the row to move it.
  * - iPhone (and a narrow window): the row scrolls sideways; long-press →
@@ -41,7 +40,8 @@ export function DocumentTabs({
   /** iPhone layout: a row that scrolls sideways under the title. */
   compact?: boolean;
   onSelect: (tab: DocTab) => void;
-  onAdd: () => void;
+  /** A document tab (null) or a spreadsheet. */
+  onAdd: (kind: TabKind | null) => void;
   onRename: (tab: TabInfo) => void;
   onDelete: (tab: TabInfo) => void;
   /** To this place in `tabs` (a lecture's fixed tabs stay first). */
@@ -75,15 +75,30 @@ export function DocumentTabs({
     showActionSheet(t.title, buttons, { anchor });
   };
 
+  // "+": a document or a spreadsheet tab (a menu under it on the laptop, a sheet on the iPhone).
+  const addRef = useRef<View>(null);
+  const chooseKind = async () => {
+    const anchor = await anchorBelow(addRef);
+    showActionSheet(
+      'Add a tab',
+      [
+        { text: 'Document', icon: 'document-text-outline', onPress: () => onAdd(null) },
+        { text: 'Spreadsheet', icon: 'grid-outline', onPress: () => onAdd('sheet') },
+      ],
+      { anchor },
+    );
+  };
+
   const addButton =
     tabs.length === 1 && !tabs[0].fixed ? (
-      <Pressable onPress={onAdd} style={styles.addText} accessibilityRole="button" accessibilityLabel="Add tab">
+      <Pressable ref={addRef} onPress={() => void chooseKind()} style={styles.addText} accessibilityRole="button" accessibilityLabel="Add tab">
         <Ionicons name="add" size={16} color={c.accentDark} />
         <Text style={styles.addTextLabel}>Add tab</Text>
       </Pressable>
     ) : (
       <Pressable
-        onPress={onAdd}
+        ref={addRef}
+        onPress={() => void chooseKind()}
         disabled={full}
         style={({ hovered }: { hovered?: boolean }) => [styles.add, hovered && !full && styles.addHover, full && styles.off]}
         accessibilityRole="button"

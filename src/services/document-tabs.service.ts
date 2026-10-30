@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { serviceError } from '../lib/cloudRows';
 import { cacheUser, markClean, notifyLibraryUpdated, readRows, readThrough, remember, saveLocalRow, withLocalChanges } from '../lib/cache';
 import { newId } from '../lib/mappers';
+import { emptySheetDoc } from '../lib/sheetDoc';
 import { enqueue, pendingSyncFor, PermanentSyncError, registerSyncHandler, syncEnabled } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
 import type { DocJSON } from '../editor/types';
@@ -114,10 +115,11 @@ export function positionBetween(before: number | null, after: number | null): nu
   return (before + after) / 2;
 }
 
-/** The next free "Tab N" name. */
-export function nextTabTitle(tabs: Pick<TabInfo, 'title'>[]): string {
+/** The next free "Tab N" name, or "Sheet N" for a spreadsheet (counted among the sheets, step 4.7e). */
+export function nextTabTitle(tabs: (Pick<TabInfo, 'title'> & { kind?: TabKind | null })[], kind: TabKind | null = null): string {
   const taken = new Set(tabs.map((t) => t.title.toLowerCase()));
-  for (let n = tabs.length + 1; ; n++) if (!taken.has(`tab ${n}`)) return `Tab ${n}`;
+  const [word, start] = kind === 'sheet' ? ['Sheet', tabs.filter((t) => t.kind === 'sheet').length + 1] : ['Tab', tabs.length + 1];
+  for (let n = start; ; n++) if (!taken.has(`${word.toLowerCase()} ${n}`)) return `${word} ${n}`;
 }
 
 // -------------------------------------------------------------------
@@ -162,14 +164,15 @@ export interface CreateTabPayload {
 }
 
 /**
- * A new tab at the end ("Tab N" unless named), with an empty page and the
- * document's page setup. At most 30 tabs.
+ * A new tab at the end ("Tab N", or "Sheet N" for a spreadsheet, unless
+ * named), with an empty page (no cells for a sheet) and the document's page
+ * setup. At most 30 tabs.
  */
 export async function addTab(fileId: string, options: { isLecture: boolean; title?: string; kind?: TabKind }): Promise<TabInfo> {
   const rows = await tabRows(fileId);
   const tabs = orderTabs(rows, options.isLecture);
   if (tabs.length >= MAX_TABS) throw new Error(`A document has at most ${MAX_TABS} tabs.`);
-  const title = cleanTabTitle(options.title ?? nextTabTitle(tabs));
+  const title = cleanTabTitle(options.title ?? nextTabTitle(tabs, options.kind ?? null));
   const live = rows.filter((r) => !r.deleted_at && !(options.isLecture && isFixed(r.tab)));
   const last = live.length > 0 ? Math.max(...live.map((r) => (Number.isFinite(placeOf(r)) ? placeOf(r) : 0))) : null;
   const payload: CreateTabPayload = {
@@ -179,7 +182,7 @@ export async function addTab(fileId: string, options: { isLecture: boolean; titl
     title,
     position: positionBetween(last, null),
     kind: options.kind ?? null,
-    content: blankDoc(),
+    content: options.kind === 'sheet' ? emptySheetDoc() : blankDoc(),
     pageSetup: await documentPageSetup(fileId),
   };
   if (syncEnabled) {

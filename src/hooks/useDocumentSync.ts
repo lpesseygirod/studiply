@@ -23,6 +23,9 @@ import { DEFAULT_PAGE_SETUP, samePageSetup, type PageSetup } from '../editor/pag
 /** How often the open document asks whether the other device changed it. */
 export const POLL_MS = 5000;
 
+/** What the autosave needs from whatever shows the tab. */
+export type DocumentPort = Pick<StudiplyEditorHandle, 'getJSON' | 'loadDoc' | 'applyBlocks'>;
+
 const INITIAL: SessionState = { status: 'loading', savedAt: null, lost: [], error: null };
 
 /**
@@ -35,7 +38,8 @@ const INITIAL: SessionState = { status: 'loading', savedAt: null, lost: [], erro
 export function useDocumentSync(params: {
   fileId: string | undefined;
   tab: DocTab;
-  editor: RefObject<StudiplyEditorHandle | null>;
+  /** The text editor, or a spreadsheet tab's grid (step 4.7e): only these three are used. */
+  editor: RefObject<DocumentPort | null>;
   /** The editor can be loaded (its onReady fired). */
   editorReady: boolean;
 }) {
@@ -61,7 +65,7 @@ export function useDocumentSync(params: {
 
   // The editor as last seen: leaving unmounts it before the session's last
   // save runs, which still needs its text (the laptop's can still be read).
-  const lastEditor = useRef<StudiplyEditorHandle | null>(null);
+  const lastEditor = useRef<DocumentPort | null>(null);
   if (editor.current) lastEditor.current = editor.current;
 
   useEffect(() => {
@@ -73,8 +77,8 @@ export function useDocumentSync(params: {
         if (!e) return Promise.reject(new Error('The editor is gone.'));
         return e.getJSON();
       },
-      loadDoc: (doc: Parameters<StudiplyEditorHandle['loadDoc']>[0]) => editor.current?.loadDoc(doc),
-      applyBlocks: (doc: Parameters<StudiplyEditorHandle['applyBlocks']>[0]) => editor.current?.applyBlocks(doc),
+      loadDoc: (doc: Parameters<DocumentPort['loadDoc']>[0]) => editor.current?.loadDoc(doc),
+      applyBlocks: (doc: Parameters<DocumentPort['applyBlocks']>[0]) => editor.current?.applyBlocks(doc),
     };
     const s = new DocumentSession(
       port,

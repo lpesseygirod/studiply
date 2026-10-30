@@ -16,7 +16,10 @@
  */
 
 export { cellKey, columnIndex, columnName, MAX_COLS, MAX_ROWS, parseArea, type Area } from './address';
+export { formulaContext, type FormulaContext } from './context';
 export { copyCells, copyFormula, shiftFormula } from './copy';
 export { FUNCTIONS } from './functions';
+export { FUNCTION_GROUPS, FUNCTION_HELP, helpParts, suggestFunctions, type FunctionGroup, type FunctionHelp, type HelpPart } from './help';
+export { deleteLinesInFormula, insertLinesInFormula, type Lines } from './structure';
 export { parseInput, Sheet, type ParsedInput } from './sheet';
 export { formatNumber, isError, SheetError, type CellValue, type ErrorCode } from './values';

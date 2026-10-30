@@ -14,6 +14,7 @@ import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
 import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
 import { MiniPlayer, type PlayRequest } from '../../../src/components/editor/MiniPlayer';
+import { SheetTab, type SheetHandle } from '../../../src/components/sheet/SheetTab';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
@@ -41,7 +42,7 @@ import {
   type DocTab,
   type FixedTab,
 } from '../../../src/services/document.service';
-import { addTab, deleteTab, isAddedTab, listTabs, moveTab, renameTab, restoreTab, type TabInfo } from '../../../src/services/document-tabs.service';
+import { addTab, deleteTab, isAddedTab, listTabs, moveTab, renameTab, restoreTab, type TabInfo, type TabKind } from '../../../src/services/document-tabs.service';
 import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { getNoteBySession } from '../../../src/services/note.service';
 import { getProject } from '../../../src/services/project.service';
@@ -109,11 +110,14 @@ export default function DocumentScreen() {
 
   // The document's tabs (step 4.7b): a lecture's three first, then added ones; a plain document's from "Tab 1".
   const [tabs, setTabs] = useState<TabInfo[] | null>(null);
+  // The list was read (or couldn't be): until then the tab's kind isn't known, so nothing is drawn in it.
+  const [tabsKnown, setTabsKnown] = useState(false);
   // Tabs deleted on another device that an edit here kept (shown once).
   const [keptTabs, setKeptTabs] = useState<string[]>([]);
   const loadTabs = useCallback(async () => {
     if (!id || !file) return;
     const list = await listTabs(id, file.kind === 'lecture').catch(() => null);
+    setTabsKnown(true);
     if (list) setTabs(list);
     const kept = await takeKeptTabs(id).catch(() => []);
     if (kept.length && list) setKeptTabs(kept.map((k) => list.find((t) => t.tab === k)?.title ?? 'A tab'));
@@ -212,12 +216,20 @@ export default function DocumentScreen() {
     };
   }, [kind, id, tab, hasNote, lectureStatus]);
 
-  // The editor, one per tab; its autosave starts once it is ready.
+  // The editor, one per tab; its autosave starts once it is ready. A
+  // spreadsheet tab (step 4.7e) has the grid instead, with the same autosave.
   const editorRef = useRef<StudiplyEditorHandle>(null);
+  const sheetRef = useRef<SheetHandle>(null);
+  const isSheet = tabs?.find((t) => t.tab === tab)?.kind === 'sheet';
   const editorKey = `${id}:${tab}`;
   const [readyKey, setReadyKey] = useState<string | null>(null);
-  const showEditor = !!file && tabState === 'document';
-  const sync = useDocumentSync({ fileId: showEditor ? id : undefined, tab, editor: editorRef, editorReady: showEditor && readyKey === editorKey });
+  const showEditor = !!file && tabState === 'document' && tabsKnown;
+  const sync = useDocumentSync({
+    fileId: showEditor ? id : undefined,
+    tab,
+    editor: isSheet ? sheetRef : editorRef,
+    editorReady: showEditor && readyKey === editorKey,
+  });
   const status = showEditor ? saveLabel(sync.state) : null;
 
   const rename = useCallback(
@@ -238,10 +250,10 @@ export default function DocumentScreen() {
   // Tabs (step 4.7b): add, rename, move, delete with Undo. The list is read again after each change.
   const failed = (what: string) => (err: unknown) => showAlert(what, errorMessage(err, 'Please try again.'));
   const askTabName = (title: string, current: string) => promptText(title, { defaultValue: current, confirmLabel: 'Save', placeholder: 'Tab name' });
-  const onAddTab = async () => {
+  const onAddTab = async (kind: TabKind | null) => {
     if (!file) return;
     try {
-      const added = await addTab(file.id, { isLecture });
+      const added = await addTab(file.id, { isLecture, ...(kind ? { kind } : {}) });
       await loadTabs();
       setTab(added.tab);
       // Its name, ready to type over (Enter keeps "Tab N").
@@ -324,7 +336,10 @@ export default function DocumentScreen() {
   const openMenu = async () => {
     if (!item) return;
     editorRef.current?.blur();
-    const extra: DialogButton[] = showEditor
+    const extra: DialogButton[] = showEditor && isSheet
+      ? // A spreadsheet tab (step 4.7e): no comments, page setup or print layout yet.
+        [{ text: 'Version history', icon: 'time-outline', section: 'Review', onPress: () => setHistoryOpen(true) }]
+      : showEditor
       ? [
           // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
           { text: 'Comments', icon: 'chatbox-ellipses-outline', section: 'Review', onPress: () => void openComments() },
@@ -341,7 +356,7 @@ export default function DocumentScreen() {
   const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : 'Document'} · ${metaDate(file.created_at)}` : '';
   // The iPhone's editor is a WebView under the header, so the header keeps its own margins there.
   const nativeEditor = Platform.OS !== 'web';
-  const makeHeader = (inset: boolean) =>
+  const makeHeader = (inset: boolean, onCard = false) =>
     file ? (
       <DocumentHeader
         title={file.title}
@@ -350,8 +365,8 @@ export default function DocumentScreen() {
         selectTitle={created}
         compact={!wide}
         inset={inset}
-        // Pages (laptop) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b).
-        onGradient={wide ? margin.pages : nativeEditor && !!phoneView?.pages}
+        // Pages (laptop) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b); a sheet's is on its card.
+        onGradient={!onCard && (wide ? margin.pages : nativeEditor && !!phoneView?.pages)}
       />
     ) : null;
 
@@ -411,6 +426,20 @@ export default function DocumentScreen() {
 
   const body = !file ? (
     <View style={styles.center}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
+  ) : showEditor && isSheet ? (
+    // A spreadsheet tab (step 4.7e): a white card with the title, the formula bar and the grid, which scrolls inside it.
+    <View style={[styles.editorWrap, wide ? styles.sheetCard : styles.pageCard]}>
+      {keptNotice}
+      {lostNotice}
+      <SheetTab
+        key={editorKey}
+        ref={sheetRef}
+        compact={!wide}
+        header={<View style={wide ? styles.sheetHeader : styles.sheetHeaderCompact}>{makeHeader(false, true)}</View>}
+        onReady={() => setReadyKey(editorKey)}
+        onChange={sync.onChange}
+      />
+    </View>
   ) : showEditor ? (
     // Print layout: no white card; the pages sit on the gradient (step 4.5b).
     <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
@@ -451,7 +480,7 @@ export default function DocumentScreen() {
         current={tab}
         compact={compact}
         onSelect={setTab}
-        onAdd={() => void onAddTab()}
+        onAdd={(kind) => void onAddTab(kind)}
         onRename={(t) => void onRenameTab(t)}
         onDelete={(t) => void onDeleteTab(t)}
         onMove={(t, to) => void onMoveTab(t, to)}
@@ -490,15 +519,17 @@ export default function DocumentScreen() {
     </View>
   );
 
+  const fullPane = margin.pages || (showEditor && isSheet);
+
   // One tree for both layouts, so crossing the laptop width (a window being
   // resized) keeps the editor and its save session instead of remounting them.
   return (
     <View style={styles.container}>
       <GradientFill />
       {!wide && <ThemedStatusBar />}
-      {/* In Pages (step 4.5b) the page area has the whole pane; the tabs row keeps its column. */}
-      <View style={wide ? (margin.pages ? styles.columnPages : [styles.column, margin.shown && commentRoom && styles.columnWithMargin]) : styles.container}>
-        {wide && margin.pages ? <View style={styles.topRowPages}>{top}</View> : top}
+      {/* In Pages (step 4.5b) and on a spreadsheet tab (4.7e) the page area has the whole pane; the tabs row keeps its column. */}
+      <View style={wide ? (fullPane ? styles.columnPages : [styles.column, margin.shown && commentRoom && styles.columnWithMargin]) : styles.container}>
+        {wide && fullPane ? <View style={styles.topRowPages}>{top}</View> : top}
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>{body}</View>
       </View>
       {toast}
@@ -526,6 +557,7 @@ export default function DocumentScreen() {
           fileId={file.id}
           tab={tab}
           tabName={tabs && tabs.length > 1 ? tabs.find((t) => t.tab === tab)?.title : undefined}
+          sheet={isSheet}
           onClose={() => setHistoryOpen(false)}
           onRestore={sync.restore}
         />
@@ -549,6 +581,9 @@ const makeStyles = (c: ThemeColors) =>
     pageContent: { paddingHorizontal: 60, paddingTop: 44, paddingBottom: 60 },
     pageContentCompact: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 24 },
     pageCard: { flex: 1, borderRadius: Layout.cardRadius.iphone, overflow: 'hidden', backgroundColor: PAGE_COLORS.card },
+    sheetCard: { flex: 1, marginHorizontal: 24, marginBottom: 24, borderRadius: Layout.cardRadius.laptop, overflow: 'hidden', backgroundColor: PAGE_COLORS.card },
+    sheetHeader: { paddingHorizontal: 24, paddingTop: 18, paddingBottom: 6 },
+    sheetHeaderCompact: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     errorText: { fontSize: Typography.size.base, color: c.text.onGradientStrong, textAlign: 'center' },
     notice: {

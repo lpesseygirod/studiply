@@ -466,6 +466,10 @@ Step 4.7e: a spreadsheet as a tab of any document ("+" → Spreadsheet; a tab wi
 - Laptop: a grid with a formula bar; iPhone: the grid with the formula bar above the keyboard and the cell references by tap.
 - Data: the tab's row holds the cells (value or formula, bold); between devices the cells merge one by one (two devices changing different cells both keep their change), so it works offline, and versions work per tab as for text. Results are calculated on the device. Errors as in Excel (#DIV/0!, #REF!, #NAME?).
 - Export: PDF and Word (4.8), "This tab" or "All tabs", as a table of the values.
+- Also in this step (Lea, 30 Oct), on both devices:
+  - Undo and Redo of cell changes (⌘Z / ⌘⇧Z and the toolbar's undo / redo on the laptop);
+  - insert and delete rows and columns (right-click a row number or column letter on the laptop, long-press it on the iPhone), with references moving as in Excel (a deleted cell's references become #REF!);
+  - copy, cut and paste of a cell range (⌘C / ⌘X / ⌘V on the laptop; Copy / Paste in the cell's sheet on the iPhone), references moving on paste as with the fill.
 - Not in the first version: .xlsx import and export, charts inside the sheet (a graph block can take its data from a sheet later), several sheets per tab, cell styles beyond bold, number formats (%, €, decimals) and column widths.
 The formula engine is built separately (Lea, 29 Oct: another Claude Code session, branch `sheets-engine`, worktree `../Studiply-sheets`, a standalone module with its own tests). This step does not write a formula engine: it plugs that module in (parsing, calculating, the function list and help lines, moving references when copying) and builds the grid, the editing and the syncing around it.
 ```
@@ -539,6 +543,7 @@ Step 5.2: turn the spike into a real recorder service: start, pause, resume, sto
 
 ```markdown
 Step 5.3: build the recording screens from DESIGN.md. iPhone: course › title, red dot + timer, live waveform, My notes editor in the middle, bottom bar with large buttons Important, Confused, Exam, Camera, Stop & summarize. Laptop: red recording strip under the top bar with timer, waveform and the same buttons. Nothing except Stop may stop the recording.
+The recording setup picks the course, then a folder in it, with "+ New folder" in the picker (Lea, 30 Oct: option A).
 ```
 
 **Check:** record 5 minutes on each device while switching tabs and opening other screens; the recording never stops.

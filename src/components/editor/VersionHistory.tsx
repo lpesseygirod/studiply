@@ -8,6 +8,7 @@ import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import { PAGE_COLORS } from '../../editor/editorCss';
 import StudiplyEditor from '../../editor/StudiplyEditor';
+import { SheetTab } from '../sheet/SheetTab';
 import type { DocJSON, StudiplyEditorHandle } from '../../editor/types';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { isOffline } from '../../lib/connectivity';
@@ -51,6 +52,7 @@ export function VersionHistory({
   fileId,
   tab,
   tabName,
+  sheet = false,
   onClose,
   onRestore,
 }: {
@@ -59,6 +61,8 @@ export function VersionHistory({
   tab: DocTab;
   /** The tab's name, said in the title when the document has more than one tab (step 4.7b). */
   tabName?: string;
+  /** A spreadsheet tab (step 4.7e): the preview is its grid, read only. */
+  sheet?: boolean;
   onClose: () => void;
   /** Brings the version's text back into the open document. */
   onRestore: (doc: DocJSON) => Promise<void>;
@@ -242,7 +246,9 @@ export function VersionHistory({
         {selected.name ? <Text style={styles.previewSub}>{label(selected)}</Text> : null}
       </View>
       <View style={styles.previewPage}>
-        {preview ? (
+        {preview && sheet ? (
+          <SheetTab key={selected.id} compact={!wide} editable={false} doc={preview} />
+        ) : preview ? (
           <StudiplyEditor key={selected.id} ref={previewRef} editable={false} onReady={() => setPreviewReady(true)} />
         ) : (
           <ActivityIndicator color={c.accent} style={styles.spinner} />

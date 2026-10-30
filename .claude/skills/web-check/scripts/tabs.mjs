@@ -1,7 +1,9 @@
 // tabs.mjs — tabs in every document (step 4.7b), on the laptop (1280) and
 // at a phone's width (390, the app's iPhone layout in the browser):
-//   - a plain document starts with one tab and only "+ Add tab"; + adds
-//     "Tab 2" and asks its name; the new tab is open and has its own text;
+//   - a plain document starts with one tab and only "+ Add tab"; + asks
+//     Document or Spreadsheet (step 4.7e; spreadsheets are sheets.mjs's);
+//     Document adds "Tab 2" and asks its name; the new tab is open and has
+//     its own text;
 //   - rename from the right-click menu and by double-clicking the open tab;
 //   - drag a tab to the front;
 //   - delete, then Undo;
@@ -95,6 +97,12 @@ const doubleClickTab = async (name) => {
   await b.sleep(400);
   return onSecondPress;
 };
+/** "+" (or "+ Add tab") asks Document or Spreadsheet (step 4.7e): a document tab. */
+const addDocumentTab = async () => {
+  await b.clickSelector('[aria-label="Add tab"]');
+  await b.waitText('Spreadsheet', { exact: true, timeout: 5000 });
+  await b.click('Document', { exact: true });
+};
 const PROMPT = 'input[placeholder="Tab name"]';
 const answerPrompt = async (name) => {
   await waitFor(() => b.evaluate(`!!document.querySelector('${PROMPT}')`), 'the name prompt');
@@ -119,7 +127,7 @@ try {
     expect((await shownTabs()).length === 0, `tabs shown: ${await shownTabs()}`);
     expect(await b.evaluate(`!!document.querySelector('[aria-label="Add tab"]')`), 'no Add tab');
     await b.shot('tabs-one-1280');
-    await b.clickSelector('[aria-label="Add tab"]');
+    await addDocumentTab();
     // The name is ready to type over; Save with "Semana 3".
     expect((await waitFor(() => b.evaluate(`document.querySelector('${PROMPT}')?.value`), 'prompt value')) === 'Tab 2', 'not "Tab 2"');
     await answerPrompt('Semana 3');
@@ -156,7 +164,7 @@ try {
   });
 
   await step('1280: drag a tab to the front; only its own place changes; no text gets selected', async () => {
-    await b.clickSelector('[aria-label="Add tab"]');
+    await addDocumentTab();
     await answerPrompt(null);
     expect(JSON.stringify(await shownTabs()) === JSON.stringify(['Tab 1', 'Semana tres', 'Tab 3']), JSON.stringify(await shownTabs()));
     const before = await rows(plain.id);
@@ -188,7 +196,7 @@ try {
     await clickTab('Summary', { button: 'right' });
     expect(!(await b.hasText('Rename', true)), 'a fixed tab has a menu');
     await b.press('Escape');
-    await b.clickSelector('[aria-label="Add tab"]');
+    await addDocumentTab();
     await answerPrompt('Ejercicios');
     expect(JSON.stringify(await shownTabs()) === JSON.stringify(['My notes', 'Summary', 'Transcript', 'Ejercicios']), JSON.stringify(await shownTabs()));
     const from = await tabPoint('Ejercicios');
@@ -221,7 +229,7 @@ try {
     await openDoc(plain.id);
     // Enough tabs to scroll.
     for (const name of ['Tema 4', 'Tema 5', 'Repaso final']) {
-      await b.clickSelector('[aria-label="Add tab"]');
+      await addDocumentTab();
       await answerPrompt(name);
     }
     await openDoc(plain.id);

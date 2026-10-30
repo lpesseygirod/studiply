@@ -103,6 +103,9 @@ describe('the rules (pure)', () => {
   it('names: the next free "Tab N"; a title is 1–100 characters', () => {
     expect(nextTabTitle([{ title: 'Tab 1' }])).toBe('Tab 2');
     expect(nextTabTitle([{ title: 'Tab 1' }, { title: 'tab 3' }, { title: 'Otra' }])).toBe('Tab 4');
+    // A spreadsheet (step 4.7e): "Sheet N", counted among the sheets.
+    expect(nextTabTitle([{ title: 'Tab 1', kind: null }, { title: 'Tab 2', kind: null }], 'sheet')).toBe('Sheet 1');
+    expect(nextTabTitle([{ title: 'Tab 1' }, { title: 'Sheet 1', kind: 'sheet' }, { title: 'sheet 2' }], 'sheet')).toBe('Sheet 3');
     expect(cleanTabTitle('  Semana   3 ')).toBe('Semana 3');
     expect(() => cleanTabTitle('   ')).toThrow('Enter a name');
     expect(() => cleanTabTitle('a'.repeat(101))).toThrow('at most 100');
@@ -143,6 +146,10 @@ describe('on the laptop', () => {
     const sheet = await addTab(FILE, { isLecture: true, title: 'Presupuesto', kind: 'sheet' });
     expect(names(await listTabs(FILE, true))).toEqual(['My notes', 'Summary', 'Transcript', 'Presupuesto']);
     expect(docRow(sheet.tab).kind).toBe('sheet');
+    // No cells yet (not an empty page).
+    expect(docRow(sheet.tab).content).toEqual({ type: 'doc', content: [] });
+    const unnamed = await addTab(FILE, { isLecture: true, kind: 'sheet' });
+    expect(unnamed.title).toBe('Sheet 2');
   });
 
   it('at most 30 tabs', async () => {
