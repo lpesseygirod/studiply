@@ -341,7 +341,7 @@ try {
     expect(await timer(), 'no timer chip');
     expect(await has('[data-recording="waveform"]'), 'no waveform');
     for (const label of ['Important', 'Confused', 'Exam', 'Photo']) expect(!(await disabled(label)), `${label} is greyed out`);
-    expect(await disabled('Ask the study assistant'), '✦ Ask is not greyed out (Phase 6)');
+    expect(!(await disabled('Ask the study assistant')), '✦ Ask is greyed out (it opens the study assistant since step 6.2)');
     expect(await b.hasText('Math › Tema 3', true), 'no Course › folder');
     // As outside a recording (Lea, 30 Oct): the document's tabs, its formatting toolbar and its status line; no "MY NOTES" card.
     // At 390 px the toolbar is the compact one: Undo, Redo, the style ("Normal text") and ▾ (More tools, where Bold is).

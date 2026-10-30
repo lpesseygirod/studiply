@@ -73,6 +73,31 @@ export function parseSse(text: string): SseFrame[] {
   return frames;
 }
 
+/**
+ * Reads an event stream as it arrives (step 6.2): `push` each piece of
+ * text; whole frames come out in order, and a frame cut between two pieces
+ * waits for the rest. `end` gives what was left without a blank line after it.
+ */
+export function createSseReader(): { push: (text: string) => SseFrame[]; end: () => SseFrame[] } {
+  let buffer = '';
+  return {
+    push(text) {
+      // A "\r" at the end of one piece meets its "\n" in the next, so the whole buffer is normalised.
+      buffer = (buffer + text).replace(/\r\n/g, '\n');
+      const last = buffer.lastIndexOf('\n\n');
+      if (last === -1) return [];
+      const whole = buffer.slice(0, last + 2);
+      buffer = buffer.slice(last + 2);
+      return parseSse(whole);
+    },
+    end() {
+      const rest = buffer;
+      buffer = '';
+      return parseSse(rest);
+    },
+  };
+}
+
 export interface SseDone {
   model: string;
   stopReason: string | null;

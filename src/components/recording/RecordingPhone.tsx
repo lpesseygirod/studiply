@@ -119,7 +119,8 @@ const MARKS = [
   { key: 'exam', glyph: '!', label: 'Exam' },
 ] as const;
 
-export function RecordingPhoneBar() {
+/** `onAsk` opens the study assistant's sheet (step 6.2). */
+export function RecordingPhoneBar({ onAsk }: { onAsk?: () => void } = {}) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const live = useRecorderState();
@@ -182,8 +183,17 @@ export function RecordingPhoneBar() {
         </View>
       </View>
       <View style={styles.actions}>
-        {/* The assistant comes in Phase 6. */}
-        <Pressable disabled aria-disabled style={[styles.ask, styles.off]} accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel="Ask the study assistant">
+        {/* The study assistant (step 6.2): its sheet over this screen; the recording goes on. */}
+        <Pressable
+          onPress={onAsk}
+          disabled={!onAsk}
+          aria-disabled={!onAsk}
+          style={({ pressed }) => [styles.ask, !onAsk && styles.off, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !onAsk }}
+          accessibilityLabel="Ask the study assistant"
+          {...{ dataSet: { recording: 'ask' } }}
+        >
           <Text style={styles.askText}>✦ Ask</Text>
         </Pressable>
         <Pressable

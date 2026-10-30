@@ -38,9 +38,6 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 /** Placeholder until plans and server-enforced limits arrive in step 10.2. */
 export const DAILY_CLAUDE_LIMIT_USD = 3;
 
-/** The longest message a student can send the assistant. */
-export const MAX_MESSAGE_CHARS = 4000;
-
 // The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
 export const SUMMARIZE_TEST_PROMPT =
   "This is a connection test of Studiply's summary engine. Reply with one short sentence saying you received it.";

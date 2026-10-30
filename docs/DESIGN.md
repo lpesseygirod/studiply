@@ -252,6 +252,15 @@ As built in step 4.4:
 - Quick prompts above the composer: Explain the last 10 min · What did she just say? · Define the last term · Am I missing something?
 - Composer: rounded box, multi-line, Enter sends / Shift+Enter new line, + attach, "Context: this lecture" chip, send arrow (disabled grey until text).
 - Answers use the live transcript (time-windowed: "last 10 min" = now−10 min → now), cite timestamps, stream in, and are saved as Q&A into the lecture.
+- **Built in step 6.2:**
+  - **The window label** is shown above each answer: "From 24:12 to 34:12" (laptop, small capitals), "24:12 → 34:12" (iPhone).
+  - **Times in an answer** are underlined in the accent colour, without their brackets; a tap plays the lecture from there in the mini player. On the iPhone the sheet closes first; the conversation stays.
+  - **Copy and Retry:** icons under each answer on the laptop; a long-press on the answer on the iPhone (iphone-04 shows Add to notes and Flashcards only).
+  - **Add to notes, Flashcards and +** are shown and say they come next, until step 6.3.
+  - **Placeholder:** "Ask about the lecture…" on both. The send arrow stays disabled (grey) until there's text, on both.
+  - **The iPhone sheet** covers about two-thirds of the screen when it opens, with the recording header in sight above it; dragging the handle up gives full height. It opens from ✦ Ask while recording, and from ✦ in the document header after class.
+  - **Offline:** the chips and send are disabled, with "The assistant needs the internet. Your question stays here."; the draft is kept and nothing is queued.
+  - **A plain document's panel** says the assistant answers about a lecture.
 
 ## Library (Finder / Drive)
 - **Built in step 3.2 (inside a course):**

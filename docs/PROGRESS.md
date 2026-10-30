@@ -307,7 +307,39 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - Jest `assistant.test.ts` (windows and prompt rules);
     - Jest `assistantAnswer.test.ts` (the flow with Claude faked);
     - new 6.1 steps in `check:claude` (real calls, run by you).
-- [ ] 6.2 — Chat interface (web panel + iPhone sheet, streaming, quick prompts)
+- [x] 6.2 — Chat interface (web panel + iPhone sheet, streaming, quick prompts). Done 30 Oct, approved by the advisor.
+  - **Checks (30 Oct):**
+    - `npm run check` (1,989 tests) and `check:bundle` pass;
+    - `assistant.mjs` 13/13 (with the dark color-scheme assertion), `recording.mjs` 10/10 and every other Chrome suite pass, except `shell-data.mjs`;
+    - `shell-data.mjs` fails 4 steps for an older reason: since step 4.3 a lecture opens as `/doc/<id>`, not `/note/<id>`. An updated copy is being made separately.
+  - **Advisor review:** the composites match desktop-01 and iphone-04. In dark mode the chips' scrollbar track was drawn light; fixed with `color-scheme: dark` on the scroll areas (light mode unchanged).
+  - **Your device checks:**
+    - real streaming through `expo/fetch`;
+    - the sheet with the keyboard;
+    - long-press Copy / Retry;
+    - dragging the handle;
+    - a tapped time playing;
+    - the recording going on with the sheet open, also locked.
+  - **Streaming:**
+    - `lib/functions.streamFunction` reads assistant-chat's events as they arrive: the browser's fetch on the web, `expo/fetch` on the iPhone (part of the `expo` package; React Native's fetch can't stream). No new dependency, no native build.
+    - `createSseReader` (in `functionResult.ts`) handles frames cut anywhere.
+  - **Conversation:** `services/assistant.service` and `hooks/useAssistant`.
+    - The lecture's earlier Q&A comes from `assistant_messages`.
+    - The recording's time is sent while this lecture records here (nothing after class).
+    - The answer streams into its turn; on an error the pieces are dropped and Retry is offered.
+    - "Knows this lecture up to" is the server's transcript or the recorder's live one (offline too), updated by `meta`.
+    - With `EXPO_PUBLIC_MOCK_AI=1` a canned answer streams locally.
+  - **Components:**
+    - `AssistantChat`: the same body in two looks;
+    - `AssistantAnswer`: bold, lists, tappable times (`utils/answerText`);
+    - `AssistantSheet` (iPhone);
+    - `AssistantPanel` (laptop).
+  - **Wiring:** `playRequest` lets a time in the laptop's panel open the document's MiniPlayer; `assistantTarget` tells the panel which document is open.
+  - **Server:** the 6.1 prompt now allows **bold** and short numbered lists (one line). `MAX_MESSAGE_CHARS` moved into `_shared/assistant.ts`, so the app imports that file without `.ts` imports.
+  - **Tests:**
+    - Jest: the SSE reader, `streamFunction`, the answer parser, the service, the hook;
+    - Chrome: `assistant.mjs` (new; canned streamed answer, no paid calls; composites beside desktop-01 and iphone-04).
+  - **`recording.mjs`:** now expects ✦ Ask enabled.
 - [ ] 6.3 — Assistant actions + Ask Claude in the document
 
 ## Phase 7 — The summary engine (`phase-7-summary`)

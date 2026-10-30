@@ -35,6 +35,10 @@ import { useRecordingActions } from '../../../src/components/recording/useRecord
 import { useConnectivity } from '../../../src/lib/connectivity';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
+import { AssistantSheet } from '../../../src/components/assistant/AssistantSheet';
+import { setAssistantTarget } from '../../../src/components/assistant/assistantTarget';
+import { useAssistant } from '../../../src/hooks/useAssistant';
+import { onPlayRequest } from '../../../src/lib/playRequest';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useViewPrefs } from '../../../src/lib/viewPrefs';
 import { saveDefaultPageSetup } from '../../../src/services/preferences.service';
@@ -437,6 +441,17 @@ export default function DocumentScreen() {
   };
   // A tap on a timestamp chip plays the lecture's recording from there (step 4.6).
   const [play, setPlay] = useState<PlayRequest | null>(null);
+  // A time tapped in a study-assistant answer (step 6.2; the laptop's panel is outside this screen).
+  useEffect(() => onPlayRequest((r) => r.lectureId === id && setPlay({ ms: r.ms, id: Date.now() })), [id]);
+  // The study assistant (step 6.2): the laptop's panel asks about the lecture shown here; on the
+  // iPhone its sheet opens over this screen (✦ Ask while recording, ✦ in the header after class).
+  useEffect(() => {
+    if (!id || !file) return;
+    setAssistantTarget({ documentId: id, isLecture: file.kind === 'lecture' });
+  }, [id, file]);
+  useEffect(() => () => setAssistantTarget(null), []);
+  const phoneChat = useAssistant(!wide && isLecture && id ? id : null);
+  const [askOpen, setAskOpen] = useState(false);
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -592,6 +607,12 @@ export default function DocumentScreen() {
 
   // Accent purple as in the mockup; on the dimmed dark gradient, the strong text colour.
   const backColor = scheme === 'dark' ? c.text.onGradientStrong : c.accentDark;
+  // The iPhone after class: the study assistant from the header (while recording: ✦ Ask in the bottom bar).
+  const askButton = isLecture ? (
+    <View {...{ dataSet: { assistant: 'open' } }}>
+      <IconButton icon="sparkles-outline" label="Study assistant" onPress={() => setAskOpen(true)} color={backColor} />
+    </View>
+  ) : null;
 
   const tabRow = (compact: boolean) =>
     tabs ? (
@@ -650,6 +671,7 @@ export default function DocumentScreen() {
           </Text>
         </Pressable>
         <View style={styles.headerActions}>
+          {askButton}
           {recordButton}
           <View ref={menuButton} collapsable={false}>
             <IconButton icon="ellipsis-horizontal" label="Document menu" onPress={openMenu} color={backColor} />
@@ -674,11 +696,23 @@ export default function DocumentScreen() {
         {wide && fullPane ? <View style={styles.topRowPages}>{top}</View> : top}
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>
           {body}
-          {recordingScreen && <RecordingPhoneBar />}
+          {recordingScreen && <RecordingPhoneBar onAsk={isLecture ? () => setAskOpen(true) : undefined} />}
         </View>
       </View>
       {toast}
       {itemMenu.modal}
+      {!wide && (
+        <AssistantSheet
+          visible={askOpen}
+          onClose={() => setAskOpen(false)}
+          chat={phoneChat}
+          // The player is the page's footer, under the sheet: the sheet closes (its conversation stays).
+          onTime={(ms) => {
+            setAskOpen(false);
+            setPlay({ ms, id: Date.now() });
+          }}
+        />
+      )}
       <CommentsSheet
         visible={comments !== null}
         comments={comments ?? []}

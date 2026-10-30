@@ -11,6 +11,8 @@ declare module 'react-test-renderer' {
 
   export interface ReactTestRenderer {
     root: ReactTestInstance;
+    /** Renders the same tree with new props (useAssistant.test). */
+    update(element: ReactElement): void;
     unmount(): void;
   }
 

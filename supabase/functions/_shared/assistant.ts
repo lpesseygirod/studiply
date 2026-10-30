@@ -16,9 +16,10 @@
  * untrusted: the transcript, notes and marks go inside their own tags, with
  * `<` and `>` replaced so nothing can close a tag, and the system prompt says
  * that what's inside is material, never instructions.
+ *
+ * Without imports, so the app uses the same quick prompts and timestamps
+ * (src/services/assistant.service, step 6.2).
  */
-
-import { MAX_MESSAGE_CHARS } from './claude.ts';
 
 export const QUICK_PROMPTS = {
   last_10_min: {
@@ -45,6 +46,8 @@ export const QUICK_PROMPTS = {
 
 export type QuickPrompt = keyof typeof QUICK_PROMPTS;
 
+/** The longest message a student can type. */
+export const MAX_MESSAGE_CHARS = 4000;
 /** The latest `nowMs` accepted: a day of recording. */
 const MAX_NOW_MS = 24 * 60 * 60_000;
 /** A typed question gets the transcript up to this long (about 35k tokens), its most recent part. */
@@ -208,7 +211,7 @@ export function assistantSystemPrompt(language: string | null): string {
     '- If the answer is not in the transcript or the notes, say so plainly in your first sentence. You may then add general knowledge, clearly labelled as not from the lecture. Never invent what the professor said.',
     '- If part of the stretch asked about is not transcribed yet, say so briefly.',
     "- If the question isn't about the lecture, answer it briefly anyway.",
-    '- Be short and clear: plain text, short paragraphs or a short list, no headings.',
+    '- Be short and clear: short paragraphs or a short numbered list, **bold** for the key terms; no headings, links or tables.',
   ].join('\n');
 }
 
