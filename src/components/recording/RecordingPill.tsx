@@ -68,12 +68,12 @@ export function RecordingPill() {
         onPress={() => actions.openLecture(live.lectureId!)}
         style={({ pressed }) => [styles.pill, styles.live, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel={`Recording, ${clock(live.elapsedMs)}. Open the lecture`}
+        accessibilityLabel={`${live.status === 'paused' ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}. Open the lecture`}
         {...{ dataSet: { recording: 'pill' } }}
       >
-        <View style={styles.liveDot} />
+        <View style={[styles.liveDot, live.status === 'paused' && styles.liveDotPaused]} />
         <Text style={styles.liveText}>
-          {live.microphoneLost ? 'Microphone disconnected' : 'Recording'} · {clock(live.elapsedMs)}
+          {live.microphoneLost ? 'Microphone disconnected' : live.status === 'paused' ? 'Paused' : 'Recording'} · {clock(live.elapsedMs)}
         </Text>
       </Pressable>
     </View>
@@ -102,6 +102,7 @@ const makeStyles = (c: ThemeColors) =>
     text: { flexShrink: 1, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text },
     live: { backgroundColor: c.recording, borderColor: c.recording },
     liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.onRecording },
+    liveDotPaused: { backgroundColor: 'transparent', borderWidth: 2, borderColor: c.onRecording },
     liveText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.onRecording, fontVariant: ['tabular-nums'] },
     pressed: { opacity: 0.85 },
     card: {

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
@@ -55,12 +56,18 @@ export function RecordingStrip() {
   }
 
   const lectureId = live.lectureId!;
+  const paused = live.status === 'paused';
   return (
     <View style={styles.strip} {...{ dataSet: { recording: 'strip' } }}>
-      <Pressable onPress={() => actions.openLecture(lectureId)} style={styles.timer} accessibilityRole="button" accessibilityLabel={`Recording, ${clock(live.elapsedMs)}. Open the lecture`}>
-        <View style={styles.dot} />
+      <Pressable
+        onPress={() => actions.openLecture(lectureId)}
+        style={styles.timer}
+        accessibilityRole="button"
+        accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}. Open the lecture`}
+      >
+        <View style={[styles.dot, paused && styles.dotPaused]} />
         <Text style={styles.label} {...{ dataSet: { recording: 'timer' } }}>
-          {live.microphoneLost ? 'Microphone disconnected' : 'Recording'} · {clock(live.elapsedMs)}
+          {live.microphoneLost ? 'Microphone disconnected' : paused ? 'Paused' : 'Recording'} · {clock(live.elapsedMs)}
         </Text>
       </Pressable>
       {live.microphoneLost ? (
@@ -68,9 +75,23 @@ export function RecordingStrip() {
           <Text style={styles.plainText}>Resume</Text>
         </Pressable>
       ) : (
-        <View style={styles.wave}>
-          <Waveform levels={live.levels} color={c.recordingStrip.wave} height={24} />
-        </View>
+        <>
+          {/* Pause (Lea, 30 Oct): beside the timer; ▶ goes on. */}
+          <Pressable
+            onPress={() => void (paused ? actions.resume() : actions.pause())}
+            disabled={live.status === 'stopping'}
+            aria-disabled={live.status === 'stopping'}
+            style={({ pressed }) => [styles.round, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel={paused ? 'Resume recording' : 'Pause recording'}
+            {...{ dataSet: { recording: 'pause' } }}
+          >
+            <Ionicons name={paused ? 'play' : 'pause'} size={14} color={c.recordingStrip.text} />
+          </Pressable>
+          <View style={[styles.wave, paused && styles.waveStill]}>
+            <Waveform levels={live.levels} color={c.recordingStrip.wave} height={24} />
+          </View>
+        </>
       )}
       <View style={styles.spacer} />
       {/* The marks (5.5) and board photos (5.6) come next: shown, disabled, all equally quiet. */}
@@ -122,6 +143,19 @@ const makeStyles = (c: ThemeColors) =>
     },
     timer: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 40 },
     dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: c.recordingStrip.dot },
+    // Paused: the dot is a ring, not lit.
+    dotPaused: { backgroundColor: 'transparent', borderWidth: 2, borderColor: c.recordingStrip.dot },
+    round: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.recordingStrip.border,
+    },
+    waveStill: { opacity: 0.4 },
     label: { flexShrink: 1, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, fontVariant: ['tabular-nums'] },
     wave: { flexShrink: 1, maxWidth: 240, overflow: 'hidden' },
     spacer: { flex: 1 },

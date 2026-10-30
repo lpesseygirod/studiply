@@ -22,7 +22,7 @@
 //   - a lecture with no note: "This lecture has no summary.", nothing made;
 //   - 390 and dark: no sideways scroll; screenshots.
 //   - every screenshot (and every opened Summary tab) waits until the app's
-//     splash (STUDIPLY / AUTOMATIVE STUDY, on every page load) is gone, and
+//     splash (STUDIPLY / AUTOMATED STUDY, on every page load) is gone, and
 //     asserts it is.
 //   - screenshots notes-summary-1280, notes-summary-attachments-1280,
 //     notes-summary-1280-dark, notes-summary-390, notes-old-view-1280.
@@ -169,10 +169,10 @@ const seedData = async () => {
 const scheme = (v) => b.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: v }] });
 const editorText = () => b.evaluate(`${EDITOR}?.view?.dom ? ${EDITOR}.getText() : ''`);
 /**
- * The app's splash (STUDIPLY / AUTOMATIVE STUDY, app/_layout.tsx) over the page: shown on every
+ * The app's splash (STUDIPLY / AUTOMATED STUDY, app/_layout.tsx) over the page: shown on every
  * page load, faded out after about 1.8 s, then removed. Its subtitle is nowhere else in the app.
  */
-const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATIVE STUDY')`);
+const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATED STUDY')`);
 const splashGone = async () => {
   await waitFor(async () => !(await splashShown()), 'the splash screen gone', 15000);
   expect(!(await splashShown()), 'the splash screen is still over the page');

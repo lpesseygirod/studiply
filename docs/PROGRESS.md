@@ -98,6 +98,10 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - look 12, layout 9, formatting 12, inserting 30, blocks 8;
     - pages 13, tabs 8, sheets 16, writing 19, export 9.
   - **Lea's list (suggestion):** a Pause button. DESIGN has none; the service supports it.
+  - **Follow-up, 30 Oct.** Verified by Lea's advisor: `npm run check` 1830, all seventeen suites (recording 10/10 with the Pause step). The assistant panel's badge says "Paused" while paused.
+    - **Pause (Lea: yes):** a small round ❚❚ / ▶ beside the timer, on the laptop strip and the iPhone header. While paused: "Paused · mm:ss", the red dot a ring, the clock and the waveform still, the microphone closed; the pill on other screens says Paused too. Added to DESIGN.md.
+    - **The splash tagline typo:** "AUTOMATED STUDY" (it was AUTOMATIVE), and "Automated Study" on the onboarding screen.
+    - **Checks:** recording.mjs gains a Pause step; the four checks that find the splash by its text get the new text.
   - **Setup (Lea's option A):** the course, then a folder in it (the course itself or any nested folder, with **+ New folder**); preset when opened from a course or folder.
   - **Start** (`recordingFlow`, `src/services/recording-flow.ts` + `recording.service.ts`):
     1. the microphone first;
@@ -792,9 +796,7 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 ## Things Lea must do
 
 - ~~**Step 5.4 — rebuild the iPhone editor bundle** (`npm run editor:build`)~~ — done by Lea, 30 Oct (with the chip-tap fix). Trying it on the phone needs an EAS development build, together with expo-audio.
-- **Step 5.3 — suggestion to decide: a Pause button** on the recording strip and the iPhone recording screen.
-  - **Now:** DESIGN has none; the recorder already supports pause, and the microphone closes while paused.
-  - **If wanted:** say so, and where it goes.
+- ~~**Step 5.3 — suggestion to decide: a Pause button**~~ — Lea said yes (30 Oct); built beside the timer (see 5.3).
 - **Step 5.2 — deploy `summarize` and `assistant-chat` to the remote (your step; 5.2 is committed).**
   - **What changed:** both now read the transcript through `_shared/lecture-content.ts`, which joins the chunks' 500 ms overlaps with `_shared/transcriptJoin.ts`, as the app does.
   - **Tested locally:** `npm run check:claude` passed against the local functions (30 Oct).

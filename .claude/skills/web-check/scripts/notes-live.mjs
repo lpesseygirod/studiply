@@ -124,7 +124,7 @@ const playerAt = async () => {
   const m = /^At (\d+):(\d\d) of/.exec(label);
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
-const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATIVE STUDY')`);
+const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATED STUDY')`);
 const shot = async (name) => {
   await waitFor(async () => !(await splashShown()), 'the splash screen gone', 15000);
   await b.sleep(400);

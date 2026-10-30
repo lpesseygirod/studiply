@@ -31,6 +31,8 @@ export function useRecorder(): LiveRecording {
     if (!active) return;
     const t = setInterval(() => {
       setElapsed(recorder.elapsedMs());
+      // Paused: the waveform stands still where it was.
+      if (recorder.state().status !== 'recording') return;
       latest.current = [...latest.current.slice(1), recorder.level()];
       setLevels(latest.current);
     }, TICK_MS);

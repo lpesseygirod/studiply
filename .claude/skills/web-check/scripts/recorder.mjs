@@ -132,7 +132,7 @@ const press = async (label) => {
   await waitFor(() => enabled(label), async () => `${label} enabled (status: ${await status()})`, 20000);
   await b.clickSelector(`[aria-label="${label}"]`);
 };
-const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATIVE STUDY')`);
+const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATED STUDY')`);
 const shot = async (name) => {
   await waitFor(async () => !(await splashShown()), 'the splash screen gone', 15000);
   await b.shot(name);

@@ -17,6 +17,9 @@
 //      on each, the timer going on, chunks uploaded meanwhile; the strip leads
 //      back to the lecture;
 //   4. the microphone going away pauses it ("Microphone disconnected"); Resume;
+//   4b. Pause beside the timer (Lea, 30 Oct): "Paused", the clock and the
+//      waveform still, the microphone closed, at 1280 and 390; ▶ goes on, and
+//      the chunk after the pause starts exactly where the one before ended;
 //   5. at 390 px: the iPhone recording screen around My notes (timer chip,
 //      waveform, bottom bar); back to the course: the red pill leads back;
 //   6. a reload asks first (the browser's question), then the strip offers the
@@ -34,7 +37,7 @@
 // rec-setup-1280, rec-setup-folders-390(-dark), rec-strip-lecture-1280,
 // rec-strip-course-1280(-dark), rec-strip-other-doc-1280, rec-mic-lost-1280,
 // rec-phone-390(-dark), rec-pill-390, rec-interrupted-1280, rec-saving-1280,
-// rec-saving-closed-1280.
+// rec-saving-closed-1280, rec-paused-1280(-dark), rec-paused-390(-dark).
 // About 4 minutes (the app's chunks are 30 s). PASS/FAIL per step; exit 1 on a FAIL.
 // Run from elsewhere (a copy): WEB_CHECK_SCRIPTS=<the web-check scripts folder> node recording.mjs
 import { readFileSync } from 'node:fs';
@@ -131,7 +134,7 @@ const timer = async () => {
   if (!m) return null;
   return m[3] !== undefined ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : Number(m[1]) * 60 + Number(m[2]);
 };
-const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATIVE STUDY')`);
+const splashShown = () => b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATED STUDY')`);
 const shot = async (name) => {
   await waitFor(async () => !(await splashShown()), 'the splash screen gone', 15000);
   await b.sleep(400);
@@ -156,6 +159,8 @@ const openPicker = async () => {
 
 let lectureId = null;
 let tema3 = null;
+/** Where the Pause button paused the recording (s). */
+let pausedAtS = null;
 try {
   const { error } = await user.client.from('ai_consent').insert({ scope: 'transcription', policy_version: POLICY_VERSION });
   if (error) throw new Error(`the consent: ${error.message}`);
@@ -261,6 +266,42 @@ try {
     expect((await timer()) > still, 'the timer did not go on after Resume');
   });
 
+  await step('Pause beside the timer: "Paused", the clock and waveform still, the microphone closed (1280 and 390); ▶ goes on', async () => {
+    const tracks = () => b.evaluate(`(window.__micStreams || []).map((s) => s.getAudioTracks().map((t) => t.readyState)).flat()`);
+    const wave = () => b.evaluate(`[...document.querySelectorAll('[data-recording="waveform"] > div')].map((d) => getComputedStyle(d).height).join(',')`);
+    await b.clickSelector('[aria-label="Pause recording"]');
+    await waitFor(async () => (await text('[data-recording="timer"]')).startsWith('Paused'), async () => `paused: "${await text('[data-recording="timer"]')}"`, 10000);
+    await b.sleep(500);
+    pausedAtS = await timer();
+    const w0 = await wave();
+    expect((await tracks()).every((s) => s === 'ended'), `a microphone track still live while paused: ${JSON.stringify(await tracks())}`);
+    await b.sleep(3000);
+    expect((await timer()) === pausedAtS, `the clock moved while paused: ${pausedAtS} → ${await timer()}`);
+    expect((await wave()) === w0, 'the waveform moved while paused');
+    expect(await has('[aria-label="Resume recording"]') && !(await has('[aria-label="Pause recording"]')), 'no ▶ while paused');
+    await shot('rec-paused-1280');
+    await dark(true);
+    await shot('rec-paused-1280-dark');
+    await dark(false);
+    // The same on the iPhone layout.
+    await b.resize(390, 844);
+    await waitFor(() => has('[data-recording="bar"]'), 'the iPhone recording screen', 10000);
+    expect((await text('[data-recording="timer"]')).startsWith('Paused'), `the phone's timer: "${await text('[data-recording="timer"]')}"`);
+    expect(await has('[aria-label="Resume recording"]'), 'no ▶ on the phone header');
+    await shot('rec-paused-390');
+    await dark(true);
+    await shot('rec-paused-390-dark');
+    await dark(false);
+    await b.resize(1280, 900);
+    await waitFor(() => has('[data-recording="strip"]'), 'the strip again', 10000);
+    await b.clickSelector('[aria-label="Resume recording"]');
+    await waitFor(async () => (await text('[data-recording="timer"]')).startsWith('Recording'), 'recording again', 10000);
+    await b.sleep(2000);
+    expect((await timer()) > pausedAtS, 'the clock did not go on after ▶');
+    expect((await tracks()).some((s) => s === 'live'), 'the microphone did not open again');
+    report.push(`RESULT | pause | paused at ${pausedAtS} s, 3 s still, on again`);
+  });
+
   await step('390 px: the iPhone recording screen around My notes; back to the course, the red pill leads back', async () => {
     await b.resize(390, 844);
     await waitFor(() => has('[data-recording="bar"]'), 'the bottom bar', 10000);
@@ -321,6 +362,11 @@ try {
     const chunks = await chunkRows(lectureId);
     expect(chunks.length >= 3 && chunks.every((c, i) => c.seq === i && c.storage_path), `audio_chunks: ${JSON.stringify(chunks)}`);
     expect(chunks.every((c, i) => i === 0 || c.start_ms <= chunks[i - 1].start_ms + chunks[i - 1].duration_ms), `a hole: ${chunks.map((c) => `${c.start_ms}+${c.duration_ms}`)}`);
+    // The Pause button's join: the chunk after it starts exactly where the one before ended.
+    if (pausedAtS !== null) {
+      const join = chunks.find((c, i) => i > 0 && Math.abs(c.start_ms - pausedAtS * 1000) <= 1500 && c.start_ms === chunks[i - 1].start_ms + chunks[i - 1].duration_ms);
+      expect(join, `no exact join at the pause (${pausedAtS} s): ${chunks.map((c) => `${c.start_ms}+${c.duration_ms}`)}`);
+    }
     expect(!(await has('[data-recording="strip"]')), 'the strip is still there after Stop');
     report.push(`RESULT | stop | ${chunks.length} chunks, ${Math.round(row.duration_ms / 1000)} s, saving shown: ${saving}`);
   });

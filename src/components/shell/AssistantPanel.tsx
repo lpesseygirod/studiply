@@ -11,8 +11,10 @@ import { useRecorderState } from '../../hooks/useRecorder';
 export function AssistantPanel({ onClose }: { onClose: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
-  // Opening the assistant never stops a recording (step 5.3): it says so.
-  const recording = useRecorderState().status !== 'idle';
+  // Opening the assistant never stops a recording (step 5.3): it says so, or that it is paused.
+  const { status } = useRecorderState();
+  const recording = status !== 'idle';
+  const paused = status === 'paused';
   return (
     <View style={styles.panel} testID="assistant-panel">
       <View style={styles.header}>
@@ -22,8 +24,8 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
         <Text style={styles.title}>Study assistant</Text>
         {recording && (
           <View style={styles.recording} {...{ dataSet: { recording: 'continues' } }}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingText}>Recording continues</Text>
+            <View style={[styles.recordingDot, paused && styles.recordingDotPaused]} />
+            <Text style={styles.recordingText}>{paused ? 'Paused' : 'Recording continues'}</Text>
           </View>
         )}
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Hide study assistant" hitSlop={6} style={styles.close}>
@@ -68,6 +70,8 @@ const makeStyles = (c: ThemeColors) =>
   title: { flex: 1, fontSize: Typography.size.md, fontWeight: Typography.weight.semibold, color: c.text.primary },
   recording: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: c.recordingStrip.bg },
   recordingDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: c.recordingStrip.dot },
+  // Paused: the dot is a ring, as on the strip.
+  recordingDotPaused: { backgroundColor: 'transparent', borderWidth: 2, borderColor: c.recordingStrip.dot },
   recordingText: { fontSize: Typography.size.xs, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -8 },
   body: { padding: 16, gap: 8 },

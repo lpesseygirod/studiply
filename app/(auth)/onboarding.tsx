@@ -213,7 +213,7 @@ export default function OnboardingScreen() {
               )}
 
               <Text style={styles.appTitle}>STUDIPLY</Text>
-              <Text style={styles.appSubtitle}>Automative Study</Text>
+              <Text style={styles.appSubtitle}>Automated Study</Text>
             </View>
 
             {/* ── Input block ── */}

@@ -35,6 +35,15 @@ export function useRecordingActions() {
     }
   }, [afterRecording]);
 
+  // Pause (Lea, 30 Oct): the microphone closes, the clock and the waveform stand still; nothing else changes.
+  const pause = useCallback(async () => {
+    try {
+      await recorder.pause();
+    } catch (err) {
+      showAlert('Could not pause the recording', errorMessage(err, 'Please try again.'));
+    }
+  }, []);
+
   const resume = useCallback(async () => {
     try {
       await recorder.resume();
@@ -66,5 +75,5 @@ export function useRecordingActions() {
     [afterRecording],
   );
 
-  return { openLecture, stop, resume, continueRecording, finish };
+  return { openLecture, stop, pause, resume, continueRecording, finish };
 }

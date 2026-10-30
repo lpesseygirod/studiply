@@ -29,7 +29,7 @@ export default function SplashScreen() {
     >
       <Animated.View style={[styles.content, { opacity: textOpacity }]}>
         <Text style={styles.title}>STUDIPLY</Text>
-        <Text style={styles.subtitle}>AUTOMATIVE STUDY</Text>
+        <Text style={styles.subtitle}>AUTOMATED STUDY</Text>
       </Animated.View>
     </LinearGradient>
   );

@@ -32,6 +32,7 @@ export function RecordingPhoneHeader({
   const { colors: c } = useTheme();
   const live = useRecorder();
   const actions = useRecordingActions();
+  const paused = live.status === 'paused';
   return (
     <View style={styles.header}>
       <View style={styles.headerRow}>
@@ -41,9 +42,28 @@ export function RecordingPhoneHeader({
             {backLabel}
           </Text>
         </Pressable>
-        <View style={styles.chip} accessibilityLabel={`Recording, ${clock(live.elapsedMs)}`} {...{ dataSet: { recording: 'timer' } }}>
-          <View style={styles.dot} />
-          <Text style={styles.chipText}>{clock(live.elapsedMs)}</Text>
+        <View style={styles.timerRow}>
+          {/* Pause (Lea, 30 Oct): beside the timer; ▶ goes on. */}
+          {!live.microphoneLost && (
+            <Pressable
+              onPress={() => void (paused ? actions.resume() : actions.pause())}
+              disabled={live.status === 'stopping'}
+              aria-disabled={live.status === 'stopping'}
+              style={({ pressed }) => [styles.round, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={paused ? 'Resume recording' : 'Pause recording'}
+              {...{ dataSet: { recording: 'pause' } }}
+            >
+              <Ionicons name={paused ? 'play' : 'pause'} size={14} color={c.recordingStrip.text} />
+            </Pressable>
+          )}
+          <View style={styles.chip} accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}`} {...{ dataSet: { recording: 'timer' } }}>
+            <View style={[styles.dot, paused && styles.dotPaused]} />
+            <Text style={styles.chipText}>
+              {paused && !live.microphoneLost ? 'Paused ' : ''}
+              {clock(live.elapsedMs)}
+            </Text>
+          </View>
         </View>
       </View>
       {!!crumbs && (
@@ -62,7 +82,9 @@ export function RecordingPhoneHeader({
           </Pressable>
         </View>
       ) : (
-        <Waveform levels={live.levels} color={c.recordingStrip.wave} height={22} bar={4} gap={4} />
+        <View style={paused && styles.waveStill}>
+          <Waveform levels={live.levels} color={c.recordingStrip.wave} height={22} bar={4} gap={4} />
+        </View>
       )}
     </View>
   );
@@ -149,6 +171,11 @@ const makeStyles = (c: ThemeColors) =>
       backgroundColor: c.recordingStrip.bg,
     },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.recordingStrip.dot },
+    // Paused: the dot is a ring, not lit.
+    dotPaused: { backgroundColor: 'transparent', borderWidth: 2, borderColor: c.recordingStrip.dot },
+    timerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    round: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: c.recordingStrip.bg },
+    waveStill: { opacity: 0.4 },
     chipText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, fontVariant: ['tabular-nums'] },
     crumbs: { marginLeft: 6, fontSize: Typography.size.xs, color: c.text.onGradient },
     title: { marginLeft: 6, fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },

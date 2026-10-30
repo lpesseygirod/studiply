@@ -38,6 +38,7 @@ The iPhone app is the main recording device (App Store). Same data, same feature
 - Bottom bar, large thumb targets (≥ 56 px): ★ Important · ? Confused · Exam · Camera · Stop & summarize. Tapping a mark opens a small sheet: question, 1–10 slider with labeled ends, optional note, Save mark (light haptic on save).
 - Assistant button opens the chat as a **half-height sheet** so notes stay visible; "Recording continues" badge; drag up for full height.
 - Recording keeps running with the screen locked, in the background, during calls to the assistant, and without internet (chunks upload later).
+- **Pause:** a small round ❚❚ beside the timer chip; "Paused mm:ss" and a ring for the dot while paused, ▶ goes on (see Recording flow).
 - Later: Lock Screen / Dynamic Island Live Activity with timer and mark buttons; Action Button / Siri Shortcut to start recording.
 
 **Document screen:** a tab row under the title (step 4.7b; it replaces the segmented control and scrolls sideways): a lecture's My notes · Summary · Transcript first, then added tabs, and **+** at the end; long-press a tab for **Rename · Move left · Move right · Delete** (Undo in the toast). "Aa" button opens a sheet with text styles (Title, Heading 1, Heading 2, Subheading, Normal, Quote) and size; keyboard toolbar (scrolls sideways): bold, italic, underline, strikethrough, color, highlight, lists, checklist, link; "+" menu for image, table, formula, comment, photo. Selecting text shows the iOS edit menu plus Ask Claude actions. Tapping a timestamp opens a mini audio player at the bottom. Share button → PDF via the iOS share sheet.
@@ -162,6 +163,10 @@ As built in step 4.4:
 ## Recording flow
 ### 1. While recording
 - A red strip under the top bar: "Recording · mm:ss", live waveform, mark buttons **★ Important**, **? Confused**, **Exam**, **Photo board**, and **Stop & summarize**.
+- **Pause** (Lea, 30 Oct): a small round **❚❚** beside the timer (the strip on the laptop, the timer chip on the iPhone).
+  - **While paused:** it reads "Paused · mm:ss", the red dot becomes a ring, and the clock and waveform stand still; the microphone is closed. **▶** goes on.
+  - **Nothing else changes:** notes can still be written; new lines get the paused moment's time.
+  - **The recording:** a pause ends the current chunk; the paused time isn't in the recording.
 - Tapping a mark button opens an inline panel (does not stop recording): the moment's time, a question, a **1–10 slider**, optional note, Cancel / Save mark.
   - Important: "How important is this?" (1 worth noting → 10 key idea).
   - Confused: "How lost are you?" (1 a bit unsure → 10 completely lost).
