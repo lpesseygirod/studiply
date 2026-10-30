@@ -6,6 +6,11 @@
 // a lecture's photos), favorites not reordering anything, and the iPhone chips. Favorites (starred_at), an exam pack, a note and a due
 // review are inserted with the service role (nothing in the app can make
 // exam packs or reviews yet). Screenshots: shell-*.png. Exit 1 on any FAIL.
+//
+// Since step 4.3 a lecture opens as a document (/doc/<id>, a finished one on
+// its Summary tab), whose screen doesn't list the lecture's photos: a lecture
+// photo's Favorites are in the Favorites list (Open · Remove from Favorites)
+// and in the course's "Photos & PDFs from lectures" (also on the iPhone).
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -86,6 +91,12 @@ const [photo1, photo2] = photos;
 const titles = (text) =>
   text.split('\n').map((l) => l.replace(/[^\p{L}\p{N}\s·().-]/gu, '').trim()).filter((l) => l && !l.includes('·'));
 const updatedAt = async (table, id) => (await admin.from(table).select('updated_at').eq('id', id).single()).data.updated_at;
+/** The course screen with its lecture photos shown (they are folded away under the grid, step 3.2). */
+const openLecturePhotos = async () => {
+  await open(`/project/${data.course.id}`, 'PHOTOS & PDFS FROM LECTURES');
+  if (!(await b.hasText('Photo 2', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false, ...MAIN });
+  await b.waitText('Photo 2', { exact: true, ...MAIN });
+};
 
 const b = await launch({ width: 1280, height: 900 });
 
@@ -235,11 +246,8 @@ try {
     await admin.from('courses').update({ starred_at: null }).eq('id', data.course.id);
   });
 
-  await step('Project Files: a lecture photo goes to Favorites as "Photo 2 · Lecture 1" and opens the lecture', async () => {
-    await open(`/project/${data.course.id}`, 'PHOTOS & PDFS FROM LECTURES');
-    // The lecture photos are folded away under the grid (step 3.2)
-    if (!(await b.hasText('Photo 2', true))) await b.click('PHOTOS & PDFS FROM LECTURES', { exact: false, ...MAIN });
-    await b.waitText('Photo 2', { exact: true, ...MAIN });
+  await step('Project Files: a lecture photo goes to Favorites as "Photo 2 · Lecture 1" and opens the lecture as a document (its Summary tab)', async () => {
+    await openLecturePhotos();
     await b.click('Photo 2', { button: 'right', ...MAIN });
     await b.click('Add to Favorites', { exact: true });
     await b.waitText('Added to Favorites', { exact: true, timeout: 5000 });
@@ -252,15 +260,22 @@ try {
     await b.shot('shell-1280-favorites-photo');
     await b.click('Photo 2 · Lecture 1', { exact: true, ...MAIN });
     await b.sleep(1500);
-    expect((await pathname()) === `/note/${data.lecture.id}`, await pathname());
+    // Since step 4.3 a lecture opens as a document; a finished one on its Summary tab.
+    expect((await pathname()) === `/doc/${data.lecture.id}`, await pathname());
+    expect((await search()).includes('tab=summary'), await search());
   });
 
-  await step('The note\'s Source Files: Remove from Favorites', async () => {
-    await b.waitText('Photo 2', { exact: true, ...MAIN, timeout: 10000 });
-    await b.click('Photo 2', { button: 'right', ...MAIN });
+  // The document screen doesn't list the lecture's photos (the old note screen's "Source Files"):
+  // a favourite lecture photo is removed from the Favorites list's own menu.
+  await step('Favorites: a lecture photo\'s menu says Remove from Favorites; it removes it', async () => {
+    await open('/library?section=favorites', 'Photo 2 · Lecture 1');
+    await b.click('Photo 2 · Lecture 1', { button: 'right', exact: true, ...MAIN });
+    await b.waitText('Remove from Favorites', { exact: true, timeout: 5000 });
     await b.click('Remove from Favorites', { exact: true });
     await b.waitText('Removed from Favorites', { exact: true, timeout: 5000 });
+    await b.sleep(800);
     expect((await starredAt('media', photo2.id)) === null, 'still a favorite');
+    expect(!(await textOf('[data-testid=section-list]')).includes('Photo 2'), 'Photo 2 still listed');
   });
 
   await step('Post-session: Add to Favorites on a lecture photo', async () => {
@@ -286,12 +301,13 @@ try {
     expect(!(await search()).includes('section'), await search());
   });
 
+  // The lecture's photos on the iPhone today: the course's "Photos & PDFs from lectures" (not the lecture's screen).
   await step('iPhone: a long press (mouse hold) on a lecture photo offers Favorites', async () => {
-    await open(`/note/${data.lecture.id}`, 'Photo 1');
-    await b.click('Photo 2', { holdMs: 800 });
+    await openLecturePhotos();
+    await b.click('Photo 2', { holdMs: 800, ...MAIN });
     await b.waitText('Add to Favorites', { exact: true, timeout: 3000 });
     await b.press('Escape');
-    await b.click('Photo 1', { holdMs: 800 });
+    await b.click('Photo 1', { holdMs: 800, ...MAIN });
     await b.waitText('Remove from Favorites', { exact: true, timeout: 3000 });
     await b.press('Escape');
     await open('/library', 'COURSES');
