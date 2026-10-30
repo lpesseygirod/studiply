@@ -13,7 +13,7 @@ import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCar
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
 import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
-import { ExportPdfDialog } from '../../../src/components/editor/ExportPdfDialog';
+import { ExportPdfDialog, type ExportFormat } from '../../../src/components/editor/ExportPdfDialog';
 import { MiniPlayer, type PlayRequest } from '../../../src/components/editor/MiniPlayer';
 import { SheetTab, type SheetHandle } from '../../../src/components/sheet/SheetTab';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../../src/editor/schema/comments';
@@ -419,8 +419,14 @@ export default function DocumentScreen() {
   const [phoneView, setPhoneView] = useViewPrefs('iphone');
   // Page setup (after test D): saved on the document; both devices.
   const [pageSetupOpen, setPageSetupOpen] = useState(false);
-  // Export PDF… (step 4.8a): this tab or all, with the page setup; the open tab as it is now (unsaved edits too).
-  const [exportOpen, setExportOpen] = useState(false);
+  // Export PDF… and Export Word… (steps 4.8a, 4.8b): one dialog; this tab or all, with the page setup; the open tab as it is now (unsaved edits too).
+  const [exportOpen, setExportShown] = useState(false);
+  // Kept while the dialog closes, so its title doesn't change as it fades.
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
+  const setExportOpen = (format: ExportFormat | false) => {
+    if (format) setExportFormat(format);
+    setExportShown(!!format);
+  };
   const docLanguage = session?.language && session.language !== 'auto' ? session.language : accountLanguage;
   const loadTabContent = async (t: TabInfo): Promise<DocJSON> => {
     if (t.tab === tab && showEditor) {
@@ -439,7 +445,8 @@ export default function DocumentScreen() {
       ? // A spreadsheet tab (step 4.7e): no comments, page setup or print layout yet; its PDF is a table of values (4.8a).
         [
           { text: 'Version history', icon: 'time-outline', section: 'Review', onPress: () => setHistoryOpen(true) },
-          { text: 'Export PDF…', icon: 'download-outline', section: 'Page', onPress: () => setExportOpen(true) },
+          { text: 'Export PDF…', icon: 'download-outline', section: 'Page', onPress: () => setExportOpen('pdf') },
+          { text: 'Export Word…', icon: 'document-text-outline', onPress: () => setExportOpen('word') },
         ]
       : showEditor
       ? [
@@ -451,7 +458,8 @@ export default function DocumentScreen() {
           { text: 'Outline', icon: 'list-outline', onPress: () => editorRef.current?.tool('outline') },
           { text: 'Word count', icon: 'stats-chart-outline', onPress: () => editorRef.current?.tool('wordCount') },
           { text: 'Page setup…', icon: 'document-text-outline', section: 'Page', onPress: () => setPageSetupOpen(true) },
-          { text: 'Export PDF…', icon: 'download-outline', onPress: () => setExportOpen(true) },
+          { text: 'Export PDF…', icon: 'download-outline', onPress: () => setExportOpen('pdf') },
+          { text: 'Export Word…', icon: 'document-text-outline', onPress: () => setExportOpen('word') },
           ...(Platform.OS !== 'web'
             ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]
             : []),
@@ -691,6 +699,7 @@ export default function DocumentScreen() {
       {file && tabs && (
         <ExportPdfDialog
           visible={exportOpen}
+          format={exportFormat}
           onClose={() => setExportOpen(false)}
           title={file.title}
           tabs={tabs}

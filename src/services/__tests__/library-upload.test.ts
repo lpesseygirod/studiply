@@ -44,7 +44,7 @@ describe('which files are taken', () => {
   });
 
   it('refuses other files and PDFs over 50 MB, with a message', () => {
-    expect(checkUpload({ name: 'a.zip', mimeType: 'application/zip', sizeBytes: 10 })).toEqual({ ok: false, reason: 'Only PDFs and photos for now.' });
+    expect(checkUpload({ name: 'a.zip', mimeType: 'application/zip', sizeBytes: 10 })).toEqual({ ok: false, reason: 'Only PDFs, photos and Word files (.docx) for now.' });
     expect(checkUpload({ ...pdf, sizeBytes: MAX_PDF_BYTES + 1 })).toEqual({ ok: false, reason: 'PDFs can be at most 50 MB.' });
     expect(checkUpload(pdf)).toEqual({ ok: true, kind: 'pdf' });
   });
@@ -96,7 +96,7 @@ describe('uploadLibraryFile on the laptop', () => {
   });
 
   it('nothing is sent for a refused file, without a place, or offline', async () => {
-    await expect(uploadLibraryFile(here, { ...pdf, name: 'a.zip', mimeType: 'application/zip' })).rejects.toThrow('Only PDFs and photos');
+    await expect(uploadLibraryFile(here, { ...pdf, name: 'a.zip', mimeType: 'application/zip' })).rejects.toThrow('Only PDFs, photos and Word files');
     await expect(uploadLibraryFile({ courseId: null, folderId: null }, pdf)).rejects.toThrow('Open a course or folder first.');
     reportFailure();
     reportFailure();

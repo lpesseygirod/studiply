@@ -6,6 +6,9 @@ import { boot, sendMessage } from '@10play/tentap-editor/src/web/runtime.ts';
 import { studiplyBridges } from '../src/editor/bridges';
 import { PHOTO_NEED } from '../src/editor/bridges/photo';
 import { buildPrint } from '../src/editor/export/printPages';
+import { makePictures } from '../src/editor/export/pictures';
+import { wordHtmlToDoc } from '../src/editor/export/wordImport';
+import { flattenOnWhite } from '../src/editor/export/flatten';
 import { setPhotoResolver } from '../src/editor/media/photoSource';
 import { PHOTO_CLASS } from '../src/editor/schema/photo';
 
@@ -15,10 +18,17 @@ declare global {
     studiplyEditor?: ReturnType<typeof useTenTap>;
     /** The PDF export's pages (step 4.8a, the export bridge's), for the Chrome check (export.mjs). */
     studiplyBuildPrint?: typeof buildPrint;
+    /** The Word export's pictures and import (step 4.8b, the export bridge's), for the Chrome check (docx.mjs). */
+    studiplyDrawPictures?: typeof makePictures;
+    studiplyImportHtml?: typeof wordHtmlToDoc;
+    studiplyFlatten?: typeof flattenOnWhite;
   }
 }
 
 window.studiplyBuildPrint = buildPrint;
+window.studiplyDrawPictures = makePictures;
+window.studiplyImportHtml = wordHtmlToDoc;
+window.studiplyFlatten = flattenOnWhite;
 
 // Photos (`media:<id>`): native has them (the phone's copy, or a signed
 // link) and answers through the photo bridge.

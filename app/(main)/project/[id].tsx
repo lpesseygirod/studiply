@@ -70,6 +70,7 @@ import { useLibraryUpdates } from '../../../src/lib/cache';
 import { withProjectRoot } from '../../../src/utils/breadcrumbs';
 import { useShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { newDocumentIn } from '../../../src/utils/newDocument';
+import { DOCX_MIME } from '../../../src/utils/fileNames';
 import { LibraryGrid, type NameEditing } from '../../../src/components/library/LibraryGrid';
 import { LibraryHeader, showSortMenu } from '../../../src/components/library/LibraryHeader';
 import { getCourseContents, markOpened } from '../../../src/services/shelf.service';
@@ -223,7 +224,7 @@ export default function ProjectDetailScreen() {
   });
   useShellCommand('cut', () => clipSelected('cut'));
   useShellCommand('copy', () => clipSelected('copy'));
-  // The New menu's "Upload photo or PDF".
+  // The New menu's "Upload photo or PDF" (Word files too, step 4.8b).
   useShellCommand('upload', () => chooseUpload());
 
   // The laptop shell: Record lecture preselects this course and folder;
@@ -587,12 +588,12 @@ export default function ProjectDetailScreen() {
     }
   };
 
-  /** PDFs (iPhone: from Files); on the laptop one picker for PDFs and images. */
+  /** PDFs and Word files (iPhone: from Files); on the laptop one picker for PDFs, Word files and images. */
   const handlePickDocuments = async () => {
     if (!id) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: Platform.OS === 'web' ? ['application/pdf', 'image/*'] : 'application/pdf',
+        type: Platform.OS === 'web' ? ['application/pdf', 'image/*', DOCX_MIME, '.docx'] : ['application/pdf', DOCX_MIME],
         multiple: true,
         copyToCacheDirectory: true,
       });
@@ -691,7 +692,7 @@ export default function ProjectDetailScreen() {
     showActionSheet(currentCrumb?.name, emptySpaceActions(Platform.OS !== 'web').map(button), { anchor });
   }
 
-  /** Laptop: one file picker (PDFs and images). iPhone: Photos, PDF (Files) or Take photo. */
+  /** Laptop: one file picker (PDFs, Word files and images). iPhone: Photos, PDF or Word (Files) or Take photo. */
   function chooseUpload() {
     if (Platform.OS === 'web') {
       handlePickDocuments();
@@ -699,7 +700,7 @@ export default function ProjectDetailScreen() {
     }
     showActionSheet(`Upload to ${herePlace().label}`, [
       { text: 'Photos', onPress: handlePickPhotos },
-      { text: 'PDF (Files)', onPress: handlePickDocuments },
+      { text: 'PDF or Word (Files)', onPress: handlePickDocuments },
       { text: 'Take photo', onPress: handleTakePhoto },
     ]);
   }
@@ -865,6 +866,8 @@ export default function ProjectDetailScreen() {
       )}
 
       {move.modal}
+      {/* iPhone: the export WebView while a Word file is read (step 4.8b). */}
+      {uploader.renderer}
 
 
       {/* ── Photo preview modal ───────────────────────────────── */}

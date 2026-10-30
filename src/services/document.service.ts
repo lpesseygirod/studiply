@@ -167,6 +167,8 @@ export interface CreateDocumentParams {
   courseId: string | null;
   folderId: string | null;
   title?: string;
+  /** Its first content (a Word file imported, step 4.8b); else one empty line. */
+  content?: DocJSON;
 }
 
 interface CreateDocumentPayload {
@@ -174,11 +176,11 @@ interface CreateDocumentPayload {
   document: Pick<DocumentRow, 'id' | 'file_id' | 'tab' | 'content' | 'page_setup'>;
 }
 
-/** A blank document ("Untitled document", one empty page); returns its file id. */
+/** A blank document ("Untitled document", one empty page), or one with `content`; returns its file id. */
 export async function createDocument(params: CreateDocumentParams): Promise<string> {
   const payload: CreateDocumentPayload = {
     file: { id: newId(), title: cleanName(params.title ?? UNTITLED_DOCUMENT), course_id: params.courseId, folder_id: params.folderId },
-    document: { id: newId(), file_id: '', tab: 'notes', content: blankDoc() as unknown as NonNullable<Json>, page_setup: null },
+    document: { id: newId(), file_id: '', tab: 'notes', content: (params.content ?? blankDoc()) as unknown as NonNullable<Json>, page_setup: null },
   };
   // The account's default page setup (Page setup's "Set as default"), if there is one.
   const setup = await loadDefaultPageSetup().catch(() => null);

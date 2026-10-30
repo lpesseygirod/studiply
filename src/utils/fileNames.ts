@@ -44,16 +44,28 @@ export function withExtension(name: string, ext: string): string {
 
 const MAX_PDF_NAME = 100;
 
+/** A Word file's type (.docx; step 4.8b). */
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
 /**
  * A file name for an exported note: characters that file systems refuse
  * become spaces, at most 100 characters, "Studiply notes" when nothing is left.
  */
 export function pdfFileName(title: string): string {
+  return `${exportBaseName(title)}.pdf`;
+}
+
+/** The same for a Word export (step 4.8b): "Tema 1.docx". */
+export function docxFileName(title: string): string {
+  return `${exportBaseName(title)}.docx`;
+}
+
+function exportBaseName(title: string): string {
   const cleaned = title
     .replace(/[/\\:*?"<>|\u0000-\u001f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_PDF_NAME)
     .trim();
-  return `${cleaned || 'Studiply notes'}.pdf`;
+  return cleaned || 'Studiply notes';
 }

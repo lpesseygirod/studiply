@@ -63,7 +63,7 @@ export type UploadCheck = { ok: true; kind: UploadKind } | { ok: false; reason: 
 /** Whether it can be uploaded, or why not (shown to the student). */
 export function checkUpload(file: Pick<PickedFile, 'name' | 'mimeType' | 'sizeBytes'>): UploadCheck {
   const kind = uploadKindOf(file);
-  if (!kind) return { ok: false, reason: 'Only PDFs and photos for now.' };
+  if (!kind) return { ok: false, reason: 'Only PDFs, photos and Word files (.docx) for now.' };
   if (kind === 'pdf' && (file.sizeBytes ?? 0) > MAX_PDF_BYTES) return { ok: false, reason: 'PDFs can be at most 50 MB.' };
   return { ok: true, kind };
 }

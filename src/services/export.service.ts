@@ -3,14 +3,21 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { generateNoteHTML } from '../utils/pdf-template';
-import { pdfFileName } from '../utils/fileNames';
+import { DOCX_MIME, docxFileName, pdfFileName } from '../utils/fileNames';
 import type { Note, Session, Transcript } from '../types/database';
 import type { PrintOptions, PrintResult, PrintTab } from '../editor/export/printPages';
+import type { WordOptions } from '../editor/export/docxBuild';
+import { drawRequests, photoRequests, pictureRequests, textWidthPx, type DrawRequest } from '../editor/export/docxPictures';
+import type { DrawnPictures } from '../editor/bridges/export';
+import { drawWordPictures } from './word-drawings';
+import { loadWordPhotos } from './word-photos';
 
 declare global {
   interface Window {
     /** The laptop's last print document (the PDF export), for the Chrome check (export.mjs). */
     studiplyPrint?: { title: string; html: string; pages: number };
+    /** The laptop's last Word file (step 4.8b), for the Chrome check (docx.mjs). */
+    studiplyDocx?: { title: string; fileName: string; blob: Blob; missing: number; reasons: string[] };
   }
 }
 
@@ -77,6 +84,68 @@ export async function exportDocumentPdf(params: {
     base64: false,
   });
   await shareNamedPdf(uri, fileName, `Export: ${title}`);
+}
+
+// -------------------------------------------------------------------
+// exportDocumentWord (step 4.8b)
+// A document's tabs as a .docx (editor/export/docxBuild.ts) with the page
+// setup. Formulas and graphs go in as pictures the editor draws (laptop: in
+// the page; iPhone: `draw` is the PdfRenderer's, the editor bundle in a
+// WebView), photos as their files. Laptop: the file downloads; iPhone: it
+// is written to the cache and the share sheet opens. Returns how many
+// pictures couldn't be put in (a formula's LaTeX is there instead, a photo
+// is left out).
+// -------------------------------------------------------------------
+export async function exportDocumentWord(params: {
+  title: string;
+  tabs: PrintTab[];
+  options: Omit<WordOptions, 'title'>;
+  draw?: (requests: DrawRequest[]) => Promise<DrawnPictures>;
+}): Promise<{ missing: number }> {
+  const { title, tabs, options, draw } = params;
+  const fileName = docxFileName(title);
+  // Loaded only now: the docx library is big.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { buildDocx } = require('../editor/export/docxBuild') as typeof import('../editor/export/docxBuild');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Packer } = require('docx') as typeof import('docx');
+  const requests = pictureRequests(
+    tabs.map((t) => t.content),
+    textWidthPx(options.setup),
+    options.language ?? null,
+  );
+
+  const drawn = await drawWordPictures(drawRequests(requests), draw);
+  const photos = await loadWordPhotos(photoRequests(requests));
+  const doc = buildDocx(tabs, { ...options, title }, [...drawn.pictures, ...photos.pictures]);
+  const missing = drawn.failed.length + photos.failed.length;
+  const reasons = [...(drawn.reasons ?? []), ...photos.failed.map(() => 'photo: not loaded')];
+  if (__DEV__ && reasons.length) console.warn('[export] pictures left out:', reasons.join('; '));
+
+  if (Platform.OS === 'web') {
+    const blob = new Blob([await Packer.toArrayBuffer(doc)], { type: DOCX_MIME });
+    window.studiplyDocx = { title, fileName, blob, missing, reasons };
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return { missing };
+  }
+
+  if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
+  const named = `${FileSystem.cacheDirectory}${fileName}`;
+  await FileSystem.writeAsStringAsync(named, await Packer.toBase64String(doc), { encoding: FileSystem.EncodingType.Base64 });
+  try {
+    await Sharing.shareAsync(named, { mimeType: DOCX_MIME, dialogTitle: `Export: ${title}`, UTI: 'org.openxmlformats.wordprocessingml.document' });
+  } finally {
+    await FileSystem.deleteAsync(named, { idempotent: true }).catch(() => {});
+  }
+  return { missing };
 }
 
 // -------------------------------------------------------------------

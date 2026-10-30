@@ -243,7 +243,7 @@ try {
     expect(media.lecture_id === null && media.storage_path.startsWith(`${user.id}/${pdfFile.id}/`), JSON.stringify(media));
     const listed = (await admin.storage.from('slides').list(`${user.id}/${pdfFile.id}`)).data;
     expect(listed?.length === 1, 'the PDF is not in Storage');
-    await b.waitText('Only PDFs and photos for now.', { exact: false, timeout: 5000 });
+    await b.waitText('Only PDFs, photos and Word files (.docx) for now.', { exact: false, timeout: 5000 });
     await b.shot('dnd-finder');
     await b.click('OK', { exact: true });
     expect((await admin.from('files').select('id').eq('user_id', user.id).ilike('title', '%.zip')).data.length === 0, 'the ZIP was added');

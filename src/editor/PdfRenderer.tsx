@@ -10,6 +10,12 @@ import { EMPTY_DOC } from './types';
 export interface PdfRendererHandle {
   /** The print document of the tabs, laid out in pages by the editor bundle (step 4.8a). */
   build: ExportBridgeInstance['buildPrint'];
+  /** Formulas and graphs as PNGs for the Word export (step 4.8b). */
+  drawPictures: ExportBridgeInstance['drawPictures'];
+  /** A Word file's page (mammoth's HTML) as a document (step 4.8b). */
+  importHtml: ExportBridgeInstance['importHtml'];
+  /** A picture that can be transparent, drawn on white (step 4.8b; PictureFlattenerHost). */
+  flattenPicture: ExportBridgeInstance['flattenPicture'];
 }
 
 /**
@@ -17,7 +23,9 @@ export interface PdfRendererHandle {
  * own, so the pages are laid out as the page view draws them, also from a
  * spreadsheet tab (which has no editor) and without touching the open one.
  * Mounted while "Preparing the PDF…" shows; a small view on screen (a
- * WebView off screen may not lay out or run its frames).
+ * WebView off screen may not lay out or run its frames). The Word export
+ * and import (step 4.8b) use it too: the pictures of formulas and graphs,
+ * and a Word file's page read into a document.
  */
 export const PdfRenderer = forwardRef<PdfRendererHandle>(function PdfRenderer(_props, ref) {
   const editor = useEditorBridge({ bridgeExtensions: studiplyBridges, customSource: editorHtml, initialContent: EMPTY_DOC, editable: false });
@@ -39,6 +47,18 @@ export const PdfRenderer = forwardRef<PdfRendererHandle>(function PdfRenderer(_p
       build: async (tabs, options, title) => {
         await ready.current?.promise;
         return (editor as unknown as ExportBridgeInstance).buildPrint(tabs, options, title);
+      },
+      drawPictures: async (requests) => {
+        await ready.current?.promise;
+        return (editor as unknown as ExportBridgeInstance).drawPictures(requests);
+      },
+      importHtml: async (html) => {
+        await ready.current?.promise;
+        return (editor as unknown as ExportBridgeInstance).importHtml(html);
+      },
+      flattenPicture: async (dataUrl) => {
+        await ready.current?.promise;
+        return (editor as unknown as ExportBridgeInstance).flattenPicture(dataUrl);
       },
     }),
     [editor],
