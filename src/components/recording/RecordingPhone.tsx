@@ -46,8 +46,11 @@ export function RecordingPhoneHeader({
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const live = useRecorder();
+  const flow = useRecordingFlow();
   const actions = useRecordingActions();
-  const paused = live.status === 'paused';
+  // After Stop (or Finish) until the parts are sent: no ❚❚ and no running clock (it reads 0:00 once stopped).
+  const saving = !!flow.saving || (live.status !== 'recording' && live.status !== 'paused');
+  const paused = !saving && live.status === 'paused';
   return (
     <View style={styles.header}>
       <View style={styles.headerRow}>
@@ -59,11 +62,9 @@ export function RecordingPhoneHeader({
         </Pressable>
         <View style={styles.timerRow}>
           {/* Pause (Lea, 30 Oct): beside the timer; ▶ goes on. */}
-          {!live.microphoneLost && (
+          {!live.microphoneLost && !saving && (
             <Pressable
               onPress={() => void (paused ? actions.resume() : actions.pause())}
-              disabled={live.status === 'stopping'}
-              aria-disabled={live.status === 'stopping'}
               style={({ pressed }) => [styles.round, pressed && styles.pressed]}
               accessibilityRole="button"
               accessibilityLabel={paused ? 'Resume recording' : 'Pause recording'}
@@ -72,13 +73,19 @@ export function RecordingPhoneHeader({
               <Ionicons name={paused ? 'play' : 'pause'} size={14} color={c.recordingStrip.text} />
             </Pressable>
           )}
-          <View style={styles.chip} accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}`} {...{ dataSet: { recording: 'timer' } }}>
-            <View style={[styles.dot, paused && styles.dotPaused]} />
-            <Text style={styles.chipText}>
-              {paused && !live.microphoneLost ? 'Paused ' : ''}
-              {clock(live.elapsedMs)}
-            </Text>
-          </View>
+          {saving ? (
+            <View style={styles.chip} accessibilityLabel="Saving the recording" {...{ dataSet: { recording: 'timer' } }}>
+              <Text style={styles.chipText}>Saving…</Text>
+            </View>
+          ) : (
+            <View style={styles.chip} accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}`} {...{ dataSet: { recording: 'timer' } }}>
+              <View style={[styles.dot, paused && styles.dotPaused]} />
+              <Text style={styles.chipText}>
+                {paused && !live.microphoneLost ? 'Paused ' : ''}
+                {clock(live.elapsedMs)}
+              </Text>
+            </View>
+          )}
           {menu}
         </View>
       </View>
@@ -90,7 +97,7 @@ export function RecordingPhoneHeader({
       <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
-      {live.microphoneLost ? (
+      {live.microphoneLost && !saving ? (
         <View style={styles.lost}>
           <Text style={styles.lostText}>Microphone disconnected</Text>
           <Pressable onPress={() => void actions.resume()} style={styles.resume} accessibilityRole="button" accessibilityLabel="Resume recording">
@@ -98,7 +105,7 @@ export function RecordingPhoneHeader({
           </Pressable>
         </View>
       ) : (
-        <View style={paused && styles.waveStill}>
+        <View style={(paused || saving) && styles.waveStill}>
           <Waveform levels={live.levels} color={c.recordingStrip.wave} height={22} bar={4} gap={4} />
         </View>
       )}

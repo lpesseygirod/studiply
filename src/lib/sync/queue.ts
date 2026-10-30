@@ -16,7 +16,9 @@
  *  - A failure that can't (refused, deleted on another device) marks the
  *    operation `failed` and keeps it, so nothing is silently lost. Later
  *    operations on the same key (e.g. the same lecture) wait behind it; the
- *    others carry on. The student can retry or discard it.
+ *    others carry on. The student can retry or discard it. An unexplained
+ *    error counts as one after five tries; the recording's lanes
+ *    (`persistent`) keep trying instead.
  *  - A new operation can be merged into the last waiting one of the same
  *    kind and key (two edits of the same note become one).
  *  - Handlers must be safe to run twice: an operation that reached the
@@ -135,6 +137,13 @@ export interface QueueDeps {
    * same time (development reloads can leave a second instance behind).
    */
   exclusive?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /**
+   * The recording's lanes: an unexplained error is tried again for ever (with the
+   * backoff), never marked failed; only a refusal is.
+   */
+  persistent?: boolean;
+  /** Longest wait between tries (default 5 minutes). */
+  maxBackoffMs?: number;
 }
 
 /** Errors that never reached a server, or say nothing about the change itself. */
@@ -146,9 +155,15 @@ export const DEFAULT_TIMEOUT_MS = 2 * 60_000;
 const NO_HANDLER_RETRY_MS = 5_000;
 /** Unexplained errors (not network, not HTTP) give up after this many tries. */
 const MAX_UNKNOWN_ATTEMPTS = 5;
+/**
+ * The iPhone's Keychain refusing a read while the phone is locked (the session
+ * saved "when unlocked"; errSecInteractionNotAllowed): fixes itself once unlocked.
+ */
+const KEYCHAIN_LOCKED = /User interaction is not allowed|errSecInteractionNotAllowed|-25308/;
 
 export function classify(err: unknown): FailureKind {
   if (err instanceof PermanentSyncError) return 'fail';
+  if (KEYCHAIN_LOCKED.test(err instanceof Error ? err.message : String(err))) return 'retry';
   const status = (err as { status?: unknown } | null)?.status;
   if (typeof status === 'number') {
     const step = nextStep(status);
@@ -267,7 +282,7 @@ export function createSyncQueue(deps: QueueDeps) {
         if (kind === 'refresh') kind = 'retry';
 
         const attempts = op.attempts + 1;
-        if (kind === 'fail' || (kind === 'unknown' && attempts >= MAX_UNKNOWN_ATTEMPTS)) {
+        if (kind === 'fail' || (kind === 'unknown' && !deps.persistent && attempts >= MAX_UNKNOWN_ATTEMPTS)) {
           const failed: SyncOp = { ...op, attempts, status: 'failed', lastError: message, nextAttemptAt: null };
           await deps.store.update(failed);
           emit({ type: 'failed', op: failed });
@@ -275,7 +290,8 @@ export function createSyncQueue(deps: QueueDeps) {
           return true;
         }
 
-        const wait = Math.min(MAX_BACKOFF_MS, backoffMs(attempts, random));
+        // The exponent is capped too: a persistent lane can count hundreds of tries.
+        const wait = Math.min(deps.maxBackoffMs ?? MAX_BACKOFF_MS, backoffMs(Math.min(attempts, 20), random));
         const next = now() + wait;
         await deps.store.update({ ...op, attempts, lastError: message, nextAttemptAt: new Date(next).toISOString() });
         emit({ type: 'changed' });

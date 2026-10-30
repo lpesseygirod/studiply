@@ -119,11 +119,21 @@ export const supabase = createClient<Database>(supabaseUrl, anonKey || 'missing-
   },
 });
 
+/** The session saved again as readable while the phone is locked (once; ./secureStorage). Unlocked only. */
+function upgradeKeychain() {
+  secureStorage.upgradeAll().catch((err) => console.warn('[auth] could not update the saved session’s Keychain setting', err instanceof Error ? err.message : err));
+}
+
 if (Platform.OS !== 'web') {
+  // At start, once Supabase has read the session (so its name is known).
+  if (AppState.currentState === 'active') {
+    supabase.auth.getSession().then(upgradeKeychain, () => {});
+  }
   AppState.addEventListener('change', (state) => {
     if (state === 'active') {
       probe().catch(() => {});
       supabase.auth.startAutoRefresh();
+      upgradeKeychain();
     } else {
       supabase.auth.stopAutoRefresh();
     }

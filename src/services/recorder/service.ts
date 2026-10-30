@@ -298,6 +298,10 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
         }
       }
 
+      // Jobs an older app gave up on (the Keychain locked, 30 Oct) go back in line; not waited for (that sends them).
+      for (const lane of [deps.uploads, deps.transcriptions]) {
+        lane.retryFailed().catch((err) => console.warn('[recorder] could not retry the waiting parts', err));
+      }
       // Whatever isn't sent yet goes (back) in the queue; finished recordings are forgotten after a day.
       const skip = { uploads: await queued('upload_chunk', deps.uploads), transcriptions: await queued('transcribe_chunk', deps.transcriptions) };
       for (const meta of await store.listRecordings()) {

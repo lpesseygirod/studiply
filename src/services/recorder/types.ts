@@ -127,6 +127,8 @@ export interface RecorderQueue {
   flush(options?: { now?: boolean }): Promise<void>;
   subscribe(fn: (e: SyncEvent) => void): () => void;
   list(): Promise<SyncOp[]>;
+  /** Puts failed jobs back in line (at the next start: the recording's audio is never given up). */
+  retryFailed(): Promise<void>;
 }
 
 /** What both queued jobs carry: the chunk itself stays in the store. */

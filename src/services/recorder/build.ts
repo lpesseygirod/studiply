@@ -10,6 +10,7 @@ import { isMockAiForced } from '../../lib/aiMode';
 import { getConnection, onBackOnline } from '../../lib/connectivity';
 import { callFunction } from '../../lib/functions';
 import { newId } from '../../lib/mappers';
+import { secureStorage } from '../../lib/secureStorage';
 import { supabase } from '../../lib/supabase';
 import { createSyncQueue, type QueueStore } from '../../lib/sync/queue';
 import { chunkOnServer } from '../source-file.service';
@@ -30,6 +31,9 @@ export interface PlatformParts {
   /** Also sends when this happens (the iPhone: back in the foreground). */
   onWake?: (send: () => void) => void;
 }
+
+/** Longest wait between tries of a part: a minute (a locked pocket, a bad connection). */
+const MAX_BACKOFF_MS = 60_000;
 
 async function transcribe(p: { lectureId: string; seq: number; storagePath: string; startMs: number; durationMs: number }): Promise<Segment[]> {
   // EXPO_PUBLIC_MOCK_AI (development): nothing is sent.
@@ -55,6 +59,9 @@ export function buildRecorder(parts: PlatformParts): RecorderService {
       newId,
       log: __DEV__ ? (message) => console.log(`[recorder ${name}] ${message}`) : undefined,
       exclusive: parts.exclusive?.(`studiply-recorder-${name}`),
+      // The audio is never given up on; waking, the connection or the session back sends at once (sendNow).
+      persistent: true,
+      maxBackoffMs: MAX_BACKOFF_MS,
     });
   const uploads = lane(
     'uploads',
@@ -77,11 +84,17 @@ export function buildRecorder(parts: PlatformParts): RecorderService {
     .then(({ data }) => setUser(data.session?.user.id ?? null))
     .catch(() => {});
   // Not inside the callback itself: Supabase calls made there wait for it.
-  supabase.auth.onAuthStateChange((_event, session) => {
-    setTimeout(() => setUser(session?.user.id ?? null), 0);
+  supabase.auth.onAuthStateChange((event, session) => {
+    setTimeout(() => {
+      setUser(session?.user.id ?? null);
+      // A new token after refreshing failed (the session unreadable while locked, offline).
+      if (event === 'TOKEN_REFRESHED' && session) sendNow();
+    }, 0);
   });
   onBackOnline(sendNow);
   parts.onWake?.(sendNow);
+  // The saved session readable again (the iPhone unlocked after a locked Keychain read failed).
+  secureStorage.onReadable(sendNow);
 
   return createRecorderService({
     store: parts.store,

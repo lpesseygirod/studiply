@@ -61,8 +61,9 @@ export function transcribeChunkHandler(deps: {
         });
         await deps.store.updateChunk(ref.lectureId, ref.seq, { segments });
       } catch (err) {
-        const kind = classify(err);
-        if (kind === 'retry' || kind === 'refresh') throw err;
+        // Tried again (the lane never gives up on these): a lost connection, an expired
+        // session, the Keychain while the phone is locked, an unexplained error.
+        if (classify(err) !== 'fail') throw err;
         // Refused (no consent, a file the service can't read): noted, and the next
         // chunks go on; the transcription after Stop tries this one again.
         await deps.store.updateChunk(ref.lectureId, ref.seq, { transcriptError: describeError(err) });

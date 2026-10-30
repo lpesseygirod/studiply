@@ -22,4 +22,12 @@ export const secureStorage = {
   async removeItem(name: string): Promise<void> {
     storage()?.removeItem(name);
   },
+
+  /** Nothing to upgrade: the iPhone's Keychain only (./secureStorage). */
+  async upgradeAll(): Promise<void> {},
+
+  /** localStorage is always readable. */
+  onReadable(_fn: () => void): () => void {
+    return () => {};
+  },
 };
