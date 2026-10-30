@@ -344,6 +344,10 @@ export default function DocumentScreen() {
           // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
           { text: 'Comments', icon: 'chatbox-ellipses-outline', section: 'Review', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
+          // Writing tools (step 4.7); on the laptop also ⌘F, ⌘⇧H and ⌘⌥A, and the word count's line under the page.
+          { text: 'Find and replace', icon: 'search-outline', section: 'Tools', onPress: () => editorRef.current?.tool('replace') },
+          { text: 'Outline', icon: 'list-outline', onPress: () => editorRef.current?.tool('outline') },
+          { text: 'Word count', icon: 'stats-chart-outline', onPress: () => editorRef.current?.tool('wordCount') },
           { text: 'Page setup…', icon: 'document-text-outline', section: 'Page', onPress: () => setPageSetupOpen(true) },
           ...(Platform.OS !== 'web'
             ? [{ text: phoneView?.pages ? 'Print layout ✓' : 'Print layout', icon: 'document-outline' as const, onPress: () => setPhoneView({ pages: !phoneView?.pages }) }]

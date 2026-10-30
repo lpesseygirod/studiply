@@ -31,7 +31,11 @@ export type StudiplyEditorHandle = {
   focus: () => void;
   /** Leaves the editor; on the iPhone this closes the keyboard. */
   blur: () => void;
+  /** Writing tools (step 4.7), from the document menu: the find bar (with Replace), the outline, the word count. */
+  tool: (which: WritingTool) => void;
 };
+
+export type WritingTool = 'find' | 'replace' | 'outline' | 'wordCount';
 
 export type StudiplyEditorProps = {
   initialContent?: DocJSON;

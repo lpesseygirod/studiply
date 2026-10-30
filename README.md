@@ -188,6 +188,13 @@ Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, s
 
 Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
 
+The writing tools (step 4.7) live in `src/editor/writing`, inside the shared editor, so both devices use the same code:
+- `find.ts` is the find & replace plugin: the matches, the highlights and the `find` format command. Replace all is one transaction.
+- `counts.ts` counts words and characters the way Google Docs does.
+- `outline.ts` lists the title and headings and finds the section the cursor is in.
+
+The counts and the outline travel in `formatState`, so the iPhone gets them over FormatBridge. A jump is the `outline` format command. ⌘F / ⌘⇧H / ⌘⌥A are FormatBridge shortcuts that send DOM events, which the laptop opens its tools on. The laptop's find bar is `editor/FindBar.web.tsx`; the status line and the outline column are in `StudiplyEditor.web.tsx`. The iPhone's tools are `editor/iphone/FindBar.tsx` and `OutlineSheet.tsx`. Both devices draw the outline with `components/editor/OutlineList.tsx`. The document menu opens a tool through the editor handle's `tool(...)`.
+
 ### Documents (step 4.3)
 
 A blank document is a `files` row of kind `document` with one `documents`

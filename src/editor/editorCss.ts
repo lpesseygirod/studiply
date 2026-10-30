@@ -53,6 +53,8 @@ ${pm} a { color: ${c.accentDark}; }
 ${pm} blockquote { border-left: 3px solid ${c.border}; margin: 0 0 0.6em; padding-left: 12px; color: ${c.text.secondary}; }
 ${pm} code { background: ${c.cardMuted}; border-radius: 4px; padding: 0 4px; }
 ${pm} mark { background: ${c.highlight}; color: inherit; }
+${pm} .studiply-find { background: ${c.found}; border-radius: 2px; }
+${pm} .studiply-find-current { box-shadow: 0 0 0 2px ${c.accent}; }
 ${pm} table { border-collapse: collapse; width: 100%; margin: 0.6em 0; table-layout: fixed; }
 ${pm} td, ${pm} th { border: 1px solid ${c.border}; padding: 6px 8px; vertical-align: top; }
 ${pm} th { background: ${c.cardMuted}; font-weight: 600; text-align: left; }

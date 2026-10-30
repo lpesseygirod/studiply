@@ -10,6 +10,7 @@ import { PasteRules } from '../paste/extension';
 import { PageBreak, ParagraphFormat, Title, TITLE } from '../schema/blocks';
 import { TypingShortcuts } from '../schema/typingShortcuts';
 import { PageView } from '../page/pageView';
+import { FIND_EVENT, FindReplace, OUTLINE_EVENT } from '../writing/find';
 
 /**
  * Step 4.4's formatting in the shared schema: Title, page breaks, line
@@ -39,6 +40,10 @@ export const FormatShortcuts = Extension.create({
       'Mod-\\': () => runFormat(this.editor, { type: 'clear' }),
       // ⌘K: the screen opens its link dialog (the laptop's toolbar listens).
       'Mod-k': () => this.editor.view.dom.dispatchEvent(new CustomEvent(LINK_EVENT, { bubbles: true })),
+      // Writing tools (step 4.7): ⌘F find, ⌘⇧H find and replace, ⌘⌥A the outline (the laptop's bar and outline listen).
+      'Mod-f': () => this.editor.view.dom.dispatchEvent(new CustomEvent(FIND_EVENT, { bubbles: true, detail: { replace: false } })),
+      'Mod-Shift-h': () => this.editor.view.dom.dispatchEvent(new CustomEvent(FIND_EVENT, { bubbles: true, detail: { replace: true } })),
+      'Mod-Alt-a': () => this.editor.view.dom.dispatchEvent(new CustomEvent(OUTLINE_EVENT, { bubbles: true })),
     };
   },
 });
@@ -57,6 +62,8 @@ export const FormatBridge = new BridgeExtension<FormatBridgeState, FormatBridgeI
     TypingShortcuts,
     // Pages and zoom (step 4.5b); each device sets them from its own preferences.
     PageView,
+    // Find & replace's matches and highlights (step 4.7).
+    FindReplace,
     PasteRules,
     Title,
     PageBreak,

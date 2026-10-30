@@ -36,6 +36,9 @@ import { newId } from '../lib/mappers';
 import type { CommentInfo } from './schema/comments';
 import { MarkSheet, type MarkDraft } from './iphone/MarkSheet';
 import { GraphSheet } from './iphone/GraphSheet';
+import { FindBar } from './iphone/FindBar';
+import { OutlineSheet } from './iphone/OutlineSheet';
+import type { Counts } from './writing/counts';
 import { cleanLang, LANG_EVENT } from './schema/graph';
 import type { GraphData } from './graph/data';
 import { CALLOUT_KINDS, type CalloutKind } from './schema/callout';
@@ -442,9 +445,20 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       comment: (cmd) => run(cmd),
       focus: () => editor.focus(),
       blur: () => editor.blur(),
+      tool: (which) => {
+        if (which === 'find' || which === 'replace') {
+          editor.blur();
+          setFind({ replace: which === 'replace' });
+        } else if (which === 'outline') setOutlineOpen(true);
+        else showWordCount(stateRef.current.format?.counts ?? null);
+      },
     }),
     [editor, run],
   );
+
+  // Writing tools (step 4.7), from the document menu: the find bar over the text, the outline sheet, the word count.
+  const [find, setFind] = useState<{ replace: boolean } | null>(null);
+  const [outlineOpen, setOutlineOpen] = useState(false);
 
   useEffect(() => {
     if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
@@ -520,6 +534,9 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     <EditorKeyboardAvoidingView style={styles.container}>
       {/* The title and meta line make room for the text while typing. */}
       {!typing && header}
+      {find && editable && (
+        <FindBar state={state.format?.find ?? null} run={run} replace={find.replace} onReplace={(on) => setFind({ replace: on })} onClose={() => setFind(null)} />
+      )}
       <View style={styles.container}>
         {/* Print layout (step 4.5b): a transparent WebView, so the screen's gradient shows around and between the pages. */}
         <RichText editor={editor} style={view?.pages ? CLEAR_WEBVIEW : undefined} />
@@ -565,11 +582,21 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       />
       <GraphSheet draft={graphDraft} onChange={changeGraph} onDone={() => closeGraph('done')} onDelete={() => closeGraph('delete')} />
       <FormulaSheet draft={formula} onChange={changeFormula} onDone={() => closeFormula('done')} onRemove={() => closeFormula('remove')} onLibrary={pickLibraryFormula} />
+      <OutlineSheet visible={outlineOpen} outline={state.format?.outline ?? null} onClose={() => setOutlineOpen(false)} onPick={(h) => run({ type: 'outline', pos: h.pos })} />
     </EditorKeyboardAvoidingView>
   );
 });
 
 export default StudiplyEditor;
+
+/** The document menu's Word count (step 4.7): the whole document, and the selection when there is one. */
+function showWordCount(c: Counts | null) {
+  if (!c) return;
+  const n = (x: number) => x.toLocaleString('en-GB');
+  const lines = [`Words: ${n(c.words)}`, `Characters: ${n(c.characters)}`, `Characters without spaces: ${n(c.charactersNoSpaces)}`];
+  if (c.selection) lines.push('', `Selected: ${n(c.selection.words)} words, ${n(c.selection.characters)} characters`);
+  showAlert('Word count', lines.join('\n'));
+}
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({

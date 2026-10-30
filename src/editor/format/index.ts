@@ -18,6 +18,10 @@ import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/grap
 import { markChipKey, selectedMarkChip, type MarkChipRequest, type MarkKind as ChipKind } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
+import { TextSelection } from '@tiptap/pm/state';
+import { findState, runFind, type FindCommand, type FindState } from '../writing/find';
+import { counts, type Counts } from '../writing/counts';
+import { outline, type Outline } from '../writing/outline';
 
 export { cleanUrl } from './links';
 
@@ -117,6 +121,10 @@ export interface FormatState {
   graphRequest: GraphRequest | null;
   /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
   view: { pages: boolean; zoom: number; pageCount: number };
+  /** Writing tools (step 4.7): what is searched and how many matches; the word and character count; the outline. */
+  find: FindState | null;
+  counts: Counts;
+  outline: Outline;
 }
 
 export type FormatCommand =
@@ -181,7 +189,11 @@ export type FormatCommand =
   | { type: 'comment'; action: 'add'; id: string; text: string }
   | { type: 'comment'; action: 'edit'; id: string; text: string }
   | { type: 'comment'; action: 'resolve'; id: string; resolved: boolean }
-  | { type: 'comment'; action: 'delete' | 'select'; id: string };
+  | { type: 'comment'; action: 'delete' | 'select'; id: string }
+  /** Find & replace (step 4.7, writing/find.ts). */
+  | FindCommand
+  /** The outline (step 4.7): jump to the heading starting at `pos`. */
+  | { type: 'outline'; pos: number };
 
 export type TableAction =
   | 'insert'
@@ -263,6 +275,9 @@ export function formatState(editor: Editor): FormatState {
     graph: selectedGraph(editor.state)?.data ?? null,
     graphRequest: graphRequestOf(editor.state),
     view: viewOf(editor),
+    find: findState(editor.state),
+    counts: counts(editor.state),
+    outline: outline(editor.state),
   };
 }
 
@@ -520,5 +535,14 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
         case 'select':
           return chain().selectComment(cmd.id).run();
       }
+    // Find & replace (step 4.7): the find box keeps the keyboard focus (no focusing the text).
+    case 'find':
+      return runFind(editor, cmd);
+    // The outline (step 4.7): the cursor at the start of the heading, scrolled into view.
+    case 'outline': {
+      const pos = Math.min(cmd.pos + 1, editor.state.doc.content.size);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos))).scrollIntoView());
+      return true;
+    }
   }
 }
