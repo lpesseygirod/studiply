@@ -1,5 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { anchorBelow } from '../dialogs/dialogs';
+import { useConnectivity } from '../../lib/connectivity';
+import { closeWebcam, PHOTO_OFFLINE_NOTE, photoBoardUsable, useWebcam } from './boardPhoto';
+import { startBoardPhoto } from './photoBoard';
+import { WebcamPanel } from './WebcamPanel';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
@@ -16,7 +23,8 @@ import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel } from './mark
  * top bar on every screen while a lecture records, so leaving the lecture
  * never stops it. "● Recording · 34:12" (back to the lecture), the live
  * waveform, the mark buttons (step 5.5: each opens its panel inline under
- * the strip), Photo board (disabled until 5.6) and Stop & summarize. After
+ * the strip), Photo board (step 5.6: webcam or files; greyed out offline)
+ * and Stop & summarize. After
  * Stop it says what is still being sent; a recording the page lost offers
  * Continue and Finish.
  */
@@ -27,6 +35,9 @@ export function RecordingStrip() {
   const flow = useRecordingFlow();
   const actions = useRecordingActions();
   const draft = useMarkPanel();
+  const webcam = useWebcam();
+  const connection = useConnectivity();
+  const photoButton = useRef<View>(null);
 
   if (flow.saving) {
     return (
@@ -62,6 +73,9 @@ export function RecordingStrip() {
   const lectureId = live.lectureId!;
   const paused = live.status === 'paused';
   const markable = live.status === 'recording' || live.status === 'paused';
+  const web = Platform.OS === 'web';
+  const photoUsable = photoBoardUsable({ web, online: connection !== 'offline', recording: markable });
+  const photoOffline = web && markable && connection === 'offline';
   return (
     <View>
     <View style={styles.strip} {...{ dataSet: { recording: 'strip' } }}>
@@ -121,17 +135,20 @@ export function RecordingStrip() {
           <Text style={[styles.markText, { color: c.markButton[b.kind].text }]}>{b.text}</Text>
         </Pressable>
       ))}
-      {/* Board photos (5.6) come next: shown, disabled. */}
-      <Pressable
-        disabled
-        aria-disabled
-        style={[styles.pill, styles.quiet]}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
-        accessibilityLabel="Photo board"
-      >
-        <Text style={styles.quietText}>Photo board</Text>
-      </Pressable>
+      {/* Board photos (step 5.6): webcam or files, at this moment; online only on the laptop (greyed out offline). */}
+      <View ref={photoButton} collapsable={false}>
+        <Pressable
+          onPress={() => void anchorBelow(photoButton).then((anchor) => startBoardPhoto(anchor))}
+          disabled={!photoUsable}
+          aria-disabled={!photoUsable}
+          style={({ pressed }) => [styles.pill, photoUsable ? styles.plain : styles.quiet, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !photoUsable }}
+          accessibilityLabel="Photo board"
+        >
+          <Text style={photoUsable ? styles.plainText : styles.quietText}>Photo board</Text>
+        </Pressable>
+      </View>
       <Pressable
         onPress={() => void actions.stop()}
         disabled={live.status === 'stopping'}
@@ -143,10 +160,22 @@ export function RecordingStrip() {
         <Text style={styles.stopText}>Stop & summarize</Text>
       </Pressable>
     </View>
+      {photoOffline && (
+        <View style={styles.noteRow} {...{ dataSet: { photo: 'offline' } }}>
+          <Text style={styles.noteText}>{PHOTO_OFFLINE_NOTE}</Text>
+        </View>
+      )}
       {draft && draft.lectureId === lectureId && markable && (
         <View style={styles.panelRow}>
           <View style={styles.panel}>
             <MarkPanel kind={draft.kind} ms={draft.ms} onSave={(level, note) => void saveNewMark(draft, level, note)} onCancel={closeMarkPanel} />
+          </View>
+        </View>
+      )}
+      {webcam && webcam.lectureId === lectureId && markable && (
+        <View style={styles.panelRow}>
+          <View style={styles.panel}>
+            <WebcamPanel moment={webcam} onClose={closeWebcam} />
           </View>
         </View>
       )}
@@ -199,6 +228,9 @@ const makeStyles = (c: ThemeColors) =>
     // The mark panel, inline under the strip at the buttons' side (it pushes the page down, never covers it).
     panelRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: c.recordingStrip.bg, borderBottomWidth: 1, borderBottomColor: c.recordingStrip.border },
     panel: { width: 460, maxWidth: '100%', padding: 16, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
+    // The laptop offline: why Photo board is greyed out (step 5.6), a slim line under the strip.
+    noteRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingVertical: 6, backgroundColor: c.recordingStrip.bg, borderBottomWidth: 1, borderBottomColor: c.recordingStrip.border },
+    noteText: { fontSize: Typography.size.xs, fontWeight: Typography.weight.medium, color: c.recordingStrip.text },
     plain: { backgroundColor: c.white, borderColor: c.border },
     plainText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.primary },
     stop: { backgroundColor: c.black, borderColor: c.black },

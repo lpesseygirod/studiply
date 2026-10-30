@@ -23,6 +23,7 @@
     "jest.config.js",
     "android",
     "ios",
-    "supabase/functions"
+    "supabase/functions",
+    "_to_delete"
   ]
 }

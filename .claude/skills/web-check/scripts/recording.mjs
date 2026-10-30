@@ -12,8 +12,8 @@
 //      + New folder makes "Tema 3" in the course and selects it;
 //   2. Start: the lecture is made in Math › Tema 3 with status "recording",
 //      its My notes opens, the red strip shows the timer (moving) and the
-//      waveform; Important · Confused · Exam are usable (step 5.5; marks.mjs
-//      checks them), Photo board is shown greyed out;
+//      waveform; Important · Confused · Exam (step 5.5; marks.mjs checks
+//      them) and Photo board (5.6; photos-live.mjs) are usable;
 //   3. leaving never stops it: the course page and another document, the strip
 //      on each, the timer going on, chunks uploaded meanwhile; the strip leads
 //      back to the lecture;
@@ -34,8 +34,7 @@
 //      upload blocked): on the next load it is handed off in the background,
 //      "transcribing" with its length, nothing shown;
 //   9. no paid request.
-// Also: Photo board (and ✦ Ask) are truly disabled (aria-disabled), the marks
-// are not (step 5.5).
+// Also: ✦ Ask is truly disabled (aria-disabled) until Phase 6; the marks and Photo are not.
 // Screenshots (each after the splash): rec-setup-folders-1280(-dark),
 // rec-setup-1280, rec-setup-folders-390(-dark), rec-strip-lecture-1280,
 // rec-strip-course-1280(-dark), rec-strip-other-doc-1280, rec-mic-lost-1280,
@@ -229,7 +228,7 @@ try {
     await b.resize(1280, 900);
   });
 
-  await step('Start: the lecture in Math › Tema 3, "recording"; My notes opens with the red strip (timer moving, waveform, the marks usable, Photo board greyed out)', async () => {
+  await step('Start: the lecture in Math › Tema 3, "recording"; My notes opens with the red strip (timer moving, waveform, the marks and Photo board usable)', async () => {
     await b.clickSelector('[aria-label="Start recording"]');
     await waitFor(async () => (await path()).startsWith('/doc/'), async () => `the lecture opened (at ${await path()})`, 20000);
     const row = await waitFor(lectureRow, 'the lecture row', 10000);
@@ -243,14 +242,9 @@ try {
     const t1 = await timer();
     expect(t1 > t0, `the timer doesn't move: ${t0} → ${t1}`);
     expect(await has('[data-recording="waveform"]'), 'no waveform');
-    // The marks are usable since step 5.5 (marks.mjs checks them); Photo board comes with 5.6.
-    for (const label of ['Important', 'Confused', 'Exam']) expect(!(await disabled(label)), `${label} is greyed out (usable since step 5.5)`);
-    expect(await disabled('Photo board'), 'Photo board is not greyed out');
+    // The marks (step 5.5, marks.mjs) and Photo board (5.6, photos-live.mjs) are usable.
+    for (const label of ['Important', 'Confused', 'Exam', 'Photo board']) expect(!(await disabled(label)), `${label} is greyed out`);
     expect(!(await disabled('Stop and summarize')), 'Stop & summarize is not usable');
-    // A click on Photo board does nothing (no panel, still recording).
-    await b.clickSelector('[aria-label="Photo board"]');
-    await b.sleep(400);
-    expect(await has('[data-recording="strip"]') && !(await has('[data-mark="panel"]')), 'the disabled Photo board reacted');
     await shot('rec-strip-lecture-1280');
   });
 
@@ -346,8 +340,8 @@ try {
     expect(!(await has('[data-recording="strip"]')), 'the laptop strip at 390 px');
     expect(await timer(), 'no timer chip');
     expect(await has('[data-recording="waveform"]'), 'no waveform');
-    for (const label of ['Important', 'Confused', 'Exam']) expect(!(await disabled(label)), `${label} is greyed out (usable since step 5.5)`);
-    for (const label of ['Photo', 'Ask the study assistant']) expect(await disabled(label), `${label} is not greyed out`);
+    for (const label of ['Important', 'Confused', 'Exam', 'Photo']) expect(!(await disabled(label)), `${label} is greyed out`);
+    expect(await disabled('Ask the study assistant'), '✦ Ask is not greyed out (Phase 6)');
     expect(await b.hasText('Math › Tema 3', true), 'no Course › folder');
     // As outside a recording (Lea, 30 Oct): the document's tabs, its formatting toolbar and its status line; no "MY NOTES" card.
     // At 390 px the toolbar is the compact one: Undo, Redo, the style ("Normal text") and ▾ (More tools, where Bold is).

@@ -9,6 +9,28 @@ screen). Build first:
 
 Keep Metro's log for both lists.
 
+## First, on Lea's iPhone: the camera during a recording (step 5.6, the riskiest)
+
+The recording must never stop because a photo is taken (CLAUDE.md). iOS's camera screen
+runs its own capture session while Studiply records; this is the one thing the web can't check.
+Needs `npm run editor:build` and the EAS development build.
+
+1. Start a recording; write a line in My notes; wait 40 s (one chunk joins).
+2. Tap **Photo**:
+   - the first time, iOS asks for the camera with "Studiply needs camera access to take photos of whiteboards and slides.";
+   - take a photo of a board (or anything) and **Use Photo**.
+3. **The recording goes on:** the timer kept running the whole time the camera was open, with no "Microphone disconnected" and no pause.
+   - Metro's log has no `[recorder]` warning.
+   - After Stop, `audio_chunks` in Supabase Studio has no gap around the photo's time.
+   - Best: do this inside the 15-minute join test (`INSTRUCTIONS.md`); `joins.mjs` then shows no clicks missed around it.
+4. **The photo:** a thumbnail on a line of its own right after the line being written, starting with the time of the tap. In Supabase Studio, `media` has a row with `lecture_id` and `t_ms`.
+5. **Twice more:**
+   - with the keyboard down (the photo goes on a new last line);
+   - in Airplane mode (the thumbnail shows at once; the row and the file arrive once online).
+6. **Camera refused** (Settings › Studiply › Camera off): Photo shows "Camera Access Needed … Open Settings", and the recording goes on.
+
+If step 3 fails (the recording pauses or a gap shows), stop testing photos and tell Lea's advisor: the fallback is `expo-camera`, which is a new dependency and needs her OK.
+
 ## iOS Simulator (EAS simulator build)
 
 1. **First recording:** New recording asks for the microphone with "Studiply needs microphone access to record lectures."

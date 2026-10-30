@@ -29,7 +29,7 @@ import { saveLabel, useDocumentSync } from '../../../src/hooks/useDocumentSync';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecorder';
-import { registerMarkTarget } from '../../../src/services/mark-placement';
+import { registerMomentTarget } from '../../../src/services/moment-placement';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
@@ -267,14 +267,19 @@ export default function DocumentScreen() {
     editorReady: showEditor && readyKey === editorKey,
   });
   const status = showEditor ? saveLabel(sync.state) : null;
-  // Marks made while recording (step 5.5) go into this lecture's My notes through its editor while it is
-  // on screen here (not while another screen is in front of it: then they're saved as a new last line).
-  const marksHere = isLecture && tab === 'notes' && !isSheet && showEditor && readyKey === editorKey;
+  // Marks (step 5.5) and board photos (5.6) made while recording go into this lecture's My notes through its
+  // editor while it is on screen here (not while another screen is in front of it: then they're saved as a new last line).
+  const momentsHere = isLecture && tab === 'notes' && !isSheet && showEditor && readyKey === editorKey;
   useFocusEffect(
     useCallback(() => {
-      if (!marksHere || !id) return;
-      return registerMarkTarget(id, { place: (mark) => editorRef.current?.run({ type: 'markChip', action: 'place', mark }) });
-    }, [marksHere, id]),
+      if (!momentsHere || !id) return;
+      return registerMomentTarget(id, {
+        place: (item) =>
+          editorRef.current?.run(
+            item.kind === 'mark' ? { type: 'markChip', action: 'place', mark: item.mark } : { type: 'photoLine', mediaId: item.mediaId, ms: item.ms },
+          ),
+      });
+    }, [momentsHere, id]),
   );
 
   const rename = useCallback(

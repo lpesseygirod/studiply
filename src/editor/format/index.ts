@@ -15,6 +15,7 @@ import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '..
 import { formulaEntry } from '../formulas/library';
 import type { GraphData } from '../graph/data';
 import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/graph';
+import { mediaSrc } from '../media/photoSource';
 import { markChipKey, selectedMarkChip, type LinkedMark, type MarkChipRequest, type MarkKind as ChipKind, type MarkPlace } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
 import { DEFAULT_SIZE, fontOf, FONTS, sizeOf, stepSize, type FontChoice } from '../schema/fonts';
@@ -168,6 +169,8 @@ export type FormatCommand =
   | { type: 'markChip'; action: 'delete' }
   /** A mark made while recording (step 5.5): on the line being written, or a new stamped last line; `at`: back where it was. */
   | { type: 'markChip'; action: 'place'; mark: LinkedMark; at?: MarkPlace }
+  /** A board photo taken while recording (step 5.6): a thumbnail on a stamped line of its own. */
+  | { type: 'photoLine'; mediaId: string; ms: number }
   /** Graphs (step 4.7d): a new one (selected, its form asked for), the selected one's data, or delete it. */
   | { type: 'graph'; action: 'insert' }
   | { type: 'graph'; action: 'set'; graph: GraphData }
@@ -512,6 +515,9 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().deleteMarkChip().run();
     case 'timestamp':
       return chain().insertTimestampChip(cmd.ms).run();
+    case 'photoLine':
+      // Not focusing the text: the student pressed Photo, maybe away from the editor.
+      return editor.chain().placePhotoLine(mediaSrc(cmd.mediaId), cmd.ms).run();
     case 'view': {
       // Not focusing the text: it only changes how the document is shown.
       let c = editor.chain();

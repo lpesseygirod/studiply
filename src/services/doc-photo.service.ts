@@ -18,6 +18,10 @@
  * Removing a photo from the text keeps its file (undo and version history
  * can bring it back); the files go when the document is deleted (the trash
  * purge removes a purged file's media objects).
+ *
+ * A board photo (step 5.6) is the same, taken while recording into the
+ * lecture's My notes: its row also has `lecture_id` (the lecture is the
+ * document) and `t_ms` (the recording time it was taken at).
  */
 
 import { Platform } from 'react-native';
@@ -45,7 +49,13 @@ interface DocPhotoPayload {
   mediaId: string;
   /** The JPEG on this iPhone (pending-uploads/<fileId>/<mediaId>.jpg). */
   uri: string;
+  /** A board photo taken while recording (step 5.6): its lecture (the document itself) and recording time. */
+  lectureId?: string | null;
+  tMs?: number | null;
 }
+
+/** The row's lecture and time: a board photo's, or none (a photo put in a document). */
+const momentOf = (p: DocPhotoPayload) => ({ lecture_id: p.lectureId ?? null, t_ms: p.tMs ?? null });
 
 const storagePath = (fileId: string, mediaId: string) => `${fileId}/${mediaId}.jpg`;
 
@@ -58,7 +68,14 @@ const storagePath = (fileId: string, mediaId: string) => `${fileId}/${mediaId}.j
 export async function addDocPhoto(
   fileId: string,
   picked: PickedFile,
-  { onReady }: { onReady?: (mediaId: string, previewUri: string) => void } = {},
+  {
+    onReady,
+    moment,
+  }: {
+    onReady?: (mediaId: string, previewUri: string) => void;
+    /** A board photo (step 5.6): `fileId` is the lecture, `tMs` the recording time it was taken at. */
+    moment?: { tMs: number };
+  } = {},
 ): Promise<string> {
   let jpeg: string;
   try {
@@ -66,7 +83,7 @@ export async function addDocPhoto(
   } catch {
     throw new Error("This image can't be read. Try a JPEG or PNG.");
   }
-  const p: DocPhotoPayload = { fileId, mediaId: newId(), uri: jpeg };
+  const p: DocPhotoPayload = { fileId, mediaId: newId(), uri: jpeg, ...(moment ? { lectureId: fileId, tMs: Math.max(0, Math.round(moment.tMs)) } : {}) };
   if (syncEnabled) {
     p.uri = await queueDocPhoto(p);
     onReady?.(p.mediaId, p.uri);
@@ -83,7 +100,7 @@ async function uploadNow(p: DocPhotoPayload): Promise<void> {
   const { path } = await uploadFile({ bucket: Buckets.photos, path: storagePath(p.fileId, p.mediaId), uri: p.uri, contentType: 'image/jpeg' });
   const { data, error } = await supabase
     .from('media')
-    .insert({ id: p.mediaId, file_id: p.fileId, lecture_id: null, kind: 'photo', storage_path: path, mime_type: 'image/jpeg' })
+    .insert({ id: p.mediaId, file_id: p.fileId, ...momentOf(p), kind: 'photo', storage_path: path, mime_type: 'image/jpeg' })
     .select('*');
   if (error) {
     await removeFiles(Buckets.photos, [path]).catch(() => {});
@@ -101,15 +118,14 @@ async function queueDocPhoto(p: DocPhotoPayload): Promise<string> {
   const media: LocalMediaRow & { local_uri: string } = {
     id: p.mediaId,
     user_id: userId,
-    lecture_id: null,
     file_id: p.fileId,
+    ...momentOf(p),
     kind: 'photo',
     // Where uploadFile will put it ({userId}/…).
     storage_path: `${userId}/${storagePath(p.fileId, p.mediaId)}`,
     url: null,
     mime_type: 'image/jpeg',
     size_bytes: null,
-    t_ms: null,
     page_count: null,
     extracted_text: null,
     caption: null,
@@ -180,7 +196,7 @@ registerSyncHandler<DocPhotoPayload>('upload_doc_photo', {
       });
       const { data, error } = await supabase
         .from('media')
-        .insert({ id: p.mediaId, file_id: p.fileId, lecture_id: null, kind: 'photo', storage_path: path, mime_type: 'image/jpeg' })
+        .insert({ id: p.mediaId, file_id: p.fileId, ...momentOf(p), kind: 'photo', storage_path: path, mime_type: 'image/jpeg' })
         .select('*')
         .single();
       if (error) {

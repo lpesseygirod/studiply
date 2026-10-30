@@ -199,6 +199,14 @@ As built in step 4.4:
   - **Tapping the chip** opens the same panel with **Done** and **Remove mark**; Remove offers Undo. This works after the recording too.
   - **My notes is what the marks are** (Lea's advisor, 30 Oct): a chip deleted by typing deletes its mark, and Undo brings it back.
   - **No marks outside a recording:** the buttons are only on the recording screens. Insert ▾ → Mark stays the display-only chip of 4.6.
+- **Board photos (step 5.6).**
+  - **Taking one:**
+    - **iPhone:** **Photo** in the bar opens the camera at once (the permission text: "Studiply needs camera access to take photos of whiteboards and slides.").
+    - **Laptop:** **Photo board** in the strip (and the Photo tile below 1024 px) opens a small menu: **Take a photo (webcam)** (a live picture under the strip, or a sheet; Take photo / Cancel; video only) and **Choose files…** (several).
+  - **Its time** is the moment Photo was pressed (while paused, the paused moment).
+  - **In My notes:** a thumbnail (35 % of the page; bigger from the photo's own menu) on a line of its own starting with its time. The line goes right after the line being written (after photo lines already there, so several stay in order), or as a new last line. From another screen it's saved into My notes the same way.
+  - **Stored:** a `media` photo with the lecture and its time; removing it from the text keeps the file (as 4.5).
+  - **Offline:** the iPhone keeps the photo and sends it later. The laptop greys Photo board out with "Photos need a connection on the laptop" (Lea's advisor, 30 Oct; the recording goes on).
 - **My notes** is a normal rich-text document; every line typed is stamped with the recording time (shown as a small purple chip; tapping it replays the audio).
 - The assistant panel shows a "Recording continues" badge.
 

@@ -207,7 +207,27 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **Also:** on the web below 1024 px in Pages, the document's header sits on the gradient above the sheet but was drawn in the white page's colours. It now takes the gradient's colours (the same rule as the laptop and the iPhone's Print layout); this showed as a grey meta line in dark mode.
   - **Checked:** Jest updated (`viewPrefs` Fit at 302 px → 38 %, the floor 25 %; `pageView` zoom 25–200 %); `npm run check` 1855; the installed `recording.mjs` 10/10, run by me, with screenshots `rec-phone-390-typed` and `-dark`.
   - **New assertions:** `pages.mjs` gains a step at 390 px outside a recording (light and dark, opened and after typing): Fit below 50 %, no overflow, not scrolled, equal margins, the meta line whole. `recording.mjs` checks the same at 390 during the recording.
-- [ ] 5.6 — Board photos
+- [x] 5.6 — Board photos — **done and checked on the web 30 Oct** (laptop, 390 px; the iPhone in the shared code) on branch `phase-5-recording`.
+  - **Verified (Lea's advisor, 30 Oct):** `npm run check` 1865; all nineteen Chrome suites pass (photos-live 8/8, recording 10/10, marks 10/10). `editorHtml.js` rebuilt by the advisor.
+  - **The first photos-live run (5/8) failed in the check, not the app:** it counted ProseMirror's empty `ProseMirror-separator` image (added after a line that ends with a photo) as a photo that never loaded. The check now looks only at Studiply's photo frames.
+  - **On Lea's device list, first and the riskiest:** the camera during a recording never stops it (`docs/recording-test/DEVICE-CHECKS.md`).
+  - **`src/services/mark-placement.ts`** (a forwarder after the generalisation) was moved to `_to_delete/` by Lea's advisor (Lea's rule: files are moved, never deleted). `_to_delete` is excluded in `tsconfig.json` and `eslint.config.js` and is kept out of git locally.
+  - **Decision (Lea's advisor, 30 Oct):** A. The laptop greys out Photo board offline with "Photos need a connection on the laptop"; the recording goes on (the web is online-only since 1.8).
+  - **No new dependency, no migration.** Reused: expo-image-picker (camera text already in app.json), 4.5's `addDocPhoto` / photo node / `upload_doc_photo` queue, and the `media` table's `lecture_id` and `t_ms`.
+  - **Taking:**
+    - **iPhone:** Photo → the camera (`components/recording/photoBoard.ts`).
+    - **Laptop and the web below 1024 px:** Photo board / Photo → a menu with Take a photo (webcam; `WebcamPanel.web.tsx`, video only, under the strip or as a sheet) and Choose files… (`photoBoard.web.ts`).
+    - **The time** is the press.
+  - **Into My notes:**
+    - `placePhotoLine` (on the inline photo node): a thumbnail at 35 % on a stamped line of its own, after the line being written (after photo lines already there) or last; `withPhotoLine` when saved from another screen.
+    - 5.5's placement is generalised: `services/moment-placement.ts` (marks and photos). `mark-placement.ts` is only a forwarder now, left for Lea to delete (deleting files needs her OK).
+  - **The row:** `addDocPhoto(…, { moment })` writes `lecture_id` and `t_ms`, also through the iPhone's queue.
+  - **Checked:**
+    - Jest: 10 new (`photoLines` 5, `boardPhoto` 3, `doc-photo` 2); `npm run check` 1865.
+    - Installed `marks.mjs` 10/10 on the generalised placement.
+    - New `photos-live.mjs` and an updated `recording.mjs` (Photo board and Photo now usable), for Lea to install.
+  - **Found while writing the check, fixed:** two photos at one moment while writing a line went in reverse order. Covered by a Jest test.
+  - **The iPhone bundle** needs `npm run editor:build` (`placePhotoLine` runs in the WebView).
 - [ ] 5.7 — Record inside a document (a blank document becomes a lecture; what was written stays as My notes) — added by Lea, 28 Oct
 - [ ] 5.8 — A real lecture (dogfood + fixes)
 

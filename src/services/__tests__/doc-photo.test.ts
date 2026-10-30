@@ -100,6 +100,15 @@ describe('addDocPhoto on the iPhone', () => {
     expect(uploadFile).not.toHaveBeenCalled();
   });
 
+  it('step 5.6: a board photo is kept and queued with its lecture and time; the upload writes them', async () => {
+    const id = await addDocPhoto('lec-1', picked, { moment: { tMs: 12_000 } });
+    expect(jest.mocked(saveLocalRow).mock.calls[0][1]).toMatchObject({ id, file_id: 'lec-1', lecture_id: 'lec-1', t_ms: 12_000 });
+    expect(syncMock.queued[0].payload).toEqual({ fileId: 'lec-1', mediaId: id, uri: `file:///docs/pending-uploads/lec-1/${id}.jpg`, lectureId: 'lec-1', tMs: 12_000 });
+    answer('media', { data: null }, { data: { id, file_id: 'lec-1', updated_at: 'x' } });
+    await syncMock.handlers.upload_doc_photo.run(syncMock.queued[0].payload, ctx);
+    expect(callsOn('media', 'insert')[0][0]).toMatchObject({ id, file_id: 'lec-1', lecture_id: 'lec-1', t_ms: 12_000 });
+  });
+
   it("an image that can't be read: a message, nothing saved", async () => {
     const { toJpeg } = jest.requireMock('../../utils/toJpeg') as { toJpeg: jest.Mock };
     toJpeg.mockRejectedValueOnce(new Error('decode'));
@@ -123,7 +132,13 @@ describe('addDocPhoto on the laptop', () => {
     const id = await addDocPhoto('doc-1', picked, { onReady: () => order.push('ready') });
     expect(order).toEqual(['ready', 'upload']);
     expect(jest.mocked(uploadFile).mock.calls[0][0]).toMatchObject({ bucket: 'photos', path: `doc-1/${id}.jpg`, contentType: 'image/jpeg' });
-    expect(callsOn('media', 'insert')[0][0]).toEqual({ id, file_id: 'doc-1', lecture_id: null, kind: 'photo', storage_path: `user-1/doc-1/${id}.jpg`, mime_type: 'image/jpeg' });
+    expect(callsOn('media', 'insert')[0][0]).toEqual({ id, file_id: 'doc-1', lecture_id: null, t_ms: null, kind: 'photo', storage_path: `user-1/doc-1/${id}.jpg`, mime_type: 'image/jpeg' });
+  });
+
+  it('step 5.6: a board photo taken while recording: its row has the lecture and the recording time', async () => {
+    answer('media', { data: [{ id: 'x' }] });
+    const id = await addDocPhoto('lec-1', picked, { moment: { tMs: 61_500.4 } });
+    expect(callsOn('media', 'insert')[0][0]).toEqual({ id, file_id: 'lec-1', lecture_id: 'lec-1', t_ms: 61_500, kind: 'photo', storage_path: `user-1/lec-1/${id}.jpg`, mime_type: 'image/jpeg' });
   });
 
   it('the row is refused: the uploaded file is removed and the student told', async () => {

@@ -1,10 +1,13 @@
 import { mergeAttributes, Node, type Editor } from '@tiptap/core';
 import { Image } from '@tiptap/extension-image';
-import type { Node as PMNode } from '@tiptap/pm/model';
+import type { Node as PMNode, Schema } from '@tiptap/pm/model';
 import { NodeSelection, type EditorState, type Transaction } from '@tiptap/pm/state';
 import type { EditorView, NodeView } from '@tiptap/pm/view';
 
 import { mediaIdOf, providePhoto, watchPhoto, type PhotoSource } from '../media/photoSource';
+import type { DocJSON } from '../types';
+import { newBlockId } from './blockMeta';
+import { chipMs, TIMESTAMP_CHIP } from './timestampChip';
 
 /**
  * Photos in documents (step 4.5), in place of TenTap's plain image: still
@@ -50,6 +53,10 @@ declare module '@tiptap/core' {
       removePhotos: (src: string) => ReturnType;
       /** The selected photo's layout: in line, wrapped left or right, or on lines of its own (aligned). */
       setPhotoLayout: (layout: { wrap?: PhotoWrap; align?: PhotoAlign }) => ReturnType;
+    };
+    inlinePhoto: {
+      /** A board photo taken while recording (step 5.6): a thumbnail on a line of its own with its time. */
+      placePhotoLine: (src: string, ms: number) => ReturnType;
     };
   }
 }
@@ -351,7 +358,72 @@ export const InlinePhoto = Node.create({
   addNodeView() {
     return ({ node, view, getPos }) => new PhotoView(node, view, getPos);
   },
+
+  addCommands() {
+    return {
+      placePhotoLine:
+        (src, ms) =>
+        ({ state, tr, dispatch, editor }) => {
+          if (!dispatch) return true;
+          const inline = photoLineInline(state.schema, src, ms);
+          const touched = (editor.storage as unknown as Record<string, { touched?: boolean } | undefined>).markChip?.touched;
+          const { $from } = state.selection;
+          // Writing in the notes: a line of its own right after the one being written (an empty line is used),
+          // after the photo lines already there (several photos at one moment stay in their order).
+          if (touched && $from.parent.inlineContent && $from.depth >= 1) {
+            if ($from.parent.content.size === 0) {
+              tr.insert($from.pos, inline);
+              return true;
+            }
+            let at = $from.after(1);
+            for (let next = state.doc.nodeAt(at); next && isPhotoLine(next); next = state.doc.nodeAt(at)) at += next.nodeSize;
+            tr.insert(at, state.schema.nodes.paragraph.create(null, inline));
+            return true;
+          }
+          // Otherwise a new last line (an empty last line is used).
+          const last = state.doc.lastChild;
+          if (last?.type.name === 'paragraph' && last.content.size === 0) tr.insert(state.doc.content.size - 1, inline);
+          else tr.insert(state.doc.content.size, state.schema.nodes.paragraph.create(null, inline));
+          return true;
+        },
+    };
+  },
 });
+
+/** A board photo in My notes (step 5.6): a thumbnail, in % of the page (bigger from its menu). */
+export const BOARD_PHOTO_WIDTH = 35;
+
+/** A board photo's line (as placePhotoLine makes it): a paragraph starting with its time chip, with a photo in it. */
+function isPhotoLine(node: PMNode): boolean {
+  if (node.type.name !== 'paragraph' || node.firstChild?.type.name !== TIMESTAMP_CHIP) return false;
+  let photo = false;
+  node.forEach((child) => {
+    if (child.type.name === INLINE_IMAGE) photo = true;
+  });
+  return photo;
+}
+
+/** A board photo's line: its time chip, a space, the photo as a thumbnail in the line. */
+function photoLineInline(schema: Schema, src: string, ms: number): PMNode[] {
+  return [schema.nodes[TIMESTAMP_CHIP].create({ ms: chipMs(ms) }), schema.text(' '), schema.nodes[INLINE_IMAGE].create({ src, width: BOARD_PHOTO_WIDTH })];
+}
+
+/**
+ * My notes as JSON with a new last line for a board photo (its time, then the thumbnail), for one
+ * taken while My notes isn't open (the laptop's strip is on every screen). An empty last line is used.
+ */
+export function withPhotoLine(doc: DocJSON, src: string, ms: number, now = Date.now()): DocJSON {
+  const content = [...(doc.content ?? [])];
+  const inline = [
+    { type: TIMESTAMP_CHIP, attrs: { ms: chipMs(ms) } },
+    { type: 'text', text: ' ' },
+    { type: INLINE_IMAGE, attrs: { src, width: BOARD_PHOTO_WIDTH } },
+  ];
+  const last = content[content.length - 1];
+  if (last?.type === 'paragraph' && !last.content?.length) content[content.length - 1] = { ...last, content: inline };
+  else content.push({ type: 'paragraph', attrs: { blockId: newBlockId(), origin: 'student', editedAt: now }, content: inline });
+  return { ...doc, content };
+}
 
 export const Photo = Image.extend({
   addOptions() {

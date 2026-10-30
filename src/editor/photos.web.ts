@@ -5,7 +5,7 @@ import { addDocPhoto } from '../services/doc-photo.service';
 import { mediaSrc, providePhoto } from './media/photoSource';
 
 /** An image file's size, so a large one is scaled down (toJpeg). */
-function imageSize(url: string): Promise<{ width: number; height: number } | undefined> {
+export function imageSize(url: string): Promise<{ width: number; height: number } | undefined> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });

@@ -323,3 +323,5 @@ node .claude/skills/web-check/scripts/marks.mjs
 ```
 
 Screenshots: `mark-panel-*-1280(-dark)`, `mark-sheet-*-390(-dark)`, `mark-edit-1280`, `mark-removed-1280`, `mark-paused-1280`, `marks-chips-1280(-dark)`, `marks-chips-390`.
+
+`scripts/photos-live.mjs` (step 5.6, 8 steps): board photos during a recording with Chrome's fake camera — Photo board → Take a photo (webcam) puts a thumbnail on a new stamped line at the press time with its `media` row (lecture + time) and Storage file; Choose files… adds several in order; a photo while writing goes after the current line; from another screen, a new last line; offline on the laptop Photo board is greyed out and the recording goes on; at 390 px the Photo tile opens the same menu and the webcam as a sheet; Stop; no paid request. Only Studiply's own photos count as "shown" (ProseMirror adds an empty separator `<img>` after a line ending in a photo). Screenshots `photo-*.png`.

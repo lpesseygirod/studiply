@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,7 +11,12 @@ import { useRecordingActions } from './useRecordingActions';
 import { savingText } from './savingText';
 import { Waveform } from './Waveform';
 import { MarkPanel } from './MarkPanel';
-import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel, type MarkDraft } from './markPanelState';
+import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel, type MarkDraft, type Moment } from './markPanelState';
+import { anchorBelow } from '../dialogs/dialogs';
+import { useConnectivity } from '../../lib/connectivity';
+import { closeWebcam, PHOTO_OFFLINE_NOTE, photoBoardUsable, useWebcam } from './boardPhoto';
+import { startBoardPhoto } from './photoBoard';
+import { WebcamPanel } from './WebcamPanel';
 
 /**
  * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
@@ -113,6 +118,9 @@ export function RecordingPhoneBar() {
   const flow = useRecordingFlow();
   const actions = useRecordingActions();
   const draft = useMarkPanel();
+  const webcam = useWebcam();
+  const connection = useConnectivity();
+  const photoTile = useRef<View>(null);
 
   if (flow.saving) {
     return (
@@ -124,9 +132,16 @@ export function RecordingPhoneBar() {
     );
   }
   const markable = live.status === 'recording' || live.status === 'paused';
+  const web = Platform.OS === 'web';
+  const photoUsable = photoBoardUsable({ web, online: connection !== 'offline', recording: markable });
   return (
     <View style={styles.bar} {...{ dataSet: { recording: 'bar' } }}>
-      {/* The marks (step 5.5): each opens its small sheet; the recording goes on. Board photos (5.6) come next. */}
+      {web && markable && connection === 'offline' && (
+        <Text style={styles.photoNote} {...{ dataSet: { photo: 'offline' } }}>
+          {PHOTO_OFFLINE_NOTE}
+        </Text>
+      )}
+      {/* The marks (step 5.5): each opens its small sheet; Photo (5.6): the camera (the web: webcam or files). The recording goes on. */}
       <View style={styles.tiles}>
         {MARKS.map((m) => (
           <Pressable
@@ -143,10 +158,20 @@ export function RecordingPhoneBar() {
             <Text style={[styles.tileLabel, { color: c.markButton[m.key].text }]}>{m.label}</Text>
           </Pressable>
         ))}
-        <Pressable disabled aria-disabled style={[styles.tile, styles.photo, styles.off]} accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel="Photo">
-          <Ionicons name="radio-button-on" size={18} color={c.text.primary} />
-          <Text style={[styles.tileLabel, { color: c.text.primary }]}>Photo</Text>
-        </Pressable>
+        <View ref={photoTile} collapsable={false} style={styles.tileSlot}>
+          <Pressable
+            onPress={() => void anchorBelow(photoTile).then((anchor) => startBoardPhoto(anchor))}
+            disabled={!photoUsable}
+            aria-disabled={!photoUsable}
+            style={({ pressed }) => [styles.tile, styles.photo, !photoUsable && styles.off, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !photoUsable }}
+            accessibilityLabel="Photo"
+          >
+            <Ionicons name="camera-outline" size={20} color={c.text.primary} />
+            <Text style={[styles.tileLabel, { color: c.text.primary }]}>Photo</Text>
+          </Pressable>
+        </View>
       </View>
       <View style={styles.actions}>
         {/* The assistant comes in Phase 6. */}
@@ -165,7 +190,26 @@ export function RecordingPhoneBar() {
         </Pressable>
       </View>
       <MarkSheet draft={draft && markable && draft.lectureId === live.lectureId ? draft : null} />
+      {web && <WebcamSheet moment={webcam && markable && webcam.lectureId === live.lectureId ? webcam : null} />}
     </View>
+  );
+}
+
+/** The web below 1024 px: the webcam panel as a small sheet (the iPhone uses its camera instead). */
+function WebcamSheet({ moment }: { moment: Moment | null }) {
+  const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={!!moment} transparent animationType="slide" onRequestClose={closeWebcam}>
+      <View style={styles.sheetWrap}>
+        <Pressable style={styles.sheetFill} onPress={closeWebcam} accessibilityRole="button" accessibilityLabel="Close the webcam" />
+        {moment && (
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 12 }]}>
+            <WebcamPanel moment={moment} onClose={closeWebcam} />
+          </View>
+        )}
+      </View>
+    </Modal>
   );
 }
 
@@ -221,6 +265,9 @@ const makeStyles = (c: ThemeColors) =>
     tileGlyph: { fontSize: Typography.size.lg, fontWeight: Typography.weight.bold },
     tileLabel: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold },
     photo: { backgroundColor: c.white },
+    // The Photo tile's place in the row (a measured box, for the web's menu).
+    tileSlot: { flex: 1 },
+    photoNote: { alignSelf: 'center', fontSize: Typography.size.xs, fontWeight: Typography.weight.medium, color: c.text.onGradientStrong },
     off: { opacity: 0.45 },
     actions: { flexDirection: 'row', gap: 10 },
     ask: { flex: 1, minHeight: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accentLight },

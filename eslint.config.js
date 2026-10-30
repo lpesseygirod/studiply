@@ -10,8 +10,9 @@ module.exports = defineConfig([
   expoConfig,
   {
     // Edge Functions run on Deno (npm: imports, Deno globals), not in the app;
-    // editor-web/build is the generated WebView editor (npm run editor:build).
-    ignores: ['dist/*', 'supabase/functions/**', 'editor-web/build/**'],
+    // editor-web/build is the generated WebView editor (npm run editor:build);
+    // _to_delete holds files moved out of the app (Lea's rule: moved, never deleted).
+    ignores: ['dist/*', 'supabase/functions/**', 'editor-web/build/**', '_to_delete/**'],
   },
   {
     files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],

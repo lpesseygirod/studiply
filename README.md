@@ -255,9 +255,15 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
 
 **Marks (step 5.5)** are linked mark chips in the lecture's My notes (`editor/schema/markChip.ts`: `markId`, kind, level, `ms`, note).
 - **Making one:** the strip's and the bar's buttons open `components/recording/MarkPanel.tsx` (state in `markPanelState.ts`, the slider in `LevelSlider.tsx`, the words in `utils/markHints.ts`).
-- **Where the chip goes:** Save mark puts the chip in through `services/mark-placement.ts`. That's the open editor's `placeMark` (the document screen registers while focused), or otherwise a new stamped last line saved into My notes.
+- **Where the chip goes:** Save mark puts the chip in through `services/moment-placement.ts`. That's the open editor's `placeMark` (the document screen registers while focused), or otherwise a new stamped last line saved into My notes.
 - **The `marks` rows follow My notes:** `services/marks.service.ts` runs after each save of the notes tab, beside `note-lines.service`. A chip deleted by typing deletes its row; Undo brings it back.
 - **Tapping a linked chip** opens the same panel inside both editors (`BlockMenus.web.tsx`, `iphone/MarkSheet.tsx`).
+
+**Board photos (step 5.6)** reuse 4.5's photos.
+- **Taking:** `components/recording/photoBoard.ts` is the iPhone's camera; `photoBoard.web.ts` is the laptop's menu, with the webcam (`WebcamPanel.web.tsx`) or files.
+- **Saving:** `boardPhoto.ts` `saveBoardPhoto` calls `addDocPhoto(lectureId, picked, { moment })`, which writes a `media` row with `lecture_id` and `t_ms` (on the iPhone through `upload_doc_photo`).
+- **Placing:** `placeAtMoment` puts in a stamped thumbnail line (`placePhotoLine` / `withPhotoLine` in `editor/schema/photo.ts`).
+- **Offline:** the laptop greys Photo board out.
 
 Earlier notes (step 4.9) live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
