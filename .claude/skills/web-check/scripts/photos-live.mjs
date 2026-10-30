@@ -338,9 +338,10 @@ try {
     expect(((await admin.from('audio_chunks').select('seq').eq('lecture_id', lectureId)).data ?? []).length >= 1, 'no chunk uploaded');
     const kept = (await rows()).map((r) => r.id);
     await b.clickSelector('[aria-label="Stop and summarize"]');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
-    await waitFor(async () => (await path()).startsWith('/record/post-session'), async () => `the after-recording step (at ${await path()})`, 90000);
+    // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="requested"]')`), async () => `the Summary tab after Stop (at ${await path()})`, 90000);
     expect(JSON.stringify((await rows()).map((r) => r.id)) === JSON.stringify(kept), 'the photos changed at Stop');
     report.push(`RESULT | photos | ${kept.length} board photos: ${(await rows()).map((r) => r.t_ms).join(', ')} ms`);
   });

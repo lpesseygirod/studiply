@@ -258,9 +258,10 @@ try {
     // Long enough for a chunk join behind the first chip (30-second chunks).
     await waitFor(async () => (await timer()) >= 40, 'forty seconds recorded', 45000);
     await b.clickSelector('[aria-label="Stop and summarize"]');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
-    await waitFor(async () => (await path()).startsWith('/record/post-session'), 'the after-recording step', 90000);
+    // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="requested"]')`), 'the Summary tab after Stop', 90000);
     await b.nav(`${BASE}/doc/${lectureId}?tab=notes`);
     await waitFor(() => b.evaluate(`!!${EDITOR}`), 'the editor', 30000);
     await b.sleep(1500);

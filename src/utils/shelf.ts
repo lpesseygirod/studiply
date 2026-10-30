@@ -176,8 +176,8 @@ export function byStarred(a: ShelfItem, b: ShelfItem): number {
 
 /**
  * The screen an item opens. A document opens in the editor; a lecture opens
- * as a document on its Summary tab once processed, and post-session before
- * that (as on Library). PDFs, images and the kinds without a screen of
+ * as a document, on its Summary tab once processed and on My notes before
+ * that (step 7.3). PDFs, images and the kinds without a screen of
  * their own yet open their course at their folder.
  */
 export function openTarget(item: ShelfItem): Href {
@@ -187,10 +187,10 @@ export function openTarget(item: ShelfItem): Href {
     case 'folder':
       return courseAt(item.courseId, item.id);
     case 'lecture':
-      return lectureTarget(item.id, item.title, item.status);
+      return lectureTarget(item.id, item.status);
     case 'lecture_photo':
     case 'lecture_pdf':
-      return lectureTarget(item.lectureId ?? '', item.lectureTitle ?? '', item.status);
+      return lectureTarget(item.lectureId ?? '', item.status);
     case 'document':
       return `/doc/${item.id}`;
     default:
@@ -198,10 +198,12 @@ export function openTarget(item: ShelfItem): Href {
   }
 }
 
-function lectureTarget(id: string, title: string, status: Session['status'] | undefined): Href {
-  return status === 'completed'
-    ? { pathname: '/doc/[id]', params: { id, tab: 'summary' } }
-    : { pathname: '/record/post-session', params: { sessionId: id, title } };
+/**
+ * Since step 7.3 every lecture opens as a document: on its Summary tab once processed, else on My notes.
+ * Its Summary tab then says what's next (the summarize panel; "Process now" for a lecture in the earlier format).
+ */
+function lectureTarget(id: string, status: Session['status'] | undefined): Href {
+  return { pathname: '/doc/[id]', params: { id, tab: status === 'completed' ? 'summary' : 'notes' } };
 }
 
 /** A course screen, open at a folder; without a course, Library. */

@@ -80,7 +80,8 @@ export function useItemMenu({
         case 'copy':
           return { text: 'Copy', onPress: () => setClip({ mode: 'copy', item }) };
         case 'summarize':
-          return { text: 'Summarize' };
+          // Step 7.3: the lecture's Summary tab with the summarize panel open.
+          return { text: 'Summarize', onPress: () => router.navigate({ pathname: '/doc/[id]', params: { id: item.id, tab: 'summary', summarize: '1' } }) };
         case 'examPack':
           return { text: 'Make exam pack' };
         case 'star':

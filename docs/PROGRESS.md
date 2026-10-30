@@ -384,7 +384,54 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
       - the preview line for 7.3 ("≈ 1,440 words · 4 takeaways · 7 questions").
   - **Also exported:** the slider defaults, the presets and `fromCourseSettings`.
   - **Tests:** Jest `src/lib/__tests__/summaryPlan.test.ts`, 119 cases: every example and band edge in "How Claude builds the summary", the open points' answers (see Decisions) and the presets. No AI.
-- [ ] 7.3 — The summarize panel (resources, 10 sliders, presets, live preview)
+- [x] 7.3 — The summarize panel (resources, 10 sliders, presets, live preview). **Done (30 Oct), verified by the advisor:**
+  - **Results:** `npm run check` 2,166 tests, `check:bundle`, `test:db` 329, all Chrome suites (`summarize.mjs` 11/11, `recording.mjs` 10/10, `library-menus.mjs` 10/10 after its 7.3 update).
+  - **The advisor's decisions (30 Oct):**
+    - no migration: the request is a pending `summaries` row;
+    - the presets are plain, as in the mockups (no chosen state);
+    - the starting values are the course's defaults (else the spec's);
+    - + From my library comes later (7.4).
+  - **After the review:**
+    - the iPhone sheet lists My notes and marks first, with no gap under the chips, and the chips' scrollbar is dark in dark mode;
+    - the Record setup screen clears its title after Start (it stayed in its tab and showed the last lecture's title).
+  - **The panel:** `components/summarize/SummarizePanel`, one component.
+    - **Laptop:** a centred card, the sliders in two columns (desktop-02).
+    - **iPhone and the web below 1024 px:** a full-screen sheet, one column, the presets as chips that scroll, Keep recording · Generate fixed at the bottom (iphone-05).
+    - **Drawn by the app's layout** over any screen.
+    - **Its parts:**
+      - the counts;
+      - the resources (My notes and marks locked on);
+      - the add buttons (+ From my library comes later);
+      - the presets;
+      - the 10 sliders (the 5.5 slider: drag, tap, arrow keys, Home / End, VoiceOver steps);
+      - Save as course default;
+      - the calculator's preview line (7.2's `planSummary`).
+  - **Stop & summarize** opens it while the recording goes on, so the panel replaces the "Stop recording?" question. **Stop & generate summary:**
+    1. closes the panel;
+    2. stops the recording (the strip shows "Saving…");
+    3. saves the request;
+    4. opens the Summary tab: "Summary settings saved" with the preview.
+  - **After class:** the same panel opens from the Summary tab and from a lecture's Summarize; an interrupted recording finished also opens it.
+  - **The request** (no migration, the advisor's decision): a `summaries` row.
+    - **Columns:** mode `new`, `file_id` and `source_lecture_ids` = the lecture, the 10 values in `sliders`, status `pending`.
+    - **`applied_settings`:** the calculator's numbers, plus `resources` (slides, photos, assistant; notes always true) and `preview`.
+    - **`result`** stays empty, so the earlier notes (legacy-note-v1 rows of the same table) never mix with it: every earlier-note reader filters on `result.format`, and the Summary tab's request is told by its empty result and its 10 sliders.
+    - **On the iPhone** it is saved on the phone and queued (`request_summary`, after the lecture's own creation).
+    - **On the laptop** it is sent at once (offline: the recording still stops, and the panel says to summarize from the Summary tab once online).
+    - **Step 7.4** picks up `pending`.
+  - **Starting values:** the course's `course_settings` sliders, else the spec's. Save as course default writes the 10 columns (online only).
+  - **Lectures open as documents** from the library and the course screen: on My notes until processed. Before, an unprocessed one opened the earlier post-session screen; that screen now opens only from the Summary tab's "Process now" for lectures recorded the earlier way (no chunks).
+  - **Services:** `summarize.service` (the counts from My notes, the course defaults, the request, + Slides or PDF, + Link). `photoBoard`'s `choosePhotos` serves + Photos.
+  - **Tests:**
+    - **Jest:**
+      - the service (the fake server with real rows): defaults, Save as default, counts, the request on both devices, earlier notes vs requests, + Link, + Slides;
+      - the panel's words;
+      - item menu and lecture opening updated.
+    - **Chrome:**
+      - `summarize.mjs` (new; composites beside desktop-02 and iphone-05, light and dark);
+      - one patch for the seven checks that pressed Stop or opened a lecture at post-session;
+      - `ai-flow.mjs` is retired until 7.4.
+  - **No migration, no new dependency.** No `editor:build` needed: the shared editor didn't change.
 - [ ] 7.4 — First real summary (≤ 60 min pipeline)
 - [ ] 7.5 — Quality checks (schema, coverage, length, faithfulness, language)
 - [ ] 7.6 — Long lectures (split by topic, merge)

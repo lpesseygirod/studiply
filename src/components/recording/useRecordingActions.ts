@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
 
 import { showAlert } from '../dialogs/dialogs';
-import { confirmAction } from '../../utils/confirm';
+import { openSummarize } from '../summarize/summarizePanelState';
 import { errorMessage } from '../../utils/errors';
 import { recorder } from '../../services/recorder';
 import { recordingFlow } from '../../services/recording.service';
@@ -11,8 +11,8 @@ import { showStartError } from './startError';
 
 /**
  * What the strip, the iPhone screen's bottom bar and the interrupted banner
- * do (step 5.3). Stop asks first, then hands the recording off and opens
- * today's after-recording step (add materials, generate notes).
+ * do (step 5.3). Stop & summarize opens the summarize panel (step 7.3); the
+ * recording stops only with its Stop & generate summary.
  */
 export function useRecordingActions() {
   const router = useRouter();
@@ -22,20 +22,21 @@ export function useRecordingActions() {
     [router],
   );
 
+  // A recording ended without the panel (an interrupted one finished): its Summary tab and the panel (step 7.3).
   const afterRecording = useCallback(
-    (lectureId: string) => router.replace({ pathname: '/record/post-session', params: { sessionId: lectureId } }),
+    (lectureId: string) => {
+      router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'summary' } });
+      openSummarize({ lectureId, recording: false });
+    },
     [router],
   );
 
-  const stop = useCallback(async () => {
-    if (!(await confirmAction('Stop recording?', 'The recording is saved to this lecture and you can summarize it next.', 'Stop'))) return;
-    try {
-      const lectureId = await recordingFlow.stop();
-      if (lectureId) afterRecording(lectureId);
-    } catch (err) {
-      showAlert('Could not stop the recording', errorMessage(err, 'Please try again.'));
-    }
-  }, [afterRecording]);
+  // Stop & summarize (step 7.3): the panel, while the recording goes on; its Stop & generate summary stops it.
+  const stop = useCallback(() => {
+    const { lectureId, status } = recorder.state();
+    if (!lectureId || status === 'idle' || status === 'stopping') return;
+    openSummarize({ lectureId, recording: true });
+  }, []);
 
   // Pause (Lea, 30 Oct): the microphone closes, the clock and the waveform stand still; nothing else changes.
   const pause = useCallback(async () => {

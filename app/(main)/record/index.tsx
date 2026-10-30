@@ -209,6 +209,8 @@ export default function RecordSetupScreen() {
           language: selectedLanguage.code,
         });
         router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
+        // This screen stays alive in its tab: the next recording starts with an empty title, not this lecture's.
+        setTitle('');
       } catch (err) {
         showStartError(err);
       } finally {

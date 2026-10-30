@@ -17,28 +17,38 @@ export async function startBoardPhoto(anchor?: Anchor): Promise<void> {
     undefined,
     [
       { text: 'Take a photo (webcam)', onPress: () => openWebcam(m) },
-      { text: 'Choose files…', onPress: () => chooseFiles(m) },
+      { text: 'Choose files…', onPress: () => void chooseFiles(m) },
     ],
     { anchor },
   );
 }
 
-/** The browser's file picker, photos only, several at once; each saved at `m`, in order. */
-function chooseFiles(m: Moment): void {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.multiple = true;
-  // In the page while the picker is open (Safari, and the browser's handing over of the files, need that).
-  input.style.display = 'none';
-  document.body.appendChild(input);
-  input.onchange = () => {
-    const files = Array.from(input.files ?? []);
-    input.remove();
-    void saveFiles(m, files);
-  };
-  input.oncancel = () => input.remove();
-  input.click();
+/** Stop & summarize's + Photos (step 7.3): the same file picker, at `m` (during or after the recording). */
+export function choosePhotos(m: Moment): Promise<void> {
+  return chooseFiles(m);
+}
+
+/** The browser's file picker, photos only, several at once; each saved at `m`, in order. Resolves once saved (or cancelled). */
+function chooseFiles(m: Moment): Promise<void> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    // In the page while the picker is open (Safari, and the browser's handing over of the files, need that).
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    input.onchange = () => {
+      const files = Array.from(input.files ?? []);
+      input.remove();
+      void saveFiles(m, files).finally(resolve);
+    };
+    input.oncancel = () => {
+      input.remove();
+      resolve();
+    };
+    input.click();
+  });
 }
 
 async function saveFiles(m: Moment, files: File[]): Promise<void> {

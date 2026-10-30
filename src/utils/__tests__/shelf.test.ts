@@ -69,10 +69,9 @@ describe('openTarget', () => {
     expect(openTarget(item({ type: 'folder', id: 'f2' }))).toEqual({ pathname: '/project/[id]', params: { id: 'math', folder: 'f2' } });
     expect(openTarget(item({ type: 'lecture', status: 'completed' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'summary' } });
     expect(openTarget(item({ type: 'document' }))).toBe('/doc/x');
-    expect(openTarget(item({ type: 'lecture', status: 'draft' }))).toEqual({
-      pathname: '/record/post-session',
-      params: { sessionId: 'x', title: 'X' },
-    });
+    // Step 7.3: before it's processed, a lecture opens on My notes (its Summary tab offers the summarize panel).
+    expect(openTarget(item({ type: 'lecture', status: 'draft' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'notes' } });
+    expect(openTarget(item({ type: 'lecture', status: 'transcribing' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'notes' } });
     expect(openTarget(item({ type: 'pdf' }))).toEqual({ pathname: '/project/[id]', params: { id: 'math', folder: 'f' } });
     expect(openTarget(item({ type: 'exam_pack', folderId: null }))).toBe('/project/math');
     expect(openTarget(item({ type: 'image', courseId: null, folderId: null }))).toBe('/library');
@@ -118,7 +117,7 @@ describe('photos and PDFs inside a lecture', () => {
     expect(openTarget(item)).toEqual({ pathname: '/doc/[id]', params: { id: 'l1', tab: 'summary' } });
     const pdf = lectureMediaShelfItem(photos[1], photos, lectureFile, { status: 'transcribing' } as LectureRow);
     expect(pdf.type).toBe('lecture_pdf');
-    expect(openTarget(pdf)).toEqual({ pathname: '/record/post-session', params: { sessionId: 'l1', title: 'Clase 1' } });
+    expect(openTarget(pdf)).toEqual({ pathname: '/doc/[id]', params: { id: 'l1', tab: 'notes' } });
     expect(itemMeta(item, now)).toBe('3 Oct · Photo');
   });
 });

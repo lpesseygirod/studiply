@@ -1,7 +1,8 @@
 // flows.mjs — the main web flows: menus and dialogs (right-click,
 // long-press, rename prompt, confirm, Escape), library actions, and the
-// recording flow (since step 5.3: Start opens the lecture with the red
-// strip, Stop & summarize → confirm → post-session). Prints PASS/FAIL per
+// recording flow (step 7.3: Start opens the lecture with the red strip,
+// Stop & summarize → the summarize panel → Stop & generate summary → the
+// Summary tab; the earlier after-recording screen by its address). Prints PASS/FAIL per
 // step; screenshots go to $WEB_CHECK_OUT/shots. Exit code 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
@@ -121,17 +122,15 @@ try {
     await b.press('Escape');
   });
 
-  await step('Post-session: Library button leaves to the library', async () => {
+  await step('A lecture opens as a document on My notes (step 7.3; post-session before)', async () => {
     await b.doubleClick('Lecture 1', { ...MAIN }); // on the web a click selects, a double-click opens (step 3.2)
-    await b.waitText('Post-Session');
-    await b.shot('16-post-session');
-    await b.click('Library', { exact: true });
-    await b.sleep(1200);
-    const url = await b.evaluate('location.pathname');
-    expect(url === '/library', `url ${url}`);
+    for (let i = 0; i < 40 && !(await b.evaluate('location.pathname')).startsWith('/doc/'); i++) await b.sleep(250);
+    const url = await b.evaluate('location.pathname + location.search');
+    expect(url === `/doc/${data.lecture.id}?tab=notes`, `url ${url}`);
+    await b.shot('16-lecture-document');
   });
 
-  await step('Recording: Start opens the lecture with the red strip; Stop & summarize → confirm → post-session, the chunk saved', async () => {
+  await step('Recording: Start opens the lecture with the red strip; Stop & summarize → the panel → Stop & generate summary → the Summary tab, the chunk saved', async () => {
     await b.nav(`${BASE}/record`);
     await b.waitText('New Recording');
     await b.shot('17-record-setup');
@@ -145,15 +144,21 @@ try {
     await b.sleep(2500);
     await b.shot('18-recording');
     await b.click('Stop & summarize', { exact: true });
-    await b.waitText('Stop recording?');
-    await b.click('Stop', { exact: true });
-    await b.waitText('Post-Session', { timeout: 30000 });
+    await b.waitText('Summarize this lecture', { timeout: 15000 });
+    for (let i = 0; i < 60 && !(await b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`)); i++) await b.sleep(250);
+    await b.shot('19-summarize-panel');
+    await b.click('Stop & generate summary', { exact: true });
+    await b.waitText('SUMMARY SETTINGS SAVED', { timeout: 30000 });
     const { data: file } = await admin.from('files').select('id').eq('user_id', user.id).eq('title', title).single();
     const { data: chunks } = await admin.from('audio_chunks').select('storage_path').eq('lecture_id', file.id);
     expect(chunks?.length >= 1 && chunks.every((c) => c.storage_path?.endsWith('.webm')), JSON.stringify(chunks));
   });
 
   await step('Review: "Not now" sends nothing, keeps the recording, Library leaves', async () => {
+    // Since 7.3 the earlier after-recording screen is reached by its address (lectures recorded the earlier way use it).
+    const { data: rec } = await admin.from('files').select('id, title').eq('user_id', user.id).like('title', 'Web test%').single();
+    await b.nav(`${BASE}/record/post-session?sessionId=${rec.id}&title=${encodeURIComponent(rec.title)}`);
+    await b.waitText('Post-Session', { timeout: 30000 });
     await b.click('GENERATE NOTES');
     // A new account is asked before anything goes to ElevenLabs (real AI). The
     // simulated pipeline (EXPO_PUBLIC_MOCK_AI=1) asks nothing and writes notes.

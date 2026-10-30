@@ -156,9 +156,10 @@ const notesRow = async (id) => (await admin.from('documents').select('id, conten
 const chunkRows = async (id) => (await admin.from('audio_chunks').select('seq, start_ms, duration_ms, storage_path').eq('lecture_id', id).order('seq')).data ?? [];
 const stopRecording = async () => {
   await b.clickSelector('[aria-label="Stop and summarize"]');
-  await b.waitText('Stop recording?', { timeout: 5000 });
-  await b.click('Stop', { exact: true });
-  await waitFor(async () => (await path()).startsWith('/record/post-session'), async () => `the after-recording step (at ${await path()})`, 90000);
+  // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+  await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`), 'the summarize panel', 15000);
+  await b.clickSelector('[data-summarize="generate"]');
+  await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="requested"]')`), async () => `the Summary tab after Stop (at ${await path()})`, 90000);
 };
 
 // The plain document: its first tab renamed, formatted text, a named version, Tab 2 and a sheet tab.

@@ -45,7 +45,7 @@ export function itemActions(item: Pick<ShelfItem, 'type' | 'folderId'>): ItemAct
 /** Why an action is greyed out (shown under it), or null when it works. */
 export function actionHint(action: ItemAction, type: ShelfType): string | null {
   if (action === 'copy' && (type === 'lecture' || type === 'folder')) return 'Coming soon';
-  if (action === 'summarize' || action === 'examPack') return 'Coming in a later update';
+  if (action === 'examPack') return 'Coming in a later update';
   return null;
 }
 

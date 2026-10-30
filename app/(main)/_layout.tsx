@@ -13,6 +13,7 @@ import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
 import { RecordingHost } from '../../src/components/recording/RecordingHost';
 import { RecordingPill } from '../../src/components/recording/RecordingPill';
 import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
+import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
 import { SimulatedAiBadge } from '../../src/components/SimulatedAiBadge';
 import { ShellProvider } from '../../src/components/shell/ShellContext';
@@ -175,6 +176,8 @@ export default function MainLayout() {
           {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
           {!wide && <RecordingPill />}
           <RecordingHost />
+          {/* Stop & summarize (step 7.3): over any screen, during a recording or after it. */}
+          <SummarizePanel />
           {!wide && toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}

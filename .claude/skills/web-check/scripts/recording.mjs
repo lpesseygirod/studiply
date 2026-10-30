@@ -28,8 +28,9 @@
 //      it records; text typed; back to the course: the red pill leads back;
 //   6. a reload asks first (the browser's question), then the strip offers the
 //      interrupted recording; Continue records on into the same lecture;
-//   7. Stop & summarize asks, saves, and opens today's after-recording step;
-//      the lecture is "transcribing" with its length, its chunks in order;
+//   7. Stop & summarize opens the summarize panel (step 7.3); Stop & generate
+//      summary saves and opens the Summary tab ("Summary settings saved"); the
+//      lecture is "transcribing" with its length, its chunks in order;
 //   8. a second lecture: the tab closed (reloaded) while "Saving…" (its audio
 //      upload blocked): on the next load it is handed off in the background,
 //      "transcribing" with its length, nothing shown;
@@ -411,13 +412,14 @@ try {
     await b.sleep(3000);
   });
 
-  await step('Stop & summarize asks, saves, opens the after-recording step; "transcribing" with its length; the chunks in order', async () => {
+  await step('Stop & summarize opens the panel; Stop & generate summary saves, opens the Summary tab; "transcribing" with its length; the chunks in order', async () => {
     await b.clickSelector('[aria-label="Stop and summarize"]');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
+    // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+    await waitFor(() => has('[data-summarize="preview"]'), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
     const saving = await waitFor(() => has('[data-recording="saving"]'), 'saving', 5000).catch(() => false);
     if (saving) await b.shot('rec-saving-1280');
-    await waitFor(async () => (await path()).startsWith('/record/post-session'), async () => `the after-recording step (at ${await path()})`, 90000);
+    await waitFor(() => has('[data-summarize="requested"]'), async () => `the Summary tab after Stop (at ${await path()})`, 90000);
     expect((await path()).includes(lectureId), await path());
     const row = await lectureRow();
     expect(row.status === 'transcribing' && row.duration_ms > 30000, `the lecture: ${JSON.stringify(row)}`);
@@ -448,8 +450,8 @@ try {
     blockUploads = true;
     await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/storage/v1/object/audio-chunks/*', requestStage: 'Request' }] });
     await b.clickSelector('[aria-label="Stop and summarize"]');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
+    await waitFor(() => has('[data-summarize="preview"]'), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
     await waitFor(() => has('[data-recording="saving"]'), 'Saving…', 10000);
     await b.sleep(1500);
     const before = await lectureRow(title);

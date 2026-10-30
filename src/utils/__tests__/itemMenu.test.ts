@@ -52,8 +52,8 @@ describe('actionHint (greyed out, with why)', () => {
     expect(actionHint('copy', 'folder')).toBe('Coming soon');
   });
 
-  it('Summarize and Make exam pack wait for a later update; the rest works', () => {
-    expect(actionHint('summarize', 'lecture')).toBe('Coming in a later update');
+  it('Make exam pack waits for a later update; Summarize works since 7.3, as does the rest', () => {
+    expect(actionHint('summarize', 'lecture')).toBeNull();
     expect(actionHint('examPack', 'course')).toBe('Coming in a later update');
     expect(actionHint('cut', 'folder')).toBeNull();
     expect(actionHint('moveOut', 'lecture')).toBeNull();

@@ -469,9 +469,10 @@ try {
 
   await step('after Stop, on the phone: ✦ in the header opens the sheet, no recording pill, Knows this lecture up to its transcript’s end', async () => {
     await b.clickSelector('[aria-label="Stop and summarize"]');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
-    await waitFor(async () => (await path()).startsWith('/record/post-session'), async () => `the after-recording step (at ${await path()})`, 90000);
+    // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+    await waitFor(() => has('[data-summarize="preview"]'), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
+    await waitFor(() => has('[data-summarize="requested"]'), async () => `the Summary tab after Stop (at ${await path()})`, 90000);
     await b.resize(390, 844);
     await b.nav(`${BASE}/doc/${lectureId}?tab=notes`);
     await waitFor(() => has('[data-assistant="open"]'), '✦ in the header', 20000);

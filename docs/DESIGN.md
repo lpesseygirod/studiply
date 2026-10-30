@@ -239,6 +239,20 @@ As built in step 4.4:
 - Note: "The summary is written into this document (Summary tab). Your notes stay untouched in My notes."
 - Buttons: Keep recording · **Stop & generate summary**.
 - The 10 values are sent to the API as numbers; the summarize Edge Function turns them into derived variables (target words, takeaways, examples, self-test size…) exactly as in SUMMARY-SPEC.md, "How Claude builds the summary".
+- **As built (step 7.3; the advisor's decisions, 30 Oct):**
+  - **Opening:** Stop & summarize opens the panel while the recording goes on. **Keep recording** (or Esc) closes it.
+  - **After class:** it opens from the Summary tab's "Summarize this lecture" and from a lecture's **Summarize** in its menu, with Cancel · **Generate summary**.
+  - **Starting values:** the course's defaults (`course_settings`), else the spec's. Save as course default writes them: online only, and greyed for a lecture that isn't in a course.
+  - **Preview line:** "≈ 1,440 words · 4 takeaways · 7 questions", from the summary calculator, grey and small. On the laptop it's in the footer between Save as course default and the buttons; on the iPhone, just above the fixed Keep recording · Generate. Before any transcript: "≈ — words".
+  - **iPhone:** no "Scroll for 5 more": all 10 sliders scroll, with Save as course default as a centred accent link after slider 10. The resources in iphone-05's order: My notes and marks first (the green row), then Slides, Board photos, Questions. Then the add buttons (as on the laptop), then the preset chips with their scrollbar, the sliders' heading right after them.
+  - **Presets:** the four chips look alike, as in both mockups (no chosen state); a preset just moves the sliders.
+  - **Add buttons:**
+    - **+ Photos:** the Photo board picker, at the recording's time; after class, at its end.
+    - **+ Slides or PDF:** a PDF kept with the lecture; its pages and text are read with the summary.
+    - **+ Link:** the app's prompt.
+    - **+ From my library:** greyed; it comes with the first summaries.
+  - **Stop & generate summary:** the panel closes at once and the strip shows "Saving…"; then the request is saved and the lecture's **Summary tab** says "Summary settings saved", with the preview and Change settings. No AI is called before step 7.4 writes the summary.
+  - **Opening a lecture:** a lecture opens as a document (on My notes until it has a summary). A lecture recorded the earlier way (no chunks) keeps "Process now", the earlier after-recording screen.
 
 ### 3. Summary in the same document
 - Green banner: "Summary added to this document · Built from your notes (all N lines, M marks) + audio · slides · photos · your questions" + **Extend with next lecture**.

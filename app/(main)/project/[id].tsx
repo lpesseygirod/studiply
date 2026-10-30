@@ -314,15 +314,9 @@ export default function ProjectDetailScreen() {
   // Session navigation
   // -------------------------------------------------------------------
 
+  // A lecture opens as a document (step 7.3, as from the library): its Summary tab once processed, else My notes.
   const handleSessionPress = (session: Session) => {
-    if (session.status === 'completed') {
-      router.push({ pathname: '/doc/[id]', params: { id: session.id, tab: 'summary' } });
-    } else {
-      router.push({
-        pathname: '/record/post-session',
-        params: { sessionId: session.id, title: session.title },
-      });
-    }
+    router.push({ pathname: '/doc/[id]', params: { id: session.id, tab: session.status === 'completed' ? 'summary' : 'notes' } });
   };
 
   // -------------------------------------------------------------------

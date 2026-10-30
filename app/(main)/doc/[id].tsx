@@ -10,6 +10,8 @@ import { PAGE_COLORS } from '../../../src/editor/editorCss';
 import { DocumentHeader } from '../../../src/components/editor/DocumentHeader';
 import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
 import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCard';
+import { SummaryTabCard } from '../../../src/components/summarize/SummaryTabCard';
+import { openSummarize } from '../../../src/components/summarize/summarizePanelState';
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
 import { PageSetupDialog } from '../../../src/components/editor/PageSetupDialog';
@@ -93,7 +95,7 @@ type TabState = 'loading' | 'document' | 'earlier' | 'none';
  * gradient, the title and meta line, "Saved · time".
  */
 export default function DocumentScreen() {
-  const params = useLocalSearchParams<{ id: string; tab?: string; created?: string }>();
+  const params = useLocalSearchParams<{ id: string; tab?: string; created?: string; summarize?: string; at?: string }>();
   const id = params.id;
   const styles = useThemedStyles(makeStyles);
   const { colors: c, scheme } = useTheme();
@@ -122,6 +124,11 @@ export default function DocumentScreen() {
   const [courseName, setCourseName] = useState<string | null>(null);
   const [chain, setChain] = useState<Breadcrumb[]>([]);
   const [tab, setTab] = useState<DocTab>(isTab(params.tab) ? params.tab : 'notes');
+  // Opened again on a tab while on screen (step 7.3: Stop & generate summary opens the Summary tab; `at` makes each opening new).
+  const askedTab = isTab(params.tab) ? params.tab : null;
+  useEffect(() => {
+    if (askedTab) setTab(askedTab);
+  }, [askedTab, params.at]);
   const [tabState, setTabState] = useState<TabState>('loading');
   const isLecture = file?.kind === 'lecture';
 
@@ -212,6 +219,14 @@ export default function DocumentScreen() {
   useEffect(() => {
     if (id) markOpened(id);
   }, [id]);
+
+  // An item's Summarize (step 7.3): the lecture opens with the summarize panel, once.
+  const askedSummarize = params.summarize === '1';
+  useEffect(() => {
+    if (!askedSummarize || !id || file?.id !== id || file.kind !== 'lecture') return;
+    router.setParams({ summarize: undefined });
+    openSummarize({ lectureId: id, recording: recordingHere });
+  }, [askedSummarize, id, file?.id, file?.kind, recordingHere, router]);
 
   // A new document opens with its title selected, once (not again after going back to it).
   const created = params.created === '1';
@@ -552,14 +567,7 @@ export default function DocumentScreen() {
           onAction={() => router.push({ pathname: '/note/[id]', params: { id: file!.id } })}
         />
       )}
-      {tabState === 'none' && tab === 'summary' && (
-        <EarlierNotesCard
-          label="No summary yet"
-          text={lectureStatus === 'completed' ? 'This lecture has no summary.' : "This lecture hasn't been summarized yet."}
-          action={lectureStatus === 'completed' ? undefined : 'Process now'}
-          onAction={() => router.push({ pathname: '/record/post-session', params: { sessionId: file!.id, title: file!.title } })}
-        />
-      )}
+      {tabState === 'none' && tab === 'summary' && file && <SummaryTabCard lectureId={file.id} title={file.title} status={lectureStatus} recording={recordingHere} />}
       {tabState === 'none' && tab === 'transcript' && <EarlierNotesCard label="No transcript yet" text="The transcript appears here once the recording is transcribed." />}
     </ScrollView>
   );

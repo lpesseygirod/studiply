@@ -184,14 +184,20 @@ try {
     await b.press('Escape');
   });
 
-  await step('Greyed out with their hints: Copy on a lecture, Summarize, Make exam pack; New document works', async () => {
+  await step('Greyed out with their hints: Copy on a lecture, Make exam pack; Summarize works (7.3: the lecture with the summarize panel); New document works', async () => {
     await tileMenu('Lecture 1');
     const copy = await line('Copy');
     const summarize = await line('Summarize');
     expect(copy.disabled && copy.hint === 'Coming soon', JSON.stringify(copy));
-    expect(summarize.disabled && summarize.hint === 'Coming in a later update', JSON.stringify(summarize));
+    expect(summarize && !summarize.disabled && !summarize.hint, JSON.stringify(summarize));
     await b.shot('menus34-lecture');
-    await b.press('Escape');
+    // Since 7.3 Summarize works: the lecture opens with the summarize panel (after class: Cancel · Generate summary).
+    await clickItem('Summarize');
+    await until(async () => (await b.evaluate('location.pathname')) === `/doc/${data.lecture.id}` && (await b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`)), 'Summarize did not open the lecture with the summarize panel', 20000);
+    expect((await b.evaluate(`document.querySelector('[data-summarize="keep"]')?.textContent`)) === 'Cancel', 'not the after-class panel (Cancel · Generate summary)');
+    await b.clickSelector('[data-summarize="keep"]');
+    await until(async () => !(await b.evaluate(`!!document.querySelector('[data-summarize="panel"]')`)), 'the panel did not close');
+    await open(null, 'Tema A');
     await tileMenu('Tema A');
     const pack = await line('Make exam pack');
     expect(pack.disabled && pack.hint === 'Coming in a later update', JSON.stringify(pack));

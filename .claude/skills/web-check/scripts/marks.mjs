@@ -553,9 +553,10 @@ try {
     expect((await chunkCount()) >= 1, 'no chunk uploaded');
     const kept = await rows();
     await press('Stop and summarize');
-    await b.waitText('Stop recording?', { timeout: 5000 });
-    await b.click('Stop', { exact: true });
-    await waitFor(async () => (await path()).startsWith('/record/post-session'), async () => `the after-recording step (at ${await path()})`, 90000);
+    // Step 7.3: the summarize panel; its Stop & generate summary stops, saves and opens the Summary tab.
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="preview"]')`), 'the summarize panel', 15000);
+    await b.clickSelector('[data-summarize="generate"]');
+    await waitFor(() => b.evaluate(`!!document.querySelector('[data-summarize="requested"]')`), async () => `the Summary tab after Stop (at ${await path()})`, 90000);
     expect(JSON.stringify(await rows()) === JSON.stringify(kept), 'the marks changed at Stop');
     await b.nav(`${BASE}/doc/${lectureId}?tab=notes`);
     await waitFor(() => has('.studiply-mark-chip[data-mark="exam"]'), 'the chips after the recording', 30000);
