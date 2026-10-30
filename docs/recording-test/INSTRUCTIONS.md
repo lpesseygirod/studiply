@@ -15,13 +15,16 @@ timing error. Everything stays on local Supabase; nothing is paid for.
 
 1. Docker, `supabase start`, and Metro for the development build (`npm run start:local`).
    The iPhone and the Mac on the same Wi-Fi (or the iPhone's Personal Hotspot).
-   `supabase functions serve` too if you want live transcripts (real transcription costs money:
-   decline transcription in the consent step to keep the test free; the joins don't need it).
-2. The new EAS development build on the iPhone (with expo-audio), signed in to your
+2. **No paid calls:** stop `supabase functions serve` if it runs (Ctrl+C in its terminal),
+   or decline transcription in the consent step. The joins don't need a transcript, and
+   real transcription costs money.
+3. The new EAS development build on the iPhone (with expo-audio), signed in to your
    **local** account.
-3. iPhone: charged above 50 %, Low Power Mode off, Do Not Disturb on (no calls in the middle).
-4. Laptop: plugged in, lid open, in a quiet room. Open `click-track.html` in Chrome,
-   volume about half, the phone about 1 m away, its microphone (bottom edge) towards the laptop.
+4. iPhone: charged above 50 %, Low Power Mode off, Do Not Disturb on (no calls in the middle).
+5. Laptop: plugged in, lid open, in a quiet room. Open `click-track.html` in Chrome,
+   **system volume at 75 %**, the phone **30 cm from the laptop's speaker**, its microphone
+   (bottom edge) towards it. (On 30 Oct, at half volume and 1 m, most beeps weren't heard
+   and the joins couldn't be measured.)
 
 ## The test
 
@@ -54,13 +57,23 @@ If iOS refused two recorders at once, the Metro log says
 `one recorder, restarted at each join`: then each JOIN line shows the gap
 (`… in neither (≈ N ms LOST)` and the join in ms). Send me the whole output either way.
 
-Also worth sending: `RESULT | clicks` (clicks missed inside chunks would mean a dropout
-while locked), `RESULT | lengths` and `RESULT | clock`.
+Also worth sending: `RESULT | loudness`, `RESULT | clicks` (clicks missed inside chunks
+would mean a dropout while locked), `RESULT | lengths`, `RESULT | chunk lengths` and
+`RESULT | clock`.
+
+From the Metro log, send any line with `[recorder] could not prepare the next part`
+(why a rotation was skipped while locked) or `[recorder] part N lasted … cut into M pieces`
+(a long part was cut on the phone: expected only if a rotation was skipped; the chunk
+count is then higher than 31, which is fine).
 
 ## If it says something else
 
 - `No lecture titled "Join test"`: the iPhone uses another Supabase than `supabase status`
   (check that the build is the development one and Metro served it).
 - `not uploaded (pending)`: wait for the uploads (the phone online, the app opened), run again.
-- `no clicks heard` / `no second beeps heard`: louder click track, phone closer, quieter room.
+- `TOO QUIET | …` and `VERDICT | NOT MEASURED`: the phone didn't hear the click track in those
+  chunks (fewer than half of their clicks), so nothing about the joins can be said. Check the
+  volume (75 %) and the distance (30 cm), keep the room quiet, and record again.
+- `RESULT | chunk lengths | LONG: …`: a chunk longer than 31.5 s reached the server. The phone
+  should have cut it into pieces: send the output and the Metro log.
 - `does not decode`: send me the output; that's a broken chunk file.

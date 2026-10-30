@@ -12,11 +12,19 @@ class FakeRecorder implements NativeRecorderLike {
   static recordingNow = 0;
   /** How many may record at once (iOS's answer to a second recorder). */
   static maxAtOnce = 2;
+  /** iOS refusing to prepare another recorder (30 Oct, the phone locked). */
+  static prepareFails = false;
+  /** How long preparing takes, by recorder (ms). */
+  static slow = new Map<number, number>();
   readonly id = FakeRecorder.made++;
   isRecording = false;
+  released = false;
   uri: string | null = null;
   metering = -25;
   async prepareToRecordAsync() {
+    const ms = FakeRecorder.slow.get(this.id);
+    if (ms) await new Promise((r) => setTimeout(r, ms));
+    if (FakeRecorder.prepareFails) throw new Error('Failed to prepare recorder');
     this.uri = `file:///caches/r${this.id}.m4a`;
   }
   record() {
@@ -34,7 +42,9 @@ class FakeRecorder implements NativeRecorderLike {
   getStatus() {
     return { isRecording: this.isRecording, metering: this.metering };
   }
-  release() {}
+  release() {
+    this.released = true;
+  }
   /** Stopped by iOS (a phone call). */
   interrupt() {
     this.isRecording = false;
@@ -68,6 +78,8 @@ beforeEach(() => {
   FakeRecorder.made = 0;
   FakeRecorder.recordingNow = 0;
   FakeRecorder.maxAtOnce = 2;
+  FakeRecorder.prepareFails = false;
+  FakeRecorder.slow.clear();
 });
 afterEach(() => jest.useRealTimers());
 
@@ -161,6 +173,47 @@ describe('recording in chunks on the iPhone', () => {
     await jest.advanceTimersByTimeAsync(5000);
     await recorder.stop();
     expect(shape(chunks)).toEqual([[4, 90000, 5000]]);
+  });
+
+  it('a next recorder that can’t be prepared: the chunk goes on, it’s said once, tried again 2 s later, and the 30 s count from the late rotation', async () => {
+    const failed = jest.fn();
+    const { recorder, chunks } = make({ onPrepareFailed: failed });
+    await recorder.start();
+    FakeRecorder.prepareFails = true;
+    // 30 s: rotates with the recorder prepared at the start; the one after fails, and so does each try from 60 s.
+    await jest.advanceTimersByTimeAsync(69000);
+    expect(shape(chunks)).toEqual([[0, 0, 30500]]);
+    expect(failed).toHaveBeenCalledTimes(1);
+    expect(made.filter((r) => r.isRecording)).toHaveLength(1);
+    // iOS prepares again: the next try (70 s) rotates.
+    FakeRecorder.prepareFails = false;
+    await jest.advanceTimersByTimeAsync(36000);
+    await recorder.stop();
+    expect(shape(chunks)).toEqual([
+      [0, 0, 30500],
+      [1, 30000, 40500],
+      [2, 70000, 30500],
+      [3, 100000, 5000],
+    ]);
+    expect(failed).toHaveBeenCalledTimes(1);
+  });
+
+  it('one rotation at a time: preparing that takes longer than a chunk never lets go of the recorder that records', async () => {
+    FakeRecorder.slow.set(1, 70000);
+    const { recorder, chunks } = make();
+    await recorder.start();
+    // The ticks at 30 s and 60 s wait for the same next recorder (ready at 70 s).
+    await jest.advanceTimersByTimeAsync(70600);
+    expect(shape(chunks)).toEqual([[0, 0, 70500]]);
+    expect(made[1].isRecording).toBe(true);
+    expect(made[1].released).toBe(false);
+    await jest.advanceTimersByTimeAsync(24400);
+    await recorder.stop();
+    expect(shape(chunks)).toEqual([
+      [0, 0, 70500],
+      [1, 70000, 20500],
+      [2, 90000, 5000],
+    ]);
   });
 
   it('a microphone that can’t start says so', async () => {

@@ -19,6 +19,12 @@
  * before it's finished, so there are no pieces: a crash loses the chunk
  * being recorded (at most `chunkMs`).
  *
+ * If the next recorder can't be prepared (30 Oct, the phone locked: one
+ * part grew to 6.8 min), the chunk simply goes on, the failure is said once
+ * (`onPrepareFailed`) and the rotation is tried again after `retryMs`; one
+ * rotation runs at a time. The iPhone's source cuts a part that got long
+ * anyway into chunk-long pieces (lib/m4aSplit).
+ *
  * expo-audio itself is passed in (`createRecorder`), so this is tested with
  * stand-ins. Times are Date.now() (ms).
  */
@@ -54,7 +60,13 @@ export interface NativeChunkRecorderOptions {
   now?: () => number;
   /** How often a recorder that stopped by itself is looked for (ms). */
   watchMs?: number;
+  /** The next recorder couldn't be prepared (said once until one is prepared again). */
+  onPrepareFailed?: (err: unknown) => void;
+  /** After a rotation that couldn't happen (no next recorder), how soon it's tried again (ms). */
+  retryMs?: number;
 }
+
+const RETRY_MS = 2000;
 
 interface Rec {
   recorder: NativeRecorderLike;
@@ -79,7 +91,13 @@ export class NativeChunkRecorder {
   private overlap: boolean;
   private lostSaid = false;
   private rotateTimer: ReturnType<typeof setInterval> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private watchTimer: ReturnType<typeof setInterval> | null = null;
+  /** A rotation is under way: the next tick waits (two would take the same next recorder). */
+  private rotating = false;
+  /** A rotation was skipped: once one happens, the 30 seconds count from it. */
+  private behind = false;
+  private prepareFailing = false;
   private readonly pending = new Set<Promise<void>>();
   private readonly ready = new Map<number, NativeChunk | null>();
   private nextToHand: number;
@@ -190,26 +208,70 @@ export class NativeChunkRecorder {
   private async prepared(): Promise<NativeRecorderLike> {
     const recorder = this.options.createRecorder();
     await recorder.prepareToRecordAsync();
+    this.prepareFailing = false;
     return recorder;
+  }
+
+  /** prepared(), or null when it fails (said once until one is prepared again). */
+  private preparedOrNull(): Promise<NativeRecorderLike | null> {
+    return this.prepared().catch((err) => {
+      if (!this.prepareFailing) this.options.onPrepareFailed?.(err);
+      this.prepareFailing = true;
+      return null;
+    });
   }
 
   /** The next recorder, ready before it's needed. */
   private prepareNext(): void {
     if (this.next) return;
-    this.next = this.prepared().catch(() => null);
+    this.next = this.preparedOrNull();
   }
 
   private afterStart(): void {
-    this.rotateTimer = setInterval(() => this.track(this.rotate()), this.options.chunkMs);
+    this.startRotation();
     this.watchTimer = setInterval(() => this.watch(), this.options.watchMs ?? 1000);
     this.prepareNext();
   }
 
+  private startRotation(): void {
+    if (this.rotateTimer) clearInterval(this.rotateTimer);
+    this.rotateTimer = setInterval(() => this.tick(), this.options.chunkMs);
+  }
+
+  private tick(): void {
+    if (this.rotating) return;
+    this.rotating = true;
+    this.track(
+      this.rotate().finally(() => {
+        this.rotating = false;
+      }),
+    );
+  }
+
   private clearTimers(): void {
     if (this.rotateTimer) clearInterval(this.rotateTimer);
+    if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.watchTimer) clearInterval(this.watchTimer);
     this.rotateTimer = null;
+    this.retryTimer = null;
     this.watchTimer = null;
+  }
+
+  /** A rotation that couldn't happen is tried again soon, not a whole chunk later. */
+  private retrySoon(): void {
+    this.behind = true;
+    if (this.retryTimer || !this.rotateTimer) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.tick();
+    }, this.options.retryMs ?? RETRY_MS);
+  }
+
+  /** A new chunk began: after a late rotation, the next one comes a whole chunk later. */
+  private rotated(): void {
+    if (!this.behind) return;
+    this.behind = false;
+    if (this.rotateTimer) this.startRotation();
   }
 
   /** Starts `recorder` as the next chunk; after a pause the paused time ends here. */
@@ -227,10 +289,12 @@ export class NativeChunkRecorder {
   private async rotate(): Promise<void> {
     const old = this.current;
     if (!old) return;
-    const fresh = (await this.next) ?? (await this.prepared().catch(() => null));
+    const fresh = (await this.next) ?? (await this.preparedOrNull());
     this.next = null;
     if (!fresh || this.current !== old) {
       fresh?.release();
+      // The chunk goes on (nothing is lost); it's cut later if it gets long (the iPhone's source).
+      if (!fresh && this.current === old) this.retrySoon();
       return;
     }
     if (this.overlap) {
@@ -238,6 +302,7 @@ export class NativeChunkRecorder {
       const rec = this.begin(fresh, false);
       if (fresh.isRecording) {
         this.current = rec;
+        this.rotated();
         await this.endFinishing();
         await new Promise<void>((done) => {
           this.finishing = { rec: old, timer: setTimeout(() => void this.endFinishing(), this.options.overlapMs), done };
@@ -257,6 +322,7 @@ export class NativeChunkRecorder {
       return;
     }
     this.current = this.begin(fresh, false);
+    this.rotated();
     this.prepareNext();
   }
 
