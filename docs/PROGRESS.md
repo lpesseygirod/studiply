@@ -56,7 +56,11 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 Phase 5 is not started.
 
 ## Phase 5 — Recording with live notes and marks (`phase-5-recording`)
-- [ ] 5.1 — Spike: recording in pieces (expo-audio + MediaRecorder, chunk joins)
+- [ ] 5.1 — Spike: recording in pieces (expo-audio + MediaRecorder, chunk joins) — **web half done** 30 Oct on branch `phase-5-recording`; the iPhone half waits for Lea's OK on expo-audio (1.0.16, MIT) and her phone.
+  - **Built:** `src/lib/chunkRecorder.web.ts` (MediaRecorder rotated every 30 s, restart or overlap; chunks handed over in order); `/dev/recording-spike` (development only: uploads each chunk through the app's path to transcribe-chunk, live transcript).
+  - **Checked:** Jest `chunkRecorder.test.ts` (4); Chrome `spike.mjs` 3/3 (the advisor's run, no paid calls: the joins measured with a synthetic signal, transcription answered in the page).
+  - **Measured (Chrome, WebM / Opus):** restarting the recorder every 30 s loses audio at every join, **gaps of 56.0, 6.0 and 6.0 ms**. Overlapping by 500 ms leaves **no gap**: **overlaps of 464, 494 and 494 ms**.
+  - **Decision (Lea's advisor, 30 Oct):** the web records with a **500 ms overlap**; the duplicated words at each join are removed in 5.2.
 - [ ] 5.2 — Recorder service (start/pause/resume/stop, queue, recovery, tests)
 - [ ] 5.3 — Recording screen (iPhone + laptop strip)
 - [ ] 5.4 — Live notes with timestamps

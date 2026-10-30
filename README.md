@@ -188,6 +188,13 @@ Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, s
 
 Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
 
+Recording in chunks (step 5.1, the spike): `src/lib/chunkRecorder.web.ts` rotates the browser's MediaRecorder every 30 s on one microphone stream, so each chunk is a standalone WebM / Opus file.
+- **Two modes:** restart (stop and start in one task) or overlap (the next chunk starts `overlapMs` before the previous one stops).
+- **Order:** chunks are handed over in their order.
+- **The iPhone's:** `chunkRecorder.ts` is a stub until expo-audio is approved.
+- **The dev screen:** `/dev/recording-spike` (development only) uploads each chunk through `createSourceFile` and `transcribe-chunk` and shows the live transcript.
+- **The check:** `spike.mjs` measures the joins with a synthetic signal.
+
 Earlier notes (step 4.9) live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
 - **`run.ts`** converts only when the tab has no document, and only reads the old row.
