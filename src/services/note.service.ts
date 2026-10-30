@@ -405,6 +405,21 @@ export async function getSessionsWithNotes(sessionIds: string[]): Promise<Set<st
 // Returns the most recent note for a session (null if none).
 // -------------------------------------------------------------------
 export async function getNoteBySession(sessionId: string): Promise<Note | null> {
+  const row = await latestNoteRow(sessionId);
+  return row ? summaryToNote(row) : null;
+}
+
+/**
+ * The most recent note of a session as stored (each section's origin and time
+ * included), for step 4.9's conversion into the Summary tab. Null if none.
+ */
+export async function getNoteResultBySession(sessionId: string): Promise<{ id: string; result: LegacyNoteResult } | null> {
+  const row = await latestNoteRow(sessionId);
+  const result = row ? readLegacyNote(row.result) : null;
+  return row && result ? { id: row.id, result } : null;
+}
+
+async function latestNoteRow(sessionId: string): Promise<SummaryRow | null> {
   // Wrapped, so "this lecture has no note" isn't mistaken for "nothing cached".
   const found = await readThrough<{ row: SummaryRow | null }>(
     async () => {
@@ -427,7 +442,7 @@ export async function getNoteBySession(sessionId: string): Promise<Note | null> 
       return { row: latestNote(await readRows<SummaryRow>('summaries', sessionId), file) };
     },
   );
-  return found.row ? summaryToNote(found.row) : null;
+  return found.row;
 }
 
 // -------------------------------------------------------------------

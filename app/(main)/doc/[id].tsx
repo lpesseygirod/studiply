@@ -46,6 +46,7 @@ import {
 import { addTab, deleteTab, isAddedTab, listTabs, moveTab, renameTab, restoreTab, type TabInfo, type TabKind } from '../../../src/services/document-tabs.service';
 import { getFolderBreadcrumbs, type Breadcrumb } from '../../../src/services/folder.service';
 import { getNoteBySession } from '../../../src/services/note.service';
+import { convertEarlierNoteOf } from '../../../src/services/legacyNotes';
 import { getProject } from '../../../src/services/project.service';
 import { getSession, renameSession } from '../../../src/services/session.service';
 import { getUserSettings } from '../../../src/services/settings.service';
@@ -103,6 +104,9 @@ export default function DocumentScreen() {
       .catch(() => {});
   }, [userId]);
   const [note, setNote] = useState<Note | null>(null);
+  // The lecture whose note lookup has finished: until then its Summary tab can't tell "no summary" from
+  // "an earlier note not converted yet" (4.9), so it stays loading instead of flashing "No summary yet".
+  const [noteCheckedFor, setNoteCheckedFor] = useState<string | null>(null);
   const [courseName, setCourseName] = useState<string | null>(null);
   const [chain, setChain] = useState<Breadcrumb[]>([]);
   const [tab, setTab] = useState<DocTab>(isTab(params.tab) ? params.tab : 'notes');
@@ -147,6 +151,7 @@ export default function DocumentScreen() {
         const [s, n] = await Promise.all([getSession(id), getNoteBySession(id).catch(() => null)]);
         setSession(s);
         setNote(n);
+        setNoteCheckedFor(id);
       }
       if (f.course_id) {
         const p = await getProject(f.course_id).catch(() => null);
@@ -191,6 +196,7 @@ export default function DocumentScreen() {
   const lectureStatus = session?.status;
   const kind = file?.kind;
   const hasNote = !!note;
+  const noteChecked = noteCheckedFor === id;
   const shownTab = useRef<string | null>(null);
   useEffect(() => {
     if (!kind || !id) return;
@@ -198,12 +204,23 @@ export default function DocumentScreen() {
     const key = `${id}:${tab}`;
     if (shownTab.current !== key) setTabState('loading');
     shownTab.current = key;
+    // A lecture's Summary tab waits for its note lookup (it stays loading meanwhile).
+    if (kind === 'lecture' && tab === 'summary' && !noteChecked) {
+      setTabState('loading');
+      return;
+    }
     (async () => {
       // A lecture's Summary and Transcript may have nothing yet; every other tab is a document.
       if (kind !== 'lecture' || (tab !== 'summary' && tab !== 'transcript')) return 'document' as const;
       const opened = await openDocument(id, tab).catch(() => null);
       if (opened?.id) return 'document' as const;
-      if (tab === 'summary') return hasNote ? ('earlier' as const) : ('none' as const);
+      if (tab === 'summary') {
+        if (!hasNote) return 'none' as const;
+        // Step 4.9: the earlier note becomes this tab, once (never over a document that is there). The
+        // card stays for when that can't be done now (e.g. offline before the note was ever read).
+        const outcome = await convertEarlierNoteOf(id).catch(() => null);
+        return outcome === 'converted' || outcome === 'exists' ? ('document' as const) : ('earlier' as const);
+      }
       const transcript = await getTranscriptBySession(id).catch(() => null);
       const segments = Array.isArray(transcript?.segments) ? (transcript.segments as unknown as { start: number; text: string }[]) : [];
       if (segments.length === 0) return 'none' as const;
@@ -215,7 +232,7 @@ export default function DocumentScreen() {
     return () => {
       live = false;
     };
-  }, [kind, id, tab, hasNote, lectureStatus]);
+  }, [kind, id, tab, hasNote, noteChecked, lectureStatus]);
 
   // The editor, one per tab; its autosave starts once it is ready. A
   // spreadsheet tab (step 4.7e) has the grid instead, with the same autosave.
@@ -427,7 +444,7 @@ export default function DocumentScreen() {
       {tabState === 'earlier' && note && (
         <EarlierNotesCard
           label="Notes in the earlier format"
-          text={`${(note.summary ?? '').slice(0, 320)}${(note.summary ?? '').length > 320 ? '…' : ''}\n\nThese notes move into this tab in a later update. Until then they open in the notes view, with Clarify, Edit and Export PDF.`}
+          text={`${(note.summary ?? '').slice(0, 320)}${(note.summary ?? '').length > 320 ? '…' : ''}\n\nThese notes become this tab the next time it opens and they can be saved. Until then they open in the notes view, with Clarify, Edit and Export PDF.`}
           action="Open notes"
           onAction={() => router.push({ pathname: '/note/[id]', params: { id: file!.id } })}
         />

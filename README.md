@@ -188,6 +188,13 @@ Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, s
 
 Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
 
+Earlier notes (step 4.9) live in `src/services/legacyNotes`:
+- **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
+- **`run.ts`** converts only when the tab has no document, and only reads the old row.
+- **`index.ts`** wires the app's services (`openDocument`, `getNoteResultBySession`, `getSourceFiles`, `saveDocument`).
+
+The document screen calls it when a lecture's Summary tab opens with no document. There's no background pass, no migration and no server script.
+
 The PDF export (step 4.8a) lives in `src/editor/export`:
 - **`printPages.ts`** runs in a page (the laptop's own, or the iPhone's WebView). It puts each tab in a hidden editor with the document's page setup, Pages on, at 100 % and no gap. The page view lays it out (`pageLayout.ts`, so the PDF's pages are the page view's). Then each page becomes a box of the paper's size holding its blocks where they were placed, with numbers through the file.
 - **`sheetTable.ts`** turns a sheet tab into a table of its values.

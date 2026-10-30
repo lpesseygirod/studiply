@@ -7,8 +7,14 @@
 //   - leaving keeps a version of the session; version history: name a
 //     version, restore an older text (the current one kept as "Before
 //     restore"); thinning keeps named versions and a day's last edit;
-//   - a lecture: three tabs; Summary shows the earlier-format notes with
-//     Open notes (→ /note/); Transcript is made from the segments, with chips;
+//   - a lecture: three tabs; its note in the earlier format becomes the
+//     Summary tab when it opens (step 4.9: a document, saved as the summary
+//     row); the notes view (/note/) still opens it; Transcript is made from
+//     the segments, with chips;
+//   - the earlier-format card where it still shows: the Summary tab's save
+//     can't be made (here the browser refuses it): "Notes in the earlier
+//     format" with Open notes (→ /note/), nothing saved; once saving works,
+//     the next opening converts it;
 //   - screenshots at 1280 and 390, light and dark (doc-*.png).
 // Prints PASS/FAIL per step. Exit code 1 on any FAIL.
 import { launch, SHOTS } from './cdp.mjs';
@@ -49,6 +55,32 @@ const docRow = async (fileId, tab = 'notes') =>
   (await admin.from('documents').select('*').eq('file_id', fileId).eq('tab', tab).maybeSingle()).data;
 const pageText = () => b.evaluate(`document.querySelector('.studiply-editor .ProseMirror')?.innerText ?? ''`);
 const editorReady = () => waitFor(() => b.evaluate(`!!${EDITOR}?.view?.dom && !!document.querySelector('.studiply-editor .ProseMirror')`), 'the editor');
+// The lecture's note in the earlier format (as step 1.9's import and the generate flow store it).
+const SUMMARY_TEXT = 'La psicobiología estudia la conducta como proceso biológico, dentro de la psicología y la biología.';
+const legacyNote = (title, summary) => ({
+  format: 'legacy-note-v1', title, summaryLevel: 'standard', recordingMode: 'lecture',
+  summary,
+  keyConcepts: [], formulas: [], definitions: [], tags: [], unclearParts: [], manualAnnotations: null, isConfirmed: true,
+});
+/** The Summary tab, converted from the earlier note (step 4.9): the editor shows `text`. */
+const convertedSummary = async (text) => {
+  await editorReady();
+  await waitFor(async () => (await pageText()).includes(text), `the converted Summary tab ("${text.slice(0, 30)}…")`, 30000);
+};
+
+// The browser refusing to write documents (POST / PATCH to /rest/v1/documents), as when the save can't
+// be made: reads still work. On only while `blockDocumentWrites` is true.
+let blockDocumentWrites = false;
+b.onEvent('Fetch.requestPaused', (p) => {
+  const write = !['GET', 'HEAD', 'OPTIONS'].includes(p.request.method);
+  if (blockDocumentWrites && write) void b.send('Fetch.failRequest', { requestId: p.requestId, errorReason: 'Failed' }).catch(() => {});
+  else void b.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {});
+});
+const refuseDocumentWrites = async (on) => {
+  blockDocumentWrites = on;
+  if (on) await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/rest/v1/documents*', requestStage: 'Request' }] });
+  else await b.send('Fetch.disable', {});
+};
 
 let docId = null;
 let lectureId = null;
@@ -168,27 +200,28 @@ try {
     expect(left.includes(old[0].id) && left.includes(old[2].id), `kept ${JSON.stringify(left)}`);
   });
 
-  await step('a lecture: tabs, the earlier-format notes, the transcript with chips', async () => {
+  await step('a lecture: tabs, its earlier-format note as the Summary tab, the notes view, the transcript with chips', async () => {
     lectureId = data.lecture.id;
     await admin.from('lectures').update({ status: 'ready' }).eq('id', lectureId);
-    await user.client.from('summaries').insert({
+    const { error: noteError } = await user.client.from('summaries').insert({
       file_id: lectureId,
       mode: 'new',
       status: 'done',
       sliders: {},
-      result: {
-        format: 'legacy-note-v1', title: 'Lecture 1', summaryLevel: 'standard', recordingMode: 'lecture',
-        summary: 'La psicobiología estudia la conducta como proceso biológico, dentro de la psicología y la biología.',
-        keyConcepts: [], formulas: [], definitions: [], tags: [], unclearParts: [], manualAnnotations: null, isConfirmed: true,
-      },
+      result: legacyNote('Lecture 1', SUMMARY_TEXT),
     });
+    expect(!noteError, noteError?.message);
     await user.client.from('transcript_segments').insert([
       { lecture_id: lectureId, start_ms: 5000, end_ms: 9000, text: 'Hoy empezamos el tema uno.' },
       { lecture_id: lectureId, start_ms: 252000, end_ms: 256000, text: 'Esto entra en el examen.' },
     ]);
     await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);
-    await b.waitText('NOTES IN THE EARLIER FORMAT', { timeout: 30000 });
+    // Step 4.9: the earlier note became the Summary tab (a document), not the earlier-format card.
+    await convertedSummary(SUMMARY_TEXT);
     for (const t of ['My notes', 'Summary', 'Transcript']) expect(await b.hasText(t, true), `no ${t} tab`);
+    expect(!(await b.hasText('NOTES IN THE EARLIER FORMAT')), 'the earlier-format card is still shown');
+    const summary = await waitFor(() => docRow(lectureId, 'summary'), 'the Summary row');
+    expect(texts(summary.content).some((t) => t.includes(SUMMARY_TEXT)), `the Summary row: ${JSON.stringify(texts(summary.content))}`);
     await b.sleep(1500);
     await b.shot('doc-lecture-summary-1280');
     await b.click('Transcript');
@@ -198,14 +231,45 @@ try {
     expect(row.content.content.every((blk) => blk.attrs.origin === 'media'), 'transcript blocks are not media');
     await b.shot('doc-lecture-transcript-1280');
     await b.click('Summary');
-    await b.click('Open notes');
-    await waitFor(() => b.evaluate(`location.pathname === '/note/${lectureId}'`), 'the notes view');
+    await convertedSummary(SUMMARY_TEXT);
+    // The notes view is unchanged (step 4.9) and still opens the note.
+    await b.nav(`${BASE}/note/${lectureId}`);
+    await b.waitText('proceso biológico', { timeout: 30000 });
+    expect(await b.evaluate(`location.pathname === '/note/${lectureId}'`), 'not the notes view');
+  });
+
+  await step('the earlier-format card when the Summary tab can’t be saved: Open notes; converted once saving works', async () => {
+    const { data: file, error } = await user.client.from('files').insert({ kind: 'lecture', title: 'Lecture 2', course_id: data.course.id }).select().single();
+    expect(!error, error?.message);
+    const { error: lectureError } = await user.client.from('lectures').insert({ id: file.id, status: 'ready', duration_ms: 30000 });
+    expect(!lectureError, lectureError?.message);
+    const text = 'Notas de la segunda clase, en el formato anterior.';
+    const { error: noteError } = await user.client.from('summaries').insert({ file_id: file.id, mode: 'new', status: 'done', sliders: {}, result: legacyNote('Lecture 2', text) });
+    expect(!noteError, noteError?.message);
+    try {
+      await refuseDocumentWrites(true);
+      await b.nav(`${BASE}/doc/${file.id}?tab=summary`);
+      await b.waitText('NOTES IN THE EARLIER FORMAT', { timeout: 30000 });
+      expect(await b.hasText('the next time it opens'), 'the card doesn’t say it tries again');
+      expect(!(await docRow(file.id, 'summary')), 'a Summary row was made while saving was refused');
+      await b.sleep(1500);
+      await b.shot('doc-lecture-earlier-card-1280');
+      await b.click('Open notes');
+      await waitFor(() => b.evaluate(`location.pathname === '/note/${file.id}'`), 'the notes view');
+    } finally {
+      await refuseDocumentWrites(false);
+    }
+    await b.nav(`${BASE}/doc/${file.id}?tab=summary`);
+    await convertedSummary(text);
+    expect(!(await b.hasText('NOTES IN THE EARLIER FORMAT')), 'the card is still shown once saving works');
+    const row = await waitFor(() => docRow(file.id, 'summary'), 'the Summary row once saving works');
+    expect(texts(row.content).some((t) => t.includes(text)), `the Summary row: ${JSON.stringify(texts(row.content))}`);
   });
 
   await step('iPhone width (390 px) and dark mode', async () => {
     await b.resize(390, 844);
     await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);
-    await b.waitText('NOTES IN THE EARLIER FORMAT', { timeout: 30000 });
+    await convertedSummary(SUMMARY_TEXT);
     await b.sleep(2500);
     await b.shot('doc-lecture-summary-390');
     await b.nav(`${BASE}/doc/${docId}`);
@@ -214,7 +278,7 @@ try {
     await b.shot('doc-blank-390');
     await b.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
     await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);
-    await b.waitText('NOTES IN THE EARLIER FORMAT', { timeout: 30000 });
+    await convertedSummary(SUMMARY_TEXT);
     await b.sleep(2500);
     await b.shot('doc-lecture-summary-390-dark');
     await b.resize(1280, 900);

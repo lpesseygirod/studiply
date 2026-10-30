@@ -47,7 +47,13 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - [ ] 4.8 — Import and export (.docx import; PDF and .docx export), split by Lea's advisor on 30 Oct:
   - [x] 4.8a — PDF export (no new dependency) — built and checked 30 Oct: Jest and `npm run check` (1736); Chrome `export.mjs` 9/9 and all twelve suites passing (flows 19, documents 8, look 12, layout 9, formatting 12, inserting 30, blocks 8, pages 13, tabs 8, sheets 16, writing 19, export 9; the advisor's full run); the iPhone bundle rebuilt; the advisor accepted the four small calls; committed locally. On the way, the page view's measuring scale was fixed (A4 pages started about 1 px off their top margin). Still to do by Lea: test M on the iPhone
   - [ ] 4.8b — .docx import and export — waiting for Lea's decision on the libraries: mammoth (1.13.0, BSD-2-Clause) for import, docx (9.15.0, MIT) for export (comparison in the 4.8a report, checked by the advisor with npm)
-- [ ] 4.9 — Convert old notes (idempotent)
+- [x] 4.9 — Convert old notes (idempotent) — plan approved by Lea's advisor 30 Oct (headings in the lecture's language; highlights as a quote plus Added context; Attachments with the photos shown; no background pass, only when the Summary tab opens; the old notes view unchanged). Built and checked 30 Oct: Jest `legacyNotes.test.ts` (20) and `npm run check` (1756); Chrome `notes.mjs` 8/8 and `documents.mjs` 9/9 (updated for the converted Summary tab, plus the earlier-notes card when the save fails), and all thirteen suites passing on the advisor's full run; committed locally. Still to do by Lea: test N, and the regenerate edge on her list (test N, item 5)
+
+**Phase 4 status (30 Oct):** complete, except:
+- **4.8b (.docx import and export):** waits for Lea's OK on the libraries (mammoth, BSD-2-Clause; docx, MIT).
+- **Lea's iPhone tests:** G, H, I, J, K, L, M, N, plus the remote migrations listed under Things Lea must do.
+
+Phase 5 is not started.
 
 ## Phase 5 — Recording with live notes and marks (`phase-5-recording`)
 - [ ] 5.1 — Spike: recording in pieces (expo-audio + MediaRecorder, chunk joins)
@@ -568,6 +574,32 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
 - **Step 4.7b, tabs in every document (29 Oct).** BUILD-PLAN 4.7b as planned, nothing more.
   - **Data (part 1):** migration `20261029151900_document_tabs` (`tab` is the tab's id, `t-<uuid>` for an added one; `title`, `position`, `deleted_at`, `kind`; `unique (file_id, tab)` and RLS unchanged; no existing row rewritten: null means the defaults). `src/services/document-tabs.service.ts`: the list (`orderTabs`), add (at most 30, "Tab N", empty page, the document's page setup), rename, move (only the moved tab's `position`, the midpoint), delete (soft) and restore; the laptop writes at once, the iPhone queues `create_tab` / `tab_meta` under `fileId:tab`. Page setup is written to every tab. Deleted on one device and edited on another: an edit reaching a deleted tab brings it back (`applyDocEdit`), a delete arriving after a newer edit than its device had seen is dropped (`seenEditedAt`). Checked: Jest `document-tabs.test.ts` (16) and `offline-tabs.test.ts` (6); pgTAP `15_document_tabs` (16; run by Lea's advisor, 329 in all).
   - **Screens (part 2):** `components/editor/DocumentTabs.tsx` for every document (it replaces the lecture-only pill and the iPhone's segmented control): the tabs in a pill (the open one `accentLight` / `accentDark`), **+** beside it; laptop: a second click on the open tab renames it, right-click → Rename · Delete, drag to move (a thin accent line where it goes); iPhone and narrow windows: the row scrolls sideways, long-press → Rename · Move left · Move right · Delete. Delete shows Undo. A lecture's three tabs have no menu and never move; a plain document with one tab shows only **+ Add tab**. The "tab kept" notice: `takeKeptTabs` (iPhone) and the save session's `kept` (laptop). Version history names the tab. On the web the tabs carry `aria-selected` (react-native-web 0.21 ignores `accessibilityState`), and the row can't be text-selected (a press that selected text is cancelled); the graph form's type buttons and the formula form's mode buttons got the same `aria-selected` fix. Checked: `npm run check`; Chrome `tabs.mjs` 8/8 (+ Add tab and its name, rename by menu and by a second click with nothing selected in the row, drag, delete + Undo, a lecture's fixed tabs, a reload, 1280 / 390 light and dark, long-press Move left, no tab under "+"), run by Lea; flows, documents, look, layout, formatting, inserting, blocks and pages pass. The 390 px scrollbar under the page area predates 4.7b (not changed).
+- **Step 4.9, earlier notes into the Summary tab (30 Oct).** BUILD-PLAN 4.9 with the advisor's decisions:
+  - headings in the lecture's language;
+  - highlights as a quote plus an Added context callout;
+  - Attachments with the photos shown (not copied);
+  - no background pass;
+  - the old notes view unchanged.
+
+  No migration, no server script, nothing run against the remote.
+  - **What is converted:** a lecture's newest `summaries` row in format legacy-note-v1 (step 1.9's import of the old app, and the generate flow until Phase 7) → the lecture's Summary tab document (`src/services/legacyNotes/convert.ts`, pure).
+    - **Sections:** the title; the summary's markdown (paragraphs, `#` headings, `-` / `1.` lists, bold, italic); key concepts; formulas (KaTeX, or text when KaTeX can't read them); Definition callouts; unclear parts; Clarify highlights; tags; Attachments.
+    - **Origins:** each block keeps its section's origin (`ai` / `student` from the note's meta; `student` without it, as 1.9 decided; `media` for attachments). Ids come from section and place.
+  - **When:** the document screen, when a lecture's Summary tab opens with no document (`run.ts`, `index.ts`). It never writes over a document that is there. The old row is only read (new `getNoteResultBySession` beside `getNoteBySession`, same lookup). Saved with `saveDocument` (merged by block; queued offline on the iPhone). On a failure the tab shows the earlier-notes card (its text now says it tries again) and the next opening tries again.
+  - **The regenerate edge:** see test N, item 5.
+  - **Checked:** Jest `legacyNotes.test.ts` (20: every section, headings per language, origins and times, the same note gives the same document, loose old JSON, the editor takes the document as it is; the runner: once, never over a document, a regenerated note doesn't reach the tab, the old note only read, the other device's conversion, failures write nothing); `npm run check`.
+  - **`notes.mjs`'s seeding failed on Lea's first run** (my values didn't match the schema). It wrote the app's "completed" where `lectures.status` is "ready" (Lea fixed that), and uploaded a PNG where the photos bucket takes JPEG only.
+    - **Corrected:** every seeded value checked against the migrations; the photo is a real JPEG drawn on a canvas in Chrome; the seeding runs inside the run's `try`, so a failure there still removes the test user.
+  - **The advisor's full run:** `notes.mjs` 8/8 (after the splash fix), and every other suite passes except `documents.mjs` (6/8). Its lecture steps waited for the "Notes in the earlier format" card, which 4.9 now converts by design.
+    - **`documents.mjs` updated:** both steps now expect the converted Summary tab (and its summary row), and the notes view still opens. Every other assertion is unchanged.
+    - **New step for the card where it still shows:** the browser refuses the Summary tab's save, so the card appears with Open notes, nothing is saved, and the card says it tries again. Once saving works, the next opening converts the note.
+  - **`documents.mjs` 9/9 (the advisor's run).**
+  - **Fixed after it, as the advisor asked:** a lecture's Summary tab could briefly show "No summary yet" (with Process now) before its note had loaded, because the screen loads the file first, then the note.
+    - **Now:** the Summary tab stays in its loading state until the lecture's note lookup has finished (`noteCheckedFor` in the document screen), then converts or says "No summary yet".
+    - **New assertion in `notes.mjs`:** a watcher installed before the app runs records whether "No summary yet" or its texts ever appear during the first opening of an unconverted lecture's Summary tab; it must never.
+    - **Checked:** `npm run check`; the installed `notes.mjs` 8/8 and `documents.mjs` 9/9 pass with the fix.
+  - **Approved (30 Oct):** all thirteen suites pass on the advisor's full run (notes 8, documents 9, flows 19, look 12, layout 9, formatting 12, inserting 30, blocks 8, pages 13, tabs 8, sheets 16, writing 19, export 9). The advisor installed `notes.mjs` and `documents.mjs` and added `notes.mjs` to the web-check SKILL.md. Committed as one local commit.
+  - **Not yet:** test N (Things Lea must do), with the regenerate edge (item 5) on Lea's list.
 - **Step 4.8a, PDF export (30 Oct).** BUILD-PLAN 4.8's PDF part, split from .docx (4.8b, which needs Lea's OK for a library). No new dependency, no migration.
   - **Pages as the page view's:**
     - each tab goes in a hidden editor with the document's page setup, Pages on, at 100 % and no gap, and the page view lays it out with `pageLayout.ts`;
@@ -771,6 +803,15 @@ Tracks every step in `docs/BUILD-PLAN.md` (0.1 → 10.6). Tick a step only when 
   4. **Playing:** in a recorded lecture (an old one with its audio kept), add a timestamp (Insert ▾ → Timestamp, e.g. 2:00) and tap it: the player plays from 2:00; −10 s / +10 s; a blank document says it has no recording.
 - **Step 4.7b — the tabs migration on the remote project.** `20261029151900_document_tabs.sql` is applied locally only: `supabase db push --linked --dry-run`, then `supabase db push --linked`, with the earlier ones not pushed yet.
 - **Step 4.7b — test J (no new build).** On the laptop: + Add tab in a document, name it, type in it; rename by clicking the open tab again and from the right-click menu; drag a tab to the front; delete one and Undo. On the iPhone: the same tabs in the same order; long-press → Move left, Rename, Delete + Undo. Offline on the iPhone: add and rename a tab, then go online and see it on the laptop. Delete a tab on the laptop while the iPhone, offline, writes in it: after syncing the tab is back with the iPhone's text and the notice. Restore a version in one tab: the other tabs don't change. A lecture: My notes · Summary · Transcript stay first and have no menu.
+- **Step 4.9 — test N (earlier notes; no new build).** First on the local copy, then (Lea's decision) her real account.
+  1. Open a lecture whose notes came from the earlier app (step 1.9) and go to its Summary tab. It becomes a document: the title, the summary, the sections with Spanish headings for a Spanish lecture, the Definition callouts, the highlights (quote plus Added context), the photos under Adjuntos.
+  2. Compare it with the old notes (a search result for a word in them opens the notes view; the library's Export PDF of the lecture exports them): nothing is missing.
+  3. Open the same lecture on the iPhone: the same Summary tab, not converted a second time.
+  4. Type in the Summary tab, close and reopen: the typing stays.
+  5. **To know (Lea's list):** while the generate flow still writes the earlier format (until Phase 7), generating a lecture's notes again after its Summary tab exists does **not** change the Summary tab.
+     - **The student sees:** their Summary tab exactly as it was.
+     - **Where the new notes are:** they're saved and nothing is lost, but they're nearly out of sight. The Summary tab no longer shows the "earlier notes" card with Open notes (that only shows while the tab has no document). They're reached only from a search result, which opens the old notes view (it shows the newest note), and the library's Export PDF of the lecture exports them.
+     - **Result:** the Summary tab and the newest notes then differ.
 - **Step 4.8a — test M (PDF export; after `npm run editor:build`, no new native build).**
   1. **Laptop:** in a long document with a page break, a callout, a formula, a graph and a photo: … → Export PDF… → This tab → Export → Save as PDF. Open it on the Mac:
      - the pages match the page view;

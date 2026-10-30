@@ -106,6 +106,11 @@ As built in step 4.4:
   - **Adding:** **+** asks **Document · Spreadsheet** (a menu by + on the laptop, a sheet on the iPhone); Document adds "Tab 2" (the next free number), opens it and asks for its name with "Tab 2" ready to type over; Spreadsheet adds "Sheet 1" (see **Spreadsheet tab**).
   - **Deleting** shows "Deleted "Week 3"" with **Undo**; a document's last tab can't be deleted.
   - **Lectures:** My notes · Summary · Transcript stay first, in that order, and can't be renamed, moved or deleted (no menu); added tabs follow. The Transcript stays editable.
+  - **Earlier notes (step 4.9):** a lecture's note in the earlier format becomes its Summary tab the first time that tab is opened, on either device. The document contains:
+    - the title, then the summary (paragraphs, headings, lists, bold, italic);
+    - section headings in the lecture's language: Key concepts (a list, the term in bold), Formulas (display formulas), Definitions (Definition callouts), Unclear parts (a quote and the reason), Clarifications (the highlighted words as a quote, the answer in an "Added context" callout), Tags (a last line), Attachments (the lecture's photos shown, its PDFs by name).
+
+    It never replaces a Summary tab that has a document. A note generated again later (the earlier format, until Phase 7) shows only in the notes view, which stays as it is. If the note can't be saved as the tab right now, the tab shows the "Notes in the earlier format" card with **Open notes**, and tries again next time.
   - **Plain documents** start with one tab ("Tab 1"); with only one, just a small **+ Add tab** shows, no row.
   - **Deleted on one device, edited on another:** the edit wins and the tab stays; a notice says once "“Week 3” was deleted on another device and kept, because it was edited here."
   - **Version history** names the tab when a document has more than one ("Version history · Week 3").
