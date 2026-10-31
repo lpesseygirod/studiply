@@ -116,8 +116,16 @@ export function CommentCard({
       <Text style={[styles.linkText, danger && styles.danger]}>{label}</Text>
     </Pressable>
   );
+  // Step 7.9: one Studiply wrote when a lecture was added ("Lecture 4 · 18:30 · …"): she resolves or deletes it, it isn't edited.
+  const studiply = comment.author === 'studiply';
   return (
-    <Pressable onPress={onSelect} style={[styles.card, active && styles.cardActive, comment.resolved && styles.resolved]} accessibilityLabel={`Comment: ${comment.text}`}>
+    <Pressable
+      onPress={onSelect}
+      style={[styles.card, active && styles.cardActive, comment.resolved && styles.resolved]}
+      accessibilityLabel={`${studiply ? 'Comment from Studiply' : 'Comment'}: ${comment.text}`}
+      {...{ dataSet: { commentAuthor: studiply ? 'studiply' : 'student' } }}
+    >
+      {studiply && <Text style={styles.author}>Studiply</Text>}
       <Text style={styles.quote} numberOfLines={1}>
         “{comment.quote}”
       </Text>
@@ -127,7 +135,7 @@ export function CommentCard({
         {comment.resolved ? ' · Resolved' : ''}
       </Text>
       <View style={styles.links}>
-        {link('Edit', () => setEditing(true))}
+        {!studiply && link('Edit', () => setEditing(true))}
         {link(comment.resolved ? 'Reopen' : 'Resolve', () => onResolve(!comment.resolved))}
         {link('Delete', confirmDelete, true)}
       </View>
@@ -148,6 +156,7 @@ const makeStyles = (c: ThemeColors) =>
     },
     cardActive: { borderColor: c.accent, shadowColor: c.text.primary, shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
     resolved: { opacity: 0.7 },
+    author: { fontSize: Typography.size.xs, fontWeight: Typography.weight.bold, letterSpacing: 0.4, color: c.accentDark },
     quote: { fontSize: Typography.size.xs, color: c.text.secondary, fontStyle: 'italic' },
     text: { fontSize: Typography.size.sm, color: c.text.primary },
     date: { fontSize: Typography.size.xs, color: c.text.secondary },

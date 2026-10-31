@@ -197,8 +197,12 @@ export function isSummaryRequest(row: Pick<SummaryRow, 'result' | 'sliders' | 'm
   // An earlier note (legacy-note-v1) always has its result; a request has none until 7.4 writes it.
   if (row.result != null) return false;
   const s = row.sliders as Record<string, unknown> | null;
-  return row.mode === 'new' && !!s && typeof s === 'object' && SLIDER_KEYS.every((k) => typeof s[k] === 'number');
+  // Step 7.9: Extend, Merge and Exam pack are requests too (on the file they are written into).
+  return ['new', 'extend', 'merge', 'exam_pack'].includes(row.mode) && !!s && typeof s === 'object' && SLIDER_KEYS.every((k) => typeof s[k] === 'number');
 }
+
+/** The formats of what the new engine stores (7.4; 7.9's Extend / Merge and Exam pack). */
+const NEW_FORMATS: unknown[] = [SUMMARY_FORMAT, 'studiply-combined-v1', 'studiply-exampack-v1'];
 
 export function requestRow(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, id = newId(), target?: SummaryTarget): RequestRow {
   const settings: RequestSettings = { ...plan.appliedSettings, resources, preview: plan.preview, ...(target && { target }) };
@@ -307,7 +311,7 @@ export interface LectureSummary {
 function isNewSummary(row: SummaryRow): boolean {
   if (isSummaryRequest(row)) return true;
   const r = row.result as { format?: unknown } | null;
-  return !!r && typeof r === 'object' && r.format === SUMMARY_FORMAT;
+  return !!r && typeof r === 'object' && NEW_FORMATS.includes(r.format);
 }
 
 /** The lecture's newest summary or request (the Summary tab's card), or null. */
@@ -362,17 +366,18 @@ export async function startSummary(lectureId: string, summaryId: string, { media
 /** Try again after a failure: a new request with the same settings, started at once. */
 export async function retrySummary(lectureId: string, failed: LectureSummary): Promise<void> {
   const s = failed.settings;
-  const { data: row, error } = await supabase.from('summaries').select('sliders').eq('id', failed.id).single();
+  const { data: row, error } = await supabase.from('summaries').select('sliders, mode, source_lecture_ids, applied_settings').eq('id', failed.id).single();
   if (error) throw serviceError(error, 'Could not read the summary settings.');
   const id = newId();
+  // The same request again (step 7.9: an Extend / Merge / Exam pack keeps its lectures and anchors).
   const { error: insertError } = await supabase.from('summaries').insert({
     id,
     file_id: lectureId,
-    mode: 'new',
-    source_lecture_ids: [lectureId],
+    mode: row.mode ?? 'new',
+    source_lecture_ids: row.source_lecture_ids?.length ? row.source_lecture_ids : [lectureId],
     sliders: row.sliders as RequestRow['sliders'],
     status: 'pending',
-    applied_settings: (s ?? null) as unknown as Json,
+    applied_settings: (row.applied_settings ?? s ?? null) as unknown as Json,
   });
   if (insertError) throw serviceError(insertError, 'Could not save the summary settings.');
   await startSummary(lectureId, id, { media: !!(s?.resources.photos || s?.resources.slides) });

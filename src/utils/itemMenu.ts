@@ -18,24 +18,29 @@ export type ItemAction =
   | 'copy'
   | 'star'
   | 'summarize'
+  | 'extend'
+  | 'merge'
   | 'examPack'
   | 'export'
   | 'delete';
 
 const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
-  course: ['open', 'rename', 'star', 'examPack', 'delete'],
-  folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'examPack', 'delete'],
-  lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'export', 'delete'],
+  course: ['open', 'rename', 'star', 'merge', 'examPack', 'delete'],
+  folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete'],
+  lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'export', 'delete'],
   pdf: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   image: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   // Copying a document (its text and versions) comes later.
   document: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
+  // Step 7.9: a Unit summary and an Exam pack are documents (advisor, 31 Oct): a document's menu.
+  unit_summary: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
+  exam_pack: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
 };
 
 /**
  * The item's menu, in order (step 3.4). Move out only for an item inside a
- * folder. Kinds without their own actions yet (exam packs, a lecture's
- * photos): Open and Favorites.
+ * folder. Kinds without their own actions (a lecture's photos and PDFs):
+ * Open and Favorites.
  */
 export function itemActions(item: Pick<ShelfItem, 'type' | 'folderId'>): ItemAction[] {
   const actions = ACTIONS[item.type] ?? ['open', 'star'];
@@ -45,7 +50,6 @@ export function itemActions(item: Pick<ShelfItem, 'type' | 'folderId'>): ItemAct
 /** Why an action is greyed out (shown under it), or null when it works. */
 export function actionHint(action: ItemAction, type: ShelfType): string | null {
   if (action === 'copy' && (type === 'lecture' || type === 'folder')) return 'Coming soon';
-  if (action === 'examPack') return 'Coming in a later update';
   return null;
 }
 
@@ -60,6 +64,10 @@ export function itemNoun(type: ShelfType): string {
       return 'Lecture';
     case 'document':
       return 'Document';
+    case 'unit_summary':
+      return 'Unit summary';
+    case 'exam_pack':
+      return 'Exam pack';
     default:
       return 'File';
   }
@@ -91,6 +99,8 @@ export function movableItem(item: ShelfItem): LibraryItem | null {
     case 'pdf':
     case 'image':
     case 'document':
+    case 'unit_summary':
+    case 'exam_pack':
       return { ...base, type: 'file', folderId: item.folderId };
     default:
       return null;

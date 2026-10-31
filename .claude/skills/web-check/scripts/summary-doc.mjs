@@ -10,7 +10,7 @@
 //   2. What desktop-03 shows: the green banner (the window's full width under the top bar, one line;
 //      "Summary added to this document", Built from your notes
 //      (all 6 lines, 6 marks) + 30 min of audio · board photos · your questions to the assistant,
-//      + Extend with next lecture greyed: "Coming in a later update"); under the title the notes check
+//      + Extend with next lecture: the lecture picker since 7.9); under the title the notes check
 //      line, then KEY TAKEAWAYS; section headings "n · …" with ▶ time and chips for HER marks only (none
 //      for the implicit signals: repetitions, questions to the assistant); FROM YOUR NOTES
 //      · 0:45; YOU WERE CONFUSED HERE · 9/10 · 24:10; DEFINITION / EXAM SIGNAL boxes; Your questions
@@ -24,8 +24,10 @@
 //   6. A third finished summary (no choice: a new tab): a "New summary" tab opens with it; the Summary
 //      tab is unchanged.
 //   7. The summarize panel on a lecture that has a summary: "where the new one goes", a new tab chosen.
-//   8. 390 px (the web's phone layout, iphone-06): no banner; + Extend with next and Quiz me at the
-//      bottom, greyed ("Coming in a later update").
+//   8. 390 px (the web's phone layout, iphone-06): no banner; + Extend with next (the lecture picker,
+//      7.9) and Quiz me (greyed, "Coming in a later update": 9.1) at the bottom.
+//
+// A failed step closes any menu, dialog or picker it left open, so it can't fail the next ones.
 //   9. No request to summarize, transcribe-chunk, Anthropic or OpenAI.
 //  10. The screenshots SIDE BY SIDE with the mockups (light and dark): shots/summary-doc-compare-1280.png
 //      (desktop-03), shots/summary-doc-compare-390.png (iphone-06).
@@ -53,6 +55,10 @@ const step = async (name, fn) => {
   } catch (err) {
     results.push(['FAIL', name, err.message]);
     await b.shot(`fail-summary-doc-${results.length}`).catch(() => {});
+    // A menu, dialog or picker left open would answer every later step.
+    await b.press('Escape').catch(() => {});
+    await b.press('Escape').catch(() => {});
+    await b.sleep(300);
   }
   console.error(`step ${results.length}: ${results.at(-1).join(' | ')}`);
 };
@@ -227,10 +233,12 @@ try {
     expect(geo.left <= 1 && geo.width >= geo.window - 2, `the banner's width: ${JSON.stringify(geo)}`);
     expect(geo.top >= 40 && geo.top <= 80, `the banner under the top bar: ${JSON.stringify(geo)}`);
     expect(geo.builtLines === 1 && geo.height <= 56, `the banner on one line: ${JSON.stringify(geo)}`);
+    // Step 7.9: the lecture picker for Extend (Lecture 1 is the course's only lecture: nothing to pick, Continue waits).
     await tap('[data-summary-banner="extend"]');
-    await b.waitText('Coming in a later update');
-    await b.press('Escape');
-    await b.sleep(300);
+    await waitFor(() => has('[data-picker="panel"][data-mode="extend"]'), 'the lecture picker', 10000);
+    expect((await text('[data-picker="panel"]')).includes('No later lecture in this course yet.'), `the picker: ${await text('[data-picker="panel"]')}`);
+    await tap('[data-picker="cancel"]');
+    await waitFor(async () => !(await has('[data-picker="panel"]')), 'the picker closed', 5000);
     const labels = await texts('.studiply-callout-label');
     expect(labels[0] === 'All your notes are in this summary', `first label: ${labels[0]}`);
     expect(labels[1] === 'Key takeaways', `second: ${labels[1]}`);
@@ -333,7 +341,7 @@ try {
     await tap('[data-summarize="keep"]');
   });
 
-  await step('390 px (iphone-06): no banner; + Extend with next and Quiz me at the bottom, greyed', async () => {
+  await step('390 px (iphone-06): no banner; + Extend with next and Quiz me (greyed) at the bottom', async () => {
     await b.resize(390, 844);
     // Pageless, as the iPhone starts (iphone-06 is full width): the web keeps its view in `studiply.view`
     // (lib/viewPrefs, what its Pages / Pageless switch saves), Pages by default even at phone width.
@@ -349,6 +357,11 @@ try {
     await b.click('Quiz me', { exact: true });
     await b.waitText('Coming in a later update');
     await b.press('Escape');
+    await b.sleep(300);
+    // + Extend with next: the lecture picker as a sheet (7.9).
+    await tap('[data-summary-buttons="extend"]');
+    await waitFor(() => has('[data-picker="panel"][data-mode="extend"]'), 'the lecture picker', 10000);
+    await tap('[data-picker="cancel"]');
     await b.resize(1280, 900);
   });
 

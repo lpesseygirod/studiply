@@ -16,6 +16,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -152,16 +153,22 @@ function Dialog({ request }: { request: DialogRequest }) {
   let body: React.ReactNode;
   if (request.kind === 'menu') {
     const items = menuItems;
+    // Its height as drawn (items, section headings, the title), never more than the window: a longer
+    // menu (a lecture's document menu, step 7.9) scrolls instead of running off the bottom.
+    const tall = items.length * 44 + items.filter((b) => b.section).length * 28 + (request.title ? 40 : 0) + 12;
+    const maxHeight = height - 16;
     const anchored = request.anchor
       ? {
           position: 'absolute' as const,
           left: Math.max(8, Math.min(request.anchor.x, width - MENU_WIDTH - 8)),
-          top: Math.max(8, Math.min(request.anchor.y, height - (items.length * 44 + 60) - 8)),
+          top: Math.max(8, Math.min(request.anchor.y, height - Math.min(tall, maxHeight) - 8)),
           width: MENU_WIDTH,
+          maxHeight,
         }
-      : styles.centeredMenu;
+      : [styles.centeredMenu, { maxHeight }];
     body = (
       <View style={[styles.card, styles.menu, anchored]} accessibilityRole="menu">
+        <ScrollView style={styles.menuScroll} bounces={false}>
         {!!request.title && (
           <Text style={styles.menuTitle} numberOfLines={1}>
             {request.title}
@@ -214,6 +221,7 @@ function Dialog({ request }: { request: DialogRequest }) {
           </Pressable>
           </React.Fragment>
         ))}
+        </ScrollView>
       </View>
     );
   } else if (request.kind === 'prompt') {
@@ -339,6 +347,8 @@ const makeStyles = (c: ThemeColors) =>
     paddingVertical: 6,
     overflow: 'hidden',
   },
+  // Only as tall as its items (the card's maxHeight caps it; then it scrolls).
+  menuScroll: { flexGrow: 0, flexShrink: 1 },
   menuTitle: {
     fontSize: Typography.size.sm,
     color: c.text.secondary,

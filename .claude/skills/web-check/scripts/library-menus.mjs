@@ -4,6 +4,10 @@
 // the greyed-out items with their hints, menus with the keyboard (⇧F10,
 // arrows, Enter, Esc, ⌘X / ⌘V), and at 390 px the "…" button. Every result
 // is checked in the database (and Storage). Exit 1 on any FAIL.
+//
+// Step 7.9: Make exam pack… and Merge lectures… work (the lecture picker); a lecture has Extend with
+// next lecture…. Only Copy on a lecture or folder is still greyed ("Coming soon"). A failed step closes
+// any menu it left open, so it can't fail the next ones.
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -19,6 +23,10 @@ const step = async (name, fn) => {
   } catch (err) {
     results.push(['FAIL', name, err.message]);
     await b.shot(`fail-menus34-${results.length}`).catch(() => {});
+    // A menu, dialog or picker left open would answer every later step.
+    await b.press('Escape').catch(() => {});
+    await b.press('Escape').catch(() => {});
+    await b.sleep(300);
   }
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -45,7 +53,7 @@ const menu = () =>
 const line = async (text) => (await menu()).find((l) => l.text === text || l.text.startsWith(text));
 /** Clicks a menu line (buttons with the same text under the menu's overlay come first in the DOM). Any line counts: an item's icon is a line of its own. */
 const clickItem = async (text) => {
-  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.split('\\n').some((l) => l.trim().startsWith(${JSON.stringify(text)}))); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.split('\\n').some((l) => l.trim().startsWith(${JSON.stringify(text)}))); if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
   if (!p) throw new Error(`no menu item ${text}`);
   await b.clickAt(p.x, p.y);
   await b.sleep(600);
@@ -184,12 +192,15 @@ try {
     await b.press('Escape');
   });
 
-  await step('Greyed out with their hints: Copy on a lecture, Make exam pack; Summarize works (7.3: the lecture with the summarize panel); New document works', async () => {
+  await step('Greyed out with their hints: only Copy on a lecture; Summarize (7.3), Extend with next lecture… and Make exam pack… (7.9) work; New document works', async () => {
     await tileMenu('Lecture 1');
     const copy = await line('Copy');
     const summarize = await line('Summarize');
+    const extend = await line('Extend with next lecture…');
     expect(copy.disabled && copy.hint === 'Coming soon', JSON.stringify(copy));
     expect(summarize && !summarize.disabled && !summarize.hint, JSON.stringify(summarize));
+    expect(extend && !extend.disabled && !extend.hint, JSON.stringify(extend));
+    expect(!(await menu()).some((l) => l.text.startsWith('Merge') || l.text.startsWith('Make exam pack')), `a lecture with a course's items: ${JSON.stringify(await menu())}`);
     await b.shot('menus34-lecture');
     // Since 7.3 Summarize works: the lecture opens with the summarize panel (after class: Cancel · Generate summary).
     await clickItem('Summarize');
@@ -199,9 +210,15 @@ try {
     await until(async () => !(await b.evaluate(`!!document.querySelector('[data-summarize="panel"]')`)), 'the panel did not close');
     await open(null, 'Tema A');
     await tileMenu('Tema A');
-    const pack = await line('Make exam pack');
-    expect(pack.disabled && pack.hint === 'Coming in a later update', JSON.stringify(pack));
-    await b.press('Escape');
+    const pack = await line('Make exam pack…');
+    const merge = await line('Merge lectures…');
+    expect(pack && !pack.disabled && !pack.hint, JSON.stringify(pack));
+    expect(merge && !merge.disabled && !merge.hint, JSON.stringify(merge));
+    // Since 7.9: the lecture picker, for the folder's lectures (Tema A has none: nothing to choose).
+    await clickItem('Make exam pack…');
+    await until(() => b.evaluate(`!!document.querySelector('[data-picker="panel"][data-mode="exam_pack"]')`), 'Make exam pack… did not open the lecture picker');
+    await b.clickSelector('[data-picker="cancel"]');
+    await until(() => b.evaluate(`!document.querySelector('[data-picker="panel"]')`), 'the picker did not close');
     await spaceMenu();
     const doc = await line('New document');
     expect(!doc.disabled && !doc.hint, JSON.stringify(doc));

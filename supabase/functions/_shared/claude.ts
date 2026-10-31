@@ -61,6 +61,12 @@ export function claudeRequest<M>(model: string, system: string, messages: M[], o
 
 /** Placeholder until plans and server-enforced limits arrive in step 10.2. */
 export const DAILY_CLAUDE_LIMIT_USD = 3;
+/**
+ * The ai_usage operations that count for that limit. Every summarize call (a summary, Extend, Merge, an
+ * Exam pack, the schema probe) logs as `summary`; the study assistant's as `assistant`.
+ */
+export const CLAUDE_LIMIT_OPERATIONS = ['assistant', 'summary'] as const;
+export const SUMMARY_OPERATION = 'summary' satisfies (typeof CLAUDE_LIMIT_OPERATIONS)[number];
 
 // The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
 export const SUMMARIZE_TEST_PROMPT =

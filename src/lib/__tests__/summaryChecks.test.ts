@@ -197,6 +197,15 @@ describe('language', () => {
     expect(detectLanguage('Hola')).toBeNull();
   });
 
+  it('a Spanish block close to Catalan stays Spanish (the 7.9 paid run’s false "ca": the confusedHere box of Tema 2)', () => {
+    const block = 'Reposo −70 mV Supera el umbral Disparo Periodo refractario Periodo refractario: tras el disparo, la neurona no puede dispararse otra vez. ¿Qué pasa si estimulas la neurona en el periodo refractario?';
+    expect(detectLanguage(block)).toBe('es');
+    expect(detectLanguage(block, 'es')).toBe('es');
+    // A real Catalan sentence is still Catalan, also when Spanish is expected.
+    const catalan = 'Els alumnes i les alumnes són a la classe perquè aquesta assignatura és molt important per a ells, però també hi ha exàmens.';
+    expect(detectLanguage(catalan, 'es')).toBe('ca');
+  });
+
   it('a long block in another language fails the check, named by section and block', () => {
     const s = stored((v) => {
       v.sections[1].blocks[1] = paragraph('This is the part of the lecture that was written in English by mistake, and it is not what was asked for.');

@@ -140,6 +140,8 @@ export default function DocumentScreen() {
   }, [askedTab, params.at]);
   const [tabState, setTabState] = useState<TabState>('loading');
   const isLecture = file?.kind === 'lecture';
+  // Step 7.9: a Unit summary or an Exam pack (its first tab is written by the summary engine).
+  const isCombined = file?.kind === 'unit_summary' || file?.kind === 'exam_pack';
 
   // The document's tabs (step 4.7b): a lecture's three first, then added ones; a plain document's from "Tab 1".
   const [tabs, setTabs] = useState<TabInfo[] | null>(null);
@@ -260,7 +262,7 @@ export default function DocumentScreen() {
   const tabNow = useRef(tab);
   tabNow.current = tab;
   useEffect(() => {
-    if (!id || kind !== 'lecture') return;
+    if (!id || (kind !== 'lecture' && kind !== 'unit_summary' && kind !== 'exam_pack')) return;
     let live = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const tick = async () => {
@@ -308,6 +310,12 @@ export default function DocumentScreen() {
     (async () => {
       // A lecture's Summary and Transcript may have nothing yet; every other tab is a document.
       const added = tabs?.find((t) => t.tab === tab);
+      // Step 7.9: a Unit summary's or Exam pack's first tab shows the summary card until it's written in.
+      if ((kind === 'unit_summary' || kind === 'exam_pack') && tab === 'notes') {
+        if (live) setSummaryHere(false);
+        const opened = await openDocument(id, tab).catch(() => null);
+        return opened?.id ? ('document' as const) : ('none' as const);
+      }
       if (kind !== 'lecture' || (tab !== 'summary' && tab !== 'transcript')) {
         if (live) setSummaryHere(kind === 'lecture' && added?.kind === 'summary');
         return 'document' as const;
@@ -469,7 +477,8 @@ export default function DocumentScreen() {
       file
         ? {
             id: file.id,
-            type: isLecture ? 'lecture' : 'document',
+            // Step 7.9: a Unit summary or Exam pack has a document's menu under its own name.
+            type: isLecture ? 'lecture' : file.kind === 'unit_summary' || file.kind === 'exam_pack' ? file.kind : 'document',
             title: file.title,
             courseId: file.course_id,
             folderId: file.folder_id,
@@ -578,7 +587,7 @@ export default function DocumentScreen() {
     itemMenu.open(item, await anchorBelow(menuButton), { skip: showEditor ? ['open', 'export'] : ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined });
   };
 
-  const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : 'Document'} · ${metaDate(file.created_at)}` : '';
+  const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : file.kind === 'unit_summary' ? 'Unit summary' : file.kind === 'exam_pack' ? 'Exam pack' : 'Document'} · ${metaDate(file.created_at)}` : '';
   // The iPhone's editor is a WebView under the header, so the header keeps its own margins there.
   const nativeEditor = Platform.OS !== 'web';
   const makeHeader = (inset: boolean, onCard = false) =>
@@ -639,7 +648,7 @@ export default function DocumentScreen() {
           onAction={() => router.push({ pathname: '/note/[id]', params: { id: file!.id } })}
         />
       )}
-      {tabState === 'none' && tab === 'summary' && file && <SummaryTabCard lectureId={file.id} title={file.title} status={lectureStatus} recording={recordingHere} />}
+      {tabState === 'none' && (tab === 'summary' || isCombined) && file && <SummaryTabCard lectureId={file.id} title={file.title} status={lectureStatus} recording={recordingHere} />}
       {tabState === 'none' && tab === 'transcript' && <EarlierNotesCard label="No transcript yet" text="The transcript appears here once the recording is transcribed." />}
     </ScrollView>
   );
@@ -776,9 +785,11 @@ export default function DocumentScreen() {
   const showSummaryChrome = isLecture && showEditor && !isSheet && summaryHere;
   // The banner runs the window's width under the top bar (desktop-03): the shell draws it, told from here.
   const bannerOn = wide && showSummaryChrome && tab === 'summary';
+  // Step 7.9: + Extend with next lecture opens the lecture picker for this lecture.
+  const bannerLecture = useMemo(() => (file ? { id: file.id, courseId: file.course_id } : undefined), [file]);
   useEffect(() => {
-    setSummaryBanner(bannerOn ? { summary: lectureSummary } : null);
-  }, [bannerOn, lectureSummary]);
+    setSummaryBanner(bannerOn ? { summary: lectureSummary, lecture: bannerLecture } : null);
+  }, [bannerOn, lectureSummary, bannerLecture]);
   useEffect(() => () => setSummaryBanner(null), []);
 
   // One tree for both layouts, so crossing the laptop width (a window being
@@ -794,7 +805,7 @@ export default function DocumentScreen() {
           {body}
           {recordingScreen && <RecordingPhoneBar onAsk={isLecture ? () => setAskOpen(true) : undefined} />}
           {/* iphone-06: + Extend with next and Quiz me under a summary (not while recording: the bar is there). */}
-          {!wide && showSummaryChrome && !recordingScreen && <SummaryPhoneButtons />}
+          {!wide && showSummaryChrome && !recordingScreen && <SummaryPhoneButtons lecture={bannerLecture} />}
         </View>
       </View>
       {toast}

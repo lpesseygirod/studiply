@@ -571,7 +571,52 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - "Generate on the iPhone" needs the new EAS development build;
     - "See them in My notes" and "Full answer" are links: on the laptop, click the link, then **Open** in the bubble.
 - [ ] 7.8 — You judge the quality (prompt/calculator fixes)
-- [ ] 7.9 — Extend, merge, exam pack
+- [x] 7.9 — Extend, merge, exam pack. **Done (31 Oct), verified by the advisor.**
+  - **Verified:**
+    - **Free:** `npm run check` (2,404 tests), `check:bundle`, `test:db`, the free `eval:summaries`, `editor:build`, all Chrome suites (`extend.mjs` 10/10; `item-menus`, `title-menu`, `library-menus`, `summary-doc` updated, all passing), `check:claude -- --only=gate` 67/67.
+    - **Paid:** `eval:summaries -- --probe-schemas` 10/10 ($0.0533); `--extend` 5/5 (2 comments, 1 Update, nothing repeated; $0.1456); `--exam-pack` 4/4 with its cost logged ($0.0570).
+  - **Still for Lea:**
+    - BUILD-PLAN's check on her real Tema 1 and Tema 2 waits for her lectures (the synthetic pair stands in).
+    - Merging `phase-7-summary` is her call.
+  - **The first paid Extend run failed (3 of 4), and why:** it was built differently from the approved plan. Tema 2 was summarized alone, then a separate small "reconcile" call (≈ 1,800 tokens in) judged only that summary's few section blocks (each cut at 80 words) against Tema 1's blocks (cut at 60). Tema 2's transcript, notes and exam signals never reached it. So the exam statement (only in Tema 2's exam signals) and the correction (only in her notes block) couldn't be seen. **Fixed as planned:** the lecture added goes through the generate call itself, with the existing summary in its prompt (`<existing-summary>`, every block whole) and `alreadyCovered[]` / `corrections[]` in its answer (`_shared/summary-extend.ts`; the 7.6 parts the same over 60 min). A Jest test builds that request from the fixtures, prints its size per tag (existing summary ≈ 695 tokens, transcript ≈ 2,129, ≈ 4,675 in all) and proves the planted cases are in it. No separate summary is written for the added lecture any more.
+  - **The second paid run (31 Oct) stopped at generate:** HTTP 400, "The compiled grammar is too large". The summary schema is near the API's limit, and the two lists as arrays of objects tipped it over. Fixed as 7.4 did for blocks: both lists in ONE string field `extend` holding their JSON, checked with zod after (`extendSchema` adds one string to the summary and part schemas). A Jest guard checks no schema sent is bigger than the summary's plus that string (rough sizes: summary 155, + extend 157, part 111/113, exam pack 55, classify 56). **Schema probe:** `npm run eval:summaries -- --probe-schemas` sends each schema the engine uses once through the local summarize function (`{ probe: 'schemas' }`, refused anywhere but local Supabase) with max_tokens 16, and prints accepted / rejected with the API's message.
+  - **Paid runs after that (31 Oct):** the probe accepted all 10 schemas; `--extend` passed 5/5 (2 comments, 1 Update, nothing repeated; $0.1456). `--exam-pack` passed its checks, but its cost wasn't logged: every combine call logged against the row's file, and an Exam pack's (or a Unit summary's) file isn't a lecture, so the `ai_usage` foreign key refused the row ("usage_log_failed") and the call escaped the $3 daily limit. **Fixed:** each call logs against a real lecture of hers, else `null` (as 6.3 does for a plain document). The operation is always `summary`, which the limit counts. A meter shared by a request's runs counts the Claude calls and the rows logged, and saves them in the result as `costLog`. `eval:summaries` fails a run whose calls, logged rows and `ai_usage` rows differ (the probe too), and Jest checks it in every mode (a plain summary, Extend to a Unit summary, Add, Merge, Exam pack, a failed insert). The checks before Claude are now a pure function (`_shared/claude-gate.ts`, run by `readyForClaude`), and Jest shows an Exam pack, a Unit summary and Extend refused with 429 at $3 of today's usage. Also fixed: since my earlier 7.9 change, the notes and test-prompt paths checked "her file" rather than "her lecture"; they are lecture-only again.
+  - **A free live check of the gate** (the advisor, after the gate moved into `_shared/claude-gate.ts`, which assistant-chat uses too): `npm run check:claude -- --only=gate`. Refusals only, never a call to Anthropic.
+    - **Users:** two of its own. C has $3 of usage seeded before any consent, so a broken check still meets another; D never gets consent.
+    - **Requests:** every kind, for assistant-chat (a question, Ask Claude on a document, flashcards from an answer) and summarize (the test prompt, a summary, Extend Add, Extend Unit summary, Merge, Exam pack).
+    - **Refusals checked:** signed out → 401; D on C's files → 404; a document sent as a lecture → 404; no consent, and transcription-only consent → 403; consent with $3 used today → 429; consent withdrawn → 403.
+    - **Afterwards:** no new `ai_usage` row, and every summary request still pending.
+    - The full run ends with it too.
+  - **The language check's false "ca" in that run:** a Spanish block ("…la neurona no puede dispararse…") tied with Catalan on shared function words, and "no" was only in the Catalan list. Fixed: "no", "si", "qué", "tras", "otra", "otro" added to Spanish, and the expected language is kept unless another clearly wins (by 2 words).
+  - **Where it starts:**
+    - Extend with next lecture…: a lecture's menu (library, sidebar, the document menu), the laptop banner's + Extend with next lecture and the iPhone's + Extend with next (live now; Quiz me stays greyed);
+    - Merge lectures… and Make exam pack…: a course's or folder's menu (its lectures).
+  - **The flow:** the lecture picker (the course's lectures in teaching order, with whether each has a summary), then the summarize panel as for a summary:
+    - **Extend:** pick one later lecture (the next one is chosen; it needn't have a summary). Where it goes: **A new Unit summary** (default) or **Add to this summary**.
+    - **Merge:** two or more lectures that have a summary → a Unit summary.
+    - **Exam pack:** the lectures that have a summary (all chosen) → an Exam pack.
+    - Online only (a message offline). Consent first, as in 7.4: without it the request is saved and its card says "Summarize now".
+  - **Storage, no migration:** one `summaries` row (mode `extend` / `merge` / `exam_pack`, `source_lecture_ids` in order) on the file it's written into: a new `unit_summary` or `exam_pack` file in the course ("Math — Lectures 3–4", then ": <the unit's topic>" once written; "Exam pack · Math"), or the base lecture for "Add to this summary". With it, `applied_settings.target` and `anchors`: the target document's blocks (id, section, words), made by the app when asked.
+  - **No repeats** (server, `_shared/summary-combine.ts`, no Deno or network code so Jest runs it):
+    - each lecture added is written by the 7.4 generate call (7.6 parts over 60 min) with the existing summary in its prompt: only what's new in its sections (her notes, marks and photos always), plus `alreadyCovered` (a repeat about an existing block) and `corrections`; the result keeps that lecture as written (`addition.summary`);
+    - alreadyCovered → a **Studiply comment** on the words it repeats ("Lecture 4 · 18:30 · the professor said this will be on the exam"), never a change to her text; a correction → an **Update callout** right after that block (at the end when its block isn't known);
+    - no length rewrites for an added lecture (its repeats are left out on purpose; a rewrite's prompt doesn't have the existing summary);
+    - code's own checks: a formula already there is a repeat; a block still saying the same as an anchor (≥ 80 % of the words) becomes a comment (the **no-repeats check**, counted in `checks.noRepeats`); glossary terms, self-test questions and flashcards already there are left out.
+    - A new Unit summary gets the unit's own title, takeaways, self-test and flashcards from one more call (the 7.6 wrap-up schema); "Add to this summary" only adds.
+  - **Exam pack:** from the lectures' stored summaries, not their transcripts (cap 15 lectures / 40k words): one call → per topic its exam signals (lecture and time), formulas, key terms and a self-test, then flashcards.
+  - **The documents** (app, `src/lib/summaryCombine.ts`, pure):
+    - **Unit summary:** the base summary, then each lecture's new sections tagged "n · Lecture 2 · …", the unit's lists; built with the 7.7 converter under the request's id, so the base's blocks have the ids the anchors named. Its notes line counts every lecture's notes ("… · Lectures 3, 4"), with no link to "My notes" (its own first tab).
+    - **Add to this summary:** the new sections after hers and before the lists (ids `x…`), the new terms, questions and exam signals after; Update callouts `u…`; a version before ("Before the next lecture was added"). Her blocks' words and edit dates never change.
+    - **Exam pack:** "Built from the summaries of N lectures (…)" as its first line (not the "All your notes are in this summary" box: a pack doesn't hold her notes), then per topic an Exam signals box, formula cards, key terms and the self-test with answers hidden.
+    - Flashcards are saved once, as in 7.7.
+  - **Studiply comments:** the `comment` mark keeps `author: 'studiply'` and `source {lectureId, ms}`; the comments margin and sheet show "Studiply" and the text only (no Edit; **no ▶ play chip**: the advisor's trim, the time is kept for later).
+  - **The 7.7 merge fix:** a block with a comment is always kept when a summary is written again, as are the blocks Extend added (`x…`, `u…`).
+  - **Editor** (`npm run editor:build`, and on the iPhone the next EAS development build): the comment mark's author and source; the Update callout (exam amber family, "Update · Lecture 4 · 18:30").
+  - **Tests:**
+    - **Jest:** the Extend generate request built from the fixtures (every anchor whole, all of Tema 2's material, the planted cases, its size per tag), the pipeline in Extend mode (the lists read, the row not saved, an answer without them retried), what is added (comments, updates, the no-repeats check, de-duplication, formulas), the run with Claude faked (Unit summary, Add, no base, a lecture that can't be written, the exam pack), the documents through the real editor schema (anchors match, comment author and source kept, the Update's place and label, her text unchanged, `x…` blocks kept by the 7.7 merge), the schemas against zod, the menus.
+    - **Chrome:** `extend.mjs` (no paid call: no consent, the check finishes the rows itself), and full copies of `item-menus`, `title-menu`, `library-menus` and `summary-doc`.
+    - **Paid:** `npm run eval:summaries -- --extend` (Tema 1's saved summary + the synthetic Tema 2, "Add to this summary"; ≈ $0.20 now: classify, the generate call with the existing summary, ≤ 3 check calls). First run failed (above); to be repeated. Then `-- --exam-pack` (≈ $0.10; needs Tema 2's own saved summary, which the first run left in `tests/output/synthetic-tema2/`).
+  - **Fixture:** `scripts/fixtures/synthetic-tema2-lecture.ts` (20 min, the lecture after Tema 1; TypeScript so Deno and Jest share it, its planted sentences exported): new material, Tema 1's definition said again, an exam statement about Tema 1's five questions, a correction (Darwin and Wallace). The earlier `.mjs` copy is unused: for `_to_delete/` (Lea).
 
 ## Phase 8 — Visuals and PDF (`phase-8-visuals`)
 - [ ] 8.1 — Text modules (timeline, cause-effect, tables, cards…)
@@ -660,6 +705,14 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.9 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **Extend has both targets:** "A new Unit summary" (the default) and "Add to this summary".
+  2. **The exam pack is built from the stored summaries,** not the transcripts (cheaper; cap 15 lectures / 40k words).
+  3. **The Update callout** is in the exam amber family.
+  4. **Studiply comments** keep their author and source (the lecture and time) on the mark; the margin and sheet show "Studiply" and "Lecture 4 · 18:30 · …" only. **Trim:** no ▶ play chip in 7.9 (BUILD-PLAN keeps the time "so later" it can play the recording).
+  5. **A synthetic Tema 2** fixture for the paid runs (a repeat, an exam statement about Tema 1, a correction).
+  6. **A Unit summary and an Exam pack get a document's menus:** in the library (Open · Rename… · Move to… · Cut · Add to Favorites · Delete, plus Move out inside a folder) and in their document screen (Comments, Export PDF…, and the rest). DESIGN's earlier "Open · Favorites" predates them and would have left them undeletable.
+  7. **Menus scroll when taller than the window** (the laptop's anchored menus; a lecture's document menu passed 900 px with Extend added).
 - **Step 7.7 (the advisor's decisions, 31 Oct, for Lea to confirm):**
   1. **Where a new summary goes:** the choice is in the summarize panel, shown only when the lecture already has a summary. The default is a new tab ("New summary").
   2. **Extend with next lecture (7.9) and Quiz me (9.1)** are shown greyed, "Coming in a later update" (they're in the mockups).

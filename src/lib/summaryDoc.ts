@@ -276,31 +276,48 @@ export interface SummaryDocInput {
   summaryId: string;
   /** Each question during class's assistant message (its Full answer link), by place; null when not found. */
   questionLinks?: (string | null)[];
+  /** Step 7.9 (what a lecture adds to a summary): no notes check line, the first section's number, a tag on the lists' headings. */
+  check?: boolean;
+  firstSection?: number;
+  tag?: string;
+  /**
+   * Step 7.9, a Unit summary: whose notes the line counts ("Lectures 1, 2"), in place of the link to My
+   * notes (a Unit summary's own first tab isn't her notes).
+   */
+  notesOf?: string;
 }
 
 /** The summary as the Summary tab's document. */
-export function summaryToDoc({ summary: s, summaryId, questionLinks = [] }: SummaryDocInput): SummaryDocJSON {
+export function summaryToDoc({ summary: s, summaryId, questionLinks = [], check = true, firstSection = 1, tag, notesOf }: SummaryDocInput): SummaryDocJSON {
   const w = WORDS;
+  const tagged = (heading: string) => (tag ? `${heading} · ${tag}` : heading);
   const key = summaryKey(summaryId);
   const out: Node[] = [];
   const add = (path: string, node: Node, origin: Origin = 'ai') => out.push({ ...node, attrs: { ...node.attrs, blockId: `${key}-${path}`, origin, editedAt: null } });
   // The page's header (the gradient line, the title, the meta line) is the screen's (DocumentHeader), on
   // every tab: the summary starts with the notes check line, under the title (desktop-03).
   const c = s.coverage;
-  add('check', {
+  if (check) add('check', {
     type: 'callout',
     attrs: { kind: 'notesCheck' },
-    content: [para([text(`${w.notes(c.noteLinesUsed, c.noteLines, c.marksUsed, c.marks)} · `), text(w.seeNotes, [{ type: 'link', attrs: { href: tabLink('notes') } }])])],
+    content: [
+      para(
+        notesOf
+          ? [text(`${w.notes(c.noteLinesUsed, c.noteLines, c.marksUsed, c.marks)} · ${notesOf}`)]
+          : [text(`${w.notes(c.noteLinesUsed, c.noteLines, c.marksUsed, c.marks)} · `), text(w.seeNotes, [{ type: 'link', attrs: { href: tabLink('notes') } }])],
+      ),
+    ],
   });
   const takeaways = (s.takeaways ?? []) as { text: string }[];
   if (takeaways.length) add('takeaways', { type: 'callout', attrs: { kind: 'takeaways' }, content: [list(takeaways.map((t) => inline(t.text)))] });
 
-  ((s.sections ?? []) as Section[]).forEach((sec, si) => {
+  ((s.sections ?? []) as (Section & { lecture?: string })[]).forEach((sec, si) => {
     const at = ms(sec.timestamp);
     // Chips are her own marks only: the implicit signals (a question to the assistant, a concept
     // explained 3+ times) shaped the section's content but must not look like marks she set.
     const chips = sec.markChips.filter((k) => !isImplicitMark(k.markId)).map((k) => markChip(k.type, k.level));
-    add(`s${si}`, { type: 'heading', attrs: { level: 2, cue: sec.cueQuestion || null }, content: [text(`${si + 1} · ${sec.heading}`), ...(at !== null ? [text(' '), chip(at)] : []), ...(chips.length ? [text(' '), ...spaced(chips)] : [])] });
+    // Step 7.9: a section a lecture added is tagged with it ("4 · Lecture 2 · La sinapsis").
+    add(`s${si}`, { type: 'heading', attrs: { level: 2, cue: sec.cueQuestion || null }, content: [text(`${si + firstSection} · ${sec.lecture ? `${sec.lecture} · ` : ''}${sec.heading}`), ...(at !== null ? [text(' '), chip(at)] : []), ...(chips.length ? [text(' '), ...spaced(chips)] : [])] });
     sec.blocks.forEach((b, bi) => {
       const { nodes, origin } = convertBlock(b, w);
       nodes.forEach((n, ni) => add(`s${si}-b${bi}${nodes.length > 1 ? `-${ni}` : ''}`, n, Array.isArray(origin) ? origin[ni] : origin));
@@ -317,7 +334,7 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [] }: Summ
   }
   const questions = (s.questionsDuringClass ?? []) as { t: string; question: string; shortAnswer: string }[];
   if (questions.length) {
-    add('questions', { type: 'heading', attrs: { level: 2 }, content: [text(w.questions)] });
+    add('questions', { type: 'heading', attrs: { level: 2 }, content: [text(tagged(w.questions))] });
     add(
       'questions-list',
       list(
@@ -332,7 +349,7 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [] }: Summ
   }
   const selfTest = (s.selfTest ?? []) as { question: string; answer: string }[];
   if (selfTest.length) {
-    add('selftest', { type: 'heading', attrs: { level: 2 }, content: [text(w.selfTest)] });
+    add('selftest', { type: 'heading', attrs: { level: 2 }, content: [text(tagged(w.selfTest))] });
     selfTest.forEach((q, i) => {
       add(`q${i}`, para([bold(`${i + 1}. `), ...inline(q.question)]));
       add(`q${i}-answer`, { type: 'callout', attrs: { kind: 'answer' }, content: [p(q.answer)] });
@@ -342,17 +359,17 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [] }: Summ
   if (cards) add('cards', para([text(w.cards(cards), [{ type: 'italic' }])]));
   const glossary = (s.glossary ?? []) as { term: string; definition: string }[];
   if (glossary.length) {
-    add('glossary', { type: 'heading', attrs: { level: 2 }, content: [text(w.glossary)] });
+    add('glossary', { type: 'heading', attrs: { level: 2 }, content: [text(tagged(w.glossary))] });
     add('glossary-list', list(glossary.map((g) => [bold(g.term), text(' — '), ...inline(g.definition)])));
   }
   const logistics = (s.logistics ?? []) as string[];
   if (logistics.length) {
-    add('logistics', { type: 'heading', attrs: { level: 2 }, content: [text(w.logistics)] });
+    add('logistics', { type: 'heading', attrs: { level: 2 }, content: [text(tagged(w.logistics))] });
     add('logistics-list', list(logistics.map(inline)));
   }
   const unclear = (s.unclear ?? []) as { timestamp: string; note: string }[];
   if (unclear.length) {
-    add('unclear', { type: 'heading', attrs: { level: 2 }, content: [text(w.unclear)] });
+    add('unclear', { type: 'heading', attrs: { level: 2 }, content: [text(tagged(w.unclear))] });
     add('unclear-list', list(unclear.map((u) => [...(ms(u.timestamp) !== null ? [chip(ms(u.timestamp)!), text(' ')] : []), ...inline(u.note)])));
   }
   return { type: 'doc', content: out };
@@ -361,8 +378,20 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [] }: Summ
 // ---------- written again: merged around what she edited ----------
 
 const idOf = (b: Node) => (typeof b.attrs?.blockId === 'string' ? (b.attrs.blockId as string) : null);
-/** Hers: a block she added (not generated), or a generated one she changed (blockMeta dates every edit, 4.3). */
-export const isTouched = (b: Node) => generatedPath(idOf(b)) === null || (b.attrs?.editedAt !== null && b.attrs?.editedAt !== undefined);
+/** Whether a block carries a comment (hers, or Studiply's from a lecture added, 7.9) anywhere in it. */
+const hasComment = (n: Node): boolean => !!n.marks?.some((m) => m.type === 'comment') || !!n.content?.some(hasComment);
+/** What Extend added to a summary (7.9): its blocks (`x…`) and Update callouts (`u…`). */
+const EXTENDED = /^(x\d+-|u\d+$)/;
+
+/**
+ * Kept when a summary is written again: a block she added (not generated) or changed (blockMeta dates
+ * every edit, 4.3); a block carrying a comment (7.9: Studiply's comments are never lost); and what a
+ * lecture added with Extend put there (7.9).
+ */
+export const isTouched = (b: Node) => {
+  const path = generatedPath(idOf(b));
+  return path === null || (b.attrs?.editedAt !== null && b.attrs?.editedAt !== undefined) || hasComment(b) || EXTENDED.test(path);
+};
 
 /**
  * Where a part of the summary starts (a block of its own level: a section's heading, the exam signals,

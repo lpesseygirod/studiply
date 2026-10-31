@@ -15,6 +15,7 @@ import { RecordingHost } from '../../src/components/recording/RecordingHost';
 import { RecordingPill } from '../../src/components/recording/RecordingPill';
 import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
 import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
+import { LecturePicker } from '../../src/components/summarize/LecturePicker';
 import { SummaryBanner } from '../../src/components/summarize/SummaryBanner';
 import { useSummaryBanner } from '../../src/components/summarize/summaryBannerState';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
@@ -129,7 +130,7 @@ export default function MainLayout() {
             />
           )}
           {/* Step 7.7 (desktop-03): a lecture's Summary tab holding its summary: the green banner, the window's full width. */}
-          {wide && kind === 'document' && summaryBanner && <SummaryBanner summary={summaryBanner.summary} />}
+          {wide && kind === 'document' && summaryBanner && <SummaryBanner summary={summaryBanner.summary} lecture={summaryBanner.lecture} />}
           {/* While a lecture records (step 5.3): on every screen, so leaving the lecture never stops it. */}
           {wide && <RecordingStrip />}
           <View style={styles.row}>
@@ -186,6 +187,7 @@ export default function MainLayout() {
           <RecordingHost />
           {/* Stop & summarize (step 7.3): over any screen, during a recording or after it. */}
           <SummarizePanel />
+          <LecturePicker />
           {!wide && toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}

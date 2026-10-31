@@ -329,6 +329,8 @@ export const DocColors = {
     },
     /** Step 7.7: a self-test answer (hidden until tapped), the formula card's quiet box. */
     answer: { bg: '#F8F7FC', border: '#DCD8EE', label: '#4F43B0' },
+    /** Step 7.9: an Update (the professor corrected an earlier lecture), the Exam signal's amber family, a stronger border. */
+    update: { bg: '#FFF6E5', border: '#E8A33D', label: '#7A4A00' },
   },
   /** Mark chips in the document (step 4.6): Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
   markChip: {

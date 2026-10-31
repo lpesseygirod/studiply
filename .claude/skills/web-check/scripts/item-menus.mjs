@@ -4,6 +4,11 @@
 // course grid has a Finder-style menu (New folder, Upload document,
 // Record, Sort by…), by right-click and, at 390 px, by
 // long-press. Results checked in the database. Exit 1 on any FAIL.
+//
+// Step 7.9: a lecture's menu has Extend with next lecture…; a course's and a folder's have Merge
+// lectures… and Make exam pack… (no longer greyed); a Unit summary and an Exam pack have a document's
+// menu. Every kind's menu is checked against DESIGN (Library → Item menus): course, folder, lecture,
+// document, Unit summary and Exam pack (PDFs and photos: library-menus.mjs). A failed step closes any menu it left open, so it can't fail the next ones.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -16,6 +21,10 @@ const step = async (name, fn) => {
   } catch (err) {
     results.push(['FAIL', name, err.message]);
     await b.shot(`fail-menus-${results.length}`).catch(() => {});
+    // A menu or dialog left open would answer every later step.
+    await b.press('Escape').catch(() => {});
+    await b.press('Escape').catch(() => {});
+    await b.sleep(300);
   }
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -25,9 +34,12 @@ const MAIN = { exclude: SIDEBAR };
 /** The open menu's items, in order (their first line: a greyed-out item has its hint below). */
 const menuItems = () =>
   b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim().split('\\n')[0])`);
+/** The open menu's lines with whether each is greyed out and its hint. */
+const menuLines = () =>
+  b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => { const [text, hint] = e.innerText.trim().split('\\n'); return { text, hint: hint ?? null, disabled: e.getAttribute('aria-disabled') === 'true' }; })`);
 /** Clicks a menu item (buttons with the same text under the menu's overlay come first in the DOM). */
 const clickItem = async (text) => {
-  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.trim() === ${JSON.stringify(text)}); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('[role=menuitem]')].find((e) => e.innerText.trim() === ${JSON.stringify(text)}); if (!el) return null; el.scrollIntoView({ block: 'nearest' }); const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
   if (!p) throw new Error(`no menu item ${text}`);
   await b.clickAt(p.x, p.y);
 };
@@ -66,15 +78,32 @@ const openCourse = async () => {
   await b.waitText('My library', { timeout: 20000 });
   await b.sleep(2500);
 };
-// Step 3.4: Cut / Copy, and the Summarize / Make exam pack placeholders (no Move out: these are at the top of the course).
+/** The menu a grid tile opens on a right-click. */
+const tileMenu = async (title) => {
+  await b.click(title, { button: 'right', exact: true, ...MAIN });
+  await b.sleep(400);
+  return menuItems();
+};
+// DESIGN (Library → Item menus). Cut / Copy (3.4), Summarize (7.3), Extend / Merge / Make exam pack (7.9).
+// Everything here is at the top of the course: no Move out.
 const ITEM_MENU = {
-  course: ['Open', 'Rename…', 'Add to Favorites', 'Make exam pack', 'Delete'],
-  folder: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Make exam pack', 'Delete'],
-  lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Export PDF', 'Delete'],
+  course: ['Open', 'Rename…', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
+  folder: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
+  lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Extend with next lecture…', 'Export PDF', 'Delete'],
+  // Copying a document comes later.
+  document: ['Open', 'Rename…', 'Move to…', 'Cut', 'Add to Favorites', 'Delete'],
+  // Unit summaries and exam packs are documents: a document's menu (advisor, 31 Oct, step 7.9).
+  unit_summary: ['Open', 'Rename…', 'Move to…', 'Cut', 'Add to Favorites', 'Delete'],
+  exam_pack: ['Open', 'Rename…', 'Move to…', 'Cut', 'Add to Favorites', 'Delete'],
 };
 
 const user = await makeUser();
 const data = await seed(user.client);
+// A document, a Unit summary and an Exam pack at the course's top (7.9 makes the last two; here they're rows).
+for (const [kind, title] of [['document', 'Notas'], ['unit_summary', 'Math — Lectures 1–2'], ['exam_pack', 'Exam pack · Math']]) {
+  const { error } = await admin.from('files').insert({ user_id: user.id, kind, title, course_id: data.course.id });
+  if (error) throw new Error(`seeding ${kind}: ${error.message}`);
+}
 const b = await launch({ width: 1280, height: 900 });
 
 try {
@@ -98,13 +127,32 @@ try {
   });
 
   await step('The grid shows the same menu (a folder renames in place there)', async () => {
-    await b.click('Lecture 1', { button: 'right', ...MAIN });
-    await b.sleep(400);
-    expect((await menuItems()).join('|') === ITEM_MENU.lecture.join('|'), `grid lecture: ${(await menuItems()).join('|')}`);
+    expect((await tileMenu('Lecture 1')).join('|') === ITEM_MENU.lecture.join('|'), `grid lecture: ${(await menuItems()).join('|')}`);
     await closeMenu();
-    await b.click('Funcions', { button: 'right', ...MAIN });
-    await b.sleep(400);
-    expect((await menuItems()).join('|') === ITEM_MENU.folder.join('|').replace('Rename…', 'Rename'), `grid folder: ${(await menuItems()).join('|')}`);
+    expect((await tileMenu('Funcions')).join('|') === ITEM_MENU.folder.join('|').replace('Rename…', 'Rename'), `grid folder: ${(await menuItems()).join('|')}`);
+    await closeMenu();
+  });
+
+  await step('The grid: a document, a Unit summary and an Exam pack have their own menus', async () => {
+    for (const [kind, title] of [['document', 'Notas'], ['unit_summary', 'Math — Lectures 1–2'], ['exam_pack', 'Exam pack · Math']]) {
+      const items = await tileMenu(title);
+      expect(items.join('|') === ITEM_MENU[kind].join('|'), `${kind}: ${items.join('|')}`);
+      await closeMenu();
+    }
+  });
+
+  await step('Greyed out only where DESIGN says: Copy on a lecture and a folder ("Coming soon"); Summarize, Extend, Merge and Make exam pack work', async () => {
+    await tileMenu('Lecture 1');
+    const lecture = await menuLines();
+    const at = (lines, text) => lines.find((l) => l.text === text);
+    expect(at(lecture, 'Copy')?.disabled && at(lecture, 'Copy')?.hint === 'Coming soon', JSON.stringify(at(lecture, 'Copy')));
+    for (const t of ['Summarize', 'Extend with next lecture…']) expect(at(lecture, t) && !at(lecture, t).disabled && !at(lecture, t).hint, `${t}: ${JSON.stringify(at(lecture, t))}`);
+    await closeMenu();
+    await tileMenu('Funcions');
+    const folder = await menuLines();
+    expect(at(folder, 'Copy')?.disabled && at(folder, 'Copy')?.hint === 'Coming soon', JSON.stringify(at(folder, 'Copy')));
+    for (const t of ['Merge lectures…', 'Make exam pack…']) expect(at(folder, t) && !at(folder, t).disabled && !at(folder, t).hint, `${t}: ${JSON.stringify(at(folder, t))}`);
+    expect(!folder.some((l) => l.hint === 'Coming in a later update'), JSON.stringify(folder));
     await closeMenu();
   });
 
@@ -155,9 +203,7 @@ try {
   });
 
   await step('Right-clicking a tile shows the tile menu, not the empty-space menu', async () => {
-    await b.click('Lecture 1', { button: 'right', ...MAIN });
-    await b.sleep(400);
-    const items = await menuItems();
+    const items = await tileMenu('Lecture 1');
     expect(items[0] === 'Open' && !items.includes('Sort by…'), items.join('|'));
     await closeMenu();
   });

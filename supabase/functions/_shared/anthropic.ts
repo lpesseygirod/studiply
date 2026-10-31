@@ -10,7 +10,8 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { DAILY_CLAUDE_LIMIT_USD, claudeCost, claudeRequest, type Cost } from './claude.ts';
+import { claudeCost, claudeRequest, type Cost } from './claude.ts';
+import { claudeGate } from './claude-gate.ts';
 import { hasConsent, logUsage, ownFile, ownLecture, signedIn, usedToday } from './guard.ts';
 import { fail } from './http.ts';
 
@@ -38,45 +39,21 @@ export async function readyForClaude<T extends { lectureId: string; fileId?: str
   const { db, userId } = caller;
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
-  if (!apiKey) {
-    log('not_configured', {});
-    return { ok: false, response: fail(500, 'not_configured', 'The study assistant is not set up on the server yet.') };
-  }
+  // The checks themselves are in claude-gate.ts (pure: Jest runs them).
+  const gate = await claudeGate<T>({
+    hasKey: !!apiKey,
+    body: apiKey ? await req.json().catch(() => null) : null,
+    validate,
+    ownFile: (fileId) => ownFile(db, fileId),
+    ownLecture: (lectureId) => ownLecture(db, lectureId),
+    hasConsent: () => hasConsent(db, 'assistant_summary'),
+    spentToday: (operations) => usedToday(db, [...operations], 'cost_usd'),
+    log,
+  });
+  if (!gate.ok) return { ok: false, response: fail(gate.status, gate.code, gate.error) };
 
-  const body = await req.json().catch(() => null);
-  const valid = validate(body);
-  if (!valid.ok) return { ok: false, response: fail(valid.status, valid.code, valid.error) };
-  const { lectureId, fileId } = valid.value;
-
-  // A document of any kind (step 6.3, Ask Claude on a selection), else a lecture.
-  if (fileId) {
-    if (!(await ownFile(db, fileId))) return { ok: false, response: fail(404, 'file_not_found', 'That document was not found.') };
-  } else if (!(await ownLecture(db, lectureId))) {
-    return { ok: false, response: fail(404, 'lecture_not_found', 'That lecture was not found.') };
-  }
-
-  // Consent to send notes and transcripts to Anthropic (Apple 5.1.2(i))
-  if (!(await hasConsent(db, 'assistant_summary'))) {
-    return {
-      ok: false,
-      response: fail(
-        403,
-        'consent_required',
-        'Allow the study assistant and summaries in Settings before Studiply sends your class to Anthropic.',
-      ),
-    };
-  }
-
-  if ((await usedToday(db, ['assistant', 'summary'], 'cost_usd')) >= DAILY_CLAUDE_LIMIT_USD) {
-    log('daily_limit', { lectureId });
-    return {
-      ok: false,
-      response: fail(429, 'daily_limit', 'You have reached today’s limit for the assistant and summaries. Try again tomorrow.'),
-    };
-  }
-
-  const claude = new Anthropic({ apiKey, maxRetries: 2, timeout: TIMEOUT_MS });
-  return { ok: true, db, userId, claude, value: valid.value };
+  const claude = new Anthropic({ apiKey: apiKey!, maxRetries: 2, timeout: TIMEOUT_MS });
+  return { ok: true, db, userId, claude, value: gate.value };
 }
 
 /**

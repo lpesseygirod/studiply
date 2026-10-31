@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 
+import { openLecturePicker } from '../components/summarize/combineState';
 import { promptText, showActionSheet, showAlert, type Anchor, type DialogButton } from '../components/dialogs/dialogs';
 import { notifyLibraryUpdated } from '../lib/cache';
 import { getFolder, renameFolder } from '../services/folder.service';
@@ -82,8 +83,15 @@ export function useItemMenu({
         case 'summarize':
           // Step 7.3: the lecture's Summary tab with the summarize panel open.
           return { text: 'Summarize', onPress: () => router.navigate({ pathname: '/doc/[id]', params: { id: item.id, tab: 'summary', summarize: '1' } }) };
+        // Step 7.9: the lecture picker, then the summarize panel.
+        case 'extend':
+          return { text: 'Extend with next lecture…', onPress: () => openLecturePicker({ mode: 'extend', courseId: item.courseId, folderId: null, baseLectureId: item.id }) };
+        case 'merge':
         case 'examPack':
-          return { text: 'Make exam pack' };
+          return {
+            text: action === 'merge' ? 'Merge lectures…' : 'Make exam pack…',
+            onPress: () => openLecturePicker({ mode: action === 'merge' ? 'merge' : 'exam_pack', ...(item.type === 'course' ? { courseId: item.id, folderId: null } : { courseId: item.courseId, folderId: item.id }) }),
+          };
         case 'star':
           return starButton(
             starTarget(item),
@@ -142,7 +150,7 @@ export function useItemMenu({
         else await renameFolder(item.id, name);
       } else if (item.type === 'lecture') {
         if (!(await promptRenameLecture({ id: item.id, title: item.title }))) return;
-      } else if (item.type === 'document') {
+      } else if (item.type === 'document' || item.type === 'unit_summary' || item.type === 'exam_pack') {
         if (!(await promptRenameDocument({ id: item.id, title: item.title }))) return;
       } else {
         if (!(await promptRenameLibraryFile(await libraryFile(item)))) return;

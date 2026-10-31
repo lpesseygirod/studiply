@@ -138,6 +138,39 @@ export const PART_SCHEMA: JsonSchema = obj({
 /** Step 7.6, the wrap-up call after the parts are merged: the whole lecture's title and lists. */
 export const WRAPUP_SCHEMA: JsonSchema = obj({ title: str, takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
 
+/**
+ * Step 7.9, Extend and Merge (the approved plan): the lecture being added is written by the generate
+ * call with the existing summary in its prompt, and its answer has two more lists:
+ * - alreadyCovered: what the lecture says again about a part already there (`anchor`: that block's id,
+ *   `quote`: its words the note is about, `note`: what was said this time, `t`: when);
+ * - corrections: what the professor corrected (`anchor`: the block corrected, `said`: the correction).
+ * Both in ONE string field, `extend`, holding their JSON (checked with zod after, summary-zod.ts
+ * ExtendLists), as the blocks' `data` since 7.4: the summary schema is near the API's limit for a
+ * compiled grammar, and the two lists as real arrays of objects went over it (the paid run of 31 Oct:
+ * "The compiled grammar is too large"). One more string adds next to nothing.
+ */
+export const EXTEND_FIELD = 'extend';
+
+/** A generate schema (the whole summary, or a long lecture's part) with Extend's lists as one JSON string. */
+export function extendSchema(base: JsonSchema): JsonSchema {
+  return obj({ ...(base.properties as Record<string, JsonSchema>), [EXTEND_FIELD]: str });
+}
+
+/** Step 7.9, Exam pack: a course or unit compressed to what the exam needs, by topic. */
+export const EXAM_PACK_SCHEMA: JsonSchema = obj({
+  title: str,
+  topics: arr(
+    obj({
+      heading: str,
+      examSignals: arr(obj({ text: str, lecture: int, t: str })),
+      formulas: arr(obj({ name: str, latex: str, legend: str })),
+      keyTerms: arr(obj({ term: str, definition: str })),
+      selfTest: SELF_TEST,
+    }),
+  ),
+  flashcards: FLASHCARDS,
+});
+
 export const VERDICTS = ['found', 'corrected', 'added'] as const;
 
 /**

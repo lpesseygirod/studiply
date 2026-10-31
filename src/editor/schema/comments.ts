@@ -34,6 +34,22 @@ export interface CommentInfo {
   quote: string;
   from: number;
   to: number;
+  /** Step 7.9: who wrote it: 'studiply' (a summary extended with a lecture), else null (hers). */
+  author: string | null;
+  /** Step 7.9: the moment it is about (a lecture and its time), kept so a later step can play it. */
+  source: CommentSource | null;
+}
+
+export interface CommentSource {
+  lectureId: string;
+  ms: number | null;
+}
+
+/** A comment's source as stored (an attribute), or null. */
+export function cleanSource(v: unknown): CommentSource | null {
+  const s = (typeof v === 'string' ? (() => { try { return JSON.parse(v) as unknown; } catch { return null; } })() : v) as { lectureId?: unknown; ms?: unknown } | null;
+  if (!s || typeof s !== 'object' || typeof s.lectureId !== 'string') return null;
+  return { lectureId: s.lectureId, ms: typeof s.ms === 'number' && Number.isFinite(s.ms) ? s.ms : null };
 }
 
 declare module '@tiptap/core' {
@@ -75,6 +91,8 @@ export function listComments(doc: PMNode): CommentInfo[] {
           quote: node.text ?? '',
           from: pos,
           to: end,
+          author: typeof mark.attrs.author === 'string' && mark.attrs.author ? mark.attrs.author : null,
+          source: cleanSource(mark.attrs.source),
         });
       }
     }
@@ -125,6 +143,17 @@ export const Comment = Mark.create({
         default: false,
         parseHTML: (el) => el.hasAttribute('data-resolved'),
         renderHTML: (a) => (a.resolved ? { 'data-resolved': '' } : {}),
+      },
+      // Step 7.9: a comment Studiply wrote (a summary extended with a lecture), and the moment it is about.
+      author: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-author'),
+        renderHTML: (a) => (typeof a.author === 'string' && a.author ? { 'data-author': a.author } : {}),
+      },
+      source: {
+        default: null,
+        parseHTML: (el) => cleanSource(el.getAttribute('data-source')),
+        renderHTML: (a) => (cleanSource(a.source) ? { 'data-source': JSON.stringify(cleanSource(a.source)) } : {}),
       },
     };
   },

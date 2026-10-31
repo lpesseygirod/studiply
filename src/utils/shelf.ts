@@ -192,6 +192,9 @@ export function openTarget(item: ShelfItem): Href {
     case 'lecture_pdf':
       return lectureTarget(item.lectureId ?? '', item.status);
     case 'document':
+    // Step 7.9: a Unit summary and an Exam pack are documents.
+    case 'unit_summary':
+    case 'exam_pack':
       return `/doc/${item.id}`;
     default:
       return courseAt(item.courseId, item.folderId);

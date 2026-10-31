@@ -36,6 +36,12 @@
  * Only the summary (step 7.4), without paying for the earlier steps again:
  *   npm run check:claude -- --only=summary
  *
+ * Only the checks before Claude (step 7.9), FREE: refusals only, never a call to Anthropic (signed
+ * out 401, another user's files 404, no or withdrawn consent 403, $3 used today 429) for every kind of
+ * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added:
+ *   npm run check:claude -- --only=gate
+ * (The full run ends with these too.)
+ *
  * Local only: refuses to run unless Supabase is on 127.0.0.1 / localhost.
  * Never reads supabase/functions/.env; the functions report a missing key.
  *
@@ -66,6 +72,8 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 /** `--only=summary`: the step-7.4 summary alone (it creates what it needs). */
 const ONLY_SUMMARY = process.argv.includes('--only=summary');
+/** `--only=gate`: the checks before Claude alone, FREE (refusals only; step 7.9). */
+const ONLY_GATE = process.argv.includes('--only=gate');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
 const POLICY_VERSION = 'dev-2026-10-elevenlabs';
@@ -406,6 +414,108 @@ const emails = [`a-${run}@claude-check.test`, `b-${run}@claude-check.test`];
 const createdUsers = [];
 const uploadedPhotos = [];
 
+/** A throwaway user, deleted at the end with the others. */
+async function makeUser(email) {
+  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error) throw new Error(`Could not create ${email}: ${error.message}`);
+  createdUsers.push(data.user.id);
+  return signIn(email, password);
+}
+
+const SLIDERS = { startingPoint: 2, length: 5, depth: 6, examples: 5, visuals: 4, examFocus: 5, selfTest: 5, language: 4, extraResources: 6, followMarks: 7 };
+
+/**
+ * The checks before Claude (_shared/claude-gate.ts, run by readyForClaude for assistant-chat and
+ * summarize), live and FREE: only refusals, never a call to Anthropic. Two users of its own: C owns
+ * everything; D never gets consent. C has $3 of usage seeded BEFORE any consent, so even with one check
+ * broken a request would still be refused by another (consent before it, the limit after it).
+ * Every request, for each of: signed out → 401; D on C's lecture / document / Unit summary / Exam pack →
+ * 404; a document as a lecture → 404; C without consent → 403 (also with transcription consent only);
+ * C with consent and $3 today → 429; C after withdrawing → 403. Then: no new ai_usage row, and every
+ * summary request still pending (never started).
+ */
+async function gateSection() {
+  console.log('\nThe checks before Claude (free: refusals only)');
+  const c = await makeUser(`c-${run}@claude-check.test`);
+  const d = await makeUser(`d-${run}@claude-check.test`);
+  const file = async (kind, title) => {
+    const { data, error } = await c.client.from('files').insert({ kind, title }).select('id').single();
+    if (error) throw new Error(`Could not create the ${kind}: ${error.message}`);
+    if (kind === 'lecture') {
+      const { error: lectureError } = await c.client.from('lectures').insert({ id: data.id });
+      if (lectureError) throw new Error(`Could not create the lecture: ${lectureError.message}`);
+    }
+    return data.id;
+  };
+  const l1 = await file('lecture', 'Gate lecture 1');
+  const l2 = await file('lecture', 'Gate lecture 2');
+  const doc = await file('document', 'Gate document');
+  const unit = await file('unit_summary', 'Gate unit');
+  const pack = await file('exam_pack', 'Gate exam pack');
+  const request = async (fileId, mode, sources, target) => {
+    const { data, error } = await c.client
+      .from('summaries')
+      .insert({ file_id: fileId, mode, source_lecture_ids: sources, sliders: SLIDERS, status: 'pending', applied_settings: { resources: { slides: false, photos: false, assistant: true, notes: true }, preview: '(gate)', target, anchors: [] } })
+      .select('id')
+      .single();
+    if (error) throw new Error(`Could not save the ${mode} request: ${error.message}`);
+    return data.id;
+  };
+  const rows = {
+    summary: await request(l1, 'new', [l1], 'new'),
+    extendAdd: await request(l1, 'extend', [l1, l2], 'add'),
+    extendUnit: await request(unit, 'extend', [l1, l2], 'unit'),
+    merge: await request(unit, 'merge', [l1, l2], 'unit'),
+    examPack: await request(pack, 'exam_pack', [l1, l2], 'unit'),
+  };
+  // Every kind of request the two functions take (the notes and clarify need their own fields: their
+  // gate is the same as the question's, checked by the paid steps).
+  const requests = [
+    ['assistant-chat · a question', CHAT_URL, { lectureId: l1, message: 'x' }],
+    ['assistant-chat · Ask Claude on a document', CHAT_URL, { mode: 'selection', fileId: doc, action: 'simpler', text: 'x' }],
+    ['assistant-chat · flashcards from an answer', CHAT_URL, { mode: 'flashcards', lectureId: l1, answerId: randomUUID() }],
+    ['summarize · the test prompt', SUMMARIZE_URL, { lectureId: l1 }],
+    ['summarize · a summary', SUMMARIZE_URL, { lectureId: l1, summaryId: rows.summary }],
+    ['summarize · Extend, Add to this summary', SUMMARIZE_URL, { lectureId: l1, summaryId: rows.extendAdd }],
+    ['summarize · Extend, a new Unit summary', SUMMARIZE_URL, { lectureId: unit, summaryId: rows.extendUnit }],
+    ['summarize · Merge', SUMMARIZE_URL, { lectureId: unit, summaryId: rows.merge }],
+    ['summarize · Exam pack', SUMMARIZE_URL, { lectureId: pack, summaryId: rows.examPack }],
+  ];
+  /** Every request as this user: each answer's status and code. */
+  const all = async (token) => Promise.all(requests.map(async ([name, fnUrl, body]) => ({ name, ...(fnUrl === CHAT_URL ? await chat(token, body) : await call(fnUrl, token, body)) })));
+  const expectAll = (results, status, code, label) => {
+    for (const r of results) check(r.status === status && (!code || r.body?.code === code), `${label}: ${r.name} → ${status}${code ? ` ${code}` : ''} (got ${r.status} ${r.body?.code ?? ''})`);
+  };
+
+  // $3 today BEFORE any consent (a check that let a request through would still meet another).
+  const seeded = await admin.from('ai_usage').insert({ user_id: c.id, operation: 'summary', provider: 'anthropic', model: MODELS.summary, cost_usd: DAILY_LIMIT_USD });
+  if (seeded.error) throw new Error(`Could not seed usage: ${seeded.error.message}`);
+
+  expectAll(await all(null), 401, null, 'signed out');
+  expectAll(await all(d.token), 404, null, 'another user (D) on C’s files');
+  const asLecture = await call(SUMMARIZE_URL, c.token, { lectureId: doc });
+  check(asLecture.status === 404 && asLecture.body?.code === 'lecture_not_found', `a document sent as a lecture (summarize's test prompt) → 404 lecture_not_found (got ${asLecture.status} ${asLecture.body?.code ?? ''})`);
+  const noConsent = await all(c.token);
+  if (noConsent.some((r) => r.status === 500 && r.body?.code === 'not_configured')) {
+    throw new Error(`No ANTHROPIC_API_KEY on the server. Add it to ${FUNCTIONS_ENV}, restart \`supabase functions serve\`, run again.`);
+  }
+  expectAll(noConsent, 403, 'consent_required', 'no consent');
+  await c.client.from('ai_consent').insert({ scope: 'transcription', policy_version: POLICY_VERSION });
+  expectAll(await all(c.token), 403, 'consent_required', 'transcription consent only');
+  const given = await c.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: POLICY_VERSION });
+  check(!given.error, 'C gives assistant and summary consent (with $3 already used today)');
+  expectAll(await all(c.token), 429, 'daily_limit', '$3 used today');
+  const withdrawn = await c.client.from('ai_consent').update({ withdrawn_at: new Date().toISOString() }).eq('scope', 'assistant_summary').is('withdrawn_at', null).select('id');
+  check(!withdrawn.error && withdrawn.data.length === 1, 'C withdraws assistant and summary consent');
+  expectAll(await all(c.token), 403, 'consent_required', 'consent withdrawn');
+
+  // Nothing reached Anthropic, nothing was started.
+  check((await usageRows(c.id)).length === 1, 'C: no new ai_usage row (only the seeded $3)');
+  check((await usageRows(d.id)).length === 0, 'D: no ai_usage row');
+  const { data: still } = await admin.from('summaries').select('status, result').in('id', Object.values(rows));
+  check(still?.length === 5 && still.every((r) => r.status === 'pending' && r.result === null), 'every summary request is still pending (none was started)');
+}
+
 try {
   console.log('\nThe Anthropic key');
   check(gitIgnored(FUNCTIONS_ENV), `${FUNCTIONS_ENV} is git-ignored`);
@@ -419,13 +529,11 @@ try {
   }
   check(!leaked, 'no tracked file contains an Anthropic key');
 
-  for (const email of emails) {
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error) throw new Error(`Could not create ${email}: ${error.message}`);
-    createdUsers.push(data.user.id);
-  }
-  const a = await signIn(emails[0], password);
-  const b = await signIn(emails[1], password);
+  if (ONLY_GATE) {
+    await gateSection();
+  } else {
+  const a = await makeUser(emails[0]);
+  const b = await makeUser(emails[1]);
 
   const { data: file, error: fileError } = await a.client
     .from('files')
@@ -746,6 +854,10 @@ try {
   check(!withdrawn.error && withdrawn.data.length === 1, 'A withdraws assistant and summary consent');
   check(isConsentRequired(await chat(a.token, chatBody)), 'after withdrawing: assistant-chat 403 consent_required');
   check(isConsentRequired(await call(SUMMARIZE_URL, a.token, { lectureId })), 'and summarize 403 consent_required');
+  }
+
+  // Free: refusals only, with users of its own.
+  await gateSection();
   }
 } catch (err) {
   failures += 1;

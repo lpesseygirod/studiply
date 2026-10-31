@@ -7,6 +7,8 @@ export const SUMMARY_ERRORS: Record<string, string> = {
   too_long: 'The summary got too long and was cut off. Try a lower Length.',
   long_lecture: 'Lectures over 3 hours can’t be summarized yet.',
   part_failed: 'A part of this long lecture couldn’t be written. Nothing was changed.',
+  no_base_summary: 'The lecture you extend has no summary yet. Summarize it first.',
+  no_summaries: 'None of these lectures has a summary yet. Summarize them first.',
   no_transcript: 'This lecture has no transcript yet.',
   claude_rejected: 'Claude didn’t accept the request. Nothing was changed.',
 };
@@ -63,6 +65,8 @@ export function summaryCardText(s: LectureSummary): { label: string; text: strin
     case 'done': {
       const r = s.result;
       if (!r) return { label: 'Summary ready', text: '' };
+      // Step 7.9: an Extend / Merge / Exam pack: its document is being written (no counts of its own).
+      if (r.format !== 'studiply-summary-v1') return { label: 'Ready', text: 'Writing it into this document…' };
       const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
       const c = r.coverage;
       const takeaways = Array.isArray(r.takeaways) ? (r.takeaways as { text: string }[]).map((t) => `• ${t.text}`).join('\n') : '';

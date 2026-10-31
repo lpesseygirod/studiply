@@ -82,8 +82,16 @@ describe('the Summary tab card', () => {
     ['refused', 'Claude can’t summarize this lecture.', 'retry'],
     ['part_failed', 'A part of this long lecture couldn’t be written. Nothing was changed.', 'retry'],
     ['unreadable', 'Something went wrong. Nothing was changed.', 'retry'],
+    // Step 7.9: Extend, Merge and Exam pack.
+    ['no_base_summary', 'The lecture you extend has no summary yet. Summarize it first.', 'retry'],
+    ['no_summaries', 'None of these lectures has a summary yet. Summarize them first.', 'retry'],
   ])('failed (%s): why, and what to do', (error, text, action) => {
     expect(summaryCardText(summary({ status: 'failed', error }))).toEqual({ label: 'The summary wasn’t written', text, action });
+  });
+
+  it('an Extend / Merge / Exam pack finished (step 7.9): being written into its document', () => {
+    const result = { format: 'studiply-combined-v1' } as unknown as Parameters<typeof summaryCardText>[0]['result'];
+    expect(summaryCardText(summary({ status: 'done', result }))).toEqual({ label: 'Ready', text: 'Writing it into this document…' });
   });
 
   it('the green banner’s line (step 7.7, desktop-03): her notes and marks, the audio, what else it was built from', () => {

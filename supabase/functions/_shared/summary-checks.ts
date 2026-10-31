@@ -392,7 +392,8 @@ export function faithfulness(s: StoredSummary, src: Sources): { checked: number;
 // ---------- language ----------
 
 const STOPWORDS: Record<string, string[]> = {
-  es: ['el', 'la', 'los', 'las', 'de', 'del', 'que', 'y', 'en', 'un', 'una', 'es', 'por', 'con', 'para', 'se', 'su', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 'sí', 'porque', 'esta', 'entre', 'cuando', 'muy', 'sin', 'sobre', 'también', 'hay', 'son'],
+  // "no", "si", "qué", "tras", "otra" are Spanish too (without them a Spanish block sharing el / la / en with Catalan could read as Catalan).
+  es: ['el', 'la', 'los', 'las', 'de', 'del', 'que', 'qué', 'y', 'en', 'un', 'una', 'es', 'no', 'si', 'por', 'con', 'para', 'se', 'su', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 'sí', 'porque', 'esta', 'entre', 'cuando', 'muy', 'sin', 'sobre', 'también', 'hay', 'son', 'tras', 'otra', 'otro'],
   en: ['the', 'of', 'and', 'to', 'in', 'is', 'that', 'it', 'for', 'as', 'with', 'was', 'on', 'are', 'by', 'this', 'be', 'from', 'or', 'which', 'an', 'at', 'not', 'but', 'have', 'they', 'their', 'can', 'its', 'when', 'how', 'what', 'there', 'these'],
   fr: ['le', 'la', 'les', 'de', 'des', 'du', 'et', 'est', 'un', 'une', 'que', 'qui', 'dans', 'pour', 'pas', 'sur', 'au', 'avec', 'ce', 'il', 'elle', 'sont', 'par', 'plus', 'ne', 'se', 'nous', 'vous', 'mais', 'ou', 'aux', 'cette'],
   pt: ['o', 'a', 'os', 'as', 'de', 'do', 'da', 'dos', 'das', 'e', 'que', 'em', 'um', 'uma', 'é', 'para', 'com', 'não', 'no', 'na', 'por', 'mais', 'se', 'como', 'mas', 'ao', 'ele', 'ela', 'são', 'também', 'pelo', 'pela'],
@@ -404,20 +405,30 @@ const STOPWORDS: Record<string, string[]> = {
   nl: ['de', 'het', 'een', 'en', 'van', 'is', 'dat', 'in', 'te', 'op', 'voor', 'met', 'niet', 'zijn', 'die', 'er', 'aan', 'ook', 'als', 'maar', 'om', 'door', 'naar', 'bij', 'wordt', 'worden'],
 };
 
-/** The language of a text by its function words ("es", "en"…), or null when too few are found to tell. */
-export function detectLanguage(text: string): string | null {
+/** Each language's function words found in a text. */
+function languageHits(text: string): Map<string, number> {
   const tokens = text.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+  return new Map(Object.entries(STOPWORDS).map(([code, list]) => [code, tokens.filter((t) => list.includes(t)).length]));
+}
+
+/**
+ * The language of a text by its function words ("es", "en"…), or null when too few are found to tell.
+ * `expected`: kept unless another language clearly wins (2 words more): close languages (es / ca / gl,
+ * pt / gl) share most of their function words, and a near tie is not another language.
+ */
+export function detectLanguage(text: string, expected: string | null = null): string | null {
+  const hits = languageHits(text);
   let best: string | null = null;
   let bestHits = 0;
-  for (const [code, list] of Object.entries(STOPWORDS)) {
-    const set = new Set(list);
-    const hits = tokens.filter((t) => set.has(t)).length;
-    if (hits > bestHits) {
+  for (const [code, n] of hits) {
+    if (n > bestHits) {
       best = code;
-      bestHits = hits;
+      bestHits = n;
     }
   }
-  return bestHits >= 3 ? best : null;
+  if (bestHits < 3) return null;
+  if (expected && hits.has(expected) && best !== expected && hits.get(expected)! >= bestHits - 1) return expected;
+  return best;
 }
 
 const baseLanguage = (code: string | null) => (code ? code.toLowerCase().split('-')[0] : null);
@@ -429,14 +440,14 @@ export function languageCheck(s: StoredSummary, expected: string | null) {
     .filter((t) => !t.latex)
     .map((t) => t.text)
     .join(' ');
-  const detected = detectLanguage(all);
+  const detected = detectLanguage(all, want);
   const offBlocks: { section: number; block: number; detected: string }[] = [];
   sectionsOf(s).forEach((x, si) =>
     x.blocks.forEach((b, bi) => {
       if (b.type === 'fromNotes' || b.type === 'code') return;
       const text = proseOf(b).join(' ');
       if (words(text) < LANGUAGE_MIN_WORDS) return;
-      const lang = detectLanguage(text);
+      const lang = detectLanguage(text, want);
       if (want && lang && lang !== want) offBlocks.push({ section: si, block: bi, detected: lang });
     }),
   );

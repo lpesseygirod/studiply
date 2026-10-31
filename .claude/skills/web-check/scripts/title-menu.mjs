@@ -3,6 +3,9 @@
 // in: Rename…, Move to… (folders), Add to / Remove from Favorites, Delete.
 // A click (or a tap at 390 px) or a right-click opens it; after Delete the
 // screen goes up one level. Results checked in the database. Exit 1 on any FAIL.
+//
+// Step 7.9: the menu also has Merge lectures… and Make exam pack… (the lecture picker). A failed step
+// closes any menu it left open, so it can't fail the next ones.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -15,9 +18,16 @@ const step = async (name, fn) => {
   } catch (err) {
     results.push(['FAIL', name, err.message]);
     await b.shot(`fail-title-${results.length}`).catch(() => {});
+    // A menu, dialog or picker left open would answer every later step.
+    await b.press('Escape').catch(() => {});
+    await b.press('Escape').catch(() => {});
+    await b.sleep(300);
   }
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+const COURSE_MENU = 'Rename…|Add to Favorites|Merge lectures…|Make exam pack…|Delete';
+const FOLDER_MENU = 'Rename…|Move to…|Add to Favorites|Merge lectures…|Make exam pack…|Delete';
 
 const menuItems = () => b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim().split('\\n')[0])`);
 const sheetHas = (text) => b.hasText(text, true);
@@ -57,24 +67,34 @@ try {
     await b.signIn(BASE, user.email, user.password);
   });
 
-  await step('A course title has ⌄ and opens its menu: Rename…, Favorites, Delete (no Open, no Move to…)', async () => {
+  await step('A course title has ⌄ and opens its menu: Rename…, Favorites, Merge lectures…, Make exam pack…, Delete (no Open, no Move to…)', async () => {
     await open(null, 'Funcions');
     expect(await b.evaluate(`!!document.querySelector('[data-testid=crumb-title] [data-testid=crumb-current]')`), 'no title button');
     expect((await b.evaluate(`document.querySelector('[data-testid=crumb-title]').getAttribute('aria-label')`)) === 'Math, course menu', 'label');
     await clickTitle();
     const items = await menuItems();
-    expect(items.join('|') === 'Rename…|Add to Favorites|Make exam pack|Delete', items.join('|'));
+    expect(items.join('|') === COURSE_MENU, items.join('|'));
     await b.shot('title-menu-course');
     await b.press('Escape');
   });
 
-  await step('A folder title: Rename…, Move to…, Favorites, Delete; a right-click opens it too', async () => {
+  await step('Make exam pack… from the title: the lecture picker for the course (7.9)', async () => {
+    await clickTitle();
+    await b.click('Make exam pack…', { exact: true });
+    await until(() => b.evaluate(`!!document.querySelector('[data-picker="panel"][data-mode="exam_pack"]')`), 'no lecture picker');
+    // Lecture 1 has no summary: listed, not chosen, and Continue waits.
+    expect((await b.evaluate(`[...document.querySelectorAll('[data-picker="lecture"]')].map((e) => e.getAttribute('data-checked'))`)).join() === 'false', 'Lecture 1 chosen without a summary');
+    await b.clickSelector('[data-picker="cancel"]');
+    await until(() => b.evaluate(`!document.querySelector('[data-picker="panel"]')`), 'the picker did not close');
+  });
+
+  await step('A folder title: Rename…, Move to…, Favorites, Merge lectures…, Make exam pack…, Delete; a right-click opens it too', async () => {
     await open(data.folder.id, 'Apuntes');
     await clickTitle();
-    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Make exam pack|Delete', (await menuItems()).join('|'));
+    expect((await menuItems()).join('|') === FOLDER_MENU, (await menuItems()).join('|'));
     await b.press('Escape');
     await clickTitle({ button: 'right' });
-    expect((await menuItems()).join('|') === 'Rename…|Move to…|Add to Favorites|Make exam pack|Delete', `right-click: ${(await menuItems()).join('|')}`);
+    expect((await menuItems()).join('|') === FOLDER_MENU, `right-click: ${(await menuItems()).join('|')}`);
     await b.shot('title-menu-folder');
     await b.press('Escape');
   });
@@ -144,7 +164,7 @@ try {
     await b.waitText('Apuntes', { timeout: 20000 });
     await b.sleep(2500);
     await clickTitle();
-    for (const item of ['Rename…', 'Move to…', 'Remove from Favorites', 'Delete']) expect(await sheetHas(item), `no ${item}`);
+    for (const item of ['Rename…', 'Move to…', 'Remove from Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete']) expect(await sheetHas(item), `no ${item}`);
     await b.shot('title-menu-390');
     await b.press('Escape');
   });

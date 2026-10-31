@@ -7,8 +7,9 @@
 // zod). The two must agree; the constants must stay inside what structured outputs accept.
 // The specifier the server files use (Jest maps it to the installed zod; tsconfig's paths for tsc).
 import { z } from 'npm:zod@4.6.7';
-import { BLOCK_TYPES, CLASSIFY_SCHEMA, LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, SUMMARY_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA, type JsonSchema } from '../../../supabase/functions/_shared/summary-schema';
-import { BLOCK_DATA, ClassifyAnswer, ListsAnswer, PartAnswer, SectionAnswer, SummaryAnswer, VerifyAnswer, WrapUpAnswer, blockGuide, checkBlock, issueLines } from '../../../supabase/functions/_shared/summary-zod';
+import { PROBE_SCHEMAS, isLocalSupabase, schemaWeight } from '../../../supabase/functions/_shared/schema-probe';
+import { BLOCK_TYPES, CLASSIFY_SCHEMA, EXAM_PACK_SCHEMA, EXTEND_FIELD, LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, SUMMARY_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA, extendSchema, type JsonSchema } from '../../../supabase/functions/_shared/summary-schema';
+import { BLOCK_DATA, ClassifyAnswer, ExamPackAnswer, ExtendLists, ListsAnswer, PartAnswer, SectionAnswer, SummaryAnswer, VerifyAnswer, WrapUpAnswer, blockGuide, checkBlock, issueLines } from '../../../supabase/functions/_shared/summary-zod';
 import { packedSummary, validSummary } from '../../test-utils/summaryFixtures';
 import { unsupported, walk } from '../../test-utils/schemaWalk';
 
@@ -39,6 +40,9 @@ describe('the API contract (structured outputs)', () => {
     ['verify (7.5 part)', VERIFY_SCHEMA],
     ['a long lecture’s part (7.6)', PART_SCHEMA],
     ['the wrap-up (7.6)', WRAPUP_SCHEMA],
+    ['Extend: the summary with alreadyCovered and corrections (7.9)', extendSchema(SUMMARY_SCHEMA)],
+    ['Extend: a long lecture’s part with them (7.9)', extendSchema(PART_SCHEMA)],
+    ['the exam pack (7.9)', EXAM_PACK_SCHEMA],
   ])('%s: every object lists all its fields as required, no extra fields; no unsupported keywords, unions or nullable types', (_name, schema) => {
     expect(unsupported(schema)).toEqual([]);
   });
@@ -72,6 +76,36 @@ describe('the API contract (structured outputs)', () => {
     expect(asContract(WrapUpAnswer)).toEqual(WRAPUP_SCHEMA);
     // A section written again has the summary's own section shape.
     expect((SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).sections).toEqual({ type: 'array', items: SECTION_SCHEMA });
+  });
+
+  it('zod and the constants agree: Extend’s lists and the exam pack (7.9)', () => {
+    // Extend's two lists are one JSON string in the schema (the grammar limit), checked with zod after.
+    expect(extendSchema(SUMMARY_SCHEMA).required).toEqual([...(SUMMARY_SCHEMA.required as string[]), EXTEND_FIELD]);
+    expect((extendSchema(SUMMARY_SCHEMA).properties as Record<string, JsonSchema>)[EXTEND_FIELD]).toEqual({ type: 'string' });
+    expect(ExtendLists.safeParse({ alreadyCovered: [{ anchor: 'a', quote: 'q', note: 'n', t: '1:00' }], corrections: [{ anchor: 'a', said: 's', t: '2:00' }] }).success).toBe(true);
+    expect(ExtendLists.safeParse({ alreadyCovered: [{ anchor: 'a' }], corrections: [] }).success).toBe(false);
+    expect(asContract(ExamPackAnswer)).toEqual(EXAM_PACK_SCHEMA);
+  });
+});
+
+describe('the grammar size (step 7.9: "The compiled grammar is too large")', () => {
+  it('Extend adds one string to the summary and part schemas, no more (two arrays of objects went over the limit)', () => {
+    expect(schemaWeight(extendSchema(SUMMARY_SCHEMA))).toBe(schemaWeight(SUMMARY_SCHEMA) + 2);
+    expect(schemaWeight(extendSchema(PART_SCHEMA))).toBe(schemaWeight(PART_SCHEMA) + 2);
+  });
+
+  it('no schema the server sends is bigger than the accepted 7.4 summary schema plus Extend’s string', () => {
+    const limit = schemaWeight(extendSchema(SUMMARY_SCHEMA));
+    const sizes = PROBE_SCHEMAS.map((p) => `${p.name}: ${schemaWeight(p.schema)}`);
+    console.log(`Schema sizes (rough):\n  ${sizes.join('\n  ')}`);
+    for (const p of PROBE_SCHEMAS) expect(schemaWeight(p.schema)).toBeLessThanOrEqual(limit);
+  });
+
+  it('the probe covers every schema the engine sends, and refuses anything but local Supabase', () => {
+    const sent = [CLASSIFY_SCHEMA, SUMMARY_SCHEMA, extendSchema(SUMMARY_SCHEMA), PART_SCHEMA, extendSchema(PART_SCHEMA), WRAPUP_SCHEMA, SECTION_SCHEMA, LISTS_SCHEMA, VERIFY_SCHEMA, EXAM_PACK_SCHEMA];
+    for (const s of sent) expect(PROBE_SCHEMAS.some((p) => JSON.stringify(p.schema) === JSON.stringify(s))).toBe(true);
+    expect(['http://kong:8000', 'http://127.0.0.1:54321', 'http://localhost:54321'].map(isLocalSupabase)).toEqual([true, true, true]);
+    expect(['https://xmymneartjmdsawlwzyl.supabase.co', undefined, 'nonsense'].map(isLocalSupabase)).toEqual([false, false, false]);
   });
 });
 

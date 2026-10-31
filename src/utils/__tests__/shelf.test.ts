@@ -73,7 +73,9 @@ describe('openTarget', () => {
     expect(openTarget(item({ type: 'lecture', status: 'draft' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'notes' } });
     expect(openTarget(item({ type: 'lecture', status: 'transcribing' }))).toEqual({ pathname: '/doc/[id]', params: { id: 'x', tab: 'notes' } });
     expect(openTarget(item({ type: 'pdf' }))).toEqual({ pathname: '/project/[id]', params: { id: 'math', folder: 'f' } });
-    expect(openTarget(item({ type: 'exam_pack', folderId: null }))).toBe('/project/math');
+    // Step 7.9: Unit summaries and Exam packs are documents.
+    expect(openTarget(item({ type: 'exam_pack', folderId: null }))).toBe('/doc/x');
+    expect(openTarget(item({ type: 'unit_summary' }))).toBe('/doc/x');
     expect(openTarget(item({ type: 'image', courseId: null, folderId: null }))).toBe('/library');
   });
 });

@@ -193,7 +193,10 @@ describe('earlier notes (legacy-note-v1) and requests live in one table, never m
     expect(isSummaryRequest(request as unknown as SummaryRow)).toBe(true);
     expect(isSummaryRequest(legacy as unknown as SummaryRow)).toBe(false);
     expect(isSummaryRequest({ ...request, sliders: { summaryLevel: 'standard' } } as unknown as SummaryRow)).toBe(false);
-    expect(isSummaryRequest({ ...request, mode: 'extend' } as unknown as SummaryRow)).toBe(false);
+    // Step 7.9: Extend, Merge and Exam pack requests are requests too; other modes are not.
+    expect(isSummaryRequest({ ...request, mode: 'extend' } as unknown as SummaryRow)).toBe(true);
+    expect(isSummaryRequest({ ...request, mode: 'exam_pack' } as unknown as SummaryRow)).toBe(true);
+    expect(isSummaryRequest({ ...request, mode: 'quiz' } as unknown as SummaryRow)).toBe(false);
   });
 
   it('the earlier-note readers skip a newer request', () => {

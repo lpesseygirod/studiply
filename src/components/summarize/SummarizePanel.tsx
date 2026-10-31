@@ -28,6 +28,7 @@ import {
   type SummarizeResources,
   type SummaryTarget,
 } from '../../services/summarize.service';
+import { requestCombine, type CombineAsk, type CombineTarget } from '../../services/summaryCombine.service';
 import { PRESETS, SLIDER_KEYS, planSummary, type SliderKey, type Sliders, type SummaryPlan } from '../../../supabase/functions/_shared/summary-plan';
 import { promptText, showAlert } from '../dialogs/dialogs';
 import { LevelSlider } from '../recording/LevelSlider';
@@ -87,6 +88,29 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
   }
 }
 
+const COMBINE_TITLES = { extend: 'Extend with next lecture', merge: 'Merge lectures', exam_pack: 'Make exam pack' } as const;
+
+/**
+ * Step 7.9: the Extend / Merge / Exam pack request (its Unit summary or Exam pack file made now), then
+ * opens where it's written; started at once when the student already allowed it (as 7.4).
+ */
+async function combineAndStart(p: { ask: CombineAsk; open: (fileId: string, tab: string) => void }) {
+  try {
+    const { summaryId, fileId } = await requestCombine(p.ask);
+    notifyLibraryUpdated();
+    p.open(fileId, p.ask.mode !== 'exam_pack' && p.ask.target === 'add' ? 'summary' : 'notes');
+    if (await consentGiven('assistant_summary')) {
+      const media = p.ask.resources.slides || p.ask.resources.photos;
+      await startSummary(fileId, summaryId, { media: media && (await consentGiven('images')) }).catch((err) => {
+        if (!(err instanceof ConsentDeclinedError)) showAlert('It didn’t start', `${errorMessage(err, 'Please try again.')} You can start it from the document.`);
+      });
+      notifyLibraryUpdated();
+    }
+  } catch (err) {
+    showAlert('It wasn’t made', isNetworkError(err) ? 'You’re offline. Extend, Merge and Exam packs need the internet.' : errorMessage(err, 'Please try again.'));
+  }
+}
+
 export function SummarizePanel() {
   const request = useSummarizePanel();
   if (!request) return null;
@@ -114,6 +138,9 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const [savedNote, setSavedNote] = useState<string | null>(null);
   // Step 7.7: when the lecture has a summary already, where the new one goes (a new tab unless she chooses).
   const [target, setTarget] = useState<SummaryTarget>('new');
+  // Step 7.9: Extend's target: a new Unit summary (default) or added to this lecture's summary.
+  const combine = request.combine;
+  const [extendTarget, setExtendTarget] = useState<CombineTarget>('unit');
 
   const load = useCallback(async () => {
     try {
@@ -181,6 +208,23 @@ function Panel({ request }: { request: SummarizeRequest }) {
     if (!sliders || !plan || busy) return;
     setBusy(true);
     closeSummarize();
+    if (combine) {
+      void combineAndStart({
+        ask: {
+          mode: combine.mode,
+          target: combine.mode === 'extend' ? extendTarget : 'unit',
+          lectures: combine.lectureIds.map((id, i) => ({ id, number: combine.numbers[i] ?? i + 1 })),
+          courseId: combine.courseId,
+          folderId: combine.folderId,
+          courseName: info?.courseName ?? null,
+          sliders,
+          resources: resources(),
+          plan,
+        },
+        open: (fileId, tab) => router.navigate({ pathname: '/doc/[id]', params: { id: fileId, tab, at: String(Date.now()) } }),
+      });
+      return;
+    }
     void stopAndRequest({
       lectureId,
       recording,
@@ -441,7 +485,38 @@ function Panel({ request }: { request: SummarizeRequest }) {
     { key: 'new', title: 'Put it in a new tab', detail: '“New summary”, after Summary and Transcript. The Summary tab stays as it is.' },
     { key: 'summary', title: 'Update the Summary tab', detail: 'Your edits stay: only the parts you haven’t changed are written again.' },
   ];
-  const note = info?.hasSummary ? (
+  // Step 7.9: Extend's two targets (the 7.7 radios' look).
+  const extendTargets: { key: CombineTarget; title: string; detail: string }[] = [
+    { key: 'unit', title: 'A new Unit summary', detail: 'A new document in the course with both lectures. This lecture’s summary stays as it is.' },
+    { key: 'add', title: 'Add to this summary', detail: 'Only what’s new is added; repeats become comments on what’s there. Your text never changes.' },
+  ];
+  const note = combine?.mode === 'extend' ? (
+    <View style={styles.targets} accessibilityRole="radiogroup" accessibilityLabel="Where the next lecture goes" {...{ dataSet: { summarize: 'extend-target' } }}>
+      <Text style={styles.label}>WHERE IT GOES</Text>
+      {extendTargets.map((t) => (
+        <Pressable
+          key={t.key}
+          onPress={() => setExtendTarget(t.key)}
+          style={[styles.target, extendTarget === t.key && styles.targetOn]}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: extendTarget === t.key }}
+          {...{ dataSet: { summarize: `extend-${t.key}`, checked: String(extendTarget === t.key) } }}
+        >
+          <View style={[styles.radio, extendTarget === t.key && styles.radioOn]}>{extendTarget === t.key && <View style={styles.radioDot} />}</View>
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle}>{t.title}</Text>
+            <Text style={styles.cardDetail}>{t.detail}</Text>
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  ) : combine ? (
+    <View style={styles.note}>
+      <Text style={styles.noteText}>
+        {combine.mode === 'merge' ? 'A new Unit summary is made in the course. The lectures’ own summaries stay as they are.' : 'A new Exam pack is made in the course from these lectures’ summaries.'}
+      </Text>
+    </View>
+  ) : info?.hasSummary ? (
     <View style={styles.targets} accessibilityRole="radiogroup" accessibilityLabel="Where the new summary goes" {...{ dataSet: { summarize: 'target' } }}>
       <Text style={styles.label}>THIS LECTURE HAS A SUMMARY · WHERE THE NEW ONE GOES</Text>
       {targets.map((t) => (
@@ -518,12 +593,18 @@ function Panel({ request }: { request: SummarizeRequest }) {
           {!wide && <View style={styles.grabber} />}
           <View style={styles.header}>
             <Text style={styles.title} accessibilityRole="header">
-              Summarize this lecture
+              {combine ? COMBINE_TITLES[combine.mode] : 'Summarize this lecture'}
             </Text>
-            {counts && (
-              <Text style={styles.counts} {...{ dataSet: { summarize: 'counts' } }}>
-                {countsLine(counts, !wide)}
+            {combine ? (
+              <Text style={styles.counts} numberOfLines={2} {...{ dataSet: { summarize: 'counts' } }}>
+                {combine.titles.map((t) => `Lecture ${t}`).join(' + ')}
               </Text>
+            ) : (
+              counts && (
+                <Text style={styles.counts} {...{ dataSet: { summarize: 'counts' } }}>
+                  {countsLine(counts, !wide)}
+                </Text>
+              )
             )}
           </View>
           <ScrollView ref={scroll} style={wide ? styles.scroll : styles.scrollSheet} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">

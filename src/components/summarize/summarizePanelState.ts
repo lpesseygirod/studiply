@@ -10,6 +10,8 @@ export interface SummarizeRequest {
   lectureId: string;
   /** Opened from a recording: Keep recording · Stop & generate summary; else Cancel · Generate summary. */
   recording: boolean;
+  /** Step 7.9: Extend, Merge or Exam pack with the lectures picked (the first is `lectureId`, the base). */
+  combine?: { mode: 'extend' | 'merge' | 'exam_pack'; lectureIds: string[]; numbers: number[]; titles: string[]; courseId: string | null; folderId: string | null };
 }
 
 let current: SummarizeRequest | null = null;

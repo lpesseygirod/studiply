@@ -6,6 +6,7 @@ import type { StoredSummary } from '../../../supabase/functions/_shared/summary-
 import { getDocumentFile, openDocument, saveDocument, saveVersion } from '../document.service';
 import { addTab, listTabs } from '../document-tabs.service';
 import { saveFlashcards, summaryCardsSaved } from '../flashcards.service';
+import { placeCombined } from '../summaryCombine.service';
 import { placeSummary, type DoneSummary, type PlaceDeps, type PlaceOutcome } from './run';
 
 export type { PlaceOutcome };
@@ -66,7 +67,12 @@ const running = new Map<string, Promise<PlaceOutcome>>();
 export function placeSummaryOf(lectureId: string): Promise<PlaceOutcome> {
   const busy = running.get(lectureId);
   if (busy) return busy;
-  const run = placeSummary(lectureId, appDeps).finally(() => running.delete(lectureId));
+  const run = (async (): Promise<PlaceOutcome> => {
+    // Step 7.9 first: an Extend / Merge / Exam pack finished for this file (a Unit summary, an Exam pack, or added to this lecture).
+    const combined = await placeCombined(lectureId).catch(() => null);
+    if (combined?.written) return { tab: combined.tab, written: true, summaryId: '' };
+    return placeSummary(lectureId, appDeps);
+  })().finally(() => running.delete(lectureId));
   running.set(lectureId, run);
   return run;
 }

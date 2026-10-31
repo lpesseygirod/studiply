@@ -18,9 +18,9 @@ describe('itemActions', () => {
   const inFolder = (type: ShelfItem['type']) => itemActions(item({ type, folderId: 'parent' }));
   const atTop = (type: ShelfItem['type']) => itemActions(item({ type, folderId: null }));
 
-  it('the full menu in order (step 3.4); lectures also Summarize and Export PDF', () => {
-    expect(inFolder('folder')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'examPack', 'delete']);
-    expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'export', 'delete']);
+  it('the full menu in order (step 3.4); lectures also Summarize, Extend (7.9) and Export PDF', () => {
+    expect(inFolder('folder')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete']);
+    expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'export', 'delete']);
     expect(inFolder('pdf')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete']);
     expect(inFolder('image')).toEqual(inFolder('pdf'));
     // Documents (step 4.3): as a PDF, without Copy for now.
@@ -35,11 +35,19 @@ describe('itemActions', () => {
   });
 
   it('a course: no Move to…, Move out, Cut or Copy (courses are the top level)', () => {
-    expect(atTop('course')).toEqual(['open', 'rename', 'star', 'examPack', 'delete']);
+    expect(atTop('course')).toEqual(['open', 'rename', 'star', 'merge', 'examPack', 'delete']);
   });
 
-  it('kinds without their own actions yet keep Open and Favorites', () => {
-    expect(inFolder('exam_pack')).toEqual(['open', 'star']);
+  it('a Unit summary and an Exam pack have a document’s menu (7.9); they move as files and are named by kind', () => {
+    for (const kind of ['unit_summary', 'exam_pack'] as const) {
+      expect(inFolder(kind)).toEqual(inFolder('document'));
+      expect(atTop(kind)).toEqual(['open', 'rename', 'move', 'cut', 'star', 'delete']);
+      expect(movableItem(item({ type: kind, folderId: 'f' }))).toMatchObject({ type: 'file', folderId: 'f' });
+    }
+    expect([itemNoun('unit_summary'), itemNoun('exam_pack')]).toEqual(['Unit summary', 'Exam pack']);
+  });
+
+  it('a lecture’s own photos and PDFs keep Open and Favorites', () => {
     expect(atTop('lecture_photo')).toEqual(['open', 'star']);
   });
 });
@@ -52,9 +60,11 @@ describe('actionHint (greyed out, with why)', () => {
     expect(actionHint('copy', 'folder')).toBe('Coming soon');
   });
 
-  it('Make exam pack waits for a later update; Summarize works since 7.3, as does the rest', () => {
+  it('Summarize (7.3), Extend, Merge and Make exam pack (7.9) work, as does the rest', () => {
     expect(actionHint('summarize', 'lecture')).toBeNull();
-    expect(actionHint('examPack', 'course')).toBe('Coming in a later update');
+    expect(actionHint('extend', 'lecture')).toBeNull();
+    expect(actionHint('merge', 'folder')).toBeNull();
+    expect(actionHint('examPack', 'course')).toBeNull();
     expect(actionHint('cut', 'folder')).toBeNull();
     expect(actionHint('moveOut', 'lecture')).toBeNull();
   });
@@ -78,7 +88,7 @@ describe('movableItem', () => {
 
   it('courses and other kinds cannot be moved', () => {
     expect(movableItem(item({ type: 'course' }))).toBeNull();
-    expect(movableItem(item({ type: 'exam_pack' }))).toBeNull();
+    expect(movableItem(item({ type: 'lecture_photo' }))).toBeNull();
   });
 });
 

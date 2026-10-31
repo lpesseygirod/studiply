@@ -104,6 +104,27 @@ export const PartAnswer = obj({
 /** Step 7.6: the wrap-up after the merge. */
 export const WrapUpAnswer = obj({ title: str, takeaways, selfTest, flashcards });
 
+/** Step 7.9: Extend's two lists, the JSON inside the generate answer's `extend` string (summary-schema.ts EXTEND_FIELD). */
+export const ExtendLists = obj({
+  alreadyCovered: list(obj({ anchor: str, quote: str, note: str, t: str })),
+  corrections: list(obj({ anchor: str, said: str, t: str })),
+});
+
+/** Step 7.9: the exam pack. */
+export const ExamPackAnswer = obj({
+  title: str,
+  topics: list(
+    obj({
+      heading: str,
+      examSignals: list(obj({ text: str, lecture: int, t: str })),
+      formulas: list(obj({ name: str, latex: str, legend: str })),
+      keyTerms: list(obj({ term: str, definition: str })),
+      selfTest,
+    }),
+  ),
+  flashcards,
+});
+
 /** Step 7.5: the faithfulness check's verdicts. */
 export const VerifyAnswer = obj({ items: list(obj({ id: str, verdict: z.enum(VERDICTS), replacement: str })) });
 

@@ -38,7 +38,8 @@ export type CalloutKind =
   | 'fromAssistant'
   | 'takeaways'
   | 'notesCheck'
-  | 'answer';
+  | 'answer'
+  | 'update';
 
 /** Each kind: its name in menus, and the label the box shows. */
 export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[] = [
@@ -56,10 +57,12 @@ export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[]
   { kind: 'takeaways', name: 'Key takeaways', label: 'Key takeaways' },
   { kind: 'notesCheck', name: 'Notes check', label: 'All your notes are in this summary' },
   { kind: 'answer', name: 'Answer', label: 'Answer' },
+  // Step 7.9: the professor corrected an earlier lecture ("last week I said X, actually…"): "UPDATE · LECTURE 4 · 18:30".
+  { kind: 'update', name: 'Update', label: 'Update' },
 ];
 
-/** Only the summary makes these (the assistant's box, the notes check line, a hidden answer): not in the Callout menus. */
-const SUMMARY_ONLY: readonly CalloutKind[] = ['fromAssistant', 'notesCheck', 'answer'];
+/** Only the summary makes these (the assistant's box, the notes check line, a hidden answer, an update): not in the Callout menus. */
+const SUMMARY_ONLY: readonly CalloutKind[] = ['fromAssistant', 'notesCheck', 'answer', 'update'];
 
 /** The kinds a student can choose in the Callout menus. */
 export const MENU_CALLOUT_KINDS = CALLOUT_KINDS.filter((k) => !SUMMARY_ONLY.includes(k.kind));
@@ -78,14 +81,25 @@ const cleanMs = (v: unknown): number | null => {
 /** A mark on the notes of a From your notes box (step 7.7: "FROM YOUR NOTES · 06:40 · EXAM 9/10"). */
 const MARK_NAMES: Record<string, string> = { important: 'Important', confused: 'Confused', exam: 'Exam' };
 const cleanMark = (v: unknown): string | null => (typeof v === 'string' && v in MARK_NAMES ? v : null);
+/** An Update's lecture number (step 7.9), or null. */
+const cleanLecture = (v: unknown): number | null => {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null;
+};
 
 /** "YOU WERE CONFUSED HERE · 7/10 · 18:30", "FROM YOUR NOTES · 06:40 · EXAM 9/10" (shown in capitals by CSS). */
-export function calloutLabel(attrs: { kind?: unknown; level?: unknown; ms?: unknown; mark?: unknown }): string {
+export function calloutLabel(attrs: { kind?: unknown; level?: unknown; ms?: unknown; mark?: unknown; lecture?: unknown }): string {
   const kind = isKind(attrs.kind) ? attrs.kind : 'definition';
   const parts = [CALLOUT_KINDS.find((k) => k.kind === kind)!.label];
   const level = cleanLevel(attrs.level);
   const ms = cleanMs(attrs.ms);
   const mark = cleanMark(attrs.mark);
+  if (kind === 'update') {
+    const lecture = cleanLecture(attrs.lecture);
+    if (lecture !== null) parts.push(`Lecture ${lecture}`);
+    if (ms !== null) parts.push(chipLabel(ms));
+    return parts.join(' · ');
+  }
   if (kind === 'confused' && level !== null) parts.push(`${level}/10`);
   if ((kind === 'confused' || kind === 'fromNotes' || kind === 'fromAssistant') && ms !== null) parts.push(chipLabel(ms));
   if (kind === 'fromNotes' && mark) parts.push(level === null ? MARK_NAMES[mark] : `${MARK_NAMES[mark]} ${level}/10`);
@@ -163,6 +177,12 @@ export const Callout = Node.create({
       // Step 7.7: the note lines a From your notes box copies (My notes' block ids, comma-separated),
       // so a summary written again leaves out the lines a box she edited already has.
       noteIds: { default: null, rendered: false },
+      // Step 7.9: an Update's lecture number (its label: "UPDATE · LECTURE 4 · 18:30").
+      lecture: {
+        default: null,
+        parseHTML: (el) => cleanLecture(el.getAttribute('data-lecture')),
+        renderHTML: (attrs) => (cleanLecture(attrs.lecture) === null ? {} : { 'data-lecture': String(cleanLecture(attrs.lecture)) }),
+      },
     };
   },
 

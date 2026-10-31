@@ -49,7 +49,8 @@ import {
   type CheckReport,
   type Part,
 } from './summary-checks.ts';
-import { LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA } from './summary-schema.ts';
+import { LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA, extendSchema } from './summary-schema.ts';
+import { existingSummaryText, extendRules, takeExtendLists, type ExtendContext, type ExtendLists } from './summary-extend.ts';
 import {
   MAX_LONG_LECTURE_MS,
   PART_MAX_TOKENS as LONG_PART_MAX_TOKENS,
@@ -646,18 +647,44 @@ export interface SummaryRunDeps {
   material: () => Promise<LectureMaterial>;
   /** The photos and slides as Claude content (images consent and ticks checked by the caller); [] without. */
   media: () => Promise<{ blocks: Content; photos: number; pdfs: number }>;
-  /** `longPart` and `wrapUp`: a lecture over 60 min (step 7.6); `part`: the quality checks' calls (7.5). */
-  claude: (call: 'classify' | 'generate' | 'longPart' | 'wrapUp' | 'part', system: string, content: Content, schema: Record<string, unknown>, maxTokens: number) => ClaudeCall;
+  /**
+   * `longPart` and `wrapUp`: a lecture over 60 min (step 7.6); `part`: the quality checks' calls (7.5);
+   * `unitLists`, `examPack`: Merge and Exam pack (7.9).
+   */
+  claude: (
+    call: 'classify' | 'generate' | 'longPart' | 'wrapUp' | 'part' | 'unitLists' | 'examPack',
+    system: string,
+    content: Content,
+    schema: Record<string, unknown>,
+    maxTokens: number,
+  ) => ClaudeCall;
   logCost: (message: ClaudeMessage) => Promise<{ costUsd: number; tokensInput: number; tokensOutput: number }>;
   save: (patch: Record<string, unknown>) => Promise<void>;
   log: (event: string, details: Record<string, unknown>) => void;
   failure: (err: unknown) => Record<string, unknown>;
   now?: () => number;
+  /**
+   * Step 7.9, Extend and Merge: the lecture is added to this existing summary (its blocks in the prompt;
+   * only what's new is written; the answer has alreadyCovered and corrections). The outcome isn't saved
+   * on the row as the lecture's summary: the caller (summary-combine.ts) stores the combined result.
+   */
+  extend?: ExtendContext;
+  /**
+   * Step 7.9: the Claude messages billed in this request and the ai_usage rows logged for them (one
+   * each). Shared by a request's runs (Extend's lecture runs and its own calls); saved in the result as
+   * `costLog`, so a cost that wasn't logged (and would escape the daily limit) shows.
+   */
+  meter?: CostMeter;
 }
 
-export type SummaryOutcome = { status: 'done'; summary: StoredSummary } | { status: 'failed'; error: string };
+export interface CostMeter {
+  calls: number;
+  logged: number;
+}
 
-const textOf = (m: ClaudeMessage) =>
+export type SummaryOutcome = { status: 'done'; summary: StoredSummary; extend?: ExtendLists } | { status: 'failed'; error: string };
+
+export const textOf = (m: ClaudeMessage) =>
   m.content
     .filter((b) => b.type === 'text' && typeof b.text === 'string')
     .map((b) => b.text)
@@ -672,11 +699,25 @@ export function permanentFailure(details: Record<string, unknown>): boolean {
 }
 
 /** One Claude call: its message (cost logged once, also when it failed mid-way), or why not. */
-async function attempt(deps: SummaryRunDeps, call: ClaudeCall, kind: string): Promise<{ message: ClaudeMessage } | { failed: true; permanent: boolean }> {
+export async function attempt(
+  deps: Pick<SummaryRunDeps, 'summaryId' | 'logCost' | 'log' | 'failure' | 'now' | 'meter'>,
+  call: ClaudeCall,
+  kind: string,
+): Promise<{ message: ClaudeMessage } | { failed: true; permanent: boolean }> {
   const started = (deps.now ?? Date.now)();
+  // Step 7.9: every billed message counted, and every cost row logged (a failed log is in the result's costLog).
+  const logged = (message: ClaudeMessage) => {
+    if (deps.meter) deps.meter.calls += 1;
+    return deps
+      .logCost(message)
+      .then(() => {
+        if (deps.meter) deps.meter.logged += 1;
+      })
+      .catch((err) => deps.log('usage_log_failed', { summaryId: deps.summaryId, kind, message: String((err as Error)?.message ?? err) }));
+  };
   try {
     const message = await call.finalMessage();
-    await deps.logCost(message).catch((err) => deps.log('usage_log_failed', { summaryId: deps.summaryId, message: String((err as Error)?.message ?? err) }));
+    await logged(message);
     deps.log(`${kind}_answered`, { summaryId: deps.summaryId, model: message.model, stopReason: message.stop_reason, ms: (deps.now ?? Date.now)() - started });
     return { message };
   } catch (err) {
@@ -684,7 +725,7 @@ async function attempt(deps: SummaryRunDeps, call: ClaudeCall, kind: string): Pr
     const details = deps.failure(err);
     deps.log('claude_failed', { summaryId: deps.summaryId, kind, ...details });
     const partial = call.currentMessage;
-    if (partial) await deps.logCost(partial).catch(() => {});
+    if (partial) await logged(partial);
     return { failed: true, permanent: permanentFailure(details) };
   }
 }
@@ -757,7 +798,10 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
     deps.log('part_written', { summaryId: deps.summaryId, part: part.kind, ok });
     if (ok) fixCoverage();
   };
-  for (const part of planParts(first, s, m, MAX_PART_CALLS)) await write(part);
+  // Extend (7.9): the repeats are left out on purpose, so the lecture's length target doesn't apply and
+  // no section is written again for length (its prompt doesn't have the existing summary: it would add them back).
+  const planned = deps.extend ? { ...first, length: { ...first.length, pass: true } } : first;
+  for (const part of planParts(planned, s, m, MAX_PART_CALLS)) await write(part);
   // Length still off after a shorten/expand call: the next section's share, re-measured, while calls remain.
   while (lengthDone.size && calls < MAX_PART_CALLS) {
     const next = lengthPart(runChecks(s, m, plan, options), s, lengthDone, MAX_PART_CALLS - calls);
@@ -783,7 +827,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
   return { ...s, checks: report };
 }
 
-type PartDone = { part: PartGenerated; sections: Record<string, unknown>[]; model: string };
+type PartDone = { part: PartGenerated; sections: Record<string, unknown>[]; model: string; lists?: ExtendLists };
 
 /**
  * Step 7.6, a lecture over 60 min: the parts written in parallel (part 1 alone first when slides are
@@ -799,30 +843,39 @@ async function generateLong(
   wholeSystem: string,
   mediaBlocks: Content,
   builtFrom: string[],
-): Promise<{ summary: StoredSummary; model: string } | { error: string }> {
+): Promise<{ summary: StoredSummary; model: string; extend?: ExtendLists } | { error: string }> {
   const parts = splitParts(m, c);
   const items = assignItems(m, plan, parts);
   const { shared, photos } = splitMedia(mediaBlocks);
-  const system = summarySystemPrompt(m, plan, c, 'part');
+  // Extend (7.9): every part sees the existing summary and answers its own alreadyCovered / corrections.
+  const x = deps.extend;
+  const system = summarySystemPrompt(m, plan, c, 'part') + (x ? `\n${extendRules(x)}` : '');
+  const existing = x ? `${existingSummaryText(x.anchors).text}\n` : '';
+  const found: ExtendLists = { alreadyCovered: [], corrections: [] };
   deps.log('long_lecture_parts', { summaryId: deps.summaryId, parts: parts.length, minutes: parts.map((p) => Math.round((p.endMs - p.startMs) / 60_000)) });
 
   /** One try of part k: done, a final error, or null (try again). */
   const once = async (k: number): Promise<PartDone | { error: string } | null> => {
-    const content: Content = [...shared, ...items[k].photos.flatMap((ph) => photos.get(ph.id) ?? []), { type: 'text', text: partUserText(m, plan, c, deps.request, parts, k, items[k]) }];
-    const answer = await attempt(deps, deps.claude('longPart', system, content, PART_SCHEMA, LONG_PART_MAX_TOKENS), 'long_part');
+    const content: Content = [...shared, ...items[k].photos.flatMap((ph) => photos.get(ph.id) ?? []), { type: 'text', text: existing + partUserText(m, plan, c, deps.request, parts, k, items[k]) }];
+    const answer = await attempt(deps, deps.claude('longPart', system, content, x ? extendSchema(PART_SCHEMA) : PART_SCHEMA, LONG_PART_MAX_TOKENS), 'long_part');
     if (!('message' in answer)) return answer.permanent ? { error: 'claude_rejected' } : null;
     if (answer.message.stop_reason === 'refusal') return { error: 'refused' };
     if (answer.message.stop_reason === 'max_tokens') {
       deps.log('part_cut_off', { summaryId: deps.summaryId, part: k + 1 });
       return null;
     }
-    const parsed = parsePart(textOf(answer.message));
+    const taken = x ? takeExtendLists(textOf(answer.message)) : null;
+    if (x && !taken) {
+      deps.log('part_unreadable', { summaryId: deps.summaryId, part: k + 1, errors: ['no alreadyCovered / corrections'] });
+      return null;
+    }
+    const parsed = parsePart(taken ? taken.rest : textOf(answer.message));
     const unpacked = parsed.ok ? unpackSections(parsed.part.sections, `$.part${k + 1}`) : parsed;
     if (!parsed.ok || !unpacked.ok) {
       deps.log('part_unreadable', { summaryId: deps.summaryId, part: k + 1, errors: 'errors' in unpacked ? unpacked.errors : [] });
       return null;
     }
-    return { part: parsed.part, sections: unpacked.sections, model: answer.message.model };
+    return { part: parsed.part, sections: unpacked.sections, model: answer.message.model, lists: taken?.lists };
   };
 
   const results: (PartDone | { error: string } | null)[] = parts.map(() => null);
@@ -859,7 +912,11 @@ async function generateLong(
     if (!lists) deps.log('wrap_up_unreadable', { summaryId: deps.summaryId, try: i + 1 });
   }
   if (!lists) return { error: 'part_failed' };
-  return { summary: storedSummary({ ...merged, ...lists } as Generated, sections, m, plan, builtFrom), model: done[0].model };
+  for (const d of done) {
+    found.alreadyCovered.push(...(d.lists?.alreadyCovered ?? []));
+    found.corrections.push(...(d.lists?.corrections ?? []));
+  }
+  return { summary: storedSummary({ ...merged, ...lists } as Generated, sections, m, plan, builtFrom), model: done[0].model, ...(x && { extend: found }) };
 }
 
 /** The whole run, after the row was claimed (status generating). Saves the outcome on the row. */
@@ -890,13 +947,20 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
     // 4. Generate: once more when unreadable or cut off; a refusal is final.
     const media = await deps.media();
     const builtFrom = ['notes', 'audio', ...(media.pdfs ? ['slides'] : []), ...(media.photos ? ['photos'] : []), ...(deps.request.resources.assistant && m.questions.length ? ['assistant'] : [])];
-    const system = summarySystemPrompt(m, plan, c);
+    // Extend (7.9): the rules for adding to the existing summary, which is in the user content.
+    const x = deps.extend;
+    const system = summarySystemPrompt(m, plan, c) + (x ? `\n${extendRules(x)}` : '');
     // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
-    const finish = async (start: StoredSummary, model: string, tries: number): Promise<SummaryOutcome> => {
+    const finish = async (start: StoredSummary, model: string, tries: number, lists?: ExtendLists): Promise<SummaryOutcome> => {
       const s = await qualityPass(deps, m, plan, system, start);
+      // Extend: the caller stores the combined result on its row.
+      if (x) {
+        deps.log('extend_written', { summaryId: deps.summaryId, tries, sections: (s.sections as unknown[]).length, alreadyCovered: lists?.alreadyCovered.length ?? 0, corrections: lists?.corrections.length ?? 0 });
+        return { status: 'done', summary: s, extend: lists ?? { alreadyCovered: [], corrections: [] } };
+      }
       await deps.save({
         status: 'done',
-        result: s,
+        result: deps.meter ? { ...s, costLog: { ...deps.meter } } : s,
         error: null,
         model,
         // applied_settings stays the request's (resources, preview); the result carries the run's numbers.
@@ -912,13 +976,15 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
     // Over 60 min (step 7.6): by parts, merged.
     if (m.durationMs > MAX_LECTURE_MS) {
       const long = await generateLong(deps, m, plan, c, system, media.blocks, builtFrom);
-      return 'error' in long ? fail(long.error) : finish(long.summary, long.model, 1);
+      return 'error' in long ? fail(long.error) : finish(long.summary, long.model, 1, long.extend);
     }
 
-    const content: Content = [...media.blocks, { type: 'text', text: summaryUserText(m, plan, c, deps.request) }];
+    const existing = x ? `${existingSummaryText(x.anchors).text}\n` : '';
+    const content: Content = [...media.blocks, { type: 'text', text: existing + summaryUserText(m, plan, c, deps.request) }];
+    const schema = x ? extendSchema(SUMMARY_SCHEMA) : SUMMARY_SCHEMA;
     let lastError = 'unreadable';
     for (let i = 0; i < 2; i++) {
-      const generated = await attempt(deps, deps.claude('generate', system, content, SUMMARY_SCHEMA, SUMMARY_MAX_TOKENS), 'generate');
+      const generated = await attempt(deps, deps.claude('generate', system, content, schema, SUMMARY_MAX_TOKENS), 'generate');
       if (!('message' in generated)) {
         // Refused as a request (a 4xx): the same request would fail the same way.
         if (generated.permanent) return fail('claude_rejected');
@@ -933,13 +999,14 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
         deps.log('summary_cut_off', { summaryId: deps.summaryId, try: i + 1 });
         continue;
       }
-      const parsed = parseSummary(textOf(message), m, plan, builtFrom);
+      const taken = x ? takeExtendLists(textOf(message)) : null;
+      const parsed = x && !taken ? ({ ok: false, errors: ['no alreadyCovered / corrections'] } as const) : parseSummary(taken ? taken.rest : textOf(message), m, plan, builtFrom);
       if (!parsed.ok) {
         lastError = 'unreadable';
         deps.log('summary_unreadable', { summaryId: deps.summaryId, try: i + 1, errors: parsed.errors });
         continue;
       }
-      return finish(parsed.summary, message.model, i + 1);
+      return finish(parsed.summary, message.model, i + 1, taken?.lists);
     }
     return fail(lastError);
   } catch (err) {
