@@ -27,6 +27,7 @@
     "android",
     "ios",
     "supabase/functions",
+    "scripts/eval-summaries.ts",
     "_to_delete"
   ]
 }

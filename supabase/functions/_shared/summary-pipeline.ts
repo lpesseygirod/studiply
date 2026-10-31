@@ -26,6 +26,28 @@ import { languageName, stamp, type TimedSegment } from './assistant.ts';
 import { planSummary, type ExamFormat, type MarkType, type PlannedMark, type Sliders, type SummaryPlan } from './summary-plan.ts';
 import { CLASSIFY_SCHEMA, MODULES, SUBJECT_TYPES, SUMMARY_FORMAT, SUMMARY_SCHEMA, type SubjectType } from './summary-schema.ts';
 import { ClassifyAnswer, SummaryAnswer, blockGuide, checkBlock, issueLines } from './summary-zod.ts';
+import {
+  MAX_PART_CALLS,
+  applyVerdicts,
+  fixMarks,
+  fixNotes,
+  lengthPart,
+  listsPartPrompt,
+  parseLists,
+  parseSection,
+  parseVerdicts,
+  planParts,
+  runChecks,
+  sectionPartPrompt,
+  spliceLists,
+  spliceSection,
+  stampMs,
+  tagSafe,
+  verifyPartPrompt,
+  type CheckReport,
+  type Part,
+} from './summary-checks.ts';
+import { LISTS_SCHEMA, SECTION_SCHEMA, VERIFY_SCHEMA } from './summary-schema.ts';
 
 /** Longer lectures are written topic by topic (step 7.6); a little over 60 min (rounding) is still one. */
 export const MAX_LECTURE_MS = 60 * 60_000 + 30_000;
@@ -157,16 +179,8 @@ export function alignTo(tMs: number | null, segments: TimedSegment[]): Aligned {
   return { segment: best, near: bestDistance > ALIGN_WINDOW_MS };
 }
 
-/** "12:34" or "1:02:03" → ms; null when it isn't a time. */
-export function stampMs(text: string): number | null {
-  const m = /^\s*\[?(?:(\d+):)?(\d{1,3}):(\d{2})\]?\s*$/.exec(text);
-  return m ? ((Number(m[1] ?? 0) * 60 + Number(m[2])) * 60 + Number(m[3])) * 1000 : null;
-}
-
-/** Material that can't open or close a tag of the prompt (its lines kept). */
-export function tagSafe(text: string): string {
-  return text.replace(/</g, '‹').replace(/>/g, '›').trim();
-}
+// The time and tag helpers live with the checks (step 7.5), which use them too.
+export { stampMs, tagSafe };
 
 // ---------- the notes' formatting, as the prompt shows it ----------
 
@@ -334,6 +348,28 @@ export function markDuty(m: PlannedMark, examSignalsListed: boolean): string {
   return parts.join('; ');
 }
 
+/** About this many words per takeaway (one sentence), kept out of the sections' budget. */
+const TAKEAWAY_WORDS = 15;
+
+/**
+ * The length target as budgets (step 7.5, so the first answer lands near it): the takeaways, the
+ * sections together (the rest, at least half the target), and each topic's share of that by its time.
+ */
+export function wordBudgets(plan: SummaryPlan, c: Classification): { takeaways: number; sections: number; topics: { title: string; startMs: number; endMs: number; words: number }[] } {
+  const target = plan.length.targetWords;
+  const takeaways = plan.takeaways.count * TAKEAWAY_WORDS;
+  const sections = Math.max(Math.round(target / 2), target - takeaways);
+  const total = c.topics.reduce((n, t) => n + Math.max(0, t.endMs - t.startMs), 0);
+  const topics = c.topics.map((t) => ({ ...t, words: Math.max(10, Math.round(total > 0 ? (sections * Math.max(0, t.endMs - t.startMs)) / total : sections / c.topics.length)) }));
+  return { takeaways: Math.min(takeaways, target - sections), sections, topics };
+}
+
+function budgetLine(plan: SummaryPlan, c: Classification): string {
+  const b = wordBudgets(plan, c);
+  const topics = b.topics.map((t) => `"${tagSafe(t.title)}" [${stamp(t.startMs)}–${stamp(t.endMs)}] ≈ ${t.words}`).join('; ');
+  return `- Word budget within that length: the takeaways ≈ ${b.takeaways} words, the sections ≈ ${b.sections} words together${topics ? `, by topic: ${topics}` : ''}. The glossary's words count too: keep it short.`;
+}
+
 export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Classification): string {
   const language = languageName(m.summaryLanguage ?? m.language) ?? 'the language of the transcript';
   const p = plan;
@@ -354,6 +390,7 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     '',
     'The numbers (follow them exactly):',
     `- Length: ${lengthLine}, not counting the student's notes.`,
+    budgetLine(p, c),
     `- Key takeaways: exactly ${p.takeaways.count} one-sentence bullets${p.takeaways.markIds.length ? `; these marks must each be in a takeaway's fromMarkIds: ${p.takeaways.markIds.join(', ')}` : ''}.`,
     `- Explanations: ${EXPLANATION[p.explanation]}.`,
     `- Prerequisites: ${PREREQUISITES[p.prerequisites]}.`,
@@ -474,31 +511,6 @@ export function parseSummary(
     }),
   );
   if (blockErrors.length) return { ok: false, errors: blockErrors.slice(0, 10) };
-  const noteById = new Map(m.notes.map((n) => [n.id, n]));
-  const markIds = new Set(plan.marks.map((k) => k.id));
-  const known = (id: string) => markIds.has(id);
-
-  const usedNotes = new Set<string>();
-  const usedMarks = new Set<string>();
-  const sections = g.sections.map((s, si) => ({
-    ...s,
-    markChips: s.markChips.filter((c) => known(c.markId) && usedMarks.add(c.markId)),
-    blocks: (unpacked[si] as Record<string, unknown>[]).map((b) => {
-      if (b.type === 'fromNotes') {
-        // Each note once (the first block that lists it), always the student's own text.
-        const ids = (b.noteIds as string[]).filter((id) => noteById.has(id) && !usedNotes.has(id));
-        ids.forEach((id) => usedNotes.add(id));
-        return { ...b, noteIds: ids, notes: ids.map((id) => ({ id, t: noteById.get(id)!.tMs === null ? '' : stamp(noteById.get(id)!.tMs!), text: noteById.get(id)!.text, content: noteById.get(id)!.content })) };
-      }
-      if (b.type === 'confusedHere' && known(String(b.markId))) usedMarks.add(String(b.markId));
-      return b;
-    }),
-  }));
-  const takeaways = g.takeaways.map((t) => ({ ...t, fromMarkIds: t.fromMarkIds.filter((id) => known(id) && usedMarks.add(id)) }));
-  for (const e of g.examSignals) if (known(e.markId)) usedMarks.add(e.markId);
-  const selfTest = g.selfTest.map((q) => ({ ...q, fromMarkId: known(q.fromMarkId) ? (usedMarks.add(q.fromMarkId), q.fromMarkId) : '' }));
-  // Only the student's own marks count in the coverage (the signals are the lecture's or the assistant's).
-  const studentMarks = m.marks.map((k) => k.id);
 
   const summary: StoredSummary = {
     format: SUMMARY_FORMAT,
@@ -514,23 +526,62 @@ export function parseSummary(
       durationMin: Math.round(m.durationMs / 60_000),
       builtFrom,
     },
+    coverage: { noteLines: 0, noteLinesUsed: 0, marks: 0, marksUsed: 0 },
+    takeaways: g.takeaways,
+    sections: g.sections.map((s, si) => ({ ...s, blocks: unpacked[si] as Record<string, unknown>[] })),
+    glossary: g.glossary,
+    examSignals: g.examSignals,
+    questionsDuringClass: g.questionsDuringClass,
+    selfTest: g.selfTest,
+    flashcards: g.flashcards,
+    logistics: g.logistics,
+    unclear: g.unclear,
+  };
+  return { ok: true, summary: settle(summary, m, plan) };
+}
+
+/**
+ * A summary made consistent again (after Claude's answer, a code fix or a part written again): mark
+ * ids that don't exist dropped, each note once with its own text and formatting (copied by code), the
+ * coverage counted (only the student's own marks: the signals are the lecture's or the assistant's).
+ */
+export function settle(s: StoredSummary, m: LectureMaterial, plan: SummaryPlan): StoredSummary {
+  const noteById = new Map(m.notes.map((n) => [n.id, n]));
+  const markIds = new Set(plan.marks.map((k) => k.id));
+  const known = (id: string) => markIds.has(id);
+  const usedNotes = new Set<string>();
+  const usedMarks = new Set<string>();
+  type Sec = { markChips: { markId: string }[]; blocks: Record<string, unknown>[] };
+  const sections = (s.sections as Sec[]).map((sec) => ({
+    ...sec,
+    markChips: sec.markChips.filter((c) => known(c.markId) && usedMarks.add(c.markId)),
+    blocks: sec.blocks.map((b) => {
+      if (b.type === 'fromNotes') {
+        // Each note once (the first block that lists it), always the student's own text.
+        const ids = (b.noteIds as string[]).filter((id) => noteById.has(id) && !usedNotes.has(id));
+        ids.forEach((id) => usedNotes.add(id));
+        return { ...b, noteIds: ids, notes: ids.map((id) => ({ id, t: noteById.get(id)!.tMs === null ? '' : stamp(noteById.get(id)!.tMs!), text: noteById.get(id)!.text, content: noteById.get(id)!.content })) };
+      }
+      if (b.type === 'confusedHere' && known(String(b.markId))) usedMarks.add(String(b.markId));
+      return b;
+    }),
+  }));
+  const takeaways = (s.takeaways as { text: string; fromMarkIds: string[] }[]).map((t) => ({ ...t, fromMarkIds: t.fromMarkIds.filter((id) => known(id) && usedMarks.add(id)) }));
+  for (const e of s.examSignals as { markId: string }[]) if (known(e.markId)) usedMarks.add(e.markId);
+  const selfTest = (s.selfTest as { fromMarkId: string }[]).map((q) => ({ ...q, fromMarkId: known(q.fromMarkId) ? (usedMarks.add(q.fromMarkId), q.fromMarkId) : '' }));
+  const studentMarks = m.marks.map((k) => k.id);
+  return {
+    ...s,
+    takeaways,
+    sections,
+    selfTest,
     coverage: {
       noteLines: m.notes.length,
       noteLinesUsed: m.notes.filter((n) => usedNotes.has(n.id)).length,
       marks: studentMarks.length,
       marksUsed: studentMarks.filter((id) => usedMarks.has(id)).length,
     },
-    takeaways,
-    sections,
-    glossary: g.glossary,
-    examSignals: g.examSignals,
-    questionsDuringClass: g.questionsDuringClass,
-    selfTest,
-    flashcards: g.flashcards,
-    logistics: g.logistics,
-    unclear: g.unclear,
   };
-  return { ok: true, summary };
 }
 
 // ---------- the run ----------
@@ -554,7 +605,7 @@ export interface SummaryRunDeps {
   material: () => Promise<LectureMaterial>;
   /** The photos and slides as Claude content (images consent and ticks checked by the caller); [] without. */
   media: () => Promise<{ blocks: Content; photos: number; pdfs: number }>;
-  claude: (call: 'classify' | 'generate', system: string, content: Content, schema: Record<string, unknown>, maxTokens: number) => ClaudeCall;
+  claude: (call: 'classify' | 'generate' | 'part', system: string, content: Content, schema: Record<string, unknown>, maxTokens: number) => ClaudeCall;
   logCost: (message: ClaudeMessage) => Promise<{ costUsd: number; tokensInput: number; tokensOutput: number }>;
   save: (patch: Record<string, unknown>) => Promise<void>;
   log: (event: string, details: Record<string, unknown>) => void;
@@ -594,6 +645,100 @@ async function attempt(deps: SummaryRunDeps, call: ClaudeCall, kind: string): Pr
     if (partial) await deps.logCost(partial).catch(() => {});
     return { failed: true, permanent: permanentFailure(details) };
   }
+}
+
+/**
+ * Step 7.5: the quality checks on a summary just written. Missing notes and marks are put in by code;
+ * then at most MAX_PART_CALLS parts are written again (a section, the lists, or the verify call), each
+ * once, each spliced in place (length re-measured after each, the next section's share asked for while
+ * it is still off and calls remain); then the checks run once more and their report is stored with the
+ * summary (result.checks), passing or not: a failed check never hides the summary.
+ */
+export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan: SummaryPlan, baseSystem: string, start: StoredSummary): Promise<StoredSummary> {
+  const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks };
+  let s = start;
+  const fixed = { notes: new Set<string>(), marks: new Set<string>() };
+  const fixCoverage = () => {
+    const n = fixNotes(s, m);
+    n.fixed.forEach((id) => fixed.notes.add(id));
+    const k = fixMarks(n.summary, m);
+    k.fixed.forEach((id) => fixed.marks.add(id));
+    s = settle(k.summary, m, plan);
+  };
+  fixCoverage();
+  const first = runChecks(s, m, plan, options);
+  const regenerations: CheckReport['regenerations'] = [];
+  // What the verify call confirmed as said in the lecture (code couldn't match it: other words, rounding…).
+  const confirmed = new Set<string>();
+  let corrected = 0;
+  let labelled = 0;
+  let calls = 0;
+  // The sections written again for length (each once).
+  const lengthDone = new Set<number>();
+  const write = async (part: Part) => {
+    calls += 1;
+    if (part.kind === 'section' && part.targetWords !== undefined) lengthDone.add(part.index);
+    const prompt = part.kind === 'section' ? sectionPartPrompt(baseSystem, s, part, m, plan) : part.kind === 'lists' ? listsPartPrompt(baseSystem, s, part, plan) : verifyPartPrompt(part, m);
+    const schema = part.kind === 'section' ? SECTION_SCHEMA : part.kind === 'lists' ? LISTS_SCHEMA : VERIFY_SCHEMA;
+    const answer = await attempt(deps, deps.claude('part', prompt.system, [{ type: 'text', text: prompt.user }], schema, prompt.maxTokens), 'part');
+    let ok = false;
+    if ('message' in answer && answer.message.stop_reason !== 'refusal' && answer.message.stop_reason !== 'max_tokens') {
+      const text = textOf(answer.message);
+      if (part.kind === 'section') {
+        const parsed = parseSection(text);
+        if (parsed.ok) {
+          s = spliceSection(s, part.index, parsed.section);
+          ok = true;
+        }
+      } else if (part.kind === 'lists') {
+        const lists = parseLists(text);
+        if (lists) {
+          s = spliceLists(s, lists);
+          ok = true;
+        }
+      } else {
+        const verdicts = parseVerdicts(text);
+        if (verdicts) {
+          const applied = applyVerdicts(s, part.items, verdicts);
+          s = applied.summary;
+          corrected += applied.corrected;
+          labelled += applied.labelled;
+          for (const v of verdicts) {
+            const item = part.items.find((u) => u.id === v.id);
+            if (item && v.verdict === 'found') confirmed.add(`${item.kind}:${item.value}`);
+          }
+          ok = true;
+        }
+      }
+    }
+    regenerations.push({ part: part.kind === 'section' ? `section ${part.index + 1}` : part.kind, reason: part.kind === 'verify' ? `${part.items.length} not found by code` : part.reasons.join('; '), ok });
+    deps.log('part_written', { summaryId: deps.summaryId, part: part.kind, ok });
+    if (ok) fixCoverage();
+  };
+  for (const part of planParts(first, s, m, MAX_PART_CALLS)) await write(part);
+  // Length still off after a shorten/expand call: the next section's share, re-measured, while calls remain.
+  while (lengthDone.size && calls < MAX_PART_CALLS) {
+    const next = lengthPart(runChecks(s, m, plan, options), s, lengthDone, MAX_PART_CALLS - calls);
+    if (!next) break;
+    await write(next);
+  }
+  const report = runChecks(s, m, plan, options);
+  const unverified = report.faithfulness.unverified.filter((u) => !confirmed.has(`${u.kind}:${u.value}`));
+  report.faithfulness = { ...report.faithfulness, unverified, found: report.faithfulness.checked - unverified.length, pass: unverified.length === 0, corrected, labelled };
+  report.notes.fixedByCode = [...fixed.notes];
+  report.marks.fixedByCode = [...fixed.marks];
+  report.regenerations = regenerations;
+  deps.log('checks', {
+    summaryId: deps.summaryId,
+    schema: report.schema.pass,
+    notes: report.notes.pass,
+    marks: report.marks.pass,
+    length: report.length.pass,
+    faithfulness: report.faithfulness.pass,
+    language: report.language.pass,
+    parts: regenerations.length,
+  });
+  return { ...s, checks: report };
 }
 
 /** The whole run, after the row was claimed (status generating). Saves the outcome on the row. */
@@ -649,7 +794,8 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
         deps.log('summary_unreadable', { summaryId: deps.summaryId, try: i + 1, errors: parsed.errors });
         continue;
       }
-      const s = parsed.summary;
+      // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
+      const s = await qualityPass(deps, m, plan, system, parsed.summary);
       await deps.save({
         status: 'done',
         result: s,

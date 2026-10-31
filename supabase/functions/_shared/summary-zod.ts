@@ -12,7 +12,7 @@
  */
 
 import { z } from 'npm:zod@4.6.7';
-import { BLOCK_TYPES, CALLOUT_KINDS, MODULES, QUESTION_KINDS, SUBJECT_TYPES, type BlockType } from './summary-schema.ts';
+import { BLOCK_TYPES, CALLOUT_KINDS, MODULES, QUESTION_KINDS, SUBJECT_TYPES, SUMMARY_FORMAT, VERDICTS, type BlockType } from './summary-schema.ts';
 
 const str = z.string();
 const int = z.number().int();
@@ -58,29 +58,64 @@ export const BLOCK_DATA = {
   capturedImage: obj({ imageId: str, timestamp: str, caption: str }),
 } satisfies Record<BlockType, z.ZodObject>;
 
+const markChip = obj({ markId: str, type: z.enum(['important', 'confused', 'exam']), level: int });
+const takeaways = list(obj({ text: str, fromMarkIds: list(str) }));
+const selfTest = list(obj({ question: str, kind: z.enum(QUESTION_KINDS), answer: str, fromMarkId: str }));
+const flashcards = list(obj({ front: str, back: str }));
+
+/** A section as Claude writes it: its blocks packed as { type, data }. */
+export const SectionAnswer = obj({ heading: str, timestamp: str, cueQuestion: str, markChips: list(markChip), blocks: list(obj({ type: z.enum(BLOCK_TYPES), data: str })) });
+
+const rest = {
+  glossary: list(obj({ term: str, definition: str })),
+  // markId: the student's Exam mark ("" for the professor's own words); level 0 for the professor's.
+  examSignals: list(obj({ text: str, timestamp: str, source: z.enum(['professor', 'studentMark']), markId: str, level: int })),
+  questionsDuringClass: list(obj({ t: str, question: str, shortAnswer: str })),
+  selfTest,
+  flashcards,
+  logistics: list(str),
+  unclear: list(obj({ timestamp: str, note: str })),
+};
+
 /** What Claude writes (call 2, generate): the outer shape, a section's blocks packed as { type, data }. */
 export const SummaryAnswer = obj({
   subjectType: z.enum(SUBJECT_TYPES),
   modulesUsed: list(z.enum(MODULES)),
   title: str,
-  takeaways: list(obj({ text: str, fromMarkIds: list(str) })),
-  sections: list(
-    obj({
-      heading: str,
-      timestamp: str,
-      cueQuestion: str,
-      markChips: list(obj({ markId: str, type: z.enum(['important', 'confused', 'exam']), level: int })),
-      blocks: list(obj({ type: z.enum(BLOCK_TYPES), data: str })),
-    }),
-  ),
-  glossary: list(obj({ term: str, definition: str })),
-  // markId: the student's Exam mark ("" for the professor's own words); level 0 for the professor's.
-  examSignals: list(obj({ text: str, timestamp: str, source: z.enum(['professor', 'studentMark']), markId: str, level: int })),
-  questionsDuringClass: list(obj({ t: str, question: str, shortAnswer: str })),
-  selfTest: list(obj({ question: str, kind: z.enum(QUESTION_KINDS), answer: str, fromMarkId: str })),
-  flashcards: list(obj({ front: str, back: str })),
-  logistics: list(str),
-  unclear: list(obj({ timestamp: str, note: str })),
+  takeaways,
+  sections: list(SectionAnswer),
+  ...rest,
+});
+
+/** Step 7.5: the lists written again. */
+export const ListsAnswer = obj({ takeaways, selfTest, flashcards });
+
+/** Step 7.5: the faithfulness check's verdicts. */
+export const VerifyAnswer = obj({ items: list(obj({ id: str, verdict: z.enum(VERDICTS), replacement: str })) });
+
+/** A stored block (unpacked): its type and its type's fields; a "From your notes" block also carries the notes, copied by code. */
+const storedBlock = z.discriminatedUnion(
+  'type',
+  BLOCK_TYPES.map((t) =>
+    (t === 'fromNotes'
+      ? BLOCK_DATA.fromNotes.extend({ notes: list(obj({ id: str, t: str, text: str, content: z.unknown() })) })
+      : BLOCK_DATA[t]
+    ).extend({ type: z.literal(t) }),
+  ) as unknown as [z.ZodObject, ...z.ZodObject[]],
+);
+
+/** The summary as stored in summaries.result (step 7.5's schema check, also on saved outputs). */
+export const StoredSummaryShape = z.object({
+  format: z.literal(SUMMARY_FORMAT),
+  subjectType: z.enum(SUBJECT_TYPES),
+  modulesUsed: list(z.enum(MODULES)),
+  appliedSettings: z.record(z.string(), z.unknown()),
+  header: obj({ course: str, title: str, number: int, date: str, professor: str, durationMin: int, builtFrom: list(str) }),
+  coverage: obj({ noteLines: int, noteLinesUsed: int, marks: int, marksUsed: int }),
+  takeaways,
+  sections: list(obj({ heading: str, timestamp: str, cueQuestion: str, markChips: list(markChip), blocks: list(storedBlock) })),
+  ...rest,
+  checks: z.unknown().optional(),
 });
 export type SummaryAnswerValue = z.infer<typeof SummaryAnswer>;
 

@@ -464,7 +464,37 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Chrome:** `summarize.mjs` (the summary started, the card's states) and `assistant.mjs` answer summarize in the page.
     - **`check:claude`:** a synthetic 30-min lecture (`npm run check:claude -- --only=summary`), written, not run by me.
   - **Git:** `tests/fixtures/` and `tests/output/` are git-ignored.
-- [ ] 7.5 — Quality checks (schema, coverage, length, faithfulness, language)
+- [x] 7.5 — Quality checks (schema, coverage, length, faithfulness, language). **Done (31 Oct), verified by the advisor on the synthetic lecture.**
+  - **Verified:**
+    - `eval:summaries`, free: schema, notes 6/6, marks 6/6, faithfulness and language pass. Length was 140 %, which the words line explains.
+    - `--faults` 5/5 (the mark fault is skipped on the 7.4 output).
+    - The paid `--generate`: $0.2048, 51 s, 3 calls.
+    - Chrome: `summarize.mjs` 12/12 with the checks-line assertion, `assistant.mjs` 15/15. Also `check:bundle` and `npm run check`.
+  - **Still to do:** the 3-fixture report waits for 7.1 (Lea's real lectures).
+  - **For 7.8 (length overshoot):** the first answer was 391 words against a target of 231, and on short lectures the takeaways and glossary take about 40 % of the target. The length fix after that run (shares across sections, per-topic budgets) is checked in Jest, not yet in a paid run.
+  - **The checks** (`_shared/summary-checks.ts`, pure; the pipeline's `qualityPass` runs them after generate and stores the report in `summaries.result.checks`):
+    - **Schema:** zod on the stored summary (`StoredSummaryShape`).
+    - **Notes and marks coverage:** a note line or mark left out is put in by code (the note into the "From your notes" block of the section at its time, the mark as a chip), with no Claude call.
+    - **The marks' effects (7.2):** a high Important mark needs a takeaway, a high Exam mark a self-test question and a flashcard, a mid or high Confused mark a "You were confused here" block. A missing one is written again (a section or the lists).
+    - **Length:** takeaways, sections and glossary, 85–115 % of the target (120 % with a high-band mark).
+      - **When it's off:** the gap is shared across the largest sections (too long) or the smallest (too short), each by its share of their words, one section per call. Length is re-measured after each call, and the next section is asked for its share while length is still off and calls remain.
+      - **Why:** after the advisor's paid run (51 s, $0.2048: 323 words vs 231, one shorten call though the cap is 3).
+      - **The generate prompt** now gives a word budget: the takeaways (≈ 15 words each), the sections together, and each topic's share by its time.
+    - **Faithfulness:** every number, date and formula is looked for in the transcript, the notes, the marks' notes and the assistant's answers. Spanish and English number formats and words count, and LaTeX is normalised. What code can't find goes to one verify call: found, corrected in place, or moved into an "Added context · not from the lecture" callout. Nothing is deleted. Exercise content (made-up examples, practice questions, apply/calculate answers) isn't checked (decision 6 below).
+    - **Language:** function-word counts (es, en, fr, pt, it, de, ca, gl, eu, nl), no dependency; a long block in another language → that section written again.
+  - **At most 3 part calls per summary,** in order: language, verify, the marks' effects, then length. Each part is spliced in place and the notes are refilled by code. A part that fails changes nothing. A failed check never hides the summary: the report says which check failed.
+  - **App:** the Summary tab card has a checks line: "All checks passed." (and how many details are under "Added context"), or "Checks: …" naming each check that failed.
+  - **Evaluation (`npm run eval:summaries`, Deno):**
+    - **Free mode** (the default): the checks on each fixture's saved output (`tests/output/<name>/latest.json`).
+    - **`--faults`:** plants 6 faults (a note left out, a mark left out, a number and a formula not in the lecture, an English paragraph, 40 % too long) and fails unless each one is caught.
+    - **`--generate [--fixture name]`** (paid, the advisor's): seeds the fixture as a throwaway local user, runs the local summarize, saves the output, then removes the user.
+    - **The synthetic lecture** is `scripts/fixtures/synthetic-lecture.mjs`, with stable ids.
+  - **Fixtures:**
+    - `_shared/summary-fixture.ts` defines the format (BUILD-PLAN 7.1's files) and reads a fixture as the server reads a lecture.
+    - `npm run export:fixture -- <lectureId> [--name x]` saves a local lecture into `tests/fixtures/lectures/<name>/` (git-ignored).
+    - **Local only:** it refuses any non-local URL and never prints keys. Exporting from the remote project needs Lea's separate OK.
+  - **Tests:** Jest for each check (numbers, words, dates, LaTeX, language, the fixes, effects, length, faithfulness, which parts and their order and cap, the answers parsed and spliced, the verdicts), the quality pass inside the run with faked part answers, the fixture reader, the three new part schemas (zod = constants, structured outputs' subset), and the card's line.
+  - **Not run by me (approval needed):** `npm run eval:summaries`, `-- --faults`, and `export:fixture`. The paid `-- --generate` is the advisor's.
 - [ ] 7.6 — Long lectures (split by topic, merge)
 - [ ] 7.7 — Into the document (JSON → editor blocks, versions, edit-safe regen)
 - [ ] 7.8 — You judge the quality (prompt/calculator fixes)
@@ -557,6 +587,16 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.5 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **Missing notes and marks are put in by code** (no Claude call): a note into the "From your notes" block of its section, a mark as a chip.
+  2. **At most 3 part calls per summary** (≈ $0.15 and ≈ 30 s at most on top of the summary).
+  3. **Length counts** the takeaways, sections and glossary; not the notes, self-test, flashcards or header.
+  4. **Unverified items go to one verify call,** then are corrected in place or moved into "Added context · not from the lecture"; never deleted.
+  5. **The fixture exporter is written in this step** (`scripts/export-fixture.mjs`, local Supabase only).
+  6. **Faithfulness skips exercise content** (after the free evaluation: all 8 numbers it couldn't find in the 7.4 output were made-up exercise numbers the spec asks for). Its numbers, dates and formulas aren't checked, and moving them would break the blocks.
+     - **Skipped:** confusedHere's `example` and `practiceQuestion`, "example" callouts, and the answers of apply and calculate self-test questions.
+     - **Still checked,** as the lecture's content: paragraphs, takeaways, definitions and other callouts, formula blocks, worked examples (as the professor did them), exam signals, the glossary, recall and why answers, and flashcards.
+     - **The language check** still reads everything.
 - **Step 7.4: zod (Lea OK'd it, 31 Oct).** This replaces the advisor's earlier "no zod" decision of the same day.
   - **Version and scope:** zod **4.6.7** exactly (MIT), **server-side only**.
     - The Edge Functions import `npm:zod@4.6.7`, pinned like the SDK.

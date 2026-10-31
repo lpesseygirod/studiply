@@ -88,30 +88,46 @@ export type BlockType = (typeof BLOCK_TYPES)[number];
 /** A section's block as Claude writes it: its type, and its fields as a JSON object in a string. */
 export const PACKED_BLOCK: JsonSchema = obj({ type: oneOf(BLOCK_TYPES), data: str });
 
+/** A section as Claude writes it (in the summary, and alone when one section is written again, step 7.5). */
+export const SECTION_SCHEMA: JsonSchema = obj({
+  heading: str,
+  timestamp: str,
+  cueQuestion: str,
+  markChips: arr(obj({ markId: str, type: oneOf(['important', 'confused', 'exam']), level: int })),
+  blocks: arr(PACKED_BLOCK),
+});
+
+const TAKEAWAYS = arr(obj({ text: str, fromMarkIds: arr(str) }));
+const SELF_TEST = arr(obj({ question: str, kind: oneOf(QUESTION_KINDS), answer: str, fromMarkId: str }));
+const FLASHCARDS = arr(obj({ front: str, back: str }));
+
 /** What Claude writes (call 2, generate). Times are "mm:ss" (or "h:mm:ss"). */
 export const SUMMARY_SCHEMA: JsonSchema = obj({
   subjectType: oneOf(SUBJECT_TYPES),
   modulesUsed: arr(oneOf(MODULES)),
   title: str,
-  takeaways: arr(obj({ text: str, fromMarkIds: arr(str) })),
-  sections: arr(
-    obj({
-      heading: str,
-      timestamp: str,
-      cueQuestion: str,
-      markChips: arr(obj({ markId: str, type: oneOf(['important', 'confused', 'exam']), level: int })),
-      blocks: arr(PACKED_BLOCK),
-    }),
-  ),
+  takeaways: TAKEAWAYS,
+  sections: arr(SECTION_SCHEMA),
   glossary: arr(obj({ term: str, definition: str })),
   // markId: the student's Exam mark ("" for the professor's own words); level 0 for the professor's.
   examSignals: arr(obj({ text: str, timestamp: str, source: oneOf(['professor', 'studentMark']), markId: str, level: int })),
   questionsDuringClass: arr(obj({ t: str, question: str, shortAnswer: str })),
-  selfTest: arr(obj({ question: str, kind: oneOf(QUESTION_KINDS), answer: str, fromMarkId: str })),
-  flashcards: arr(obj({ front: str, back: str })),
+  selfTest: SELF_TEST,
+  flashcards: FLASHCARDS,
   logistics: arr(str),
   unclear: arr(obj({ timestamp: str, note: str })),
 });
+
+/** Step 7.5, the lists written again (a high mark's takeaway, self-test question or flashcard was missing). */
+export const LISTS_SCHEMA: JsonSchema = obj({ takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
+
+export const VERDICTS = ['found', 'corrected', 'added'] as const;
+
+/**
+ * Step 7.5, the faithfulness check's call: for each number, date or formula code couldn't find in the
+ * lecture, whether it is there after all, wrong (with the right words), or added (not from the lecture).
+ */
+export const VERIFY_SCHEMA: JsonSchema = obj({ items: arr(obj({ id: str, verdict: oneOf(VERDICTS), replacement: str })) });
 
 /**
  * What the classify call answers (call 1): the subject and modules, the topics, and the two signals

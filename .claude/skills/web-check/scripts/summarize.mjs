@@ -409,11 +409,23 @@ try {
       sections: [{}, {}, {}],
       selfTest: [{}, {}],
       flashcards: [{}, {}],
+      // Step 7.5: the quality checks' report (all passed, one detail moved under Added context).
+      checks: {
+        version: 1,
+        schema: { pass: true, errors: [] },
+        notes: { pass: true, total: 1, used: 1, missing: [], fixedByCode: [] },
+        marks: { pass: true, total: 1, used: 1, missing: [], fixedByCode: [], effects: [] },
+        length: { pass: true, words: 1400, target: 1440, min: 1224, max: 1656 },
+        faithfulness: { pass: true, checked: 4, found: 3, unverified: [], corrected: 0, labelled: 1 },
+        language: { pass: true, expected: 'es', detected: 'es', offBlocks: [] },
+        regenerations: [{ part: 'verify', reason: '1 not found by code', ok: true }],
+      },
     };
     await admin.from('summaries').update({ status: 'done', result }).eq('id', id);
     await waitFor(() => has('[data-summarize="done"]'), 'the "ready" card (read again while writing)', 15000);
     const ready = await text('[data-summarize="done"]');
     expect(/summary ready/i.test(ready) && ready.includes('3 sections · 2 questions · 2 flashcards · 1 of 1 note lines and 1 of 1 marks used') && ready.includes('• La conducta es un proceso biológico.'), `ready: ${ready}`);
+    expect(ready.includes('All checks passed. 1 detail not said in class is under “Added context”.'), `checks line: ${ready}`);
     await shot('summarize-ready-1280');
     await admin.from('summaries').update({ status: 'failed', error: 'too_long', result: null }).eq('id', id);
     await b.nav(`${BASE}/doc/${lectureId}?tab=summary`);

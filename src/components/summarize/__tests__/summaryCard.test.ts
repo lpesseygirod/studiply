@@ -3,8 +3,9 @@
  */
 // Step 7.4: the Summary tab card's words by status: saved but not started, being written, ready (its
 // counts and takeaways), failed (why, and what to do).
-import { summaryCardText } from '../summaryCard';
+import { checksLine, summaryCardText } from '../summaryCard';
 import type { LectureSummary } from '../../../services/summarize.service';
+import type { CheckReport } from '../../../../supabase/functions/_shared/summary-checks';
 
 const resources = { slides: false, photos: false, assistant: true, notes: true as const };
 const settings = { targetWords: 1440, takeaways: 4, selfTestCount: 7, markStrength: 1, resources, preview: '≈ 1,440 words · 4 takeaways · 7 questions' };
@@ -37,6 +38,43 @@ describe('the Summary tab card', () => {
     expect(summaryCardText(summary({ status: 'done', result })).text).toBe(
       '4 sections · 7 questions · 1 flashcard · 14 of 14 note lines and 6 of 6 marks used\n\n• Uno.\n• Dos.\n\nIt\'s written into this tab in the next update.',
     );
+  });
+
+  describe('the checks line (step 7.5)', () => {
+    const report = (over: Partial<CheckReport> = {}): CheckReport => ({
+      version: 1,
+      schema: { pass: true, errors: [] },
+      notes: { pass: true, total: 6, used: 6, missing: [], fixedByCode: ['p3'] },
+      marks: { pass: true, total: 6, used: 6, missing: [], fixedByCode: [], effects: [] },
+      length: { pass: true, words: 1400, target: 1440, min: 1224, max: 1656 },
+      faithfulness: { pass: true, checked: 12, found: 12, unverified: [], corrected: 0, labelled: 0 },
+      language: { pass: true, expected: 'es', detected: 'es', offBlocks: [] },
+      regenerations: [],
+      ...over,
+    });
+
+    it('a summary made before 7.5 has none', () => expect(checksLine(undefined)).toBe(''));
+    it('all passed', () => expect(checksLine(report())).toBe('All checks passed.'));
+    it('all passed, with details moved under Added context', () => {
+      expect(checksLine(report({ faithfulness: { pass: true, checked: 12, found: 10, unverified: [], corrected: 1, labelled: 2 } }))).toBe(
+        'All checks passed. 2 details not said in class are under “Added context”.',
+      );
+    });
+    it('names each check that failed', () => {
+      const c = report({
+        marks: { pass: false, total: 6, used: 5, missing: ['m1'], fixedByCode: [], effects: [{ markId: 'm2', need: 'selfTest' }] },
+        length: { pass: false, words: 2016, target: 1440, min: 1224, max: 1656 },
+        faithfulness: { pass: false, checked: 12, found: 11, unverified: [{} as CheckReport['faithfulness']['unverified'][number]], corrected: 0, labelled: 0 },
+        language: { pass: false, expected: 'es', detected: 'en', offBlocks: [] },
+      });
+      expect(checksLine(c)).toBe('Checks: 1 mark left out · 1 mark without what it asks for · 2,016 words (aim 1,224–1,656) · 1 detail not found in the lecture · parts in another language.');
+    });
+    it('is on the ready card, under the counts', () => {
+      const result = { format: 'studiply-summary-v1', coverage: { noteLines: 6, noteLinesUsed: 6, marks: 6, marksUsed: 6 }, sections: [{}], checks: report() } as unknown as LectureSummary['result'];
+      expect(summaryCardText(summary({ status: 'done', result })).text).toBe(
+        "1 section · 0 questions · 0 flashcards · 6 of 6 note lines and 6 of 6 marks used\n\nAll checks passed.\n\nIt's written into this tab in the next update.",
+      );
+    });
   });
 
   it.each([
