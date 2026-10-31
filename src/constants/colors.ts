@@ -340,6 +340,26 @@ export const DocColors = {
   },
   /** Formula cards (step 4.7c; SUMMARY-SPEC "Formula card"): a quiet box, the title in the accent, the legend softer than the text. */
   formulaCard: { bg: '#F8F7FC', border: '#DCD8EE', title: '#4F43B0', legend: '#4A4A5C' },
+  /**
+   * The summary's text modules (step 8.1; SUMMARY-SPEC "Module library"): the formula card's quiet box
+   * and accent label; white inner boxes (cause → effect, framework cells); the accent for the timeline's
+   * line and dots and the process's stages; secondary text (In → Out, a step's why) softer than the text;
+   * a worked example's answer and a case's lesson boxed in the accent family; an argument's premises on
+   * the From your notes green, its objections on the Common mistake red (borders only); code on a grey panel.
+   */
+  module: {
+    bg: '#F8F7FC',
+    border: '#DCD8EE',
+    label: '#4F43B0',
+    box: '#FFFFFF',
+    line: '#7B6FD4',
+    secondary: '#4A4A5C',
+    answerBg: '#EAE8F7',
+    answerBorder: '#7B6FD4',
+    premise: '#8FD1AE',
+    objection: '#E8A0A0',
+    codeBg: '#F2F0F5',
+  },
   /** Timestamp chips (step 4.6): the accent on its light fill. */
   timestamp: { bg: '#EAE8F7', text: '#4F43B0' },
   /** Text tinted to show it has a comment (step 4.5): not one of the highlights. */

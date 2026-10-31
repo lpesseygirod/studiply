@@ -12,12 +12,79 @@ import { ANSWER_SHOWN_CLASS, CALLOUT_CLASS } from './schema/callout';
 import { SUGGESTION_CLASS } from './schema/suggestion';
 import { FORMULA_CARD_CLASS } from './schema/formulaCard';
 import { GRAPH_CLASS } from './schema/graph';
+import { STUDY_MODULE_CLASS } from './schema/studyModule';
 import { SELECTION_BAR_CLASS } from './format/selectionBar';
 import { MARK_CHIP_CLASS } from './schema/markChip';
 import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from './page/pageView';
 
 /** The document page's colours: always the light palette (see `editorCss`). */
 export const PAGE_COLORS = LightColors;
+
+/**
+ * The summary's text modules (step 8.1; SUMMARY-SPEC "Module library" and "Spacing and layout"): a quiet
+ * box with its label in small capitals, laid out by kind. Tables have thin horizontal rules only and a
+ * semibold header; code is monospace (SF Mono / Menlo, 13 px). Lines, dots and arrows are drawn (never
+ * read: the words carry the meaning); a module moves whole between pages and in the PDF.
+ */
+function moduleCss(pm: string): string {
+  const m = DocColors.module;
+  const M = `${pm} .${STUDY_MODULE_CLASS}`;
+  const kind = (k: string) => `${M}[data-module='${k}'] .${STUDY_MODULE_CLASS}-body`;
+  const small = '700 11px/16px -apple-system, system-ui, sans-serif';
+  return `/* Summary modules (step 8.1) */
+${M} { margin: 0 0 0.9em; padding: 10px 14px 12px; border: 1px solid ${m.border}; border-radius: 8px; background: ${m.bg}; break-inside: avoid; }
+${M}-label { margin-bottom: 6px; font: ${small}; letter-spacing: 0.12em; text-transform: uppercase; color: ${m.label}; user-select: none; -webkit-user-select: none; }
+${M}-body > :last-child { margin-bottom: 0; }
+${M}-body p { margin: 0 0 0.4em; }
+${M} table { margin: 0.2em 0 0; background: ${m.box}; }
+/* Never a word split in the middle: columns sized by their content (at least the longest word, and
+   5.5em), the table as wide as the box or wider, scrolling sideways in its box on a narrow screen. */
+${M} .tableWrapper { overflow-x: auto; overflow-y: hidden; }
+${M} table { table-layout: auto; width: 100%; }
+${M} td, ${M} th { min-width: 5.5em; overflow-wrap: normal; word-break: normal; hyphens: manual; }
+${M} td, ${M} th { border: 0; border-bottom: 1px solid ${m.border}; }
+${M} th { background: transparent; font-weight: 600; }
+${kind('timeline')} > ul { position: relative; list-style: none; margin: 0; padding-left: 24px; }
+${kind('timeline')} > ul::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: ${m.line}; }
+${kind('timeline')} > ul > li { position: relative; margin: 0 0 0.7em; }
+${kind('timeline')} > ul > li::before { content: ''; position: absolute; left: -22px; top: 0.4em; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 2px solid ${m.line}; background: ${m.box}; }
+${kind('timeline')} li p + p { font-size: 0.9em; color: ${m.secondary}; }
+${kind('causeEffect')} > * { position: relative; margin: 0; padding: 8px 12px; border: 1px solid ${m.border}; border-radius: 8px; background: ${m.box}; }
+${kind('causeEffect')} > ul { padding-left: 2.2em; }
+${kind('causeEffect')} > p { border-color: ${m.line}; font-weight: 600; }
+${kind('causeEffect')} > * + * { margin-top: 28px; }
+${kind('causeEffect')} > * + *::after { content: '↓'; position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font: 700 16px/24px -apple-system, system-ui, sans-serif; color: ${m.line}; }
+${kind('causeEffect')} > ul:first-child::before, ${kind('causeEffect')} > ul:last-child:not(:first-child)::before, ${kind('causeEffect')} > p::before { display: block; margin-bottom: 2px; font: ${small}; letter-spacing: 0.12em; text-transform: uppercase; color: ${m.label}; }
+${kind('causeEffect')} > ul:first-child::before { content: 'Causes'; margin-left: -1.6em; }
+${kind('causeEffect')} > ul:last-child:not(:first-child)::before { content: 'Effects'; margin-left: -1.6em; }
+${kind('causeEffect')} > p::before { content: 'Event'; }
+${kind('process')} > ol { list-style: none; counter-reset: studiply-step; margin: 0; padding-left: 0; }
+${kind('process')} > ol > li { position: relative; counter-increment: studiply-step; min-height: 26px; margin: 0 0 0.7em; padding-left: 38px; }
+${kind('process')} > ol > li::before { content: counter(studiply-step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%; border: 2px solid ${m.line}; background: ${m.box}; color: ${m.label}; font: 700 12px/22px -apple-system, system-ui, sans-serif; text-align: center; }
+${kind('process')} > ol > li:not(:last-child)::after { content: ''; position: absolute; left: 12px; top: 28px; bottom: -0.6em; width: 2px; background: ${m.border}; }
+${kind('process')} li p + p { font-size: 0.85em; color: ${m.secondary}; }
+/* The grid's cells line up with the box's edges: the spacing's 6 px taken from the scroll box's margins,
+   so the table is exactly its box's width and the box scrolls only when the grid is really wider. */
+${kind('framework')} .tableWrapper { margin: -6px -6px 0; }
+${kind('framework')} table { border-collapse: separate; border-spacing: 6px; background: transparent; width: 100%; margin: 0; }
+${kind('framework')} td { border: 1px solid ${m.border}; border-radius: 6px; background: ${m.box}; }
+${kind('theoryCard')} > p:first-child { font-size: 1.05em; }
+${kind('theoryCard')} > p, ${kind('caseCard')} > p { margin-bottom: 0.35em; }
+${kind('caseCard')} > p:last-child { padding: 6px 10px; border-left: 3px solid ${m.answerBorder}; border-radius: 6px; background: ${m.answerBg}; }
+${kind('argument')} > p:first-child { padding: 8px 12px; border: 1px solid ${m.border}; border-radius: 8px; background: ${m.box}; font-weight: 600; }
+${kind('argument')} > p:not(:first-child) { margin: 0.6em 0 0.2em; }
+${kind('argument')} > ul { list-style: none; margin: 0; padding-left: 12px; border-left: 3px solid ${m.premise}; }
+${kind('argument')} > ul:last-of-type:not(:first-of-type) { border-left-color: ${m.objection}; }
+${kind('argument')} li { margin-bottom: 0.4em; }
+${kind('argument')} li p + p { margin-left: 1em; color: ${m.secondary}; }
+${kind('code')} { padding: 8px 10px; border-radius: 6px; background: ${m.codeBg}; overflow-x: auto; }
+${kind('code')} p { margin: 0; font-family: 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+${kind('code')} code { padding: 0; background: none; }
+${kind('code')} p:has(> strong:only-child) { margin-top: 0.6em; font: ${small}; letter-spacing: 0.12em; text-transform: uppercase; color: ${m.label}; }
+${kind('workedExample')} > ol { margin-bottom: 0.4em; }
+${kind('workedExample')} li p + p { font-size: 0.88em; color: ${m.secondary}; }
+${kind('workedExample')} > p:last-child:not(:first-child) { padding: 6px 10px; border: 2px solid ${m.answerBorder}; border-radius: 6px; background: ${m.answerBg}; }`;
+}
 
 /**
  * The document's look for both editors: injected into the iPhone's WebView,
@@ -84,6 +151,7 @@ ${pm} .${FORMULA_CARD_CLASS}-body > p { margin: 0.15em 0 0; font-size: 0.85em; l
 ${pm} .${GRAPH_CLASS} { margin: 0.4em 0 0.9em; padding: 4px 0; border-radius: 8px; cursor: pointer; break-inside: avoid; scroll-margin-top: 130px; }
 ${pm} .${GRAPH_CLASS}-art svg { display: block; width: 100%; height: auto; }
 ${pm} .${GRAPH_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; outline-offset: 2px; }
+${moduleCss(pm)}
 
 ${Object.entries(DocColors.callout)
   .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)

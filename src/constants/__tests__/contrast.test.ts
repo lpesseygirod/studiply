@@ -87,6 +87,16 @@ describe("Studiply's blocks in the document (step 4.6)", () => {
   it.each(Object.entries(DocColors.markChip).map(([k, v]) => [k, v]))('the %s mark chip ≥ 4.5', (_kind, c) => {
     expect(contrast(c.text, c.bg)).toBeGreaterThanOrEqual(TEXT);
   });
+  it('the summary modules (8.1): the label, secondary text and text on every fill ≥ 4.5', () => {
+    const m = DocColors.module;
+    for (const fill of [m.bg, m.box, m.answerBg, m.codeBg]) {
+      expect(contrast(LightColors.text.primary, fill)).toBeGreaterThanOrEqual(TEXT);
+      expect(contrast(m.secondary, fill)).toBeGreaterThanOrEqual(TEXT);
+    }
+    expect(contrast(m.label, m.bg)).toBeGreaterThanOrEqual(TEXT);
+    // The timeline's line and dots, the stage numbers' ring: a graphic, 3:1 on the box.
+    expect(contrast(m.line, m.bg)).toBeGreaterThanOrEqual(ICON);
+  });
   it('the formula card (4.7c): its title, legend and text ≥ 4.5', () => {
     const f = DocColors.formulaCard;
     expect(contrast(f.title, f.bg)).toBeGreaterThanOrEqual(TEXT);

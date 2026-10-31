@@ -113,6 +113,24 @@ describe('the pictures the export asks for', () => {
   });
 });
 
+describe('the summary’s text modules in Word (step 8.1)', () => {
+  it('a shaded box with its label in capitals ("Framework · DAFO"), its table and lists as usual, code in a monospace font', async () => {
+    const modules = doc(
+      { type: 'studyModule', attrs: { kind: 'framework', title: 'DAFO' }, content: [{ type: 'table', content: [{ type: 'tableRow', content: [cell('Fortalezas'), cell('Debilidades')] }] }] },
+      { type: 'studyModule', attrs: { kind: 'timeline' }, content: [{ type: 'bulletList', content: [li('1897 · Pavlov')] }] },
+      { type: 'studyModule', attrs: { kind: 'code', title: 'Python' }, content: [p(t('V = 0.0', [{ type: 'code' }]))] },
+    );
+    const { xml } = await unzip(buildDocx([{ title: 'Notes', content: modules }], options(), stubPictures([modules])));
+    expect(xml).toMatch(/<w:caps\/>.*?Framework · DAFO/);
+    expect(xml).toMatch(/w:fill="F8F7FC".*?Fortalezas/);
+    expect(count(xml, /<w:tbl>/)).toBe(1);
+    expect(xml).toMatch(/<w:caps\/>.*?Timeline/);
+    expect(xml).toMatch(/<w:numPr>.*?1897 · Pavlov/);
+    expect(xml).toMatch(/<w:caps\/>.*?Code · Python/);
+    expect(xml).toMatch(/w:ascii="(Menlo|Courier New|Consolas)[^"]*".*?V = 0\.0/);
+  });
+});
+
 describe('the .docx', () => {
   it('Title and headings as Word styles; bold, italic, underline, colour, highlight, link; alignment, spacing, indent', async () => {
     const { xml, part } = await unzip(buildDocx([{ title: 'Notes', content: lesson }], options(), stubPictures([lesson])));

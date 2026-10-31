@@ -243,8 +243,8 @@ function measure(view: EditorView, textHeight: number, scale: number): { units: 
       });
       return;
     }
-    // A callout (step 4.6) or a formula card (4.7c) moves whole when it fits on a page, as in the PDF (SUMMARY-SPEC); a longer one splits between lines.
-    if (CONTAINERS.includes(name) || ((name === 'callout' || name === 'formulaCard') && (r.bottom - r.top) / scale > textHeight)) {
+    // A callout (step 4.6), a formula card (4.7c) or a summary module (8.1) moves whole when it fits on a page, as in the PDF (SUMMARY-SPEC); a longer one splits between lines.
+    if (CONTAINERS.includes(name) || ((name === 'callout' || name === 'formulaCard' || name === 'studyModule') && (r.bottom - r.top) / scale > textHeight)) {
       node.forEach((child, offset, i) => block(child, pos + 1 + offset, blockIndex * 1000 + i));
       return;
     }

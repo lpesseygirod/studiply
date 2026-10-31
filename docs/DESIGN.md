@@ -278,6 +278,18 @@ As built in step 4.4:
 - The student's notes appear as green **From your notes** blocks, keeping their formatting; Confused marks become "You were confused here · 7/10 · mm:ss" explanation blocks; Important/Exam levels show as chips on the matching section.
 - "Your questions during class" block at the end, linking to the saved assistant answers.
 
+- **The text modules (step 8.1; SUMMARY-SPEC module library; no mockup):** timeline, cause → effect, key figures, comparison, process, framework, theory card, case card, argument, code, vocabulary and worked example, each a quiet box (the formula card's) with its label in small capitals ("FRAMEWORK · DAFO", "CODE · PYTHON"). The same on both devices; the page stays light in dark mode.
+  - **Timeline:** an accent line with a dot per event.
+  - **Cause → effect:** Causes ↓ Event ↓ Effects as stacked boxes.
+  - **Tables** (key figures, comparison, vocabulary): thin horizontal rules only and a semibold header; they scroll sideways on a narrow screen.
+  - **Process:** numbered stages joined by a line.
+  - **Framework:** a 2-column grid of cells.
+  - **Cards:** labelled fields; a case's lesson tinted.
+  - **Argument:** the claim boxed, premises on a green rule, objections and replies on a red one.
+  - **Code:** monospace on a grey panel, no syntax colours, then "OUTPUT".
+  - **Worked example:** its answer boxed.
+  - **Behaviour:** everything inside is text she can edit; the box moves whole between pages.
+
 ### 4. Extend, Merge, Exam pack (step 7.9; no mockup, existing styles only)
 - **Where:** **Extend with next lecture…** in a lecture's menu (library, sidebar, the document menu) and from the banner's pill / the iPhone's **+ Extend with next**; **Merge lectures…** and **Make exam pack…** in a course's or folder's menu.
 - **The lecture picker** (a centred card on the laptop, a bottom sheet on the iPhone): the course's (or folder's) lectures in teaching order, "Lecture n · title", and under each "Has a summary" or "No summary yet".

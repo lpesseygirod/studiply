@@ -31,6 +31,7 @@ import { calloutLabel } from '../schema/callout';
 import { DEFAULT_LINE_SPACING, INDENT_EM } from '../schema/blocks';
 import { DEFAULT_SIZE, FONTS } from '../schema/fonts';
 import { markChipLabel } from '../schema/markChip';
+import { moduleLabel } from '../schema/studyModule';
 import { chipLabel } from '../schema/timestampChip';
 import { rgbOf } from '../paste/rules';
 import type { DocJSON } from '../types';
@@ -457,6 +458,13 @@ class WordBuilder {
         case 'formulaCard': {
           const c = DocColors.formulaCard;
           out.push(...this.boxed(String(node.attrs?.title || 'Formula'), { bg: c.bg, border: c.border, label: c.title }, node.content ?? [], ctx, false));
+          break;
+        }
+        case 'studyModule': {
+          // Step 8.1: the summary's text modules as a box with their label; their tables, lists and lines as
+          // usual (a code module's lines carry the code mark: monospace in Word).
+          const m = DocColors.module;
+          out.push(...this.boxed(moduleLabel(node.attrs ?? {}), { bg: m.bg, border: m.border, label: m.label }, node.content ?? [], ctx, true));
           break;
         }
         default:

@@ -1,0 +1,131 @@
+{
+  "_about": "Step 8.1: a hand-made stored summary (studiply-summary-v1) holding all twelve text modules, for the converter's tests and the modules.mjs Chrome check. Synthetic content (a learning-psychology lecture in Spanish), no student data. Each block is valid against BLOCK_DATA (summary-zod.ts).",
+  "format": "studiply-summary-v1",
+  "subjectType": "social",
+  "modulesUsed": ["timeline", "causeEffect", "keyFigures", "comparison", "process", "framework", "theoryCard", "caseCard", "argument", "code", "vocabulary", "workedExample"],
+  "appliedSettings": { "takeaways": 3, "targetWords": 900, "markStrength": 1, "selfTestCount": 3 },
+  "header": { "course": "Psicología del aprendizaje (check)", "title": "Tema 3 · El condicionamiento", "number": 3, "date": "2026-11-03", "professor": "Dr. Molina", "durationMin": 50, "builtFrom": ["notes", "audio"] },
+  "coverage": { "noteLines": 0, "noteLinesUsed": 0, "marks": 0, "marksUsed": 0 },
+  "takeaways": [
+    { "text": "El **condicionamiento clásico** asocia estímulos; el **operante** asocia conductas con sus consecuencias.", "fromMarkIds": [] },
+    { "text": "El modelo de **Rescorla-Wagner** predice cuánto se aprende en cada ensayo.", "fromMarkIds": [] },
+    { "text": "La **indefensión aprendida** muestra que también se aprende la falta de control.", "fromMarkIds": [] }
+  ],
+  "sections": [
+    {
+      "heading": "Historia del conductismo",
+      "timestamp": "0:00",
+      "cueQuestion": "¿Quiénes fundaron el estudio del condicionamiento y qué aportó cada uno?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "El estudio del **aprendizaje** pasó de la introspección a la observación de la conducta en apenas cuarenta años.", "keyTerms": ["aprendizaje"] },
+        {
+          "type": "timeline",
+          "events": [
+            { "date": "1897", "title": "Pavlov describe el reflejo condicionado", "detail": "Perros que salivan al oír el metrónomo que anuncia la comida.", "importance": "Primera prueba experimental de que se aprende por asociación." },
+            { "date": "1898", "title": "Ley del efecto de Thorndike", "detail": "Los gatos escapan cada vez más rápido de la caja problema.", "importance": "Las consecuencias de una conducta cambian su probabilidad." },
+            { "date": "1913", "title": "Manifiesto conductista de Watson", "detail": "La psicología debe estudiar solo la conducta observable.", "importance": "Funda el conductismo como escuela." },
+            { "date": "1938", "title": "Skinner publica La conducta de los organismos", "detail": "Programas de reforzamiento con la caja de Skinner.", "importance": "Sistematiza el condicionamiento operante." }
+          ]
+        },
+        {
+          "type": "causeEffect",
+          "causes": ["Rechazo de la introspección por poco fiable", "Éxito de los experimentos con animales de Pavlov y Thorndike"],
+          "event": "Nace el **conductismo** como escuela dominante (1913)",
+          "effects": ["La psicología se centra en estímulos y respuestas medibles", "Se desarrollan terapias de conducta en los años 50"]
+        },
+        {
+          "type": "keyFigures",
+          "people": [
+            { "name": "Iván Pávlov", "role": "Fisiólogo ruso", "did": "Describió el condicionamiento clásico", "why": "Mostró que el aprendizaje se puede medir" },
+            { "name": "Edward Thorndike", "role": "Psicólogo estadounidense", "did": "Formuló la ley del efecto", "why": "Base del condicionamiento operante" },
+            { "name": "B. F. Skinner", "role": "Psicólogo estadounidense", "did": "Estudió los programas de reforzamiento", "why": "Aplicado a la educación y la terapia" }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Clásico frente a operante",
+      "timestamp": "12:30",
+      "cueQuestion": "¿En qué se diferencian el condicionamiento clásico y el operante?",
+      "markChips": [],
+      "blocks": [
+        {
+          "type": "comparison",
+          "items": ["Condicionamiento clásico", "Condicionamiento operante"],
+          "criteria": [
+            { "name": "Qué se asocia", "values": ["Dos estímulos (EC y EI)", "Una conducta y su consecuencia"] },
+            { "name": "Tipo de respuesta", "values": ["Refleja, involuntaria", "Voluntaria"] },
+            { "name": "Autor clave", "values": ["Pávlov", "Skinner"] }
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
+            { "name": "Adquisición", "input": "EC emparejado con EI", "output": "Respuesta condicionada (RC)" },
+            { "name": "Extinción", "input": "EC presentado sin EI", "output": "La RC disminuye" },
+            { "name": "Recuperación espontánea", "input": "Pausa tras la extinción", "output": "La RC reaparece, más débil" }
+          ]
+        },
+        {
+          "type": "framework",
+          "name": "DAFO",
+          "cells": [
+            { "label": "Fortalezas", "content": "La terapia de exposición tiene mucha evidencia en fobias." },
+            { "label": "Debilidades", "content": "Al principio genera ansiedad y algunos pacientes abandonan." },
+            { "label": "Oportunidades", "content": "La realidad virtual permite exponer sin salir de la consulta." },
+            { "label": "Amenazas", "content": "Las recaídas si no se generaliza a otros contextos." }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Teorías y casos",
+      "timestamp": "24:10",
+      "cueQuestion": "¿Qué teorías y casos explican el aprendizaje emocional?",
+      "markChips": [],
+      "blocks": [
+        { "type": "theoryCard", "author": "Seligman y Maier", "year": 1967, "claim": "Los animales que no pueden controlar las descargas dejan de intentar escapar.", "method": "Perros expuestos a descargas evitables o inevitables y luego a una caja de escape.", "finding": "Los del grupo inevitable no escapaban aunque pudieran.", "critique": "Hoy se explica más por la falta de aprendizaje de control que por aprender indefensión." },
+        { "type": "caseCard", "facts": "Watson y Rayner asocian un ruido fuerte con una rata blanca en un bebé de 11 meses.", "question": "¿Se puede condicionar el miedo en un ser humano?", "decision": "Sí: el niño llora al ver la rata y también ante objetos parecidos.", "reasoning": "La rata (EC) se emparejó con el ruido (EI) hasta provocar miedo (RC); hubo generalización.", "lesson": "El miedo se aprende y se generaliza; hoy el estudio no superaría un comité de ética." },
+        {
+          "type": "argument",
+          "claim": "Todo aprendizaje se reduce al condicionamiento.",
+          "premises": ["Muchas conductas complejas se explican por cadenas de refuerzos.", "Los mismos principios funcionan en especies distintas."],
+          "objections": [
+            { "objection": "Los niños aprenden a hablar sin refuerzo de cada frase.", "reply": "El refuerzo social es continuo, aunque no sea explícito." },
+            { "objection": "Las ratas de Tolman aprendían mapas sin recompensa.", "reply": "Aprendizaje latente: el refuerzo afecta a la ejecución, no al aprendizaje." }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "El modelo de Rescorla-Wagner",
+      "timestamp": "38:00",
+      "cueQuestion": "¿Cómo calcula el modelo cuánto se aprende en cada ensayo?",
+      "markChips": [],
+      "blocks": [
+        { "type": "workedExample", "problem": "Con $\\alpha\\beta = 0{,}3$ y $\\lambda = 1$, ¿cuánto vale la fuerza asociativa $V$ tras dos ensayos, empezando en $V = 0$?", "steps": [{ "do": "Ensayo 1: $\\Delta V = 0{,}3 \\cdot (1 - 0) = 0{,}3$, así que $V = 0{,}3$.", "why": "Se aprende más cuanto mayor es la sorpresa ($\\lambda - V$)." }, { "do": "Ensayo 2: $\\Delta V = 0{,}3 \\cdot (1 - 0{,}3) = 0{,}21$, así que $V = 0{,}51$.", "why": "La sorpresa ya es menor, el aumento también." }], "answer": "$V = 0{,}51$ tras dos ensayos." },
+        { "type": "code", "language": "Python", "code": "alpha_beta, lam = 0.3, 1.0\nV = 0.0\nfor trial in range(1, 4):\n    V += alpha_beta * (lam - V)  # sorpresa: lam - V\n    print(trial, round(V, 2))", "output": "1 0.3\n2 0.51\n3 0.66" },
+        {
+          "type": "vocabulary",
+          "entries": [
+            { "term": "Estímulo condicionado (EC)", "meaning": "conditioned stimulus (CS)", "example": "El metrónomo se convirtió en un EC." },
+            { "term": "Refuerzo negativo", "meaning": "negative reinforcement", "example": "Quitar un ruido molesto es un refuerzo negativo." },
+            { "term": "Extinción", "meaning": "extinction", "example": "Sin comida, la salivación entra en extinción." }
+          ]
+        }
+      ]
+    }
+  ],
+  "glossary": [{ "term": "Condicionamiento clásico", "definition": "Aprendizaje por asociación de dos estímulos." }],
+  "examSignals": [],
+  "questionsDuringClass": [],
+  "selfTest": [
+    { "question": "¿Qué se asocia en el condicionamiento operante?", "kind": "recall", "answer": "Una conducta y su consecuencia.", "fromMarkId": "" },
+    { "question": "¿Por qué el aumento de V es menor en cada ensayo?", "kind": "why", "answer": "Porque la sorpresa (λ − V) disminuye.", "fromMarkId": "" },
+    { "question": "Calcula V tras el tercer ensayo.", "kind": "calculate", "answer": "0,66", "fromMarkId": "" }
+  ],
+  "flashcards": [{ "front": "Ley del efecto", "back": "Thorndike, 1898" }],
+  "logistics": [],
+  "unclear": []
+}

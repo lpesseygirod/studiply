@@ -619,7 +619,37 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - **Fixture:** `scripts/fixtures/synthetic-tema2-lecture.ts` (20 min, the lecture after Tema 1; TypeScript so Deno and Jest share it, its planted sentences exported): new material, Tema 1's definition said again, an exam statement about Tema 1's five questions, a correction (Darwin and Wallace). The earlier `.mjs` copy is unused: for `_to_delete/` (Lea).
 
 ## Phase 8 — Visuals and PDF (`phase-8-visuals`)
-- [ ] 8.1 — Text modules (timeline, cause-effect, tables, cards…)
+- [x] 8.1 — Text modules (timeline, cause-effect, tables, cards…). **Done (31 Oct), verified by the advisor.**
+  - **Verified:** `npm run check` (2,418 tests), `check:bundle`, `test:db`, `editor:build`, `modules.mjs` 6/6 (composites judged against the module library: no mockup exists), and all other Chrome suites. No paid call.
+  - **Still for Lea:** the look on her iPhone with real summaries (no new EAS build: the development build loads the new editor bundle through Metro); decisions 1–6 below.
+  - **Noted for later:** plain 4.x tables (fixed layout, for column resizing) can still split long words at 390. Module tables don't.
+  - **One new editor block, `studyModule`** (`src/editor/schema/studyModule.ts`, both editors): `kind` (the 12) and `title` (a framework's name, a code module's language).
+    - It's a top-level box with a drawn label ("TIMELINE", "FRAMEWORK · DAFO", "CODE · PYTHON"), holding ordinary paragraphs, lists and a table. The editor's CSS lays each kind out from the document colours (`DocColors.module`).
+    - Every word stays text: edited in place, found, commented on, asked about. No form; not in the Insert menu.
+    - Its own id, origin and edit time (blockMeta): an edit inside makes it hers, and the 7.7 merge keeps it.
+    - It moves whole between pages (page view) and in the PDF (`break-inside: avoid`).
+    - Word: a shaded box with its label, then its content as usual.
+    - Its HTML round-trips: a code module keeps its indentation.
+    - It's a group for screen readers (`role="group"`, aria-label "Framework grid: DAFO"); lines, dots and arrows are drawn only.
+  - **The 12 kinds** (SUMMARY-SPEC module library):
+    - **Timeline:** an accent line with a dot per event: "date · title", the detail, its importance in italic (7.7 dropped the importance).
+    - **Cause → effect:** Causes ↓ Event ↓ Effects, stacked boxes.
+    - **Key figures, comparison, vocabulary:** tables with thin horizontal rules only and a semibold header (Person · Role · What they did · Why it matters; items as columns; Term · Meaning · Example).
+      - **No word is ever split mid-word** (advisor review, 31 Oct): columns are sized by their content (at least the longest word, and 5.5em), and a table wider than its box scrolls sideways inside it at 390.
+      - **4.x tables** (fixed layout for column resizing) can still split long words at 390. Changing them touches resizing, so it's noted for Lea and the advisor rather than changed in 8.1.
+    - **Process:** numbered stages joined by a line, "In: … → Out: …" under each.
+    - **Framework:** a 2-column grid of cells, each label in bold and the class example under it.
+    - **Theory and case cards:** labelled fields; the case's Lesson tinted.
+    - **Argument:** the claim boxed, supporting premises (green rule), objections with their replies (red rule).
+    - **Code:** code-marked lines in monospace on a grey panel, then "Output" and the output's lines (no syntax colours).
+    - **Worked example:** problem, steps (each "do" and its "why"), the answer boxed.
+    - The app's words (labels, headers, field names) are English; Claude's text stays in the lecture's language.
+  - **The converter** (`src/lib/summaryDoc.ts`) writes one module per stored block. Summaries already written keep their 7.7 tables and lists until written again.
+  - **No notes and no marks in class:** the first line is one plain line, "No notes or marks were taken in class", not "All your notes are in this summary · 0 of 0…" (advisor review). It has no link, and the same id, so the banner still knows the tab holds a summary.
+  - **Tests:**
+    - **Jest:** `summaryModules.test.ts` on a hand-made fixture with all 12 (`src/test-utils/summary-modules.json`, synthetic Spanish, valid against BLOCK_DATA). It checks each one in its section and order, valid for both editors, what each holds, the label and group name, the HTML round trip (code indentation), the CSS, an edit making it hers, the merge keeping it, and Extend's anchors.
+    - Also: the 7.7 converter tests updated (the synthetic 90-min summary's 12 modules; every block type), Word export, the contrast of the module colours, and the schema defaults.
+    - **Chrome:** `modules.mjs` (in my scratchpad; no paid call).
 - [ ] 8.2 — Formulas and graphs (KaTeX, function plots, model templates, data charts)
 - [ ] 8.3 — PDF export (A4/Letter, embedded fonts/KaTeX, answers last page, options sheet)
 
@@ -705,6 +735,13 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 8.1 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **No new dependency of any kind.** The code module is code-marked lines (as 7.7), monospace, with its language in the label, then "Output" the same way. **Suggestion for Lea:** syntax colours (`lowlight`) and a real code block (`@tiptap/extension-code-block`, today only installed through TenTap) later, with her OK.
+  2. **Summaries already written are untouched** until they're written again (then the untouched blocks become modules; her edited ones stay).
+  3. **The modules aren't in the Insert menu** (8.1 renders the summary's).
+  4. **Cause → effect top-to-bottom** (stacked boxes, ↓) on both devices.
+  5. **No mockup shows the modules:** the advisor judges the look from the composites against the module library; Lea reviews later.
+  6. **Module tables never split a word** (columns by content, a scroll box when wider); **a lecture with no notes and no marks** starts with "No notes or marks were taken in class" (advisor review).
 - **Step 7.9 (the advisor's decisions, 31 Oct, for Lea to confirm):**
   1. **Extend has both targets:** "A new Unit summary" (the default) and "Add to this summary".
   2. **The exam pack is built from the stored summaries,** not the transcripts (cheaper; cap 15 lectures / 40k words).

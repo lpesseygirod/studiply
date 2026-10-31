@@ -164,18 +164,25 @@ describe('the 90-min synthetic lecture’s summary', () => {
     expect(ofKind(doc, 'fromNotes').flatMap((b) => String(b.attrs?.noteIds).split(','))).toHaveLength(15);
   });
 
-  it('comparison, vocabulary and key figures as tables; a process as steps; a case card; a time range’s start', () => {
-    const tables = doc.content.filter((b) => b.type === 'table') as N[];
-    expect(tables.length).toBe(9);
-    const comparison = tables[0];
+  it('its text modules (8.1): comparison, key figures and vocabulary tables with a header row, process steps, a case card; a time range’s start', () => {
+    const modules = doc.content.filter((b) => b.type === 'studyModule') as N[];
+    const count = (kind: string) => modules.filter((m) => m.attrs?.kind === kind).length;
+    expect({ comparison: count('comparison'), keyFigures: count('keyFigures'), vocabulary: count('vocabulary'), process: count('process'), caseCard: count('caseCard') }).toEqual({ comparison: 4, keyFigures: 3, vocabulary: 2, process: 2, caseCard: 1 });
+    // One block each, the stored block's place as its id, written by the AI.
+    expect(modules.every((m) => /^sm[0-9a-z]{8}-s\d+-b\d+$/.test(String(m.attrs?.blockId)) && m.attrs?.origin === 'ai')).toBe(true);
+    const comparison = modules.find((m) => m.attrs?.kind === 'comparison')!.content![0];
+    expect(comparison.type).toBe('table');
     expect(comparison.content![0].content!.map((c) => c.type)).toEqual(['tableHeader', 'tableHeader', 'tableHeader']);
     expect(comparison.content![0].content!.map((c) => textOf(c))).toEqual(['', 'SNC', 'SNP']);
     expect(comparison.content![1].content![0].content![0].content![0].marks).toEqual([{ type: 'bold' }]);
-    const vocabulary = tables.find((t) => textOf(t).startsWith('Glutamato'))!;
-    expect(vocabulary.content).toHaveLength(7);
-    expect(vocabulary.content![0].content![0].type).toBe('tableCell');
-    const process = doc.content.find((b) => b.type === 'orderedList' && textOf(b).startsWith('Dendritas'))!;
-    expect(textOf(process.content![0])).toBe('Dendritas (Señales de otras neuronas → Señal hacia el soma)');
+    const vocabulary = modules.find((m) => m.attrs?.kind === 'vocabulary' && textOf(m).includes('Glutamato'))!.content![0];
+    expect(vocabulary.content![0].content!.map((c) => textOf(c))).toEqual(['Term', 'Meaning', 'Example']);
+    expect(vocabulary.content).toHaveLength(8);
+    const figures = modules.find((m) => m.attrs?.kind === 'keyFigures')!.content![0];
+    expect(figures.content![0].content!.map((c) => textOf(c))).toEqual(['Person', 'Role', 'What they did', 'Why it matters']);
+    const process = modules.find((m) => m.attrs?.kind === 'process' && textOf(m).startsWith('Dendritas'))!.content![0];
+    expect(process.type).toBe('orderedList');
+    expect(process.content![0].content!.map(textOf)).toEqual(['Dendritas', 'In: Señales de otras neuronas → Out: Señal hacia el soma']);
     const assistantConfused = ofKind(doc, 'confused').find((b) => b.attrs?.level === 6)!;
     expect(assistantConfused.attrs?.ms).toBe(1_800_000);
   });
@@ -200,10 +207,28 @@ describe('every block type (the 7.4 example)', () => {
     expect(later[0].content![1]).toEqual({ type: 'inlineMath', attrs: { latex: 'y = x^2 - 4' } });
   });
 
-  it('code in the code mark, a line each; a worked example; a timeline table; an argument', () => {
-    expect(doc.content.find((b) => textOf(b) === 'int x;')?.content![0].marks).toEqual([{ type: 'code' }]);
-    expect(ofKind(doc, 'example').some((b) => textOf(b).startsWith('Problem: p'))).toBe(true);
-    expect(doc.content.some((b) => b.type === 'table' && textOf(b).startsWith('1900'))).toBe(true);
+  it('the twelve text modules (8.1), each one block, in the stored order', () => {
+    const modules = doc.content.filter((b) => b.type === 'studyModule') as N[];
+    expect(modules.map((m) => m.attrs?.kind)).toEqual(['workedExample', 'timeline', 'causeEffect', 'keyFigures', 'comparison', 'process', 'framework', 'theoryCard', 'caseCard', 'argument', 'code', 'vocabulary']);
+    const of = (kind: string) => modules.find((m) => m.attrs?.kind === kind)!;
+    const parts = (kind: string) => of(kind).content!.map((c) => c.type);
+    // A worked example: its problem, its steps (each "do", then "why"), its answer.
+    expect(parts('workedExample')).toEqual(['paragraph', 'orderedList', 'paragraph']);
+    expect(of('workedExample').content!.map(textOf)).toEqual(['Problem: p', 'ab', 'Answer: c']);
+    expect(of('workedExample').content![1].content![0].content!.map(textOf)).toEqual(['a', 'b']);
+    // A timeline: an event per item: "date · title", the detail, its importance (italic, no longer lost).
+    expect(of('timeline').content![0].content![0].content!.map(textOf)).toEqual(['1900 · t', 'd', 'i']);
+    expect(parts('causeEffect')).toEqual(['bulletList', 'paragraph', 'bulletList']);
+    expect(of('causeEffect').content!.map(textOf)).toEqual(['c', 'e', 'f']);
+    expect(of('framework').attrs?.title).toBe('SWOT');
+    expect(of('framework').content![0].content![0].content![0].content!.map(textOf)).toEqual(['S', 'c']);
+    expect(of('theoryCard').content!.map(textOf)).toEqual(['Tinbergen (1963)', 'Claim: c', 'Method: m', 'Finding: f', 'Critique: k']);
+    expect(of('caseCard').content!.map(textOf)).toEqual(['Facts: f', 'Question: q', 'Decision: d', 'Reasoning: r', 'Lesson: l']);
+    expect(of('argument').content!.map(textOf)).toEqual(['c', 'Supporting premises', 'p', 'Objections', 'oReply: r']);
+    // Code: its lines in the code mark, the language in the label; no output, no Output line.
+    expect(of('code').attrs?.title).toBe('c');
+    expect(of('code').content!.map((c) => [textOf(c), c.content?.[0]?.marks])).toEqual([['int x;', [{ type: 'code' }]]]);
+    expect(of('vocabulary').content![0].content![1].content!.map(textOf)).toEqual(['t', 'm', 'e']);
   });
 });
 

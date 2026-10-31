@@ -15,6 +15,9 @@
  *   from one the student added.
  * - Visuals Phase 8 draws (function plots, model graphs; data charts the graph block can't take) are
  *   a placeholder line for now; the summary JSON stays in summaries.result, so 8.2 converts again.
+ * - Step 8.1: the twelve text modules (timeline, cause → effect, key figures, comparison, process,
+ *   framework, theory card, case card, argument, code, vocabulary, worked example) are each one
+ *   `studyModule` block (editor/schema/studyModule.ts) holding ordinary lists, tables and paragraphs.
  */
 
 import type { StoredSummary } from '../../supabase/functions/_shared/summary-pipeline';
@@ -54,7 +57,20 @@ export const WORDS = {
   cards: (n: number) => `${n} flashcard${n === 1 ? '' : 's'} saved for review`,
   notes: (u: number, t: number, mu: number, mt: number) => `${u} of ${t} lines and ${mu} of ${mt} marks used · shown in green as “From your notes”`,
   seeNotes: 'See them in My notes',
+  /** Step 8.1 (advisor): the first line when the lecture had no notes and no marks (no "All your notes…" box). */
+  noNotes: 'No notes or marks were taken in class',
   later: 'drawn in a later update',
+  // Step 8.1: the text modules' column headers and field names.
+  keyFigures: ['Person', 'Role', 'What they did', 'Why it matters'],
+  vocabulary: ['Term', 'Meaning', 'Example'],
+  input: 'In',
+  output: 'Out',
+  codeOutput: 'Output',
+  theory: { claim: 'Claim', method: 'Method', finding: 'Finding', critique: 'Critique' },
+  caseCard: { facts: 'Facts', question: 'Question', decision: 'Decision', reasoning: 'Reasoning', lesson: 'Lesson' },
+  premises: 'Supporting premises',
+  objections: 'Objections',
+  reply: 'Reply',
 };
 type Words = typeof WORDS;
 
@@ -188,43 +204,81 @@ function convertBlock(b: Block, w: Words): { nodes: Node[]; origin?: Origin | Or
       if (s('whenToUse')) content.push(para([bold(`${w.whenToUse}: `), ...inline(s('whenToUse'))]));
       return { nodes: [{ type: 'formulaCard', attrs: { title: w.formula }, content }] };
     }
+    // Step 8.1: the twelve text modules, each one `studyModule` block (lists, tables, paragraphs inside).
     case 'workedExample': {
-      const content = [para([bold(`${w.problem}: `), ...inline(s('problem'))])];
       const steps = arr<{ do: string; why: string }>('steps');
-      if (steps.length) content.push(list(steps.map((x) => [...inline(x.do), ...(x.why ? [text(' — '), ...inline(x.why)] : [])]), true));
-      if (s('answer')) content.push(para([bold(`${w.answer}: `), ...inline(s('answer'))]));
-      return { nodes: [{ type: 'callout', attrs: { kind: 'example' }, content }] };
+      return { nodes: textModule('workedExample', [labelled(w.problem, s('problem')), items(steps.map((x) => [p(x.do), ...(x.why ? [p(x.why)] : [])]), true), labelled(w.answer, s('answer'))]) };
     }
-    case 'timeline':
-      return { nodes: some(table(arr<{ date: string; title: string; detail: string }>('events').map((e) => [`**${e.date}**`, e.title, e.detail]), false)) };
+    case 'timeline': {
+      const events = arr<{ date: string; title: string; detail: string; importance: string }>('events');
+      return {
+        nodes: textModule('timeline', [
+          items(
+            events.map((e) => [
+              para([...(e.date ? [bold(e.date)] : []), ...(e.date && e.title ? [text(' · ')] : []), ...inline(e.title ?? '')]),
+              ...(e.detail ? [p(e.detail)] : []),
+              ...(e.importance ? [para([text(e.importance, [{ type: 'italic' }])])] : []),
+            ]),
+          ),
+        ]),
+      };
+    }
+    case 'causeEffect': {
+      const causes = arr<string>('causes');
+      const effects = arr<string>('effects');
+      return { nodes: textModule('causeEffect', [causes.length ? list(causes.map(inline)) : null, s('event') ? p(s('event')) : null, effects.length ? list(effects.map(inline)) : null]) };
+    }
     case 'keyFigures':
-      return { nodes: some(table(arr<{ name: string; role: string; did: string; why: string }>('people').map((x) => [`**${x.name}**`, x.role, x.did, x.why]), false)) };
+      return { nodes: textModule('keyFigures', [table([w.keyFigures, ...arr<{ name: string; role: string; did: string; why: string }>('people').map((x) => [`**${x.name}**`, x.role, x.did, x.why])], true)]) };
     case 'comparison': {
-      const items = arr<string>('items');
-      return { nodes: some(table([['', ...items], ...arr<{ name: string; values: string[] }>('criteria').map((c) => [`**${c.name}**`, ...items.map((_, i) => c.values[i] ?? '')])], true)) };
+      const columns = arr<string>('items');
+      return { nodes: textModule('comparison', [table([['', ...columns], ...arr<{ name: string; values: string[] }>('criteria').map((c) => [`**${c.name}**`, ...columns.map((_, i) => c.values[i] ?? '')])], true)]) };
     }
     case 'vocabulary':
-      return { nodes: some(table(arr<{ term: string; meaning: string; example: string }>('entries').map((e) => [`**${e.term}**`, e.meaning, e.example]), false)) };
-    case 'process':
-      return { nodes: [list(arr<{ name: string; input: string; output: string }>('steps').map((x) => [bold(x.name), text(x.input || x.output ? ` (${[x.input, x.output].filter(Boolean).join(' → ')})` : '')]), true)] };
-    case 'causeEffect':
-      return { nodes: [list([...arr<string>('causes').map(inline), [bold('→ '), ...inline(s('event'))], ...arr<string>('effects').map((e) => [text('→ '), ...inline(e)])])] };
-    case 'argument':
+      return { nodes: textModule('vocabulary', [table([w.vocabulary, ...arr<{ term: string; meaning: string; example: string }>('entries').map((e) => [`**${e.term}**`, e.meaning, e.example])], true)]) };
+    case 'process': {
+      const steps = arr<{ name: string; input: string; output: string }>('steps');
       return {
-        nodes: [p(`**${s('claim')}**`), list([...arr<string>('premises').map(inline), ...arr<{ objection: string; reply: string }>('objections').map((o) => [text('✗ '), ...inline(o.objection), text(' — '), ...inline(o.reply)])])],
+        nodes: textModule('process', [
+          items(
+            steps.map((x) => [
+              para(inline(x.name)),
+              ...(x.input || x.output ? [para([text(`${w.input}: `), ...inline(x.input || '—'), text(` → ${w.output}: `), ...inline(x.output || '—')])] : []),
+            ]),
+            true,
+          ),
+        ]),
       };
-    case 'theoryCard':
-      return { nodes: [para([bold(`${s('author')}${b.year ? ` (${b.year})` : ''}`)]), list(['claim', 'method', 'finding', 'critique'].filter((k) => s(k)).map((k) => inline(s(k))))] };
-    case 'caseCard':
-      return { nodes: [list(['facts', 'question', 'decision', 'reasoning', 'lesson'].filter((k) => s(k)).map((k) => inline(s(k))))] };
+    }
     case 'framework':
-      return { nodes: [para([bold(s('name'))]), list(arr<{ label: string; content: string }>('cells').map((c) => [bold(`${c.label}: `), ...inline(c.content)]))] };
+      return { nodes: textModule('framework', [gridTable(arr<{ label: string; content: string }>('cells'))], s('name')) };
+    case 'theoryCard': {
+      const who = `${s('author')}${b.year ? ` (${b.year})` : ''}`;
+      const t = w.theory;
+      return { nodes: textModule('theoryCard', [who ? para([bold(who)]) : null, labelled(t.claim, s('claim')), labelled(t.method, s('method')), labelled(t.finding, s('finding')), labelled(t.critique, s('critique'))]) };
+    }
+    case 'caseCard': {
+      const c = w.caseCard;
+      return { nodes: textModule('caseCard', [labelled(c.facts, s('facts')), labelled(c.question, s('question')), labelled(c.decision, s('decision')), labelled(c.reasoning, s('reasoning')), labelled(c.lesson, s('lesson'))]) };
+    }
+    case 'argument': {
+      const premises = arr<string>('premises');
+      const objections = arr<{ objection: string; reply: string }>('objections');
+      return {
+        nodes: textModule('argument', [
+          s('claim') ? p(s('claim')) : null,
+          ...(premises.length ? [para([bold(w.premises)]), list(premises.map(inline))] : []),
+          ...(objections.length ? [para([bold(w.objections)]), items(objections.map((o) => [p(o.objection), ...(o.reply ? [labelled(w.reply, o.reply)!] : [])]))] : []),
+        ]),
+      };
+    }
+    case 'code': {
+      // The code as code-marked lines, monospace (no syntax colours, advisor 8.1); its language in the label.
+      const lines = (value: string) => value.replace(/\n+$/, '').split('\n').map((line) => para(line ? [text(line, [{ type: 'code' }])] : []));
+      return { nodes: textModule('code', [...(s('code') ? lines(s('code')) : []), ...(s('output') ? [para([bold(w.codeOutput)]), ...lines(s('output'))] : [])], s('language')) };
+    }
     case 'conceptMap':
       return { nodes: [para([bold(s('center'))]), list(arr<{ from: string; to: string; label: string }>('links').map((l) => [text(`${l.from} → ${l.to}${l.label ? ` (${l.label})` : ''}`)]))] };
-    case 'code':
-      return {
-        nodes: [...s('code').split('\n').map((line) => para(line ? [text(line, [{ type: 'code' }])] : [])), ...(s('output') ? [para([text(s('output'), [{ type: 'code' }])])] : [])],
-      };
     case 'dataChart':
       return { nodes: [dataChart(b) ?? placeholder(`${s('title') || 'Chart'}`, w)] };
     case 'functionPlot': {
@@ -256,7 +310,25 @@ function table(rows: string[][], header: boolean): Node | null {
     })),
   };
 }
-const some = (n: Node | null): Node[] => (n ? [n] : []);
+/** A text module (step 8.1) with what it holds; nothing when it holds nothing. */
+function textModule(kind: string, content: (Node | null)[], title = ''): Node[] {
+  const kept = content.filter((c): c is Node => !!c);
+  return kept.length ? [{ type: 'studyModule', attrs: { kind, ...(title.trim() && { title: title.trim() }) }, content: kept }] : [];
+}
+/** "**Claim:** …" (app word, Claude's text); nothing when there is no text. */
+const labelled = (label: string, value: string): Node | null => (value ? para([bold(`${label}: `), ...inline(value)]) : null);
+/** A list whose items hold several paragraphs (a step and its why); nothing when empty. */
+const items = (entries: Node[][], ordered = false): Node | null =>
+  entries.length ? { type: ordered ? 'orderedList' : 'bulletList', content: entries.map((ps) => ({ type: 'listItem', content: ps.length ? ps : [para([])] })) } : null;
+/** A framework's cells, two per row (SWOT's 2×2): each its label in bold, then the class example. */
+function gridTable(cells: { label: string; content: string }[]): Node | null {
+  const kept = cells.filter((c) => c.label.trim() || c.content.trim());
+  if (!kept.length) return null;
+  const cell = (c?: { label: string; content: string }): Node => ({ type: 'tableCell', content: c ? [para(c.label ? [bold(c.label)] : []), p(c.content)] : [para([])] });
+  const rows: Node[] = [];
+  for (let i = 0; i < kept.length; i += 2) rows.push({ type: 'tableRow', content: [cell(kept[i]), cell(kept[i + 1])] });
+  return { type: 'table', content: rows };
+}
 
 /** A data chart as the graph block (4.7d) when it can take it: line, or bars. */
 function dataChart(b: Block): Node | null {
@@ -297,7 +369,10 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [], check 
   // The page's header (the gradient line, the title, the meta line) is the screen's (DocumentHeader), on
   // every tab: the summary starts with the notes check line, under the title (desktop-03).
   const c = s.coverage;
-  if (check) add('check', {
+  // No notes and no marks in class: one plain line, no "All your notes are in this summary" box, no link
+  // (same place and id, so the banner and the iPhone's buttons still know the tab holds a summary).
+  if (check && c.noteLines === 0 && c.marks === 0) add('check', para([text(w.noNotes, [{ type: 'italic' }])]));
+  else if (check) add('check', {
     type: 'callout',
     attrs: { kind: 'notesCheck' },
     content: [

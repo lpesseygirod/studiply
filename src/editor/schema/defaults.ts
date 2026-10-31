@@ -27,6 +27,7 @@ export const ATTR_DEFAULTS: Record<string, Record<string, unknown>> = {
   callout: { origin: 'student', kind: 'definition' },
   formulaCard: { origin: 'student', title: '' },
   graph: { origin: 'student', kind: 'bar', title: '', xLabel: '', yLabel: '', series: ['Series 1'], rows: [['Item 1', '3'], ['Item 2', '5'], ['Item 3', '2']] },
+  studyModule: { origin: 'student', kind: 'timeline', title: '' },
   markChip: { kind: 'important' },
   link: { target: '_blank', rel: 'noopener noreferrer nofollow' },
   comment: { text: '', createdAt: 0, resolved: false },
