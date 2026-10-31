@@ -14,7 +14,10 @@
  *  - faithfulness: every number, date and formula found in the lecture (transcript, notes, the
  *    assistant's answers), Spanish and English number formats and words, LaTeX normalised; what code
  *    can't find goes to one verify call (found / corrected / added), never auto-failed;
- *  - language: stopword ratios, no dependency.
+ *  - language: stopword ratios, no dependency;
+ *  - step 8.2: each data chart value is a number for faithfulness; one still not found after the verify
+ *    call is taken out of its chart and listed under unclear (a chart left with < 2 values goes); the
+ *    photos given are put once each in the section at their time, by code.
  *
  * "Regenerate only the failed part" (planParts): a section written again (language, length, a missing
  * confusedHere), the lists written again (takeaways, self-test, flashcards), or the verify call; at most
@@ -360,11 +363,124 @@ export function checkedTexts(s: StoredSummary): CheckedText[] {
   return out;
 }
 
+type ChartSeries = { name: string; points: { x: string; y: number }[] };
+const seriesOf = (b: Block) => (Array.isArray(b.series) ? (b.series as ChartSeries[]) : []);
+
+/** A data chart's value: where it is, and the line the verify call reads ("Chart “Ventas”: 2021, 7.5"). */
+export interface ChartValue {
+  path: string;
+  value: string;
+  y: number;
+  sentence: string;
+}
+
+/** Step 8.2: every data chart's values (BUILD-PLAN: "data charts only from numbers in the transcript"). */
+export function chartValues(s: StoredSummary): ChartValue[] {
+  const out: ChartValue[] = [];
+  sectionsOf(s).forEach((x, si) =>
+    x.blocks.forEach((b, bi) => {
+      if (b.type !== 'dataChart') return;
+      seriesOf(b).forEach((se, k) =>
+        (Array.isArray(se?.points) ? se.points : []).forEach((p, l) => {
+          if (typeof p?.y !== 'number' || !Number.isFinite(p.y)) return;
+          const name = se.name ? `${se.name}, ` : '';
+          out.push({ path: `sections[${si}].blocks[${bi}].series[${k}].points[${l}].y`, value: String(p.y), y: p.y, sentence: `Chart “${String(b.title ?? '')}”: ${name}${p.x}: ${p.y}` });
+        }),
+      );
+    }),
+  );
+  return out;
+}
+
+const valueFound = (y: number, src: Sources, confirmed: Set<string>) => src.numbers.has(round(y)) || confirmed.has(`number:${y}`);
+
+/**
+ * Step 8.2: a chart value neither found in the lecture by code nor confirmed by the verify call (or
+ * corrected by it) is taken out of its chart and listed under unclear; a series left empty goes, and
+ * a chart with fewer than 2 values (left, or as written) goes. Nothing else is changed.
+ */
+export function fixCharts(s: StoredSummary, src: Sources, confirmed: Set<string>): { summary: StoredSummary; removed: string[]; chartsRemoved: number } {
+  const out = clone(s);
+  const removed: string[] = [];
+  let chartsRemoved = 0;
+  const unclear = (out.unclear ?? []) as { timestamp: string; note: string }[];
+  for (const sec of sectionsOf(out)) {
+    sec.blocks = sec.blocks.filter((b) => {
+      if (b.type !== 'dataChart') return true;
+      const series = seriesOf(b)
+        .map((se) => ({
+          ...se,
+          points: (Array.isArray(se?.points) ? se.points : []).filter((p) => {
+            if (typeof p?.y === 'number' && valueFound(p.y, src, confirmed)) return true;
+            const line = `${se.name ? `${se.name}, ` : ''}${p?.x ?? ''}: ${p?.y ?? ''}`;
+            removed.push(line);
+            unclear.push({ timestamp: String(b.timestamp ?? ''), note: `A value the lecture doesn't give, left out of the chart “${String(b.title ?? '')}”: ${line}` });
+            return false;
+          }),
+        }))
+        .filter((se) => se.points.length > 0);
+      b.series = series;
+      const kept = series.reduce((n, se) => n + se.points.length, 0) >= 2;
+      if (!kept) chartsRemoved += 1;
+      return kept;
+    });
+  }
+  if (!removed.length && !chartsRemoved) return { summary: s, removed, chartsRemoved };
+  out.unclear = unclear;
+  return { summary: out, removed, chartsRemoved };
+}
+
+// ---------- photos at their time (8.2) ----------
+
+/**
+ * Step 8.2: every photo the summary was given (photos ticked) once, in the section whose time holds its
+ * own: a missing one added at the end of that section (no caption), a misplaced one moved to the end of
+ * it with its caption, a second copy or an id it wasn't given left out. Its time is the photo's own.
+ */
+export function fixPhotos(s: StoredSummary, m: LectureMaterial): { summary: StoredSummary; fixed: string[] } {
+  const sections = sectionsOf(s);
+  if (!sections.length) return { summary: s, fixed: [] };
+  const byId = new Map(m.photos.map((ph) => [ph.id, ph]));
+  const placedRight = (id: string, si: number) => si === sectionAt(sections, byId.get(id)!.tMs ?? null);
+  // Where each photo is now, right section first.
+  const found = new Map<string, { si: number; bi: number }[]>();
+  sections.forEach((x, si) => x.blocks.forEach((b, bi) => b.type === 'capturedImage' && found.set(String(b.imageId), [...(found.get(String(b.imageId)) ?? []), { si, bi }])));
+  const ok = [...byId.keys()].every((id) => found.get(id)?.length === 1 && placedRight(id, found.get(id)![0].si)) && [...found.keys()].every((id) => byId.has(id));
+  if (ok) return { summary: s, fixed: [] };
+  const out = clone(s);
+  const outSections = sectionsOf(out);
+  const fixed: string[] = [];
+  const captions = new Map<string, string>();
+  // The copies left out ("section:block"); one in the right section stays, at the photo's own time.
+  const drop = new Set<string>();
+  for (const [id, places] of found) {
+    const keep = byId.has(id) ? (places.find((p) => placedRight(id, p.si)) ?? null) : null;
+    if (byId.has(id) && (!keep || places.length > 1)) fixed.push(id);
+    const first = places.find((p) => String(sections[p.si].blocks[p.bi].caption ?? '').trim());
+    if (first) captions.set(id, String(sections[first.si].blocks[first.bi].caption));
+    for (const p of places) if (p !== keep) drop.add(`${p.si}:${p.bi}`);
+    if (keep) outSections[keep.si].blocks[keep.bi].timestamp = byId.get(id)!.tMs === null ? '' : stamp(byId.get(id)!.tMs!);
+  }
+  outSections.forEach((sec, si) => (sec.blocks = sec.blocks.filter((_, bi) => !drop.has(`${si}:${bi}`))));
+  for (const ph of m.photos) {
+    const kept = outSections.some((x) => x.blocks.some((b) => b.type === 'capturedImage' && b.imageId === ph.id));
+    if (kept) continue;
+    if (!found.has(ph.id)) fixed.push(ph.id);
+    outSections[sectionAt(outSections, ph.tMs)].blocks.push({ type: 'capturedImage', imageId: ph.id, timestamp: ph.tMs === null ? '' : stamp(ph.tMs), caption: captions.get(ph.id) ?? '' });
+  }
+  return { summary: out, fixed };
+}
+
 export function faithfulness(s: StoredSummary, src: Sources): { checked: number; found: number; unverified: Unverified[] } {
   const unverified: Unverified[] = [];
   let checked = 0;
   const add = (kind: Unverified['kind'], value: string, path: string, text: string) =>
     unverified.push({ id: `u${unverified.length + 1}`, kind, value, path, sentence: sentenceOf(text, value) });
+  // Step 8.2: each data chart value, found in the lecture's numbers (else to the verify call).
+  for (const v of chartValues(s)) {
+    checked += 1;
+    if (!src.numbers.has(round(v.y))) unverified.push({ id: `u${unverified.length + 1}`, kind: 'number', value: v.value, path: v.path, sentence: v.sentence });
+  }
   for (const { path, text, latex, exercise } of checkedTexts(s)) {
     // Exercise content: its numbers, dates and formulas are made up to practise on.
     if (exercise) continue;
@@ -464,6 +580,10 @@ export interface CheckReport {
   length: { pass: boolean; words: number; target: number; min: number; max: number };
   faithfulness: { pass: boolean; checked: number; found: number; unverified: Unverified[]; corrected: number; labelled: number };
   language: { pass: boolean; expected: string | null; detected: string | null; offBlocks: { section: number; block: number; detected: string }[] };
+  /** Step 8.2 (not in older reports): data chart values (checked in faithfulness); `removed` / `chartsRemoved` by fixCharts. */
+  charts?: { values: number; removed: string[]; chartsRemoved: number };
+  /** Step 8.2 (not in older reports): the photos given, once each in the section at their time (fixed by code). */
+  photos?: { pass: boolean; total: number; misplaced: string[]; fixedByCode: string[] };
   regenerations: { part: string; reason: string; ok: boolean }[];
 }
 
@@ -473,6 +593,8 @@ export interface CheckOptions {
   hasHighMarks: boolean;
   /** False for an output saved before its fixture had stable mark ids (the marks can't be compared). */
   marksComparable?: boolean;
+  /** Step 8.2: the photos were ticked (each must be in the summary); default false. */
+  photos?: boolean;
 }
 
 /** Every check on a stored summary (no fixes, no calls). */
@@ -488,6 +610,7 @@ export function runChecks(s: StoredSummary, m: LectureMaterial, plan: SummaryPla
   const bounds = lengthBounds(o.targetWords ?? Number((s.appliedSettings as { targetWords?: number })?.targetWords ?? 0), o.hasHighMarks);
   const faith = faithfulness(s, sourcesOf(m));
   const lang = languageCheck(s, m.summaryLanguage ?? m.language);
+  const misplaced = o.photos ? fixPhotos(s, m).fixed : [];
   return {
     version: 1,
     schema: { pass: shape.success, errors: shape.success ? [] : issueLines(shape.error).slice(0, 10) },
@@ -496,6 +619,8 @@ export function runChecks(s: StoredSummary, m: LectureMaterial, plan: SummaryPla
     length: { pass: bounds.target === 0 || (words >= bounds.min && words <= bounds.max), words, ...bounds },
     faithfulness: { pass: faith.unverified.length === 0, ...faith, corrected: 0, labelled: 0 },
     language: lang,
+    charts: { values: chartValues(s).length, removed: [], chartsRemoved: 0 },
+    photos: { pass: misplaced.length === 0, total: o.photos ? m.photos.length : 0, misplaced, fixedByCode: [] },
     regenerations: [],
   };
 }
@@ -738,11 +863,24 @@ export function applyVerdicts(s: StoredSummary, items: Unverified[], verdicts: {
   const out = clone(s);
   let corrected = 0;
   let labelled = 0;
+  // Step 8.2: chart values the verify call corrected (fixCharts keeps them as confirmed).
+  const confirmed: string[] = [];
   const moves: { section: number; block: number; sentences: string[] }[] = [];
   for (const v of verdicts) {
     const item = items.find((u) => u.id === v.id);
     if (!item || v.verdict === 'found') continue;
     const place = at(out, item.path);
+    // A chart value: "corrected" writes the lecture's number when it reads one way only; "added" is left to fixCharts.
+    if (place && typeof place.parent[place.key] === 'number') {
+      const readings = v.verdict === 'corrected' ? numberReadings(v.replacement.trim().replace(/^-/, '')) : [];
+      if (readings.length === 1) {
+        const y = v.replacement.trim().startsWith('-') ? -readings[0] : readings[0];
+        place.parent[place.key] = y;
+        confirmed.push(`number:${y}`);
+        corrected += 1;
+      }
+      continue;
+    }
     if (!place || typeof place.parent[place.key] !== 'string') continue;
     const text = place.parent[place.key] as string;
     if (v.verdict === 'corrected' && v.replacement.trim() && text.includes(item.value)) {
@@ -768,7 +906,7 @@ export function applyVerdicts(s: StoredSummary, items: Unverified[], verdicts: {
     sec.blocks.splice(rest ? mv.block + 1 : mv.block, rest ? 0 : 1, { type: 'callout', kind: 'addedContext', text: sentences.join(' ') });
     labelled += sentences.length;
   }
-  return { summary: out, corrected, labelled };
+  return { summary: out, corrected, labelled, confirmed };
 }
 
 /** The guide of block fields, re-exported for the part prompts' readers. */

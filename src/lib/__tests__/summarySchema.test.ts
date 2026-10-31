@@ -120,7 +120,16 @@ describe('the block shapes (zod)', () => {
     expect(guide[0]).toBe('- paragraph: { text: string, keyTerms: [string] }');
     expect(guide).toContain('- fromNotes: { noteIds: [string], t: string }');
     expect(guide).toContain('- theoryCard: { author: string, year: integer, claim: string, method: string, finding: string, critique: string }');
-    expect(guide).toContain('- modelGraph: { template: "supplyDemand" | "islm" | "normalCurve" | "costCurves", shifts: [{ curve: string, direction: "left" | "right" }], title: string }');
+    expect(guide).toContain('- modelGraph: { template: "supplyDemand" | "islm" | "normalCurve" | "costCurves", shifts: [{ curve: string (D or S; IS or LM; N; MC, ATC or AVC), direction: "left" | "right" }], title: string }');
+  });
+
+  it('step 8.2: the function plot’s fields carry the expression grammar (prompt text only: the API sends data as a string)', () => {
+    const line = blockGuide().split('\n').find((l) => l.startsWith('- functionPlot: '))!;
+    expect(line).toBe(
+      '- functionPlot: { expression: string (y in terms of x only: numbers, x, + - * / ^ ( ), pi, e, sin cos tan exp ln log sqrt abs with parentheses; write 2*x not 2x, sin(x) not sin x; -x^2 means -(x^2)), xRange: [number] (two numbers: from, to), mark: [string] (any of "roots", "vertex", "extrema", "yIntercept"), title: string }',
+    );
+    // Still any string: a mark or expression Claude words otherwise is cleaned by the app, not refused here.
+    expect(checkBlock('functionPlot', { expression: '2x', xRange: [0], mark: ['zeros'], title: '' }, '$').ok).toBe(true);
   });
 
   it('the spec-shaped example: every block fits its type (a type repeated in data is ignored)', () => {

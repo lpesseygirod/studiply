@@ -151,6 +151,8 @@ ${pm} .${FORMULA_CARD_CLASS}-body > p { margin: 0.15em 0 0; font-size: 0.85em; l
 ${pm} .${GRAPH_CLASS} { margin: 0.4em 0 0.9em; padding: 4px 0; border-radius: 8px; cursor: pointer; break-inside: avoid; scroll-margin-top: 130px; }
 ${pm} .${GRAPH_CLASS}-art svg { display: block; width: 100%; height: auto; }
 ${pm} .${GRAPH_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent}; outline-offset: 2px; }
+/* Step 8.2: a graph the charts module doesn't draw yet is its line, as 7.7's placeholder paragraph. */
+${pm} .${GRAPH_CLASS}-later { margin: 0; font-style: italic; color: ${c.text.secondary}; cursor: default; }
 ${moduleCss(pm)}
 
 ${Object.entries(DocColors.callout)

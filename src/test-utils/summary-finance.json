@@ -1,0 +1,106 @@
+{
+  "_about": "Step 8.2: a hand-made stored summary (studiply-summary-v1) of a Finance lecture, for the converter's tests and the visuals.mjs Chrome check: three formula cards with their legends and when to use them (FV, PV, NPV), a line chart and a bar chart of numbers said in class, a supply-and-demand shift (the curve named as the professor did, 'Demanda'), a board photo at its time. Synthetic content in Spanish, no student data. The photo id is a placeholder the check replaces with a real one. Each block is valid against BLOCK_DATA (summary-zod.ts).",
+  "format": "studiply-summary-v1",
+  "subjectType": "finance",
+  "modulesUsed": ["formula", "graphModel"],
+  "appliedSettings": { "takeaways": 3, "targetWords": 800, "markStrength": 1, "selfTestCount": 2 },
+  "header": { "course": "Finanzas (check)", "title": "Tema 2 · El valor del dinero en el tiempo", "number": 2, "date": "2026-11-05", "professor": "Dr. Ibáñez", "durationMin": 45, "builtFrom": ["notes", "audio", "photos"] },
+  "coverage": { "noteLines": 0, "noteLinesUsed": 0, "marks": 0, "marksUsed": 0 },
+  "takeaways": [
+    { "text": "Un euro hoy vale más que un euro mañana: el **valor futuro** crece con el tipo de interés y el tiempo.", "fromMarkIds": [] },
+    { "text": "El **valor actual** descuenta una cantidad futura al día de hoy.", "fromMarkIds": [] },
+    { "text": "Una inversión se acepta si su **VAN** es positivo.", "fromMarkIds": [] }
+  ],
+  "sections": [
+    {
+      "heading": "Valor futuro y valor actual",
+      "timestamp": "0:00",
+      "cueQuestion": "¿Cuánto valdrán 1.000 € dentro de cinco años al 5 %?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "Con **capitalización compuesta**, los intereses de cada año generan a su vez intereses.", "keyTerms": ["capitalización compuesta"] },
+        {
+          "type": "formula",
+          "latex": "VF = VA \\cdot (1 + r)^n",
+          "variables": [
+            { "symbol": "VF", "meaning": "valor futuro" },
+            { "symbol": "VA", "meaning": "valor actual" },
+            { "symbol": "r", "meaning": "tipo de interés por periodo" },
+            { "symbol": "n", "meaning": "número de periodos" }
+          ],
+          "whenToUse": "Para saber cuánto valdrá una cantidad de hoy dentro de n periodos."
+        },
+        {
+          "type": "formula",
+          "latex": "VA = \\frac{VF}{(1 + r)^n}",
+          "variables": [
+            { "symbol": "VA", "meaning": "valor actual" },
+            { "symbol": "VF", "meaning": "valor futuro" },
+            { "symbol": "r", "meaning": "tipo de descuento" },
+            { "symbol": "n", "meaning": "número de periodos" }
+          ],
+          "whenToUse": "Para saber cuánto vale hoy una cantidad que se cobrará en el futuro."
+        },
+        {
+          "type": "dataChart",
+          "chart": "line",
+          "title": "Al 5 % anual, 1.000 € se convierten en 1.276 € en cinco años",
+          "xLabel": "Año",
+          "yLabel": "Valor (€)",
+          "series": [{ "name": "VF", "points": [{ "x": "0", "y": 1000 }, { "x": "1", "y": 1050 }, { "x": "2", "y": 1102.5 }, { "x": "3", "y": 1157.63 }, { "x": "4", "y": 1215.51 }, { "x": "5", "y": 1276.28 }] }],
+          "timestamp": "8:00"
+        },
+        { "type": "capturedImage", "imageId": "photo-board-1", "timestamp": "10:20", "caption": "La tabla de capitalización de la pizarra" }
+      ]
+    },
+    {
+      "heading": "Valor actual neto",
+      "timestamp": "15:00",
+      "cueQuestion": "¿Cuándo merece la pena una inversión?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "El **VAN** suma los flujos de caja descontados y resta la inversión inicial.", "keyTerms": ["VAN"] },
+        {
+          "type": "formula",
+          "latex": "VAN = -I_0 + \\sum_{t=1}^{n} \\frac{F_t}{(1 + r)^t}",
+          "variables": [
+            { "symbol": "I_0", "meaning": "inversión inicial" },
+            { "symbol": "F_t", "meaning": "flujo de caja del año t" },
+            { "symbol": "r", "meaning": "tasa de descuento" },
+            { "symbol": "n", "meaning": "vida del proyecto en años" }
+          ],
+          "whenToUse": "Para decidir si se acepta una inversión: se acepta si VAN > 0."
+        },
+        {
+          "type": "dataChart",
+          "chart": "bar",
+          "title": "Solo los proyectos B y D tienen un VAN positivo",
+          "xLabel": "Proyecto",
+          "yLabel": "VAN (miles de €)",
+          "series": [{ "name": "VAN", "points": [{ "x": "A", "y": -120 }, { "x": "B", "y": 340 }, { "x": "C", "y": -45 }, { "x": "D", "y": 210 }, { "x": "E", "y": -10 }] }],
+          "timestamp": "22:30"
+        }
+      ]
+    },
+    {
+      "heading": "El mercado de fondos prestables",
+      "timestamp": "30:00",
+      "cueQuestion": "¿Qué le pasa al tipo de interés si las empresas piden más préstamos?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "El **tipo de interés** es el precio del dinero: lo fijan la oferta y la demanda de fondos prestables.", "keyTerms": ["tipo de interés"] },
+        { "type": "modelGraph", "template": "supplyDemand", "shifts": [{ "curve": "Demanda", "direction": "right" }], "title": "Si sube la demanda de préstamos, sube el tipo de interés" }
+      ]
+    }
+  ],
+  "glossary": [{ "term": "Valor actual", "definition": "Lo que vale hoy una cantidad futura, descontada a un tipo de interés." }],
+  "examSignals": [],
+  "questionsDuringClass": [],
+  "selfTest": [
+    { "question": "¿Qué fórmula usas para descontar una cantidad futura?", "kind": "recall", "answer": "$VA = \\frac{VF}{(1 + r)^n}$.", "fromMarkId": "" },
+    { "question": "¿Por qué un euro hoy vale más que un euro mañana?", "kind": "why", "answer": "Porque hoy puede invertirse y generar intereses.", "fromMarkId": "" }
+  ],
+  "flashcards": [{ "front": "Criterio del VAN", "back": "Se acepta la inversión si VAN > 0." }],
+  "logistics": [],
+  "unclear": []
+}

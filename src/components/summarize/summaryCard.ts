@@ -30,7 +30,10 @@ export function checksLine(c: CheckReport | undefined): string {
   ].filter((f): f is string => typeof f === 'string');
   if (failed.length) return `Checks: ${failed.join(' · ')}.`;
   const moved = c.faithfulness.labelled ? ` ${plural(c.faithfulness.labelled, 'detail')} not said in class ${c.faithfulness.labelled === 1 ? 'is' : 'are'} under “Added context”.` : '';
-  return `All checks passed.${moved}`;
+  // Step 8.2: chart values not said in class were taken out of their charts.
+  const out = c.charts?.removed.length ?? 0;
+  const charts = out ? ` ${plural(out, 'chart value')} not said in class ${out === 1 ? 'is' : 'are'} under “Unclear in the recording”.` : '';
+  return `All checks passed.${moved}${charts}`;
 }
 
 /**

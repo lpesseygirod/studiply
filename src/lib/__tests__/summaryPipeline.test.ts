@@ -381,6 +381,27 @@ describe('the run (Claude faked)', () => {
       expect((t.saved.at(-1)!.result as Stored).checks.version).toBe(1);
     });
 
+    it('step 8.2: a chart value not said in class goes to the verify call, then out of its chart and under unclear; the photo goes to its section', async () => {
+      const v = validSummary();
+      const chart = v.sections[1].blocks.find((b) => (b as { type: string }).type === 'dataChart') as unknown as { series: unknown[] };
+      chart.series = [{ name: 's', points: [{ x: 'a', y: 1 }, { x: 'b', y: 2 }, { x: 'c', y: 98765 }] }];
+      const t = setup([answer(JSON.stringify(packedSummary(v)))], { respond: (system, user) => (system.startsWith('You check a study summary') ? verify(user) : answer('{}')) });
+      const out = await runSummary(t.deps);
+      if (out.status !== 'done') throw new Error(out.error);
+      const s = out.summary as unknown as Stored & { unclear: { timestamp: string; note: string }[] };
+      const verifyCall = t.calls.find((c) => c.call === 'part' && c.system.startsWith('You check a study summary'))!;
+      expect(verifyCall.content[0].text).toContain('| number | 98765 | in: Chart “t”: s, c: 98765');
+      const kept = s.sections[1].blocks.find((b) => b.type === 'dataChart') as { series: { points: { y: number }[] }[] };
+      expect(kept.series[0].points.map((p) => p.y)).toEqual([1, 2]);
+      expect(s.unclear.at(-1)).toEqual({ timestamp: '12:00', note: "A value the lecture doesn't give, left out of the chart “t”: s, c: 98765" });
+      expect(s.checks.charts).toEqual({ values: 3, removed: ['s, c: 98765'], chartsRemoved: 0 });
+      expect(s.checks.faithfulness).toMatchObject({ pass: true, unverified: [] });
+      // p1 (12:40) was in the section from 31:05: moved to the first, with its caption.
+      expect(s.sections[0].blocks.filter((b) => b.type === 'capturedImage')).toEqual([{ type: 'capturedImage', imageId: 'p1', timestamp: '12:40', caption: 'Fig. 1.1' }]);
+      expect(s.sections[1].blocks.some((b) => b.type === 'capturedImage')).toBe(false);
+      expect(s.checks.photos).toEqual({ pass: true, total: 1, misplaced: [], fixedByCode: ['p1'] });
+    });
+
     it('a paragraph in English: that one section written again (first), spliced in, the check passing', async () => {
       const v = validSummary();
       v.sections[0].blocks[0] = { type: 'paragraph', text: 'This is the part of the lecture that was written in English by mistake, and it is not what the students asked for.', keyTerms: [] } as never;

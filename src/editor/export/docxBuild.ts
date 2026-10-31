@@ -26,6 +26,8 @@ import {
 import type { JSONContent } from '@tiptap/core';
 
 import { DocColors, LightColors } from '../../constants/colors';
+import { canDraw, laterLine } from '../graph/charts';
+import { cleanGraph, planGraph } from '../graph/data';
 import { cleanPageSetup, PAPER, type PageSetup } from '../page/pageSetup';
 import { calloutLabel } from '../schema/callout';
 import { DEFAULT_LINE_SPACING, INDENT_EM } from '../schema/blocks';
@@ -442,7 +444,10 @@ class WordBuilder {
           const p = this.pictures.get(graphKey(attrs, this.room, this.language));
           const width = p ? Math.min(p.width, ctx.width) : 0;
           const picture = p ? this.picture(p.id, width, (p.height * width) / p.width) : null;
-          out.push(this.para({ spacing: { before: 60, after: 120 }, children: picture ? [picture] : [new TextRun({ text: String(attrs.title || 'Graph'), italics: true, color: SECONDARY })] }, ctx));
+          // No picture: its title; a kind the charts module doesn't draw yet (8.2): its line, as on the page.
+          const data = cleanGraph(attrs);
+          const words = canDraw(planGraph(data).spec) ? data.title || 'Graph' : laterLine(data);
+          out.push(this.para({ spacing: { before: 60, after: 120 }, children: picture ? [picture] : [new TextRun({ text: words, italics: true, color: SECONDARY })] }, ctx));
           break;
         }
         case 'image': {

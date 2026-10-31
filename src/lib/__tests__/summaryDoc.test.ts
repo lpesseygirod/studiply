@@ -199,12 +199,15 @@ describe('every block type (the 7.4 example)', () => {
     loaded(doc);
   });
 
-  it('a data chart as the graph block; function plots and model graphs a placeholder line for Phase 8', () => {
-    expect(doc.content.find((b) => b.type === 'graph')?.attrs).toMatchObject({ kind: 'bar', series: ['s'], rows: [['a', '1']] });
-    const later = doc.content.filter((b) => b.type === 'paragraph' && textOf(b).includes('drawn in a later update'));
-    // The function plot: its title, the function as a formula, its range; the model graph: its title and shifts.
-    expect(later.map(textOf)).toEqual(['t:  on [-5, 5] · drawn in a later update', 't (D → right) · drawn in a later update']);
-    expect(later[0].content![1]).toEqual({ type: 'inlineMath', attrs: { latex: 'y = x^2 - 4' } });
+  it('step 8.2: the function plot, the model graph and the data chart are graph blocks of their own kind', () => {
+    const graphs = doc.content.filter((b) => b.type === 'graph');
+    expect(graphs.map((b) => b.attrs?.kind)).toEqual(['function', 'model', 'bar']);
+    expect(graphs[0].attrs).toMatchObject({ title: 't', func: { expression: 'x^2 - 4', xRange: [-5, 5], marks: ['roots'] } });
+    expect(graphs[1].attrs).toMatchObject({ title: 't', model: { template: 'supplyDemand', shifts: [{ curve: 'D', direction: 'right' }] } });
+    expect(graphs[2].attrs).toMatchObject({ kind: 'bar', series: ['s'], rows: [['a', '1']] });
+    // All Claude's (`ai`); no placeholder paragraph left.
+    expect(graphs.map((b) => b.attrs?.origin)).toEqual(['ai', 'ai', 'ai']);
+    expect(doc.content.some((b) => b.type === 'paragraph' && textOf(b).includes('drawn in a later update'))).toBe(false);
   });
 
   it('the twelve text modules (8.1), each one block, in the stored order', () => {

@@ -1,7 +1,8 @@
 import type { JSONContent } from '@tiptap/core';
 
 import { DEFAULT_SIZE } from '../schema/fonts';
-import { cleanGraph } from '../graph/data';
+import { canDraw } from '../graph/charts';
+import { cleanGraph, planGraph } from '../graph/data';
 import { mediaIdOf } from '../media/photoSource';
 import { cleanPageSetup, paperCm, type PageSetup } from '../page/pageSetup';
 
@@ -92,7 +93,8 @@ export function pictureRequests(docs: JSONContent[], width: number, language: st
     } else if (node.type === 'blockMath' && latex.trim()) {
       const id = formulaKey(latex, true, DEFAULT_SIZE);
       out.set(id, { id, kind: 'formula', latex, display: true, fontPx: DEFAULT_SIZE });
-    } else if (node.type === 'graph') {
+    } else if (node.type === 'graph' && canDraw(planGraph(cleanGraph(node.attrs)).spec)) {
+      // A kind the charts module doesn't draw yet (8.2) isn't asked for: the builder writes its line.
       const attrs = node.attrs ?? {};
       const id = graphKey(attrs, width, language);
       out.set(id, { id, kind: 'graph', graph: attrs, width, blockId: String(attrs.blockId ?? ''), language });

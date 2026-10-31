@@ -4,10 +4,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
-import { GRAPH_KINDS, MAX_ROWS, MAX_SERIES, MAX_TEXT, planGraph, type GraphData, type GraphKind } from '../../editor/graph/data';
+import { GRAPH_KINDS, MAX_ROWS, MAX_SERIES, MAX_TEXT, MAX_TITLE, planGraph, type FormKind, type GraphData } from '../../editor/graph/data';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
-const ICONS: Record<GraphKind, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
+const ICONS: Record<FormKind, React.ComponentProps<typeof MaterialCommunityIcons>['name']> = {
   bar: 'chart-bar',
   line: 'chart-line',
   pie: 'chart-pie',
@@ -72,7 +72,7 @@ export function GraphForm({ value, onChange, onDone, onDelete }: { value: GraphD
       <TextInput
         value={value.title}
         onChangeText={(title) => set({ title })}
-        maxLength={MAX_TEXT}
+        maxLength={MAX_TITLE}
         placeholder="Title (what the graph shows)"
         placeholderTextColor={c.text.placeholder}
         style={styles.input}

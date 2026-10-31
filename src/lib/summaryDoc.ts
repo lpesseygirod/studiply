@@ -13,14 +13,16 @@
  * - Block ids are made from the summary's id and the block's place (`sm<8>-…`): converting the same
  *   summary twice (two devices at once) gives the same document, and a generated block can be told
  *   from one the student added.
- * - Visuals Phase 8 draws (function plots, model graphs; data charts the graph block can't take) are
- *   a placeholder line for now; the summary JSON stays in summaries.result, so 8.2 converts again.
+ * - Step 8.2: function plots, model graphs and data charts (line, bar, stacked bar, histogram) are each a
+ *   `graph` block of their own kind (editor/graph/data.ts), drawn by the charts module; a kind it doesn't
+ *   draw yet shows its line in its place. A data chart with no series is still a placeholder line.
  * - Step 8.1: the twelve text modules (timeline, cause → effect, key figures, comparison, process,
  *   framework, theory card, case card, argument, code, vocabulary, worked example) are each one
  *   `studyModule` block (editor/schema/studyModule.ts) holding ordinary lists, tables and paragraphs.
  */
 
 import type { StoredSummary } from '../../supabase/functions/_shared/summary-pipeline';
+import { cleanRange, curveId, FUNCTION_MARKS, LATER, MODEL_CURVES, type GraphKind, type ModelTemplate } from '../editor/graph/data';
 import { mediaSrc } from '../editor/media/photoSource';
 import type { Origin } from '../editor/schema/blockMeta';
 import { parseClock } from '../editor/schema/timestampChip';
@@ -59,7 +61,7 @@ export const WORDS = {
   seeNotes: 'See them in My notes',
   /** Step 8.1 (advisor): the first line when the lecture had no notes and no marks (no "All your notes…" box). */
   noNotes: 'No notes or marks were taken in class',
-  later: 'drawn in a later update',
+  later: LATER,
   // Step 8.1: the text modules' column headers and field names.
   keyFigures: ['Person', 'Role', 'What they did', 'Why it matters'],
   vocabulary: ['Term', 'Meaning', 'Example'],
@@ -279,14 +281,22 @@ function convertBlock(b: Block, w: Words): { nodes: Node[]; origin?: Origin | Or
     }
     case 'conceptMap':
       return { nodes: [para([bold(s('center'))]), list(arr<{ from: string; to: string; label: string }>('links').map((l) => [text(`${l.from} → ${l.to}${l.label ? ` (${l.label})` : ''}`)]))] };
+    // Step 8.2: the visuals are graph blocks of their own kind; the charts module draws them (a function
+    // or a model graph shows its line in its place until it does: editor/graph/charts.ts).
     case 'dataChart':
       return { nodes: [dataChart(b) ?? placeholder(`${s('title') || 'Chart'}`, w)] };
     case 'functionPlot': {
-      const range = arr<number>('xRange');
-      return { nodes: [para([text(`${s('title') || 'Graph'}: `, [{ type: 'italic' }]), { type: 'inlineMath', attrs: { latex: `y = ${s('expression')}` } }, text(`${range.length === 2 ? ` on [${range[0]}, ${range[1]}]` : ''} · ${w.later}`, [{ type: 'italic' }])])] };
+      if (!s('expression').trim()) return { nodes: [] };
+      return { nodes: [graph('function', s('title'), { func: { expression: s('expression').trim(), xRange: cleanRange(b.xRange), marks: FUNCTION_MARKS.filter((k) => arr<string>('mark').includes(k)) } })] };
     }
-    case 'modelGraph':
-      return { nodes: [placeholder(`${s('title') || s('template')}${arr<{ curve: string; direction: string }>('shifts').map((x) => ` (${x.curve} → ${x.direction})`).join('')}`, w)] };
+    case 'modelGraph': {
+      const template = (Object.keys(MODEL_CURVES) as ModelTemplate[]).find((t) => t === b.template) ?? 'supplyDemand';
+      const shifts = arr<{ curve: string; direction: string }>('shifts').flatMap((x) => {
+        const curve = curveId(template, String(x.curve ?? ''));
+        return curve && (x.direction === 'left' || x.direction === 'right') ? [{ curve, direction: x.direction }] : [];
+      });
+      return { nodes: [graph('model', s('title'), { model: { template, shifts } })] };
+    }
     case 'capturedImage':
       // The photo is `media`; its caption is Claude's words (`ai`).
       return { nodes: [{ type: 'image', attrs: { src: mediaSrc(s('imageId')), alt: s('caption') || null } }, ...(s('caption') ? [para([text(s('caption'), [{ type: 'italic' }])])] : [])], origin: ['media', 'ai'] };
@@ -330,15 +340,18 @@ function gridTable(cells: { label: string; content: string }[]): Node | null {
   return { type: 'table', content: rows };
 }
 
-/** A data chart as the graph block (4.7d) when it can take it: line, or bars. */
+/** A graph block (4.7d) of a summary's kind; a function or a model graph keeps the table's defaults. */
+const graph = (kind: GraphKind, title: string, extra: Record<string, unknown>): Node => ({ type: 'graph', attrs: { kind, title, xLabel: '', yLabel: '', series: ['Series 1'], rows: [], ...extra } });
+
+/** A data chart as the graph block, of its own kind (8.2: stacked bars and histograms too), up to 3 series. */
 function dataChart(b: Block): Node | null {
   const series = (Array.isArray(b.series) ? b.series : []) as { name: string; points: { x: string; y: number }[] }[];
   if (!series.length) return null;
-  const kind = b.chart === 'line' ? 'line' : b.chart === 'bar' || b.chart === 'stackedBar' || b.chart === 'histogram' ? 'bar' : null;
+  const kind = ['line', 'bar', 'stackedBar', 'histogram'].find((k) => k === b.chart) as GraphKind | undefined;
   if (!kind) return null;
-  const labels = [...new Set(series.flatMap((s) => s.points.map((pt) => pt.x)))];
-  const rows = labels.map((x) => [x, ...series.slice(0, 3).map((s) => String(s.points.find((pt) => pt.x === x)?.y ?? ''))]);
-  return { type: 'graph', attrs: { kind, title: String(b.title ?? ''), xLabel: String(b.xLabel ?? ''), yLabel: String(b.yLabel ?? ''), series: series.slice(0, 3).map((s) => s.name), rows } };
+  const labels = [...new Set(series.flatMap((s) => s.points.map((pt) => String(pt.x))))];
+  const rows = labels.map((x) => [x, ...series.slice(0, 3).map((s) => String(s.points.find((pt) => String(pt.x) === x)?.y ?? ''))]);
+  return graph(kind, String(b.title ?? ''), { xLabel: String(b.xLabel ?? ''), yLabel: String(b.yLabel ?? ''), series: series.slice(0, 3).map((s) => s.name), rows });
 }
 
 // ---------- the whole summary ----------

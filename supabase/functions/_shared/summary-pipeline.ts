@@ -31,8 +31,11 @@ import { ClassifyAnswer, SummaryAnswer, blockGuide, checkBlock, issueLines } fro
 import {
   MAX_PART_CALLS,
   applyVerdicts,
+  chartValues,
+  fixCharts,
   fixMarks,
   fixNotes,
+  fixPhotos,
   lengthPart,
   listsPartPrompt,
   parseLists,
@@ -41,6 +44,7 @@ import {
   planParts,
   runChecks,
   sectionPartPrompt,
+  sourcesOf,
   spliceLists,
   spliceSection,
   stampMs,
@@ -441,6 +445,8 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     `- examSignals: ${p.examWeighting === 'flagsOnly' ? "the professor's flags (source professor, markId \"\", level 0)" : "the professor's flags (source professor, markId \"\", level 0) and the student's Exam marks listed for it (source studentMark, their markId and effective level)"}.`,
     '- questionsDuringClass: one entry per question in <questions>, with a short answer.',
     '- capturedImage: a photo in <photos> where it belongs, imageId as given.',
+    // Step 8.2 (BUILD-PLAN: data charts only from numbers in the transcript; templates, never free drawing).
+    '- Graphs: a dataChart only from numbers said in class, on the slides or in the notes (5 values or more; fewer: a sentence), its title the takeaway, at most 3 series. A functionPlot only for a function the professor gave, its expression in the grammar below. A modelGraph only picks its template and its shifts.',
     '',
     "A section's blocks: each is { type, data }, data being a JSON object written as a string, with exactly these fields for its type (all of them; \"\" or [] when empty):",
     blockGuide(),
@@ -738,15 +744,19 @@ export async function attempt(
  * summary (result.checks), passing or not: a failed check never hides the summary.
  */
 export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan: SummaryPlan, baseSystem: string, start: StoredSummary): Promise<StoredSummary> {
-  const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks };
+  // Step 8.2: with the photos ticked, each one is in the summary at its time.
+  const photos = deps.request.resources.photos;
+  const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks, photos };
   let s = start;
-  const fixed = { notes: new Set<string>(), marks: new Set<string>() };
+  const fixed = { notes: new Set<string>(), marks: new Set<string>(), photos: new Set<string>() };
   const fixCoverage = () => {
     const n = fixNotes(s, m);
     n.fixed.forEach((id) => fixed.notes.add(id));
     const k = fixMarks(n.summary, m);
     k.fixed.forEach((id) => fixed.marks.add(id));
-    s = settle(k.summary, m, plan);
+    const ph = photos ? fixPhotos(k.summary, m) : { summary: k.summary, fixed: [] };
+    ph.fixed.forEach((id) => fixed.photos.add(id));
+    s = settle(ph.summary, m, plan);
   };
   fixCoverage();
   const first = runChecks(s, m, plan, options);
@@ -786,6 +796,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
           s = applied.summary;
           corrected += applied.corrected;
           labelled += applied.labelled;
+          applied.confirmed.forEach((key) => confirmed.add(key));
           for (const v of verdicts) {
             const item = part.items.find((u) => u.id === v.id);
             if (item && v.verdict === 'found') confirmed.add(`${item.kind}:${item.value}`);
@@ -808,11 +819,17 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
     if (!next) break;
     await write(next);
   }
+  // Step 8.2: chart values still not found nor confirmed are taken out (listed under unclear); counted before they go.
+  const chartCount = chartValues(s).length;
+  const charts = fixCharts(s, sourcesOf(m), confirmed);
+  s = charts.summary;
   const report = runChecks(s, m, plan, options);
   const unverified = report.faithfulness.unverified.filter((u) => !confirmed.has(`${u.kind}:${u.value}`));
   report.faithfulness = { ...report.faithfulness, unverified, found: report.faithfulness.checked - unverified.length, pass: unverified.length === 0, corrected, labelled };
+  report.charts = { values: chartCount, removed: charts.removed, chartsRemoved: charts.chartsRemoved };
   report.notes.fixedByCode = [...fixed.notes];
   report.marks.fixedByCode = [...fixed.marks];
+  if (report.photos) report.photos.fixedByCode = [...fixed.photos];
   report.regenerations = regenerations;
   deps.log('checks', {
     summaryId: deps.summaryId,

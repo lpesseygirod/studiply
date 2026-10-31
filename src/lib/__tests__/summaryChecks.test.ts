@@ -5,15 +5,20 @@
 // written and said (es/en), dates, formulas, the language, the notes and marks put in by code, the
 // marks' effects, length, which parts are written again (at most 3, in order), and splicing their
 // answers in (the verify call's verdicts: corrected in place, "added" moved under Added context).
+// Step 8.2: data chart values checked as numbers (one not said in class taken out, under unclear), the
+// photos put at their time.
 import {
   MAX_PART_CALLS,
   applyVerdicts,
+  chartValues,
   dates,
   detectLanguage,
   digitNumbers,
   faithfulness,
+  fixCharts,
   fixMarks,
   fixNotes,
+  fixPhotos,
   languageCheck,
   lengthBounds,
   lengthPart,
@@ -504,5 +509,100 @@ describe('a fixture (the evaluation’s lectures)', () => {
 
   it('a file that isn’t the format is refused', () => {
     expect(FixtureShape.safeParse({ ...fixture, marks: [{ id: 'k1', type: 'other', level: 11, tMs: 0, note: null }] }).success).toBe(false);
+  });
+});
+
+describe('step 8.2: data charts only from numbers in the lecture', () => {
+  /** validSummary with its data chart's values replaced. */
+  const withChart = (points: { x: string; y: number }[], more: { x: string; y: number }[] = []) =>
+    stored((v) => {
+      const chart = v.sections[1].blocks.find((b) => (b as { type: string }).type === 'dataChart') as unknown as { series: { name: string; points: { x: string; y: number }[] }[] };
+      chart.series = [{ name: 's', points }, ...(more.length ? [{ name: 'otra', points: more }] : [])];
+    });
+  const chartOf = (s: StoredSummary) => sections(s)[1].blocks.find((b) => b.type === 'dataChart') as { series: { name: string; points: { x: string; y: number }[] }[] } | undefined;
+  const src = sourcesOf(m);
+
+  it('each value is a number for faithfulness, with its place and a line the verify call reads', () => {
+    const s = withChart([{ x: '2019', y: 1 }, { x: '2020', y: 2 }, { x: '2021', y: 98765 }]);
+    expect(chartValues(s).map((v) => [v.path.replace(/^sections\[1\]\.blocks\[\d+\]/, '…'), v.sentence])).toEqual([
+      ['….series[0].points[0].y', 'Chart “t”: s, 2019: 1'],
+      ['….series[0].points[1].y', 'Chart “t”: s, 2020: 2'],
+      ['….series[0].points[2].y', 'Chart “t”: s, 2021: 98765'],
+    ]);
+    const f = faithfulness(s, src);
+    expect(f.unverified.filter((u) => u.path.includes('.points['))).toEqual([expect.objectContaining({ kind: 'number', value: '98765', sentence: 'Chart “t”: s, 2021: 98765' })]);
+    expect(runChecks(s, m, plan, { hasHighMarks: false }).charts).toEqual({ values: 3, removed: [], chartsRemoved: 0 });
+  });
+
+  it('a value not found nor confirmed: out of its chart, listed under unclear at the chart’s time; the rest kept', () => {
+    const s = withChart([{ x: '2019', y: 1 }, { x: '2020', y: 2 }, { x: '2021', y: 98765 }]);
+    const out = fixCharts(s, src, new Set());
+    expect(chartOf(out.summary)!.series[0].points.map((p) => p.y)).toEqual([1, 2]);
+    expect(out.removed).toEqual(['s, 2021: 98765']);
+    expect(out.chartsRemoved).toBe(0);
+    expect((out.summary.unclear as { timestamp: string; note: string }[]).at(-1)).toEqual({ timestamp: '12:00', note: "A value the lecture doesn't give, left out of the chart “t”: s, 2021: 98765" });
+    // Confirmed by the verify call (found, or the number it corrected): kept.
+    expect(fixCharts(s, src, new Set(['number:98765'])).removed).toEqual([]);
+  });
+
+  it('a chart left with fewer than 2 values goes, and so does one written with 1; a series left empty goes', () => {
+    const one = fixCharts(withChart([{ x: '2019', y: 1 }, { x: '2020', y: 98765 }]), src, new Set());
+    expect(chartOf(one.summary)).toBeUndefined();
+    expect(one).toMatchObject({ removed: ['s, 2020: 98765'], chartsRemoved: 1 });
+    const written = fixCharts(withChart([{ x: 'a', y: 1 }]), src, new Set());
+    expect(chartOf(written.summary)).toBeUndefined();
+    expect(written).toMatchObject({ removed: [], chartsRemoved: 1 });
+    const series = fixCharts(withChart([{ x: 'a', y: 1 }, { x: 'b', y: 2 }], [{ x: 'a', y: 98765 }]), src, new Set());
+    expect(chartOf(series.summary)!.series.map((x) => x.name)).toEqual(['s']);
+  });
+
+  it('nothing to take out: the summary as it was (the same object)', () => {
+    const s = withChart([{ x: 'a', y: 1 }, { x: 'b', y: 2 }]);
+    expect(fixCharts(s, src, new Set()).summary).toBe(s);
+  });
+
+  it('the verify call: "corrected" writes the lecture’s number (and confirms it), "added" is left to the chart fix', () => {
+    const s = withChart([{ x: 'a', y: 1 }, { x: 'b', y: 98765 }, { x: 'c', y: 4321 }]);
+    const items = faithfulness(s, src).unverified.filter((u) => u.path.includes('.points['));
+    const done = applyVerdicts(s, items, [
+      { id: items[0].id, verdict: 'corrected', replacement: '3' },
+      { id: items[1].id, verdict: 'added', replacement: '' },
+    ]);
+    expect(chartOf(done.summary)!.series[0].points.map((p) => p.y)).toEqual([1, 3, 4321]);
+    expect(done).toMatchObject({ corrected: 1, labelled: 0, confirmed: ['number:3'] });
+    expect(fixCharts(done.summary, src, new Set(done.confirmed)).removed).toEqual(['s, c: 4321']);
+  });
+});
+
+describe('step 8.2: the photos at their time', () => {
+  const photoBlocks = (s: StoredSummary) => sections(s).map((x) => x.blocks.filter((b) => b.type === 'capturedImage').map((b) => [b.imageId, b.timestamp, b.caption]));
+
+  it('a photo in another section’s time: moved to the end of its own, with its caption and its time', () => {
+    // validSummary has p1 (12:40) in the section from 31:05.
+    const s = stored();
+    expect(photoBlocks(s)).toEqual([[], [['p1', '12:40', 'Fig. 1.1']]]);
+    const out = fixPhotos(s, m);
+    expect(out.fixed).toEqual(['p1']);
+    expect(photoBlocks(out.summary)).toEqual([[['p1', '12:40', 'Fig. 1.1']], []]);
+    expect(sections(out.summary)[0].blocks.at(-1)).toMatchObject({ type: 'capturedImage', imageId: 'p1' });
+  });
+
+  it('one given but not in the summary: added in its section, no caption; a second copy and an id not given left out', () => {
+    const material = lectureMaterial({ photos: [{ id: 'p1', tMs: 12 * MIN + 40_000 }, { id: 'p2', tMs: 40 * MIN }] });
+    const s = stored((v) => {
+      v.sections[0].blocks.push({ type: 'capturedImage', imageId: 'p1', timestamp: '12:40', caption: '' } as never, { type: 'capturedImage', imageId: 'invented', timestamp: '1:00', caption: 'x' } as never);
+    });
+    const out = fixPhotos(s, material);
+    expect(out.fixed.sort()).toEqual(['p1', 'p2']);
+    expect(photoBlocks(out.summary)).toEqual([[['p1', '12:40', '']], [['p2', '40:00', '']]]);
+  });
+
+  it('each once in its section already: nothing changed (the same object); the report counts what is off', () => {
+    const fine = fixPhotos(stored(), m).summary;
+    expect(fixPhotos(fine, m)).toEqual({ summary: fine, fixed: [] });
+    expect(runChecks(stored(), m, plan, { hasHighMarks: false, photos: true }).photos).toEqual({ pass: false, total: 1, misplaced: ['p1'], fixedByCode: [] });
+    expect(runChecks(fine, m, plan, { hasHighMarks: false, photos: true }).photos).toMatchObject({ pass: true, misplaced: [] });
+    // Photos not ticked: nothing asked of them.
+    expect(runChecks(stored(), m, plan, { hasHighMarks: false }).photos).toEqual({ pass: true, total: 0, misplaced: [], fixedByCode: [] });
   });
 });

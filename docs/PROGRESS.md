@@ -650,7 +650,46 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Jest:** `summaryModules.test.ts` on a hand-made fixture with all 12 (`src/test-utils/summary-modules.json`, synthetic Spanish, valid against BLOCK_DATA). It checks each one in its section and order, valid for both editors, what each holds, the label and group name, the HTML round trip (code indentation), the CSS, an edit making it hers, the merge keeping it, and Extend's anchors.
     - Also: the 7.7 converter tests updated (the synthetic 90-min summary's 12 modules; every block type), Word export, the contrast of the module colours, and the schema defaults.
     - **Chrome:** `modules.mjs` (in my scratchpad; no paid call).
-- [ ] 8.2 — Formulas and graphs (KaTeX, function plots, model templates, data charts)
+- [ ] 8.2 — Formulas and graphs (KaTeX, function plots, model templates, data charts). **Part B done (31 Oct), verified by the advisor; part A (drawing: function, models, stackedBar, histogram) waits for the charts session — work order `docs/charts-work-order-8.2.md`, Lea decides** (decisions below).
+  - **Verified:** `npm run check` (2,454 tests), `check:bundle`, `test:db`, the free eval, `visuals.mjs` 6/6 and all 38 Chrome suites. No paid call.
+  - **Two parts** (Lea's rule: this checkout never draws charts):
+    - **A, the charts session** (`src/lib/charts`): the new chart types: function plots with a safe maths parser and marked points, the 4 model templates with shifts, stacked bars, histograms. The work order is `docs/charts-work-order-8.2.md`, for Lea to hand over. It has the exact specs, the style rules, the exactness tests and what the app expects back.
+    - **B, this checkout:** everything around the drawing, built against the work order's specs, with no drawing code.
+  - **Until A is merged:**
+    - **A function plot or a model graph** shows its line in its place, as 7.7's placeholder did ("Parábola: y = x^2 - 4 on [-5, 5] · drawn in a later update"), never an empty or broken chart. The same in Word, the PDF and copied HTML.
+    - **Stacked bars and histograms** are drawn as bars (as 7.7 did), keeping their kind.
+    - **No change on the app's side when A lands:** the app asks the module and draws whatever it can. Then the work order's last section applies: remove the type cast in `graph/charts.ts`, Jest, `visuals.mjs`, `editor:build`.
+  - **The graph block** (`src/editor/graph/data.ts`, `schema/graph.ts`, both editors) takes a summary's kinds:
+    - **The kinds:** `function` (`func`: expression, range, marks), `model` (`model`: template, shifts by curve id), `stackedBar`, `histogram`.
+    - **Cleaning:** expressions are capped at 200 characters; a range is two finite numbers in order (else [−10, 10]); only known marks, templates and curves are kept.
+    - **Titles** may be 120 characters (a takeaway is a sentence; 60 cut it mid-word).
+    - **The form:**
+      - Function and model graphs have none: a click only selects them (decision Q2).
+      - Stacked bars and histograms open the form like a bar.
+      - The Insert menu keeps its four kinds (Q5).
+  - **The converter** (`src/lib/summaryDoc.ts`):
+    - `functionPlot` and `modelGraph` become graph blocks of their kind.
+    - A data chart keeps its own kind.
+    - Curve names as the professor says them map to the template's ids ("Demanda", "la curva de oferta", "CMg", "CVMe" → D, S, MC, AVC); a name the template doesn't have is dropped.
+    - Summaries already written keep their 7.7 placeholder lines until written again.
+  - **The prompt:**
+    - The block guide carries the expression grammar on `functionPlot.expression` ("y in terms of x only: numbers, x, + - * / ^ ( ), pi, e, sin cos tan exp ln log sqrt abs with parentheses; write 2*x not 2x…"), the marks, the range and the curve names.
+    - Plus one rule line: data charts only from numbers said in class (5 values or more), function plots only for a function the professor gave, model graphs only pick their template and shifts.
+    - All of this is prompt text only: the API schema is unchanged (a block's data is a string), and its size is unchanged.
+  - **The 7.5 checks** (`_shared/summary-checks.ts`; decision Q3):
+    - **Chart values:** each data chart value is a number for faithfulness. One code can't find goes to the existing verify call: "found" keeps it, "corrected" writes the lecture's number. One still not found is taken out of its chart and listed under unclear ("A value the lecture doesn't give, left out of the chart “…”: …"). A series left empty goes, and a chart with fewer than 2 values goes. No new call.
+    - **Photos:** with photos ticked, each photo given is put once, by code, in the section whose time holds its own. A missing one is added (no caption), a misplaced one moved with its caption, a second copy or an unknown id dropped.
+    - **The report:** both are counted (`checks.charts`, `checks.photos`; not in older reports). The summary card says "N chart values not said in class are under “Unclear in the recording”".
+  - **Formula cards:** unchanged from 4.7c/7.7 (the formula, its legend as small formulas with their meanings, "When to use"). The title stays "Formula" (Q4).
+  - **Tests:**
+    - **Jest:**
+      - `summaryVisuals.test.ts` on two hand-made fixtures:
+        - `summary-calculus.json`: x²−4 with roots and vertex, sin x, 1/x, a formula card, two board photos;
+        - `summary-finance.json`: FV, PV and NPV cards, a line and a bar chart from numbers said in class, a supply-and-demand shift, a photo.
+      - It checks: the fixtures valid against BLOCK_DATA; each graph of its kind with its data in its section; the lines on the page (no SVG); no form; the HTML round trip; the cards' legends and "When to use"; the cleaning; the curve names; stacked bars drawn as bars.
+      - Also: the checks (chart values, verify verdicts, fewer than 2 values, photos moved, added, dropped), the pipeline (a chart value through the verify call into unclear, the photo moved), Word (lines for function and model graphs, a picture for the stacked bar), the block guide.
+    - **Chrome:** `visuals.mjs` (in my scratchpad; no paid call).
+    - **Builds:** `editor:build` needed (the graph block changed); no new EAS build.
 - [ ] 8.3 — PDF export (A4/Letter, embedded fonts/KaTeX, answers last page, options sheet)
 
 ## Phase 9 — Study tools (`phase-9-study`)
@@ -735,6 +774,25 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 8.2 (31 Oct):**
+  1. **Who draws the new chart types: Lea's decision.** The work order for the charts session is written (`docs/charts-work-order-8.2.md`); this checkout carries the new kinds and shows their line until the module draws them.
+
+  The advisor's decisions, for Lea to confirm:
+
+  2. **Function plots and model graphs aren't editable in 8.2** (BUILD-PLAN doesn't ask; written again by regenerating). **Suggestion for Lea:** the graph form for them later: the expression, its range and marks; each curve's shift.
+  3. **Chart values not said in class** are taken out and listed under "Unclear in the recording" (a chart with fewer than 2 values goes); **photos are placed at their time by code.**
+  4. **The formula card's title stays "Formula"** (the summary schema has no name for it, and it's near the grammar limit).
+  5. **The Insert menu is unchanged:** the new graph kinds come only from summaries.
+
+  Made while building part B, accepted by the advisor, for Lea to confirm:
+
+  6. **Stacked bars and histograms are drawn as bars until the charts module has them** (as 7.7), and the form edits them like a bar.
+  7. **A data chart with fewer than 2 values is removed**, also when Claude wrote it that way.
+  8. **Graph titles may be 120 characters** (60 cut a takeaway sentence mid-word); the form allows the same.
+  9. **The unclear line for a removed chart value is app text in English** ("A value the lecture doesn't give, left out of the chart “…”: …").
+  10. **A function's placeholder line is plain text** ("y = x^2 - 4"), not 7.7's inline formula: it sits inside the graph block.
+  11. **A function's expression isn't faithfulness-checked** (a "corrected" verdict could break its grammar), as before.
+  12. **The prompt changes** (the grammar in the block guide, one Graphs rule line) take effect on the next paid run; the API schema and its size are unchanged.
 - **Step 8.1 (the advisor's decisions, 31 Oct, for Lea to confirm):**
   1. **No new dependency of any kind.** The code module is code-marked lines (as 7.7), monospace, with its language in the label, then "Output" the same way. **Suggestion for Lea:** syntax colours (`lowlight`) and a real code block (`@tiptap/extension-code-block`, today only installed through TenTap) later, with her OK.
   2. **Summaries already written are untouched** until they're written again (then the untouched blocks become modules; her edited ones stay).
@@ -1398,6 +1456,7 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 
 ## Things Lea must do
 
+- **Step 8.2 — hand the charts work order to the charts session** (`docs/charts-work-order-8.2.md`, branch `charts-engine`): function plots, model templates, stacked bars, histograms. Until it's merged, function plots and model graphs show a line of text in their place.
 - ~~**Step 5.4 — rebuild the iPhone editor bundle** (`npm run editor:build`)~~ — done by Lea, 30 Oct (with the chip-tap fix). Trying it on the phone needs an EAS development build, together with expo-audio.
 - ~~**Step 5.3 — suggestion to decide: a Pause button**~~ — Lea said yes (30 Oct); built beside the timer (see 5.3).
 - **Step 5.2 — deploy `summarize` and `assistant-chat` to the remote (your step; 5.2 is committed).**

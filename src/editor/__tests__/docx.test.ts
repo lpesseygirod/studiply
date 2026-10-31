@@ -131,6 +131,24 @@ describe('the summary’s text modules in Word (step 8.1)', () => {
   });
 });
 
+describe('the summary’s graphs in Word (step 8.2)', () => {
+  const fn = { kind: 'function', title: 'Parábola', xLabel: '', yLabel: '', series: ['Series 1'], rows: [], func: { expression: 'x^2 - 4', xRange: [-5, 5], marks: ['roots'] }, blockId: 'f1' };
+  const model = { kind: 'model', title: '', xLabel: '', yLabel: '', series: ['Series 1'], rows: [], model: { template: 'supplyDemand', shifts: [{ curve: 'D', direction: 'right' }] }, blockId: 'm1' };
+  const stacked = { ...NEW_GRAPH, kind: 'stackedBar', title: 'Gasto', blockId: 's1' };
+  const graphs = doc({ type: 'graph', attrs: fn }, { type: 'graph', attrs: model }, { type: 'graph', attrs: stacked });
+
+  it('a stacked bar is drawn (as bars until the charts module has it); a function or a model graph is not asked for', () => {
+    expect(drawRequests(pictureRequests([graphs], 600, 'es')).map((r) => r.id)).toEqual([expect.stringMatching(/^g:600:es:s1:/)]);
+  });
+
+  it('a function or a model graph is its line in Word, as on the page; the stacked bar its picture', async () => {
+    const { xml } = await unzip(buildDocx([{ title: 'Summary', content: graphs }], options(), stubPictures([graphs])));
+    expect(xml).toContain('Parábola: y = x^2 - 4 on [-5, 5] · drawn in a later update');
+    expect(xml).toContain('Supply and demand (D → right) · drawn in a later update');
+    expect(count(xml, /<w:drawing>/)).toBe(1);
+  });
+});
+
 describe('the .docx', () => {
   it('Title and headings as Word styles; bold, italic, underline, colour, highlight, link; alignment, spacing, indent', async () => {
     const { xml, part } = await unzip(buildDocx([{ title: 'Notes', content: lesson }], options(), stubPictures([lesson])));

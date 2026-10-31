@@ -3,8 +3,8 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { NodeSelection, Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import type { EditorView, NodeView } from '@tiptap/pm/view';
 
-import { graphDescription, graphMarkup } from '../graph/charts';
-import { cleanGraph, NEW_GRAPH, planGraph, usesDecimalComma, type GraphData } from '../graph/data';
+import { graphDescription, graphMarkup, laterLine } from '../graph/charts';
+import { cleanGraph, hasTable, NEW_GRAPH, planGraph, usesDecimalComma, type GraphData } from '../graph/data';
 import { placeBlock } from './placeBlock';
 
 /**
@@ -17,6 +17,10 @@ import { placeBlock } from './placeBlock';
  * A click (tap) on a graph selects it and asks the device for its form: a
  * DOM event on the laptop, a request in the editor state on the iPhone. A
  * top-level block with its own id and origin (blockMeta), whole on a page.
+ *
+ * Step 8.2: summaries also write function plots, model graphs, stacked bars
+ * and histograms here (graph/data.ts). A function or a model graph has no
+ * form; until the charts module draws it, its line of text stands in its place.
  */
 
 export const GRAPH = 'graph';
@@ -116,7 +120,16 @@ class GraphView implements NodeView {
     this.width = Math.round(this.dom.clientWidth);
     const data = graphOf(node);
     // The module's SVG (it escapes every text it draws; with no numbers it says so).
-    this.art.innerHTML = graphMarkup(planGraph(data).spec, this.width || 600, String(node.attrs.blockId ?? ''), usesDecimalComma(data, langOf(this.dom)));
+    const markup = graphMarkup(planGraph(data).spec, this.width || 600, String(node.attrs.blockId ?? ''), usesDecimalComma(data, langOf(this.dom)));
+    if (markup) {
+      this.art.innerHTML = markup;
+      return;
+    }
+    // A kind the module doesn't draw yet (8.2: function and model graphs): its line, as text.
+    const line = document.createElement('p');
+    line.className = `${GRAPH_CLASS}-later`;
+    line.textContent = laterLine(data);
+    this.art.replaceChildren(line);
   }
 
   update(node: PMNode) {
@@ -160,6 +173,9 @@ export const Graph = Node.create({
       yLabel: { default: '', parseHTML: read('yLabel'), renderHTML: quiet },
       series: { default: NEW_GRAPH.series, parseHTML: read('series'), renderHTML: quiet },
       rows: { default: NEW_GRAPH.rows, parseHTML: read('rows'), renderHTML: (attrs) => ({ 'data-graph': JSON.stringify(cleanGraph(attrs)) }) },
+      // Step 8.2, from summaries: a function's expression, range and marks; a model graph's template and shifts.
+      func: { default: null, parseHTML: (el) => read('func')(el) ?? null, renderHTML: quiet },
+      model: { default: null, parseHTML: (el) => read('model')(el) ?? null, renderHTML: quiet },
     };
   },
 
@@ -170,7 +186,7 @@ export const Graph = Node.create({
   // Copy and paste inside Studiply keep the data; the description stands in for the picture elsewhere.
   renderHTML({ node, HTMLAttributes }) {
     const data = graphOf(node);
-    return ['figure', mergeAttributes(HTMLAttributes, { class: GRAPH_CLASS }), ['figcaption', graphDescription(planGraph(data).spec, usesDecimalComma(data, null))]];
+    return ['figure', mergeAttributes(HTMLAttributes, { class: GRAPH_CLASS }), ['figcaption', graphDescription(planGraph(data).spec, usesDecimalComma(data, null), data)]];
   },
 
   addNodeView() {
@@ -222,6 +238,8 @@ export const Graph = Node.create({
         props: {
           handleClickOn: (view, _pos, node, nodePos) => {
             if (node.type.name !== GRAPH || !view.editable) return false;
+            // A function or a model graph has no form in 8.2 (written again by regenerating): only selected.
+            if (!hasTable(graphOf(node).kind)) return false;
             askGraphForm(view, nodePos);
             return true;
           },

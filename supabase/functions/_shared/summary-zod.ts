@@ -20,6 +20,13 @@ const num = z.number();
 const list = <T extends z.ZodType>(item: T) => z.array(item);
 const obj = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
 
+/**
+ * Step 8.2: what a function plot's expression may hold, as the charts module parses it
+ * (docs/charts-work-order-8.2.md, section 2). Anything else isn't drawn.
+ */
+export const EXPRESSION_GRAMMAR =
+  'y in terms of x only: numbers, x, + - * / ^ ( ), pi, e, sin cos tan exp ln log sqrt abs with parentheses; write 2*x not 2x, sin(x) not sin x; -x^2 means -(x^2)';
+
 /** Each block type's data (its fields besides `type`): the spec's block shapes. */
 export const BLOCK_DATA = {
   paragraph: obj({ text: str, keyTerms: list(str) }),
@@ -41,10 +48,16 @@ export const BLOCK_DATA = {
   argument: obj({ claim: str, premises: list(str), objections: list(obj({ objection: str, reply: str })) }),
   code: obj({ language: str, code: str, output: str }),
   vocabulary: obj({ entries: list(obj({ term: str, meaning: str, example: str })) }),
-  functionPlot: obj({ expression: str, xRange: list(num), mark: list(str), title: str }),
+  // Step 8.2: the descriptions are prompt text only (blockGuide); the API sends a block's data as a string.
+  functionPlot: obj({
+    expression: str.describe(EXPRESSION_GRAMMAR),
+    xRange: list(num).describe('two numbers: from, to'),
+    mark: list(str).describe('any of "roots", "vertex", "extrema", "yIntercept"'),
+    title: str,
+  }),
   modelGraph: obj({
     template: z.enum(['supplyDemand', 'islm', 'normalCurve', 'costCurves']),
-    shifts: list(obj({ curve: str, direction: z.enum(['left', 'right']) })),
+    shifts: list(obj({ curve: str.describe('D or S; IS or LM; N; MC, ATC or AVC'), direction: z.enum(['left', 'right']) })),
     title: str,
   }),
   dataChart: obj({
@@ -183,10 +196,12 @@ export function checkBlock(type: BlockType, data: unknown, path: string): { ok: 
 
 /** A field's type in words, for the prompt. */
 function describe(s: Record<string, unknown>): string {
-  if (Array.isArray(s.enum)) return (s.enum as string[]).map((v) => `"${v}"`).join(' | ');
-  if (s.type === 'array') return `[${describe(s.items as Record<string, unknown>)}]`;
-  if (s.type === 'object') return `{ ${Object.entries(s.properties as Record<string, Record<string, unknown>>).map(([k, v]) => `${k}: ${describe(v)}`).join(', ')} }`;
-  return String(s.type);
+  // A field's description (8.2: the function plot's grammar) follows its type, in parentheses.
+  const note = typeof s.description === 'string' ? ` (${s.description})` : '';
+  if (Array.isArray(s.enum)) return (s.enum as string[]).map((v) => `"${v}"`).join(' | ') + note;
+  if (s.type === 'array') return `[${describe(s.items as Record<string, unknown>)}]${note}`;
+  if (s.type === 'object') return `{ ${Object.entries(s.properties as Record<string, Record<string, unknown>>).map(([k, v]) => `${k}: ${describe(v)}`).join(', ')} }${note}`;
+  return String(s.type) + note;
 }
 
 /** Each block type with its data's fields, one per line ("- paragraph: { text: string, keyTerms: [string] }"), for the prompt. */

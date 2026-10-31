@@ -1,0 +1,67 @@
+{
+  "_about": "Step 8.2: a hand-made stored summary (studiply-summary-v1) of a Calculus lecture, for the converter's tests and the visuals.mjs Chrome check: three function plots (x^2 - 4 with its roots and vertex, sin x with its roots and extrema, 1/x), a formula card, two board photos at their times. Synthetic content in Spanish, no student data. The photo ids are placeholders the check replaces with real ones. Each block is valid against BLOCK_DATA (summary-zod.ts).",
+  "format": "studiply-summary-v1",
+  "subjectType": "math",
+  "modulesUsed": ["formula", "graphModel"],
+  "appliedSettings": { "takeaways": 3, "targetWords": 700, "markStrength": 1, "selfTestCount": 2 },
+  "header": { "course": "Cálculo I (check)", "title": "Tema 4 · Funciones y sus gráficas", "number": 4, "date": "2026-11-04", "professor": "Dra. Ferrer", "durationMin": 40, "builtFrom": ["notes", "audio", "photos"] },
+  "coverage": { "noteLines": 0, "noteLinesUsed": 0, "marks": 0, "marksUsed": 0 },
+  "takeaways": [
+    { "text": "Las **raíces** de una función son los puntos donde su gráfica corta el eje x.", "fromMarkIds": [] },
+    { "text": "El **vértice** de $y = ax^2 + bx + c$ está en $x = -\\frac{b}{2a}$.", "fromMarkIds": [] },
+    { "text": "$y = 1/x$ tiene una **asíntota vertical** en $x = 0$: la gráfica no la cruza.", "fromMarkIds": [] }
+  ],
+  "sections": [
+    {
+      "heading": "Funciones cuadráticas",
+      "timestamp": "0:00",
+      "cueQuestion": "¿Dónde corta el eje x una parábola y dónde está su vértice?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "Una **función cuadrática** dibuja una parábola. Sus raíces se obtienen igualando la función a cero: en $x^2 - 4 = 0$ las raíces son $x = -2$ y $x = 2$.", "keyTerms": ["función cuadrática"] },
+        {
+          "type": "formula",
+          "latex": "x_v = -\\frac{b}{2a}",
+          "variables": [
+            { "symbol": "x_v", "meaning": "abscisa del vértice" },
+            { "symbol": "a, b", "meaning": "coeficientes de ax² + bx + c" }
+          ],
+          "whenToUse": "Para encontrar el vértice de una parábola sin dibujarla."
+        },
+        { "type": "functionPlot", "expression": "x^2 - 4", "xRange": [-5, 5], "mark": ["roots", "vertex"], "title": "La parábola corta el eje x en −2 y 2" },
+        { "type": "capturedImage", "imageId": "photo-board-1", "timestamp": "6:30", "caption": "La parábola en la pizarra" }
+      ]
+    },
+    {
+      "heading": "Funciones trigonométricas",
+      "timestamp": "12:00",
+      "cueQuestion": "¿Dónde se anula el seno en una vuelta completa?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "El **seno** es periódico, de periodo $2\\pi$. En $[0, 2\\pi]$ se anula en $0$, $\\pi$ y $2\\pi$, y alcanza su máximo $1$ en $\\pi/2$.", "keyTerms": ["seno"] },
+        { "type": "functionPlot", "expression": "sin(x)", "xRange": [0, 6.2832], "mark": ["roots", "extrema"], "title": "El seno se anula en 0, π y 2π" }
+      ]
+    },
+    {
+      "heading": "Asíntotas",
+      "timestamp": "24:00",
+      "cueQuestion": "¿Qué pasa con 1/x cerca de cero?",
+      "markChips": [],
+      "blocks": [
+        { "type": "paragraph", "text": "Cerca de $x = 0$, $1/x$ crece sin límite por la derecha y decrece sin límite por la izquierda: la recta $x = 0$ es una **asíntota vertical**.", "keyTerms": ["asíntota vertical"] },
+        { "type": "functionPlot", "expression": "1/x", "xRange": [-5, 5], "mark": [], "title": "1/x no está definida en x = 0" },
+        { "type": "capturedImage", "imageId": "photo-board-2", "timestamp": "26:10", "caption": "La hipérbola y sus asíntotas" }
+      ]
+    }
+  ],
+  "glossary": [{ "term": "Raíz", "definition": "Valor de x en el que la función vale cero." }],
+  "examSignals": [],
+  "questionsDuringClass": [],
+  "selfTest": [
+    { "question": "¿Cuáles son las raíces de $x^2 - 4$?", "kind": "recall", "answer": "$x = -2$ y $x = 2$.", "fromMarkId": "" },
+    { "question": "¿Por qué la gráfica de $1/x$ no cruza $x = 0$?", "kind": "why", "answer": "Porque la función no está definida en cero.", "fromMarkId": "" }
+  ],
+  "flashcards": [{ "front": "Vértice de una parábola", "back": "$x = -\\frac{b}{2a}$" }],
+  "logistics": [],
+  "unclear": []
+}
