@@ -21,9 +21,12 @@ import { placeAtMoment } from '../../services/moment-placement';
 import { cardsFromAnswer, type Card } from '../../services/assistant-actions.service';
 import { saveFlashcards, savedText } from '../../services/flashcards.service';
 import { errorMessage } from '../../utils/errors';
+import { assistantFocus, onAssistantFocus } from '../../lib/appLinks';
 
 /** How long a short notice ("comes in the next step", "Copied") stays. */
 const NOTICE_MS = 3000;
+/** How long a question a summary's link opened stays marked (step 7.7). */
+const FOCUS_MS = 4000;
 
 export const OFFLINE_NOTE = 'The assistant needs the internet. Your question stays here.';
 
@@ -66,6 +69,25 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     const t = setTimeout(() => setNotice(null), NOTICE_MS);
     return () => clearTimeout(t);
   }, [notice]);
+
+  // A summary's Full answer link (step 7.7): this question scrolled to and marked for a few seconds,
+  // instead of the end of the conversation.
+  const tops = useRef(new Map<string, number>());
+  // Asked just now (the sheet or panel opening for it), not a link followed earlier.
+  const fresh = () => {
+    const f = assistantFocus();
+    return f && Date.now() - f.at < FOCUS_MS ? f.messageId : null;
+  };
+  const [focused, setFocused] = useState<string | null>(fresh);
+  useEffect(() => onAssistantFocus(() => setFocused(fresh())), []);
+  const focusShown = !!focused && chat.turns.some((t) => t.id === focused);
+  useEffect(() => {
+    if (!focused || !focusShown) return;
+    const y = tops.current.get(focused);
+    if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    const t = setTimeout(() => setFocused(null), FOCUS_MS);
+    return () => clearTimeout(t);
+  }, [focused, focusShown]);
 
   const canAsk = !!chat.lectureId && !chat.busy && !offline;
   const canSend = canAsk && chat.draft.trim().length > 0;
@@ -139,7 +161,12 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
   );
 
   const turnView = (turn: ChatTurn) => (
-    <View key={turn.id} style={styles.turn} {...{ dataSet: { assistant: 'turn', status: turn.status } }}>
+    <View
+      key={turn.id}
+      style={[styles.turn, focused === turn.id && styles.turnFocused]}
+      onLayout={(e) => tops.current.set(turn.id, e.nativeEvent.layout.y)}
+      {...{ dataSet: { assistant: 'turn', status: turn.status, focused: focused === turn.id ? 'true' : undefined } }}
+    >
       <View style={styles.bubbleRow}>
         <View style={[styles.bubble, panel && styles.bubblePanel]} {...{ dataSet: { assistant: 'bubble' } }}>
           {panel && <UserAvatar size={22} />}
@@ -215,7 +242,15 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
         ref={scroll}
         style={styles.fill}
         contentContainerStyle={[styles.conversation, !panel && styles.conversationSheet]}
-        onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
+        onContentSizeChange={() => {
+          // At a question a summary's link asked for, the conversation stays there.
+          if (focused && focusShown) {
+            const y = tops.current.get(focused);
+            if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: false });
+            return;
+          }
+          scroll.current?.scrollToEnd({ animated: false });
+        }}
         keyboardShouldPersistTaps="handled"
         {...{ dataSet: { assistant: 'conversation' } }}
       >
@@ -345,6 +380,7 @@ const makeStyles = (c: ThemeColors) =>
     conversationSheet: { paddingHorizontal: 18, paddingTop: 16 },
     empty: { fontSize: Typography.size.sm, lineHeight: 19, color: c.text.secondary },
     turn: { gap: 10 },
+    turnFocused: { marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12, backgroundColor: c.accentLight },
     bubbleRow: { flexDirection: 'row', justifyContent: 'flex-end' },
     bubble: { maxWidth: '88%', backgroundColor: c.surfaceMuted, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
     bubblePanel: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 10 },

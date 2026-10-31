@@ -263,7 +263,18 @@ As built in step 4.4:
   - **The summary wasn't written:** why, in plain words, and **Try again**. Over 3 hours: "Lectures over 3 hours can't be summarized yet.", with no button. A lecture over 60 minutes is written in parts and merged (7.6); the card is the same ("Writing your summary…").
   - **Starting:** Stop & generate summary starts it at once when the permission was already given; a permission is never asked over the screen she's on at Stop.
 - Green banner: "Summary added to this document · Built from your notes (all N lines, M marks) + audio · slides · photos · your questions" + **Extend with next lecture**.
+  - **Step 7.7, the laptop:** while the Summary tab holds a summary, with no close ×.
+    - **Where:** the window's full width, directly under the top bar, across the sidebar, centre and assistant columns.
+    - **One line:** the bold title, "Built from …" (only this part is cut with … when the window is too narrow), and the pill at the right.
+    - **Extend with next lecture** is greyed, "Coming in a later update", until 7.9.
+- **The iPhone (iphone-06):** no banner. Two big buttons under the summary: **+ Extend with next** (white, dashed purple) and **Quiz me** (dark), both greyed "Coming in a later update" until 7.9 and 9.1.
 - At the top of the Summary tab: "All your notes are in this summary · N of N lines and M of M marks used".
+  - **Step 7.7:** under the page's title on both devices. One document has one order, though iphone-06 puts it above the title. It has the link **See them in My notes**.
+- **Where a new summary goes (7.7):**
+  - an empty Summary tab gets it;
+  - otherwise a new tab "New summary" ("New summary 2"…);
+  - only when she picks **Update the Summary tab** in the summarize panel (shown when the lecture has a summary; a new tab is the default), it's written into the Summary tab around everything she edited, with a version before and after.
+- **Each section** is a heading "n · heading" with its ▶ time and chips for **her own marks only**. The implicit signals (a question to the assistant, a concept explained 3+ times) shape the content but get no chip. The self-test's answers stay hidden until their label is tapped ("Answer · tap to show"). Each question during class has a **Full answer** link that opens the study assistant at it.
 - The student's notes appear as green **From your notes** blocks, keeping their formatting; Confused marks become "You were confused here · 7/10 · mm:ss" explanation blocks; Important/Exam levels show as chips on the matching section.
 - "Your questions during class" block at the end, linking to the saved assistant answers.
 

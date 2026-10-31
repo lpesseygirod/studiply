@@ -1,6 +1,7 @@
 import { mergeAttributes, Node, type Editor } from '@tiptap/core';
 import { Fragment, type Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 import { leaveBoxOnEmptyLast } from './boxKeys';
 import { chipLabel } from './timestampChip';
@@ -26,7 +27,18 @@ export const CALLOUT_CLASS = 'studiply-callout';
 /** Laptop: `detail` is { x, y } (where to open the callout's menu). */
 export const CALLOUT_EVENT = 'studiply-callout';
 
-export type CalloutKind = 'definition' | 'example' | 'exam' | 'warning' | 'fromNotes' | 'confused' | 'addedContext' | 'fromAssistant';
+export type CalloutKind =
+  | 'definition'
+  | 'example'
+  | 'exam'
+  | 'warning'
+  | 'fromNotes'
+  | 'confused'
+  | 'addedContext'
+  | 'fromAssistant'
+  | 'takeaways'
+  | 'notesCheck'
+  | 'answer';
 
 /** Each kind: its name in menus, and the label the box shows. */
 export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[] = [
@@ -39,10 +51,18 @@ export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[]
   { kind: 'addedContext', name: 'Added context', label: 'Added context · not from the lecture' },
   // Step 6.3: an answer added to My notes, or a suggestion put below its text; only the assistant makes it.
   { kind: 'fromAssistant', name: 'From the study assistant', label: 'From the study assistant' },
+  // Step 7.7, the summary written into the Summary tab: Key takeaways, the notes check line (its label
+  // a sentence, not small capitals) and a self-test answer, hidden until tapped.
+  { kind: 'takeaways', name: 'Key takeaways', label: 'Key takeaways' },
+  { kind: 'notesCheck', name: 'Notes check', label: 'All your notes are in this summary' },
+  { kind: 'answer', name: 'Answer', label: 'Answer' },
 ];
 
-/** The kinds a student can choose in the Callout menus (the assistant's own box isn't one). */
-export const MENU_CALLOUT_KINDS = CALLOUT_KINDS.filter((k) => k.kind !== 'fromAssistant');
+/** Only the summary makes these (the assistant's box, the notes check line, a hidden answer): not in the Callout menus. */
+const SUMMARY_ONLY: readonly CalloutKind[] = ['fromAssistant', 'notesCheck', 'answer'];
+
+/** The kinds a student can choose in the Callout menus. */
+export const MENU_CALLOUT_KINDS = CALLOUT_KINDS.filter((k) => !SUMMARY_ONLY.includes(k.kind));
 
 const isKind = (v: unknown): v is CalloutKind => CALLOUT_KINDS.some((k) => k.kind === v);
 /** A level 1–10, or null. */
@@ -55,14 +75,20 @@ const cleanMs = (v: unknown): number | null => {
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
 };
 
-/** "YOU WERE CONFUSED HERE · 7/10 · 18:30" (shown in capitals by CSS). */
-export function calloutLabel(attrs: { kind?: unknown; level?: unknown; ms?: unknown }): string {
+/** A mark on the notes of a From your notes box (step 7.7: "FROM YOUR NOTES · 06:40 · EXAM 9/10"). */
+const MARK_NAMES: Record<string, string> = { important: 'Important', confused: 'Confused', exam: 'Exam' };
+const cleanMark = (v: unknown): string | null => (typeof v === 'string' && v in MARK_NAMES ? v : null);
+
+/** "YOU WERE CONFUSED HERE · 7/10 · 18:30", "FROM YOUR NOTES · 06:40 · EXAM 9/10" (shown in capitals by CSS). */
+export function calloutLabel(attrs: { kind?: unknown; level?: unknown; ms?: unknown; mark?: unknown }): string {
   const kind = isKind(attrs.kind) ? attrs.kind : 'definition';
   const parts = [CALLOUT_KINDS.find((k) => k.kind === kind)!.label];
   const level = cleanLevel(attrs.level);
   const ms = cleanMs(attrs.ms);
+  const mark = cleanMark(attrs.mark);
   if (kind === 'confused' && level !== null) parts.push(`${level}/10`);
   if ((kind === 'confused' || kind === 'fromNotes' || kind === 'fromAssistant') && ms !== null) parts.push(chipLabel(ms));
+  if (kind === 'fromNotes' && mark) parts.push(level === null ? MARK_NAMES[mark] : `${MARK_NAMES[mark]} ${level}/10`);
   return parts.join(' · ');
 }
 
@@ -128,6 +154,15 @@ export const Callout = Node.create({
         parseHTML: (el) => cleanMs(el.getAttribute('data-ms')),
         renderHTML: (attrs) => (cleanMs(attrs.ms) === null ? {} : { 'data-ms': String(cleanMs(attrs.ms)) }),
       },
+      // Step 7.7: the student's mark on the notes of a From your notes box (its label shows it).
+      mark: {
+        default: null,
+        parseHTML: (el) => cleanMark(el.getAttribute('data-mark')),
+        renderHTML: (attrs) => (cleanMark(attrs.mark) ? { 'data-mark': cleanMark(attrs.mark) } : {}),
+      },
+      // Step 7.7: the note lines a From your notes box copies (My notes' block ids, comma-separated),
+      // so a summary written again leaves out the lines a box she edited already has.
+      noteIds: { default: null, rendered: false },
     };
   },
 
@@ -216,9 +251,17 @@ export const Callout = Node.create({
             mousedown: (view, event) => {
               const label = (event.target as HTMLElement | null)?.closest?.(`.${CALLOUT_CLASS}-label`);
               const box = label?.parentElement;
-              if (!label || !box || !view.editable) return false;
-              event.preventDefault();
+              if (!label || !box) return false;
               const pos = view.posAtDOM(box, 0) - 1;
+              // A self-test answer's label shows or hides it (step 7.7), also in a read-only view.
+              const node = view.state.doc.nodeAt(pos);
+              if (node?.type.name === CALLOUT && node.attrs.kind === 'answer') {
+                event.preventDefault();
+                view.dispatch(view.state.tr.setMeta(answerKey, { toggle: answerId(node, pos) }));
+                return true;
+              }
+              if (!view.editable) return false;
+              event.preventDefault();
               const inside = TextSelection.near(view.state.doc.resolve(pos + 2));
               const r = label.getBoundingClientRect();
               view.dispatch(view.state.tr.setSelection(inside).setMeta(calloutKey, { id: Date.now(), pos }));
@@ -229,9 +272,51 @@ export const Callout = Node.create({
           },
         },
       }),
+      answerReveal(),
     ];
   },
 });
+
+/** The answers shown (step 7.7): by block id, the view's own state, never the document. */
+export const answerKey = new PluginKey<Set<string>>('studiplyAnswers');
+export const ANSWER_SHOWN_CLASS = 'shown';
+
+/** An answer box's key: its block id (stable through edits and the other device's changes), else its place. */
+const answerId = (node: PMNode, pos: number) => (typeof node.attrs.blockId === 'string' ? node.attrs.blockId : `@${pos}`);
+
+/**
+ * Self-test answers hidden until their label is tapped (SUMMARY-SPEC: "answers hidden in the app"):
+ * which ones are shown is kept here, as decorations, so showing one is never an edit (the block stays
+ * untouched for "regenerating never overwrites what she edited") and isn't saved.
+ */
+function answerReveal(): Plugin<Set<string>> {
+  return new Plugin<Set<string>>({
+    key: answerKey,
+    state: {
+      init: () => new Set(),
+      apply: (tr, shown) => {
+        const meta = tr.getMeta(answerKey) as { toggle: string } | undefined;
+        if (!meta) return shown;
+        const next = new Set(shown);
+        if (next.has(meta.toggle)) next.delete(meta.toggle);
+        else next.add(meta.toggle);
+        return next;
+      },
+    },
+    props: {
+      decorations: (state) => {
+        const shown = answerKey.getState(state);
+        if (!shown?.size) return null;
+        const marks: Decoration[] = [];
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === CALLOUT && node.attrs.kind === 'answer' && shown.has(answerId(node, pos))) marks.push(Decoration.node(pos, pos + node.nodeSize, { class: ANSWER_SHOWN_CLASS }));
+          return node.type.name !== CALLOUT;
+        });
+        return DecorationSet.create(state.doc, marks);
+      },
+    },
+  });
+}
 
 function removeIfEmpty(editor: Editor): boolean {
   const { state } = editor;

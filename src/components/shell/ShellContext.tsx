@@ -95,7 +95,8 @@ export function useShellScreen(location: ShellLocation | null, header: DocumentH
 // Commands (keyboard shortcuts): the focused screen that can do it does it
 // -------------------------------------------------------------------
 
-export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts' | 'contextMenu' | 'cut' | 'copy';
+/** `openAssistant` (step 7.7): a question's Full answer link opens the laptop's study assistant panel. */
+export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts' | 'contextMenu' | 'cut' | 'copy' | 'openAssistant';
 
 /** A handler may return false: "nothing to do here now" (⌘C with no tile selected stays the browser's). */
 type CommandHandler = () => void | boolean;

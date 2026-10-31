@@ -11,6 +11,12 @@ import { DocumentHeader } from '../../../src/components/editor/DocumentHeader';
 import { DocumentTabs } from '../../../src/components/editor/DocumentTabs';
 import { EarlierNotesCard } from '../../../src/components/editor/EarlierNotesCard';
 import { SummaryTabCard } from '../../../src/components/summarize/SummaryTabCard';
+import { SummaryPhoneButtons } from '../../../src/components/summarize/SummaryBanner';
+import { setSummaryBanner } from '../../../src/components/summarize/summaryBannerState';
+import { holdsSummary } from '../../../src/lib/summaryDoc';
+import { focusAssistantMessage, onAppLink } from '../../../src/lib/appLinks';
+import { placeSummaryOf } from '../../../src/services/summaryDoc';
+import { latestSummary, type LectureSummary } from '../../../src/services/summarize.service';
 import { openSummarize } from '../../../src/components/summarize/summarizePanelState';
 import { VersionHistory } from '../../../src/components/editor/VersionHistory';
 import { CommentsSheet } from '../../../src/components/editor/CommentsSheet';
@@ -22,7 +28,7 @@ import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W, type CommentInfo } from '../../..
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { IconButton } from '../../../src/components/IconButton';
 import { anchorBelow, promptText, showAlert, type DialogButton } from '../../../src/components/dialogs/dialogs';
-import { courseCrumbs, useShellScreen } from '../../../src/components/shell/ShellContext';
+import { courseCrumbs, runShellCommand, useShellScreen } from '../../../src/components/shell/ShellContext';
 import { setCommentMarginShown, useCommentMargin } from '../../../src/components/shell/commentMargin';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
@@ -83,6 +89,9 @@ const HINTS: Record<FixedTab, string> = {
 };
 
 const metaDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** How often the summary being written is read again (as the Summary tab's card, 7.4). */
+const SUMMARY_POLL_MS = 5000;
 
 /** What a lecture's Summary or Transcript tab shows when it has no document (yet). */
 type TabState = 'loading' | 'document' | 'earlier' | 'none';
@@ -242,6 +251,47 @@ export default function DocumentScreen() {
   const lectureStatus = session?.status;
   const kind = file?.kind;
   const hasNote = !!note;
+
+  // Step 7.7: the lecture's newest summary, read again while it's being written; once done, written into
+  // its document (the Summary tab, a "New summary" tab, or merged around her edits: services/summaryDoc).
+  const [lectureSummary, setLectureSummary] = useState<LectureSummary | null>(null);
+  const [summaryRev, setSummaryRev] = useState(0);
+  const [watchRev, setWatchRev] = useState(0);
+  const tabNow = useRef(tab);
+  tabNow.current = tab;
+  useEffect(() => {
+    if (!id || kind !== 'lecture') return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      const s = await latestSummary(id).catch(() => null);
+      if (!live) return;
+      setLectureSummary(s);
+      if (s?.status === 'generating' || s?.status === 'checking') {
+        timer = setTimeout(() => void tick(), SUMMARY_POLL_MS);
+        return;
+      }
+      if (s?.status !== 'done') return;
+      const placed = await placeSummaryOf(id).catch(() => null);
+      if (!live || !placed?.written) return;
+      await loadTabs();
+      setSummaryRev((r) => r + 1);
+      // An editor open on that tab reads the server now, not at its next check (a summary written again
+      // into the Summary tab shows at once). The next look finds it written: nothing more is done.
+      notifyLibraryUpdated();
+      // A new summary waited for on the Summary tab opens where it went (a "New summary" tab).
+      if (placed.tab !== 'summary' && tabNow.current === 'summary') setTab(placed.tab);
+    };
+    void tick();
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [id, kind, watchRev, loadTabs]);
+  // A request saved or synced since (Stop & generate, the other device): watched again.
+  useLibraryUpdates(() => setWatchRev((r) => r + 1));
+  // Whether the open tab holds a summary written in (the banner, the iPhone's buttons).
+  const [summaryHere, setSummaryHere] = useState(false);
   const noteChecked = noteCheckedFor === id;
   const shownTab = useRef<string | null>(null);
   useEffect(() => {
@@ -257,8 +307,13 @@ export default function DocumentScreen() {
     }
     (async () => {
       // A lecture's Summary and Transcript may have nothing yet; every other tab is a document.
-      if (kind !== 'lecture' || (tab !== 'summary' && tab !== 'transcript')) return 'document' as const;
+      const added = tabs?.find((t) => t.tab === tab);
+      if (kind !== 'lecture' || (tab !== 'summary' && tab !== 'transcript')) {
+        if (live) setSummaryHere(kind === 'lecture' && added?.kind === 'summary');
+        return 'document' as const;
+      }
       const opened = await openDocument(id, tab).catch(() => null);
+      if (live) setSummaryHere(tab === 'summary' && holdsSummary(opened?.content));
       if (opened?.id) return 'document' as const;
       if (tab === 'summary') {
         if (!hasNote) return 'none' as const;
@@ -278,7 +333,8 @@ export default function DocumentScreen() {
     return () => {
       live = false;
     };
-  }, [kind, id, tab, hasNote, noteChecked, lectureStatus]);
+    // `summaryRev`: a summary was just written in (step 7.7); `tabs`: an added tab's kind.
+  }, [kind, id, tab, hasNote, noteChecked, lectureStatus, summaryRev, tabs]);
 
   // The editor, one per tab; its autosave starts once it is ready. A
   // spreadsheet tab (step 4.7e) has the grid instead, with the same autosave.
@@ -472,6 +528,22 @@ export default function DocumentScreen() {
   useEffect(() => () => setAssistantTarget(null), []);
   const phoneChat = useAssistant(!wide && isLecture && id ? id : null);
   const [askOpen, setAskOpen] = useState(false);
+  // Links into the app from the document (step 7.7): "See them in My notes" opens that tab; a question's
+  // "Full answer" opens the study assistant at it (the laptop's panel, the iPhone's sheet).
+  useEffect(
+    () =>
+      onAppLink((link) => {
+        if (link.kind === 'tab') {
+          if (tabs?.some((t) => t.tab === link.tab)) setTab(link.tab as DocTab);
+          return;
+        }
+        if (!isLecture) return;
+        focusAssistantMessage(link.messageId);
+        if (wide) runShellCommand('openAssistant');
+        else setAskOpen(true);
+      }),
+    [tabs, isLecture, wide],
+  );
   // Ask Claude on a selection (step 6.3): any document; a suggestion to accept or reject.
   const askClaude = useAskClaude({ fileId: id ?? null, courseId: file?.course_id ?? null, editorRef, showUndo });
   const menuButton = useRef<View>(null);
@@ -700,6 +772,14 @@ export default function DocumentScreen() {
   );
 
   const fullPane = margin.pages || (showEditor && isSheet);
+  // A tab that holds a summary written in (step 7.7): the banner (laptop, Summary tab) and the iPhone's buttons.
+  const showSummaryChrome = isLecture && showEditor && !isSheet && summaryHere;
+  // The banner runs the window's width under the top bar (desktop-03): the shell draws it, told from here.
+  const bannerOn = wide && showSummaryChrome && tab === 'summary';
+  useEffect(() => {
+    setSummaryBanner(bannerOn ? { summary: lectureSummary } : null);
+  }, [bannerOn, lectureSummary]);
+  useEffect(() => () => setSummaryBanner(null), []);
 
   // One tree for both layouts, so crossing the laptop width (a window being
   // resized) keeps the editor and its save session instead of remounting them.
@@ -713,6 +793,8 @@ export default function DocumentScreen() {
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>
           {body}
           {recordingScreen && <RecordingPhoneBar onAsk={isLecture ? () => setAskOpen(true) : undefined} />}
+          {/* iphone-06: + Extend with next and Quiz me under a summary (not while recording: the bar is there). */}
+          {!wide && showSummaryChrome && !recordingScreen && <SummaryPhoneButtons />}
         </View>
       </View>
       {toast}

@@ -34,6 +34,7 @@ import { NEW_TABLE_PANEL, NewTableKeyboard, PanelActions, TABLE_PANEL, TableKeyb
 import type { DocJSON, StudiplyEditorHandle, StudiplyEditorProps } from './types';
 import { addDocPhoto, editorPhotoSource } from '../services/doc-photo.service';
 import { newId } from '../lib/mappers';
+import { openAppLink } from '../lib/appLinks';
 import type { CommentInfo } from './schema/comments';
 import { MarkSheet, type MarkDraft } from './iphone/MarkSheet';
 import { GraphSheet } from './iphone/GraphSheet';
@@ -587,7 +588,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
           onPanel={openPanel}
           onDone={done}
           onLink={addLink}
-          onOpenLink={(href) => void Linking.openURL(href).catch(() => {})}
+          onOpenLink={(href) => openAppLink(href) || void Linking.openURL(href).catch(() => {})}
           onComment={openComment}
           onPhotoLayout={openPhotoLayout}
           insert={{

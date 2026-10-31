@@ -31,7 +31,27 @@ export function checksLine(c: CheckReport | undefined): string {
   return `All checks passed.${moved}`;
 }
 
-/** The Summary tab card's words for a summary, by status (step 7.4; 7.7 writes the summary into the tab itself). */
+/**
+ * The green banner's line (step 7.7, desktop-03): "Built from your notes (all 14 lines, 6 marks) + 34 min
+ * of audio · slides · board photos · your questions to the assistant".
+ */
+export function bannerText(r: Pick<NonNullable<LectureSummary['result']>, 'coverage' | 'header'>): string {
+  const c = r.coverage;
+  const lines = c.noteLinesUsed === c.noteLines ? `all ${plural(c.noteLines, 'line')}` : `${c.noteLinesUsed} of ${plural(c.noteLines, 'line')}`;
+  const built = r.header.builtFrom ?? [];
+  const extra = [
+    r.header.durationMin ? `${r.header.durationMin} min of audio` : 'audio',
+    built.includes('slides') ? 'slides' : '',
+    built.includes('photos') ? 'board photos' : '',
+    built.includes('assistant') ? 'your questions to the assistant' : '',
+  ].filter(Boolean);
+  return `Built from your notes (${lines}, ${plural(c.marks, 'mark')}) + ${extra.join(' · ')}`;
+}
+
+/** Extend with next lecture (7.9) and Quiz me (9.1): shown as in the mockups, not built yet. */
+export const COMING_LATER = 'Coming in a later update';
+
+/** The Summary tab card's words for a summary, by status (step 7.4; "ready" shows for a moment, while 7.7 writes it into the document). */
 export function summaryCardText(s: LectureSummary): { label: string; text: string; action?: 'start' | 'retry' | 'settings' } {
   const preview = s.settings?.preview ? `${s.settings.preview}. ` : '';
   switch (s.status) {
@@ -52,7 +72,7 @@ export function summaryCardText(s: LectureSummary): { label: string; text: strin
           `${plural(count(r.sections), 'section')} · ${plural(count(r.selfTest), 'question')} · ${plural(count(r.flashcards), 'flashcard')} · ${c.noteLinesUsed} of ${c.noteLines} note lines and ${c.marksUsed} of ${c.marks} marks used`,
           checksLine(r.checks as CheckReport | undefined),
           takeaways,
-          "It's written into this tab in the next update.",
+          'Writing it into this document…',
         ]
           .filter(Boolean)
           .join('\n\n'),

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Tabs, usePathname } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,9 +15,11 @@ import { RecordingHost } from '../../src/components/recording/RecordingHost';
 import { RecordingPill } from '../../src/components/recording/RecordingPill';
 import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
 import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
+import { SummaryBanner } from '../../src/components/summarize/SummaryBanner';
+import { useSummaryBanner } from '../../src/components/summarize/summaryBannerState';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
 import { SimulatedAiBadge } from '../../src/components/SimulatedAiBadge';
-import { ShellProvider } from '../../src/components/shell/ShellContext';
+import { registerShellCommand, ShellProvider } from '../../src/components/shell/ShellContext';
 import { KeyboardShortcuts } from '../../src/components/shell/KeyboardShortcuts';
 import { Sidebar } from '../../src/components/shell/Sidebar';
 import { TopBar } from '../../src/components/shell/TopBar';
@@ -108,6 +111,9 @@ export default function MainLayout() {
 
   const showSidebar = wide && kind !== 'settings' && prefs.sidebarOpen;
   const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
+  // A summary's Full answer link (step 7.7) opens the study assistant panel.
+  useEffect(() => registerShellCommand('openAssistant', () => setPrefs({ assistantOpen: true })), [setPrefs]);
+  const summaryBanner = useSummaryBanner();
 
   return (
     <ShellProvider>
@@ -122,6 +128,8 @@ export default function MainLayout() {
               onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
             />
           )}
+          {/* Step 7.7 (desktop-03): a lecture's Summary tab holding its summary: the green banner, the window's full width. */}
+          {wide && kind === 'document' && summaryBanner && <SummaryBanner summary={summaryBanner.summary} />}
           {/* While a lecture records (step 5.3): on every screen, so leaving the lecture never stops it. */}
           {wide && <RecordingStrip />}
           <View style={styles.row}>

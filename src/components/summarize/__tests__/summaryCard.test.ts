@@ -3,7 +3,7 @@
  */
 // Step 7.4: the Summary tab card's words by status: saved but not started, being written, ready (its
 // counts and takeaways), failed (why, and what to do).
-import { checksLine, summaryCardText } from '../summaryCard';
+import { bannerText, checksLine, summaryCardText } from '../summaryCard';
 import type { LectureSummary } from '../../../services/summarize.service';
 import type { CheckReport } from '../../../../supabase/functions/_shared/summary-checks';
 
@@ -36,7 +36,7 @@ describe('the Summary tab card', () => {
       takeaways: [{ text: 'Uno.' }, { text: 'Dos.' }],
     } as unknown as LectureSummary['result'];
     expect(summaryCardText(summary({ status: 'done', result })).text).toBe(
-      '4 sections · 7 questions · 1 flashcard · 14 of 14 note lines and 6 of 6 marks used\n\n• Uno.\n• Dos.\n\nIt\'s written into this tab in the next update.',
+      '4 sections · 7 questions · 1 flashcard · 14 of 14 note lines and 6 of 6 marks used\n\n• Uno.\n• Dos.\n\nWriting it into this document…',
     );
   });
 
@@ -72,7 +72,7 @@ describe('the Summary tab card', () => {
     it('is on the ready card, under the counts', () => {
       const result = { format: 'studiply-summary-v1', coverage: { noteLines: 6, noteLinesUsed: 6, marks: 6, marksUsed: 6 }, sections: [{}], checks: report() } as unknown as LectureSummary['result'];
       expect(summaryCardText(summary({ status: 'done', result })).text).toBe(
-        "1 section · 0 questions · 0 flashcards · 6 of 6 note lines and 6 of 6 marks used\n\nAll checks passed.\n\nIt's written into this tab in the next update.",
+        '1 section · 0 questions · 0 flashcards · 6 of 6 note lines and 6 of 6 marks used\n\nAll checks passed.\n\nWriting it into this document…',
       );
     });
   });
@@ -84,6 +84,16 @@ describe('the Summary tab card', () => {
     ['unreadable', 'Something went wrong. Nothing was changed.', 'retry'],
   ])('failed (%s): why, and what to do', (error, text, action) => {
     expect(summaryCardText(summary({ status: 'failed', error }))).toEqual({ label: 'The summary wasn’t written', text, action });
+  });
+
+  it('the green banner’s line (step 7.7, desktop-03): her notes and marks, the audio, what else it was built from', () => {
+    const header = { course: '', title: '', number: 1, date: '', professor: '', durationMin: 34, builtFrom: ['notes', 'audio', 'slides', 'photos', 'assistant'] };
+    expect(bannerText({ coverage: { noteLines: 14, noteLinesUsed: 14, marks: 6, marksUsed: 6 }, header })).toBe(
+      'Built from your notes (all 14 lines, 6 marks) + 34 min of audio · slides · board photos · your questions to the assistant',
+    );
+    expect(bannerText({ coverage: { noteLines: 1, noteLinesUsed: 0, marks: 1, marksUsed: 1 }, header: { ...header, builtFrom: ['notes', 'audio'] } })).toBe(
+      'Built from your notes (0 of 1 line, 1 mark) + 34 min of audio',
+    );
   });
 
   it('failed, over 3 hours (step 7.6): why, and no button (nothing on the card helps)', () => {

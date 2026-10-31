@@ -321,6 +321,14 @@ export const DocColors = {
     get fromAssistant() {
       return this.definition;
     },
+    /** Step 7.7 (desktop-03): Key takeaways, a warm light grey box; its border barely darker. */
+    takeaways: { bg: '#F6F5F1', border: '#E4E0D8', label: '#5A5A6A' },
+    /** Step 7.7: "All your notes are in this summary", the From your notes green. */
+    get notesCheck() {
+      return this.fromNotes;
+    },
+    /** Step 7.7: a self-test answer (hidden until tapped), the formula card's quiet box. */
+    answer: { bg: '#F8F7FC', border: '#DCD8EE', label: '#4F43B0' },
   },
   /** Mark chips in the document (step 4.6): Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
   markChip: {

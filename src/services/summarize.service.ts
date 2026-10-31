@@ -16,6 +16,8 @@ import { callFunction, FunctionError } from '../lib/functions';
 import { ConsentDeclinedError, ensureConsent, forgetConsent } from './consent.service';
 import { Buckets, removeFiles, uploadFile } from './cloud-storage.service';
 import { openDocument, getDocumentFile } from './document.service';
+import { listTabs } from './document-tabs.service';
+import { holdsSummary } from '../lib/summaryDoc';
 import { checkUpload, type PickedFile } from './library-upload.service';
 import { marksOf } from './marks.service';
 import { getProject } from './project.service';
@@ -63,7 +65,16 @@ export interface SummarizeInfo {
   photos: { id: string; tMs: number | null }[];
   slides: { id: string; name: string; pages: number | null }[];
   links: { id: string; url: string }[];
+  /** Step 7.7: the lecture has a summary written into it already (the panel asks where the new one goes). */
+  hasSummary: boolean;
 }
+
+/**
+ * Step 7.7, where a summary goes when the lecture has one already: a new tab "New summary" (the
+ * default: the Summary tab is never touched without her choice), or the Summary tab, written again
+ * around everything she edited.
+ */
+export type SummaryTarget = 'new' | 'summary';
 
 type MediaRow = { id: string; kind: string; t_ms: number | null; caption: string | null; page_count: number | null; url: string | null; storage_path: string | null };
 
@@ -108,7 +119,7 @@ export async function saveCourseDefaults(courseId: string, s: Sliders): Promise<
 /** Everything the panel shows for a lecture. `durationMs`: the recording's clock while it records. */
 export async function loadSummarizeInfo(lectureId: string, { durationMs }: { durationMs?: number } = {}): Promise<SummarizeInfo> {
   const file = await getDocumentFile(lectureId);
-  const [defaults, course, notes, session, transcript, assistant, media] = await Promise.all([
+  const [defaults, course, notes, session, transcript, assistant, media, summaryTab, tabs] = await Promise.all([
     courseDefaults(file.course_id),
     file.course_id ? getProject(file.course_id).catch(() => null) : null,
     openDocument(lectureId, 'notes').catch(() => null),
@@ -116,6 +127,8 @@ export async function loadSummarizeInfo(lectureId: string, { durationMs }: { dur
     getTranscriptBySession(lectureId).catch(() => null),
     assistantOf(lectureId),
     mediaOf(lectureId),
+    openDocument(lectureId, 'summary').catch(() => null),
+    listTabs(lectureId, true).catch(() => []),
   ]);
   const doc = (notes?.content ?? { type: 'doc', content: [] }) as DocJSON;
   const segments = Array.isArray(transcript?.segments) ? (transcript.segments as unknown as { text?: string }[]) : [];
@@ -134,6 +147,7 @@ export async function loadSummarizeInfo(lectureId: string, { durationMs }: { dur
     photos: media.filter((m) => m.kind === 'photo').map((m) => ({ id: m.id, tMs: m.t_ms })),
     slides: media.filter((m) => m.kind === 'slides').map((m) => ({ id: m.id, name: m.caption ?? 'Slides', pages: m.page_count })),
     links: media.filter((m) => m.kind === 'link' && m.url).map((m) => ({ id: m.id, url: m.url as string })),
+    hasSummary: holdsSummary(summaryTab?.content) || tabs.some((t) => t.kind === 'summary'),
   };
 }
 
@@ -173,8 +187,8 @@ async function mediaOf(lectureId: string): Promise<MediaRow[]> {
 // The request (a pending `summaries` row)
 // -------------------------------------------------------------------
 
-/** What `applied_settings` holds for a request: the calculator's numbers, the resources and the preview line. */
-export type RequestSettings = SummaryPlan['appliedSettings'] & { resources: SummarizeResources; preview: string };
+/** What `applied_settings` holds for a request: the calculator's numbers, the resources, the preview line, and where it goes (7.7). */
+export type RequestSettings = SummaryPlan['appliedSettings'] & { resources: SummarizeResources; preview: string; target?: SummaryTarget };
 
 type RequestRow = Pick<SummaryRow, 'id' | 'file_id' | 'mode' | 'source_lecture_ids' | 'sliders' | 'status' | 'applied_settings'>;
 
@@ -186,8 +200,8 @@ export function isSummaryRequest(row: Pick<SummaryRow, 'result' | 'sliders' | 'm
   return row.mode === 'new' && !!s && typeof s === 'object' && SLIDER_KEYS.every((k) => typeof s[k] === 'number');
 }
 
-export function requestRow(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, id = newId()): RequestRow {
-  const settings: RequestSettings = { ...plan.appliedSettings, resources, preview: plan.preview };
+export function requestRow(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, id = newId(), target?: SummaryTarget): RequestRow {
+  const settings: RequestSettings = { ...plan.appliedSettings, resources, preview: plan.preview, ...(target && { target }) };
   return {
     id,
     file_id: lectureId,
@@ -203,8 +217,8 @@ export function requestRow(lectureId: string, sliders: Sliders, resources: Summa
  * Stop & generate summary: the request for step 7.4. The iPhone keeps it and queues it (offline too);
  * the laptop sends it now (a NetworkError when offline).
  */
-export async function requestSummary(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan): Promise<string> {
-  const row = requestRow(lectureId, sliders, resources, plan);
+export async function requestSummary(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, target?: SummaryTarget): Promise<string> {
+  const row = requestRow(lectureId, sliders, resources, plan, newId(), target);
   if (syncEnabled) {
     const userId = cacheUser();
     if (!userId) throw new Error('Could not save the summary settings.');

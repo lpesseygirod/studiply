@@ -15,9 +15,16 @@ export interface CardsSource {
   fileId: string | null;
   /** Its course; undefined: read from the document. */
   courseId?: string | null;
-  source: 'assistant' | 'selection';
-  /** The answer's assistant_messages id ('assistant'), or the document's id ('selection'). */
+  source: 'assistant' | 'selection' | 'summary';
+  /** The answer's assistant_messages id ('assistant'), the document's id ('selection'), the summary's id ('summary', step 7.7). */
   sourceRef: string | null;
+}
+
+/** Whether a summary's flashcards are saved already (step 7.7: each summary's once). */
+export async function summaryCardsSaved(summaryId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('flashcards').select('id').eq('source', 'summary').eq('source_ref', summaryId).limit(1);
+  if (error) throw serviceError(error, 'Could not read the flashcards.');
+  return (data ?? []).length > 0;
 }
 
 export async function saveFlashcards(cards: Card[], from: CardsSource): Promise<{ count: number; undo: () => Promise<void> }> {

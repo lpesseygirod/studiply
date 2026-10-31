@@ -8,7 +8,7 @@ import { PHOTO_CLASS } from './schema/photo';
 import { COMMENT_CLASS } from './schema/comments';
 import { PHOTO_BAR_CLASS, PHOTO_COMPACT_CLASS, PHOTO_NARROW_CLASS, PHOTO_SIZE_CLASS, PHOTO_WIDE_CLASS } from './photoBar';
 import { MATH_CHIP_CLASS } from './schema/formula';
-import { CALLOUT_CLASS } from './schema/callout';
+import { ANSWER_SHOWN_CLASS, CALLOUT_CLASS } from './schema/callout';
 import { SUGGESTION_CLASS } from './schema/suggestion';
 import { FORMULA_CARD_CLASS } from './schema/formulaCard';
 import { GRAPH_CLASS } from './schema/graph';
@@ -88,6 +88,17 @@ ${pm} .${GRAPH_CLASS}.ProseMirror-selectednode { outline: 2px solid ${c.accent};
 ${Object.entries(DocColors.callout)
   .map(([kind, k]) => `${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] { background: ${k.bg}; border-left-color: ${k.border}; } ${pm} .${CALLOUT_CLASS}[data-callout='${kind}'] .${CALLOUT_CLASS}-label { color: ${k.label}; }`)
   .join('\n')}
+/* The summary in the Summary tab (step 7.7, desktop-03): the notes check line's label is a sentence; a self-test answer is hidden until its label is tapped (view only, never saved). */
+${pm} .${CALLOUT_CLASS}[data-callout='notesCheck'] .${CALLOUT_CLASS}-label { font: 700 14px/20px -apple-system, system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: default; }
+${pm} .${CALLOUT_CLASS}[data-callout='notesCheck'] .${CALLOUT_CLASS}-body { font-size: 0.85em; }
+${pm} .${CALLOUT_CLASS}[data-callout='notesCheck'] a { white-space: nowrap; }
+${pm} .${CALLOUT_CLASS}[data-callout='takeaways'] { border-left-width: 1px; }
+${pm} .${CALLOUT_CLASS}[data-callout='answer'] { padding-top: 6px; padding-bottom: 6px; }
+/* Hidden only in the editor (its root has contenteditable): an exported PDF shows the answers (8.3 moves them to the last page). */
+${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer'] .${CALLOUT_CLASS}-label::after { content: ' · tap to show'; letter-spacing: 0.04em; text-transform: none; font-weight: 600; }
+${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer'].${ANSWER_SHOWN_CLASS} .${CALLOUT_CLASS}-label::after { content: ' · tap to hide'; }
+${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-body { display: none; }
+${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-label { margin-bottom: 0; }
 /* Ask Claude (step 6.3): the text a pending suggestion is about, until it is accepted or rejected. */
 ${pm} .${SUGGESTION_CLASS} { background: ${c.accentLight}; box-shadow: 0 2px 0 ${c.accent}; }
 ${pm} .${MARK_CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }

@@ -531,7 +531,45 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - 90 min, 180 segments, ≈ 13,000 words, six 15-min topics.
     - 15 notes and 10 marks, some within 30 s of 30:00 and 60:00; two photos; two questions (one window across 60:00); two exam phrases and an injection line.
   - **Tests:** Jest for the split, the assignment, the context, the part prompt and rules, the media, the merge, the wrap-up, the run (order, cache order, retry, `part_failed`, `refused`, `claude_rejected`, wrap-up failing), the verify windows, the new schemas and the card.
-- [ ] 7.7 — Into the document (JSON → editor blocks, versions, edit-safe regen)
+- [x] 7.7 — Into the document (JSON → editor blocks, versions, edit-safe regen). **Done (31 Oct), verified by the advisor.**
+  - **Verified:** `npm run check` (2,355 tests), `check:bundle`, `test:db`, and all 35 Chrome suites. `summary-doc.mjs` is 10/10, with composites matching desktop-03 and iphone-06 except the notes check line's place (decided).
+  - **BUILD-PLAN's check, faked:** a finished summary seeded in Chrome; two paragraphs edited on the laptop; "Update the Summary tab"; both edits kept.
+  - **Lea's real check** (generate on the iPhone, edit on the laptop, regenerate) needs the new EAS development build: on her list.
+  - **The converter** (`src/lib/summaryDoc.ts`, pure; it runs in the app on both devices, no TenTap bridge):
+    - **Order:** the notes check line comes first, under the page's title. The screen's header gives the title and meta line, so the summary doesn't repeat them. Then Key takeaways, then each section.
+    - **Each section:** a heading "n · heading" with its ▶ time chip, chips for her own marks only (not linked: the marks table follows My notes only; the implicit signals, repetitions and questions to the assistant, shape the content but get no chip, advisor 31 Oct) and its cue question (`cue`, kept for Quiz me).
+    - **Its blocks:** From your notes boxes, one per note line (a list's lines together), with her formatting and a label showing the time and her mark ("· 06:40 · EXAM 9/10"); You were confused here; Definition, Example, Exam and Added context callouts; formula cards; comparison, vocabulary, key figures and timeline as tables; process, cause-effect, argument and the concept map as lists; data charts as the graph block; photos.
+    - **After the sections:** exam signals; Your questions during class, each with its ▶ time, the short answer and a Full answer link; the self-test, each answer hidden; "N flashcards saved for review"; the glossary; logistics; unclear moments.
+    - **Placeholders (Phase 8.2):** function plots and model graphs are a placeholder line ("… · drawn in a later update").
+    - **The app's own words** (the notes line, See them in My notes, Full answer, the headings, "Example:", the flashcards line) are app UI, so English, like the callout labels (CLAUDE.md: English UI; study content stays in the lecture's language). Claude's text stays in the lecture's language. This changed after the advisor's first Chrome run, which wrote them in the lecture's language.
+  - **Origins and ids:**
+    - blocks are `ai`; the From your notes boxes are `student`; photos are `media`;
+    - block ids are `sm<8 of the summary id>-<place>`, so the same summary gives the same document on both devices;
+    - a version (`ai_generation`) is saved after each write.
+  - **Where a finished summary goes** (`services/summaryDoc`, run when the lecture's newest summary is done; the document screen watches the row while it's written):
+    - **The Summary tab is empty:** the summary goes there.
+    - **It holds something:** a new tab "New summary" ("New summary 2"…), and the Summary tab is never touched.
+    - **She chose "Update the Summary tab" in the panel** (shown only when the lecture has a summary; a new tab is the default): it's merged, with a version before.
+    - **Written once:** a summary that's already in a tab isn't written again. Its flashcards are saved once (`source: 'summary'`, `source_ref`).
+  - **The merge** (`mergeRegenerated`): every block she edited (`editedAt`, blockMeta 4.3) or added stays, at the end of its section. The section is matched by its time, else the nearest earlier one. Untouched blocks are replaced. A From your notes box she edited keeps its lines, and the new summary's box for the same lines is left out.
+  - **Editor** (both editors; `npm run editor:build`, and on the iPhone a new EAS development build):
+    - callout kinds Key takeaways, notes check and Answer;
+    - the From your notes label with the mark;
+    - answers hidden until their label is tapped: view-only, never an edit or a save;
+    - the heading's `cue` attribute;
+    - a box's `noteIds`.
+  - **Screen:**
+    - the green banner on the laptop's Summary tab once it holds a summary: the window's full width under the top bar (the shell draws it), one line (only "Built from" is cut with …), + Extend with next lecture greyed ("Coming in a later update"), no ×;
+    - on the iPhone, + Extend with next and Quiz me at the bottom, greyed;
+    - links in the document: "See them in My notes" opens that tab; "Full answer" opens the study assistant at that question (the laptop's panel or the iPhone's sheet; the question is marked for a few seconds). Both go through the link's Open.
+    - The Summary tab's "ready" card now shows only for a moment, while the summary is written in.
+  - **Tests:**
+    - **Jest:** the converter on both synthetic summaries (committed copies in `src/test-utils/`, synthetic text only) and on the every-block-type example, all checked against the real editor schema; the merge; the question links; where a summary goes; the new callouts, the answer reveal and the attributes kept; app links; the banner's line.
+    - **Chrome:** `summary-doc.mjs` (in my scratchpad), including the BUILD-PLAN check faked and composites beside desktop-03 and iphone-06.
+  - **For Lea:**
+    - the mockups disagree on the notes check line's place (desktop-03 under the title, iphone-06 above it); one document has one order, so it's under the title on both;
+    - "Generate on the iPhone" needs the new EAS development build;
+    - "See them in My notes" and "Full answer" are links: on the laptop, click the link, then **Open** in the bubble.
 - [ ] 7.8 — You judge the quality (prompt/calculator fixes)
 - [ ] 7.9 — Extend, merge, exam pack
 
@@ -622,6 +660,14 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.7 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **Where a new summary goes:** the choice is in the summarize panel, shown only when the lecture already has a summary. The default is a new tab ("New summary").
+  2. **Extend with next lecture (7.9) and Quiz me (9.1)** are shown greyed, "Coming in a later update" (they're in the mockups).
+  3. **The green banner** shows on the lecture's Summary tab when it holds a summary, with no close × (the mockup has none).
+  4. **The Full answer link** to the saved assistant answer is built now, minimal: the laptop's panel and the iPhone's sheet open at that question.
+  5. **Copies of the two synthetic summaries** are committed as Jest fixtures (synthetic text only).
+  6. **The new EAS development build** for the new editor blocks is on Lea's list.
+  7. **The notes check line goes under the title on both** (desktop-03): the mockups disagree, and one document has one order.
 - **Step 7.6 (the advisor's decisions, 31 Oct, for Lea's list):**
   1. **A 3-hour cap for now** (planned at ≈ $0.80 per summary at most; the measured 90-min cost suggests ≈ $1.30 for 3 h). Longer lectures fail with "Lectures over 3 hours can't be summarized yet."
   2. **Merge by code plus one wrap-up call** (title, takeaways, self-test, flashcards), not a full Claude merge call. It's cheaper (≈ $0.05 vs ≈ $0.25) and keeps the parts as written.

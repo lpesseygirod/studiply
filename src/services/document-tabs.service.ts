@@ -115,9 +115,16 @@ export function positionBetween(before: number | null, after: number | null): nu
   return (before + after) / 2;
 }
 
-/** The next free "Tab N" name, or "Sheet N" for a spreadsheet (counted among the sheets, step 4.7e). */
+/**
+ * The next free "Tab N" name, "Sheet N" for a spreadsheet (counted among the sheets, step 4.7e), or
+ * "New summary", "New summary 2"… for a summary she didn't add to the Summary tab (step 7.7, 4.7b).
+ */
 export function nextTabTitle(tabs: (Pick<TabInfo, 'title'> & { kind?: TabKind | null })[], kind: TabKind | null = null): string {
   const taken = new Set(tabs.map((t) => t.title.toLowerCase()));
+  if (kind === 'summary') {
+    if (!taken.has('new summary')) return 'New summary';
+    for (let n = 2; ; n++) if (!taken.has(`new summary ${n}`)) return `New summary ${n}`;
+  }
   const [word, start] = kind === 'sheet' ? ['Sheet', tabs.filter((t) => t.kind === 'sheet').length + 1] : ['Tab', tabs.length + 1];
   for (let n = start; ; n++) if (!taken.has(`${word.toLowerCase()} ${n}`)) return `${word} ${n}`;
 }

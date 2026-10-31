@@ -26,6 +26,7 @@ import {
   startSummary,
   type SummarizeInfo,
   type SummarizeResources,
+  type SummaryTarget,
 } from '../../services/summarize.service';
 import { PRESETS, SLIDER_KEYS, planSummary, type SliderKey, type Sliders, type SummaryPlan } from '../../../supabase/functions/_shared/summary-plan';
 import { promptText, showAlert } from '../dialogs/dialogs';
@@ -51,7 +52,7 @@ import { closeSummarize, useSummarizePanel, type SummarizeRequest } from './summ
  * Cancel · Generate summary. No AI is called here (step 7.4 writes the summary).
  */
 /** Stop & generate summary: stops the recording (if any), saves the request, opens the Summary tab. */
-async function stopAndRequest(p: { lectureId: string; recording: boolean; sliders: Sliders; resources: SummarizeResources; plan: SummaryPlan; open: () => void }) {
+async function stopAndRequest(p: { lectureId: string; recording: boolean; sliders: Sliders; resources: SummarizeResources; plan: SummaryPlan; target?: SummaryTarget; open: () => void }) {
   if (p.recording) {
     try {
       await recordingFlow.stop();
@@ -63,7 +64,7 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
   const media = p.resources.slides || p.resources.photos;
   let summaryId: string | null = null;
   try {
-    summaryId = await requestSummary(p.lectureId, p.sliders, p.resources, p.plan);
+    summaryId = await requestSummary(p.lectureId, p.sliders, p.resources, p.plan, p.target);
     notifyLibraryUpdated();
   } catch (err) {
     showAlert(
@@ -111,6 +112,8 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const [ticks, setTicks] = useState({ slides: true, photos: true, assistant: true });
   const [busy, setBusy] = useState(false);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  // Step 7.7: when the lecture has a summary already, where the new one goes (a new tab unless she chooses).
+  const [target, setTarget] = useState<SummaryTarget>('new');
 
   const load = useCallback(async () => {
     try {
@@ -184,6 +187,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
       sliders,
       resources: resources(),
       plan,
+      ...(info?.hasSummary && { target }),
       open: () => router.navigate({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'summary', at: String(Date.now()) } }),
     });
   };
@@ -432,7 +436,32 @@ function Panel({ request }: { request: SummarizeRequest }) {
     </View>
   );
 
-  const note = (
+  // Step 7.7: the lecture has a summary already: a new tab (default), or the Summary tab written again around her edits.
+  const targets: { key: SummaryTarget; title: string; detail: string }[] = [
+    { key: 'new', title: 'Put it in a new tab', detail: '“New summary”, after Summary and Transcript. The Summary tab stays as it is.' },
+    { key: 'summary', title: 'Update the Summary tab', detail: 'Your edits stay: only the parts you haven’t changed are written again.' },
+  ];
+  const note = info?.hasSummary ? (
+    <View style={styles.targets} accessibilityRole="radiogroup" accessibilityLabel="Where the new summary goes" {...{ dataSet: { summarize: 'target' } }}>
+      <Text style={styles.label}>THIS LECTURE HAS A SUMMARY · WHERE THE NEW ONE GOES</Text>
+      {targets.map((t) => (
+        <Pressable
+          key={t.key}
+          onPress={() => setTarget(t.key)}
+          style={[styles.target, target === t.key && styles.targetOn]}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: target === t.key }}
+          {...{ dataSet: { summarize: `target-${t.key}`, checked: String(target === t.key) } }}
+        >
+          <View style={[styles.radio, target === t.key && styles.radioOn]}>{target === t.key && <View style={styles.radioDot} />}</View>
+          <View style={styles.cardText}>
+            <Text style={styles.cardTitle}>{t.title}</Text>
+            <Text style={styles.cardDetail}>{t.detail}</Text>
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  ) : (
     <View style={styles.note}>
       <Text style={styles.noteText}>
         The summary is written into <Text style={styles.bold}>this document</Text> (Summary tab). Your notes stay untouched in the My notes tab.
@@ -572,6 +601,12 @@ const makeStyles = (c: ThemeColors) =>
     ends: { flexDirection: 'row', justifyContent: 'space-between' },
     end: { fontSize: Typography.size.xs, color: c.text.secondary },
     note: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: c.cardMuted },
+    targets: { gap: 8 },
+    target: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
+    targetOn: { borderColor: c.accent, backgroundColor: c.accentLight },
+    radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },
+    radioOn: { borderColor: c.accent },
+    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent },
     noteText: { fontSize: Typography.size.sm, color: c.text.secondary },
     bold: { fontWeight: Typography.weight.bold, color: c.text.primary },
     saveWide: { gap: 2 },

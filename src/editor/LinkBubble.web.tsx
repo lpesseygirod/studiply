@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Editor } from '@tiptap/react';
 
 import type { ThemeColors } from '../constants/colors';
+import { appLinkText, openAppLink, parseAppLink } from '../lib/appLinks';
 import { Typography } from '../constants/typography';
 import { useThemedStyles } from '../theme/ThemeProvider';
 import { LINK_EVENT } from './bridges/format';
@@ -33,14 +34,16 @@ export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement
   if (!href || !editor.isFocused || !page) return null;
   const at = editor.view.coordsAtPos(editor.state.selection.from);
   const box = page.getBoundingClientRect();
+  // Step 7.7: a link into the app (My notes, the study assistant) opens there, not in a new tab.
+  const appLink = parseAppLink(href);
 
   return (
     <View ref={keepFocus} style={[styles.bubble, { left: Math.max(8, at.left - box.left - 20), top: at.bottom - box.top + 6 }]} accessibilityLabel="Link">
       <Text style={styles.href} numberOfLines={1}>
-        {href.replace(/^mailto:/, '')}
+        {appLink ? appLinkText(appLink) : href.replace(/^mailto:/, '')}
       </Text>
       <Pressable
-        onPress={() => window.open(href, '_blank', 'noopener,noreferrer')}
+        onPress={() => openAppLink(href) || window.open(href, '_blank', 'noopener,noreferrer')}
         style={styles.action}
         accessibilityRole="link"
         accessibilityLabel="Open link"
