@@ -60,12 +60,24 @@ export function docxFileName(title: string): string {
   return `${exportBaseName(title)}.docx`;
 }
 
-function exportBaseName(title: string): string {
-  const cleaned = title
+/**
+ * A summary's PDF (step 8.3, SUMMARY-SPEC): "Course – Lecture title – YYYY-MM-DD.pdf" (en dashes),
+ * without the course when it has none. Each part cleaned as above; the course at most 40
+ * characters and the title 60, so the date is never cut off. `day`: the lecture's day (local time).
+ */
+export function summaryPdfFileName(course: string | null | undefined, title: string, day: Date): string {
+  const part = (s: string, max: number) => clean(s).slice(0, max).trim();
+  const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  const parts = [part(course ?? '', 40), part(title, 60) || 'Studiply notes', Number.isNaN(day.getTime()) ? '' : date].filter(Boolean);
+  return `${parts.join(' – ')}.pdf`;
+}
+
+const clean = (s: string) =>
+  s
     .replace(/[/\\:*?"<>|\u0000-\u001f]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, MAX_PDF_NAME)
     .trim();
-  return cleaned || 'Studiply notes';
+
+function exportBaseName(title: string): string {
+  return clean(title).slice(0, MAX_PDF_NAME).trim() || 'Studiply notes';
 }

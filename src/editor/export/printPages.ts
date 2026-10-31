@@ -6,6 +6,7 @@ import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, pageViewOf } from '../pag
 import { cleanPageSetup, paperCm, sheetGeometry, type PageNumbers, type PageSetup, type SheetGeometry } from '../page/pageSetup';
 import { PHOTO_CLASS, PHOTO_LOADING } from '../schema/photo';
 import { COMMENT_CLASS } from '../schema/comments';
+import { katexFamiliesIn, katexFontFaces } from './pictures';
 import { LightColors } from '../../constants/colors';
 import type { DocJSON } from '../types';
 
@@ -23,6 +24,10 @@ import type { DocJSON } from '../types';
  * margin between them, and shows its next part there. Graphs, formulas,
  * callouts, chips and photos are the editor's own drawing, so they print as
  * they look. The numbers go through the whole file.
+ *
+ * Step 8.3: a summary's PDF (export/summaryPrint.ts makes its tabs) has a running header from page 2
+ * and a "Studiply · Page 2 of 4" footer instead of the number (`running`). Every PDF carries the
+ * KaTeX faces its formulas use as data (they printed in fallback fonts when only linked).
  */
 
 export interface PrintTab {
@@ -44,7 +49,21 @@ export interface PrintOptions {
    * `ios`: expo-print, whose pages are in points and lays CSS px out as points: the pages are drawn at 3/4.
    */
   target: 'browser' | 'ios';
+  /**
+   * Step 8.3, a summary's PDF (SUMMARY-SPEC): a running header from page 2 (the course left, the
+   * lecture's title right) and a footer on every page ("Studiply" left, "Page 2 of 4" right), in
+   * place of the page number.
+   */
+  running?: RunningHead;
 }
+
+export interface RunningHead {
+  left: string;
+  right: string;
+}
+
+/** The footer's left word (the app's name). */
+export const BRAND = 'Studiply';
 
 export interface PrintResult {
   html: string;
@@ -123,8 +142,19 @@ function numberHtml(n: number, place: Exclude<PageNumbers, 'off'>, sheet: SheetG
   return `<span class="${PRINT}-number" style="${edge}; ${side}">${n}</span>`;
 }
 
+/**
+ * A summary's running header (from page 2) and footer (every page), each in the middle of its margin,
+ * lined up with the text's edges (step 8.3).
+ */
+function runningHtml(k: number, total: number, running: RunningHead, sheet: SheetGeometry): string {
+  const across = `left: ${sheet.marginLeft}px; right: ${sheet.marginRight}px`;
+  const line = (where: 'top' | 'bottom', left: string, right: string, kind: string) =>
+    `<div class="${PRINT}-${kind}" style="${where}: ${Math.max(4, ((where === 'top' ? sheet.marginTop : sheet.marginBottom) - NUMBER_LINE) / 2)}px; ${across}"><span>${esc(left)}</span><span>${esc(right)}</span></div>`;
+  return `${k > 0 ? line('top', running.left, running.right, 'header') : ''}${line('bottom', BRAND, `Page ${k + 1} of ${total}`, 'footer')}`;
+}
+
 /** The print document: one box of the paper's size per page. `styles`: the page's own stylesheets (KaTeX and its fonts). */
-export function printDocument(pages: PlacedBlock[][], options: Pick<PrintOptions, 'setup' | 'numbers' | 'target' | 'language'>, title: string, styles = ''): string {
+export function printDocument(pages: PlacedBlock[][], options: Pick<PrintOptions, 'setup' | 'numbers' | 'target' | 'language' | 'running'>, title: string, styles = ''): string {
   const setup = cleanPageSetup(options.setup);
   const sheet = sheetGeometry(setup);
   const paper = paperCm(setup);
@@ -136,8 +166,8 @@ export function printDocument(pages: PlacedBlock[][], options: Pick<PrintOptions
   const body = pages
     .map((blocks, k) => {
       const inner = blocks.map((b) => blockHtml(b, b.top)).join('');
-      const number = options.numbers ? numberHtml(k + 1, place, sheet) : '';
-      return `<section class="${PRINT}-page" data-page="${k + 1}"><div class="${PRINT}-scale"><div class="${SCOPE}"><div class="ProseMirror ${PAGE_CLASS} ${PRINT}-body">${inner}</div></div>${number}</div></section>`;
+      const marginal = options.running ? runningHtml(k, pages.length, options.running, sheet) : options.numbers ? numberHtml(k + 1, place, sheet) : '';
+      return `<section class="${PRINT}-page" data-page="${k + 1}"><div class="${PRINT}-scale"><div class="${SCOPE}"><div class="ProseMirror ${PAGE_CLASS} ${PRINT}-body">${inner}</div></div>${marginal}</div></section>`;
     })
     .join('\n');
   const c = LightColors;
@@ -155,6 +185,10 @@ ${BLOCK_CSS}
 .${SCOPE} .${COMMENT_CLASS}, .${SCOPE} .${COMMENT_CLASS}.resolved { background: none !important; }
 .${SCOPE} .ProseMirror-selectednode { outline: none !important; }
 .${PRINT}-number { position: absolute; font: 11px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; }
+/* A summary's header and footer (step 8.3): 8.5 pt (11.33 px) in the secondary colour; a long name ends in "…" rather than wrapping. */
+.${PRINT}-header, .${PRINT}-footer { position: absolute; display: flex; justify-content: space-between; gap: 24px; font: 11.33px/16px -apple-system, system-ui, sans-serif; color: ${c.text.secondary}; white-space: nowrap; }
+.${PRINT}-header span, .${PRINT}-footer span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.${PRINT}-header span:last-child, .${PRINT}-footer span:last-child { flex-shrink: 0; max-width: 60%; }
 `;
   const lang = options.language ? ` lang="${esc(options.language)}"` : '';
   return `<!DOCTYPE html><html${lang}><head><meta charset="utf-8"><title>${esc(title)}</title>${styles}<style>${editorCss(`.${SCOPE}`)}</style><style>${css}</style></head><body>${body}</body></html>`;
@@ -221,8 +255,8 @@ function printInsets(blocks: PlacedBlock[], width: number): number[] {
   }
 }
 
-/** The tab laid out in pages: its blocks where the page view put them, and how many pages. */
-async function layOut(content: DocJSON, setup: PageSetup, language: string | null | undefined): Promise<{ blocks: PlacedBlock[]; pages: number }> {
+/** The tab laid out in pages: its blocks where the page view put them, how many pages, and the KaTeX font families its formulas use. */
+async function layOut(content: DocJSON, setup: PageSetup, language: string | null | undefined): Promise<{ blocks: PlacedBlock[]; pages: number; fonts: Set<string> }> {
   ensureMeasureCss();
   const sheet = sheetGeometry(setup);
   const host = document.createElement('div');
@@ -261,7 +295,7 @@ async function layOut(content: DocJSON, setup: PageSetup, language: string | nul
       insets = printInsets(blocks, sheet.width);
     }
     const pages = pageViewOf(editor.state)?.layout?.pages ?? Math.max(1, Math.ceil(dom.offsetHeight / sheet.height));
-    return { blocks: blocks.map((b, i) => (insets[i] ? { ...b, inset: insets[i] } : b)), pages };
+    return { blocks: blocks.map((b, i) => (insets[i] ? { ...b, inset: insets[i] } : b)), pages, fonts: katexFamiliesIn(dom) };
   } finally {
     editor.destroy();
     host.remove();
@@ -281,11 +315,15 @@ export async function buildPrint(tabs: PrintTab[], options: PrintOptions, title:
   const setup = cleanPageSetup(options.setup);
   const sheet = sheetGeometry(setup);
   const pages: PlacedBlock[][] = [];
+  const fonts = new Set<string>();
   for (const tab of tabs) {
     const content = options.tabHeadings ? withTabHeading(tab) : tab.content;
     const laid = await layOut(content, setup, options.language);
     pages.push(...blocksByPage(laid.blocks, laid.pages, sheet.height));
+    laid.fonts.forEach((f) => fonts.add(f));
   }
-  const html = printDocument(pages, { ...options, setup }, title, pageStyles());
+  // Step 8.3 (SUMMARY-SPEC: fonts embedded, works offline): the formulas' KaTeX faces go in as data, last, so the print never waits for a link.
+  const faces = await katexFontFaces(fonts);
+  const html = printDocument(pages, { ...options, setup }, title, `${pageStyles()}${faces ? `<style>${faces}</style>` : ''}`);
   return { html, pages: pages.length, ...paperPoints(setup) };
 }

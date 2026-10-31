@@ -160,6 +160,33 @@ async function formulaCss(used: Set<string>): Promise<string> {
   return `${declared.join('\n')}\n${rules}`;
 }
 
+/**
+ * Step 8.3: the KaTeX faces of these families as data (@font-face rules), for the PDF's print
+ * document: it is a page of its own, and linked fonts were not loaded in time when it printed (the
+ * formulas came out in Times and STIX). A face whose file can't be had is left out (its fallback
+ * prints); the fonts are read once.
+ */
+export async function katexFontFaces(used: Set<string>): Promise<string> {
+  if (!used.size) return '';
+  const { faces } = readKatexStyle();
+  const declared = await Promise.all(
+    faces
+      .filter((f) => used.has(f.family))
+      .map(async (f) => {
+        const data = await faceData(f);
+        return data ? `@font-face { font-family: ${f.family}; font-weight: ${f.weight}; font-style: ${f.style}; font-display: block; src: url("${data}"); }` : '';
+      }),
+  );
+  return declared.filter(Boolean).join('\n');
+}
+
+/** The KaTeX font families the formulas in `root` use (each element's first family). */
+export function katexFamiliesIn(root: Element): Set<string> {
+  const used = new Set<string>();
+  for (const formula of Array.from(root.querySelectorAll('.katex-html'))) familiesIn(formula).forEach((f) => used.add(f));
+  return used;
+}
+
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /** An SVG as a PNG of `width` × `height` px at PICTURE_SCALE (base64). */

@@ -5,17 +5,37 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import type { PageSetup } from '../../editor/page/pageSetup';
+import type { PageSetup, PaperSize } from '../../editor/page/pageSetup';
 import type { DocJSON } from '../../editor/types';
 import type { PrintTab } from '../../editor/export/printPages';
 import { sheetTableDoc } from '../../editor/export/sheetTable';
+import { summaryPrintTabs } from '../../editor/export/summaryPrint';
 import { PdfRenderer, type PdfRendererHandle } from '../../editor/PdfRenderer';
+import { holdsSummary } from '../../lib/summaryDoc';
 import { exportDocumentPdf, exportDocumentWord } from '../../services/export.service';
 import type { DocTab } from '../../services/document.service';
 import type { TabInfo } from '../../services/document-tabs.service';
 import { errorMessage } from '../../utils/errors';
+import { summaryPdfFileName } from '../../utils/fileNames';
 
 export type ExportFormat = 'pdf' | 'word';
+
+/** Step 8.3: what a summary's PDF needs from the document's screen. */
+export interface SummaryPdfInfo {
+  /** The header's meta line, the first lines of page 1 ("Math · Lecture · 31 Oct 2026"). */
+  meta: string;
+  /** The running header's left side and the file name's first part. */
+  course: string | null;
+  /** The lecture's day (the file name's date). */
+  day: Date;
+  /** A lecture's Transcript tab, for the appendix; null: no appendix (a Unit summary, an exam pack). */
+  transcript: TabInfo | null;
+}
+
+const textIn = (doc: DocJSON | null): string => {
+  const walk = (n: { text?: string; content?: unknown[] }): string => (n.text ?? '') + ((n.content ?? []) as { text?: string; content?: unknown[] }[]).map(walk).join('');
+  return doc ? walk(doc as { content?: unknown[] }) : '';
+};
 
 /**
  * Export PDF… and Export Word… (steps 4.8a, 4.8b), from the document menu on
@@ -27,6 +47,10 @@ export type ExportFormat = 'pdf' | 'word';
  *   writes the file; iPhone: laid out in the PdfRenderer, then the share sheet.
  * - Word: a .docx (export.service); formulas and graphs as pictures (on the
  *   iPhone drawn in the PdfRenderer). Laptop: it downloads; iPhone: the share sheet.
+ * - Step 8.3, a summary's PDF (the open tab holds a summary, This tab): the options sheet of
+ *   SUMMARY-SPEC (self-test yes/no, transcript appendix yes/no, A4 or Letter) in place of the page
+ *   numbers; the title block, plain times, answers on the last page (export/summaryPrint.ts), the
+ *   running header and footer, and "Course – Lecture – YYYY-MM-DD.pdf".
  */
 export function ExportPdfDialog({
   visible,
@@ -38,6 +62,7 @@ export function ExportPdfDialog({
   setup,
   language,
   loadTab,
+  summary,
 }: {
   visible: boolean;
   /** The format chosen when it opens. */
@@ -51,6 +76,8 @@ export function ExportPdfDialog({
   language?: string | null;
   /** A tab's content (the open one as it is now, unsaved edits too). */
   loadTab: (tab: TabInfo) => Promise<DocJSON>;
+  /** Step 8.3: given, a tab that holds a summary exports as a summary's PDF. */
+  summary?: SummaryPdfInfo;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -60,8 +87,17 @@ export function ExportPdfDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Step 8.3: whether the open tab holds a summary (read when the dialog opens), and the sheet's options.
+  const [summaryHere, setSummaryHere] = useState(false);
+  const [selfTest, setSelfTest] = useState(true);
+  const [appendix, setAppendix] = useState(false);
+  const [transcript, setTranscript] = useState<DocJSON | null>(null);
+  const [paper, setPaper] = useState<PaperSize>(setup.size);
   const renderer = useRef<PdfRendererHandle>(null);
   const word = format === 'word';
+
+  const open = tabs.find((t) => t.tab === current);
+  const several = tabs.length > 1;
 
   useEffect(() => {
     if (!visible) return;
@@ -70,10 +106,31 @@ export function ExportPdfDialog({
     setNumbers(true);
     setError(null);
     setNotice(null);
+    setSelfTest(true);
+    setAppendix(false);
+    setPaper(setup.size);
+    setSummaryHere(false);
+    setTranscript(null);
+    if (!summary || !open) return;
+    let live = true;
+    void loadTab(open)
+      .then((content) => live && setSummaryHere(holdsSummary(content)))
+      .catch(() => {});
+    if (summary.transcript)
+      void loadTab(summary.transcript)
+        .then((content) => live && setTranscript(content))
+        .catch(() => {});
+    return () => {
+      live = false;
+    };
+    // Read once each time it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialFormat]);
 
-  const open = tabs.find((t) => t.tab === current);
-  const several = tabs.length > 1;
+  /** A summary's PDF: the PDF of a tab that holds a summary, This tab. */
+  const summaryPdf = !!summary && summaryHere && !word && !(all && several);
+  const hasTranscript = !!textIn(transcript).trim();
+  const summaryFile = summary ? summaryPdfFileName(summary.course, title, summary.day) : '';
 
   /** iPhone: the renderer mounts with "Preparing the PDF…"; wait for it. */
   const rendererReady = async (): Promise<PdfRendererHandle> => {
@@ -108,6 +165,15 @@ export function ExportPdfDialog({
           setNotice(`The Word file is ready, but ${missing === 1 ? '1 picture' : `${missing} pictures`} couldn’t be put in.`);
           return;
         }
+      } else if (summaryPdf && summary && open) {
+        const content = await loadTab(open);
+        await exportDocumentPdf({
+          title,
+          tabs: summaryPrintTabs(content, { title, meta: summary.meta, selfTest, transcript: appendix && hasTranscript ? transcript : null }),
+          options: { setup: { ...setup, size: paper }, numbers: false, tabHeadings: false, language, running: { left: summary.course ?? '', right: title } },
+          build: Platform.OS === 'web' ? undefined : async (...args) => (await rendererReady()).build(...args),
+          fileName: summaryFile,
+        });
       } else {
         await exportDocumentPdf({
           title,
@@ -138,6 +204,24 @@ export function ExportPdfDialog({
       <View style={styles.rowText}>
         <Text style={styles.rowLabel}>{label}</Text>
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
+      </View>
+    </Pressable>
+  );
+
+  const check = (label: string, on: boolean, onPress: () => void, detail: string, disabled = false) => (
+    <Pressable
+      onPress={onPress}
+      disabled={busy || disabled}
+      style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && !disabled && styles.rowHover, disabled && styles.off]}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on, disabled }}
+      aria-checked={on}
+      accessibilityLabel={label}
+    >
+      <Ionicons name={on ? 'checkbox' : 'square-outline'} size={20} color={on ? c.accentDark : c.text.secondary} />
+      <View style={styles.rowText}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowDetail}>{detail}</Text>
       </View>
     </Pressable>
   );
@@ -180,24 +264,38 @@ export function ExportPdfDialog({
                 {choice('All tabs', all, () => setAll(true), `${tabs.length} tabs, each from a new page with its name as a heading`)}
               </>
             ) : null}
-            <Pressable
-              onPress={() => setNumbers((n) => !n)}
-              disabled={busy}
-              style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && styles.rowHover]}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: numbers }}
-              aria-checked={numbers}
-              accessibilityLabel="Page numbers"
-            >
-              <Ionicons name={numbers ? 'checkbox' : 'square-outline'} size={20} color={numbers ? c.accentDark : c.text.secondary} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowLabel}>Page numbers</Text>
-                <Text style={styles.rowDetail}>Through the whole file, where the page setup puts them</Text>
-              </View>
-            </Pressable>
+            {summaryPdf ? (
+              <>
+                {check('Self-test', selfTest, () => setSelfTest((v) => !v), 'Its answers on the last page, under “Answers”')}
+                {summary?.transcript
+                  ? check('Transcript appendix', appendix && hasTranscript, () => setAppendix((v) => !v), hasTranscript ? 'The full transcript from a new page at the end' : 'No transcript yet', !hasTranscript)
+                  : null}
+                <View style={styles.papers} accessibilityRole="radiogroup" accessibilityLabel="Paper">
+                  <Text style={styles.rowLabel}>Paper</Text>
+                  {(['a4', 'letter'] as const).map((size) => (
+                    <Pressable
+                      key={size}
+                      onPress={() => setPaper(size)}
+                      disabled={busy}
+                      style={[styles.paper, paper === size && styles.formatOn]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: paper === size }}
+                      aria-checked={paper === size}
+                      accessibilityLabel={size === 'a4' ? 'A4' : 'Letter'}
+                    >
+                      <Text style={[styles.formatText, paper === size && styles.formatTextOn]}>{size === 'a4' ? 'A4' : 'Letter'}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : (
+              check('Page numbers', numbers, () => setNumbers((n) => !n), 'Through the whole file, where the page setup puts them')
+            )}
             <Text style={styles.hint}>
               {word
                 ? `${Platform.OS === 'web' ? 'The file downloads.' : 'The share sheet opens to save or send it.'} Its text stays editable in Word; formulas and graphs are pictures in it.`
+                : summaryPdf
+                ? `${Platform.OS === 'web' ? 'The print window opens: choose Save as PDF.' : 'The share sheet opens to save or send it.'} “${summaryFile}”, with a header, page numbers and its margins.`
                 : `${Platform.OS === 'web' ? 'The print window opens: choose Save as PDF.' : 'The share sheet opens to save or send it.'} The pages are as in the page view, with the document’s page setup.`}
             </Text>
             {busy ? (
@@ -249,6 +347,8 @@ const makeStyles = (c: ThemeColors) =>
     formats: { flexDirection: 'row', gap: 8, paddingHorizontal: 6, paddingTop: 6, paddingBottom: 6 },
     format: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 36, borderRadius: 10, borderWidth: 1, borderColor: c.border },
     formatOn: { borderColor: c.accentDark, backgroundColor: c.cardMuted },
+    papers: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 8 },
+    paper: { minWidth: 72, height: 32, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },
     formatText: { fontSize: Typography.size.sm, color: c.text.secondary },
     formatTextOn: { color: c.accentDark, fontWeight: Typography.weight.semibold },
     row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 6, paddingVertical: 8, borderRadius: 10 },

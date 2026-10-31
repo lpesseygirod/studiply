@@ -857,6 +857,8 @@ export default function DocumentScreen() {
           setup={sync.pageSetup}
           language={docLanguage}
           loadTab={loadTabContent}
+          // Step 8.3: a tab holding a summary exports as a summary's PDF (the dialog checks); a lecture's has the transcript appendix.
+          summary={{ meta, course: courseName, day: new Date(file.created_at), transcript: isLecture ? (tabs.find((t) => t.tab === 'transcript') ?? null) : null }}
         />
       )}
       {file && (

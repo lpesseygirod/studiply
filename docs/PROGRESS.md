@@ -690,7 +690,50 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
       - Also: the checks (chart values, verify verdicts, fewer than 2 values, photos moved, added, dropped), the pipeline (a chart value through the verify call into unclear, the photo moved), Word (lines for function and model graphs, a picture for the stacked bar), the block guide.
     - **Chrome:** `visuals.mjs` (in my scratchpad; no paid call).
     - **Builds:** `editor:build` needed (the graph block changed); no new EAS build.
-- [ ] 8.3 — PDF export (A4/Letter, embedded fonts/KaTeX, answers last page, options sheet)
+- [x] 8.3 — PDF export (A4/Letter, embedded fonts/KaTeX, answers last page, options sheet). **Done (31 Oct), verified by the advisor** (decisions below, for Lea to confirm).
+  - **Verified:** `npm run check` (2,470 tests), `check:bundle`, `test:db`, `summary-pdf.mjs` 7/7, `export.mjs` 9/9, `docx.mjs` 13/13, all 39 Chrome suites. No paid call.
+  - **BUILD-PLAN's black-and-white check:** verified on screen with the greyscale composite (`summary-pdf-compose-grey`). A real printout is Lea's (Things Lea must do).
+  - **Still for Lea:** the iPhone export checks (Things Lea must do); decisions 1–5 below.
+  - **A summary's PDF:** Export PDF… on a tab that holds a summary (a Summary tab, a New summary tab, a Unit summary, an exam pack), This tab. Every other export, and All tabs, stays 4.8a's.
+  - **What 4.8a already gave it:**
+    - the page view's pages with the document's page setup (margins too, decision 2);
+    - break rules: headings stay with the next line; photos, formulas and graphs whole; callouts, formula cards and modules whole when they fit;
+    - always light;
+    - system fonts, and KaTeX inlined in the iPhone's bundle (offline);
+    - the iPhone's share sheet; the laptop's print window, "Save as PDF" (decision 1).
+  - **New** (`editor/export/summaryPrint.ts`, pure; `printPages.ts`; `ExportPdfDialog.tsx`):
+    - **Page 1** opens with the title and the meta line, as the screen's header shows them, then the notes check line and Key takeaways. No cover page.
+    - **Running header** from page 2: the course left, the lecture's title right, 8.5 pt in the secondary colour.
+    - **Footer** on every page: "Studiply" left, "Page 2 of 4" right (in place of the page number). Long names end in "…".
+    - **Times** print as plain `[12:34]`. The app's links ("See them in My notes", "Full answer") print as their words; web links stay links.
+    - **Self-test answers** go on a last page under "Answers", each after its question's number. With the self-test off, its heading, questions, answers and anything she added among them are left out.
+    - **The options sheet:**
+      - Self-test (on);
+      - Transcript appendix (off; only on a lecture; greyed "No transcript yet" without one);
+      - Paper: A4 or Letter (the page setup's).
+      - It replaces Page numbers. The hint names the file.
+    - **Transcript appendix:** the lecture's Transcript tab as it is now, from a new page after the Answers, headed "Transcript", its times as `[m:ss]`.
+    - **File name:** `Course – Lecture title – YYYY-MM-DD.pdf` (en dashes; the lecture's day; no course: `Title – date`; the course cut at 40 characters, the title at 60). The laptop's print window proposes it.
+    - **Short tables move whole in a summary**, in the page view and the PDF (decision 3); longer ones still split between rows. Other documents' tables are unchanged.
+  - **Unchanged:**
+    - 8.1 modules and 8.2 graphs print as on the page (function and model graphs: their line until the charts session's work lands).
+    - Comments aren't printed (decision 4).
+  - **KaTeX's fonts embedded (advisor review):** Chrome's PDF had no KaTeX font. The formulas printed in their fallbacks: `Times-Italic`, plus `STIXTwoMath` for KaTeX's hidden MathML copy. The print document only linked KaTeX's fonts, and the print didn't wait for them. Now the faces its formulas use go into every PDF's print document as data (`katexFontFaces`, from the Word export's font reading), and the print frame is laid out before it waits for fonts.
+    - **The PDF's other fonts were embedded already.** Times-Italic is a font file. macOS's San Francisco (`.SFNS-Regular`, `-RegularItalic`) and STIX Two Math are Type3 fonts, which Chrome draws with their glyph outlines in the PDF.
+    - **The check's error:** it counted font descriptors against font files, which is wrong for Type3 fonts.
+    - The header and footer never overlapped the text. The check measured the blocks' boxes (a split paragraph's box runs through both margins) instead of the drawn lines.
+  - **Fixed on the way:** the answers' "hidden until tapped" style matched the read-only editor the export lays its pages out in too (ProseMirror gives it `contenteditable="false"`). So a summary's answers were measured hidden and printed shown, overlapping what came after in 4.8a's PDF (All tabs). It now matches only the editor she writes in (`contenteditable='true'`).
+  - **Tests:**
+    - **Jest** (`summaryPdf.test.ts`):
+      - the title block;
+      - plain times and links;
+      - the answers page and its numbers, and the self-test left out (with a line she added);
+      - the transcript appendix;
+      - valid for the editors;
+      - the header from page 2 and the footer ("Page k of N", escaping);
+      - Letter; the file names; the answers' CSS.
+    - **Chrome:** `summary-pdf.mjs` (in my scratchpad; no paid call). It reads the print document and Chrome's own PDF (pages, paper, fonts embedded); composites in colour and greyscale.
+    - **Builds:** `editor:build` needed (the page view, the print header and footer, the CSS); no new EAS build; no new dependency.
 
 ## Phase 9 — Study tools (`phase-9-study`)
 - [ ] 9.1 — Quiz me and flashcards
@@ -774,6 +817,12 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 8.3 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **The laptop keeps the print window's "Save as PDF"** (no new dependency). It proposes the new file name. A true download would need a PDF library and would give pictures of the pages instead of text.
+  2. **A summary's margins follow the document's page setup** (Normal 2.54 cm), so the page view and the PDF match, not SUMMARY-SPEC's 20 mm.
+  3. **Short tables move whole in summaries**, in the page view too.
+  4. **Comments aren't printed** (Studiply's either).
+  5. **The iPhone's checks are on Lea's list** (Things Lea must do).
 - **Step 8.2 (31 Oct):**
   1. **Who draws the new chart types: Lea's decision.** The work order for the charts session is written (`docs/charts-work-order-8.2.md`); this checkout carries the new kinds and shows their line until the module draws them.
 
@@ -1456,6 +1505,13 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
 
 ## Things Lea must do
 
+- **Step 8.3 — a summary's PDF on your iPhone** (after `editor:build`; no new EAS build). Export a Summary tab:
+  - in airplane mode: formulas, graphs and the photo are all there;
+  - the file's name in Files ("Course – Lecture – date.pdf");
+  - the title on page 1, the header from page 2, "Page n of N";
+  - the Answers page; Letter; the transcript appendix;
+  - the share sheet (AirDrop, Mail);
+  - BUILD-PLAN's check: print one summary PDF in black and white (from the laptop or the iPhone). Everything should be readable, and nothing cut between pages. The greyscale composite passed on screen.
 - **Step 8.2 — hand the charts work order to the charts session** (`docs/charts-work-order-8.2.md`, branch `charts-engine`): function plots, model templates, stacked bars, histograms. Until it's merged, function plots and model graphs show a line of text in their place.
 - ~~**Step 5.4 — rebuild the iPhone editor bundle** (`npm run editor:build`)~~ — done by Lea, 30 Oct (with the chip-tap fix). Trying it on the phone needs an EAS development build, together with expo-audio.
 - ~~**Step 5.3 — suggestion to decide: a Pause button**~~ — Lea said yes (30 Oct); built beside the timer (see 5.3).

@@ -164,11 +164,15 @@ ${pm} .${CALLOUT_CLASS}[data-callout='notesCheck'] .${CALLOUT_CLASS}-body { font
 ${pm} .${CALLOUT_CLASS}[data-callout='notesCheck'] a { white-space: nowrap; }
 ${pm} .${CALLOUT_CLASS}[data-callout='takeaways'] { border-left-width: 1px; }
 ${pm} .${CALLOUT_CLASS}[data-callout='answer'] { padding-top: 6px; padding-bottom: 6px; }
-/* Hidden only in the editor (its root has contenteditable): an exported PDF shows the answers (8.3 moves them to the last page). */
-${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer'] .${CALLOUT_CLASS}-label::after { content: ' · tap to show'; letter-spacing: 0.04em; text-transform: none; font-weight: 600; }
-${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer'].${ANSWER_SHOWN_CLASS} .${CALLOUT_CLASS}-label::after { content: ' · tap to hide'; }
-${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-body { display: none; }
-${pm}[contenteditable] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-label { margin-bottom: 0; }
+/*
+ * Hidden only in the editor she writes in (contenteditable="true"): not in the read-only editor the PDF
+ * export lays its pages out in (contenteditable="false"; step 8.3 found it measured them hidden and
+ * printed them shown), nor in the PDF. A summary's PDF moves them to the last page (8.3).
+ */
+${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer'] .${CALLOUT_CLASS}-label::after { content: ' · tap to show'; letter-spacing: 0.04em; text-transform: none; font-weight: 600; }
+${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer'].${ANSWER_SHOWN_CLASS} .${CALLOUT_CLASS}-label::after { content: ' · tap to hide'; }
+${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-body { display: none; }
+${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-label { margin-bottom: 0; }
 /* Ask Claude (step 6.3): the text a pending suggestion is about, until it is accepted or rejected. */
 ${pm} .${SUGGESTION_CLASS} { background: ${c.accentLight}; box-shadow: 0 2px 0 ${c.accent}; }
 ${pm} .${MARK_CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }

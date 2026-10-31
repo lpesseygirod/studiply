@@ -15,7 +15,7 @@ import { loadWordPhotos } from './word-photos';
 declare global {
   interface Window {
     /** The laptop's last print document (the PDF export), for the Chrome check (export.mjs). */
-    studiplyPrint?: { title: string; html: string; pages: number };
+    studiplyPrint?: { title: string; html: string; pages: number; fileName?: string };
     /** The laptop's last Word file (step 4.8b), for the Chrome check (docx.mjs). */
     studiplyDocx?: { title: string; fileName: string; blob: Blob; missing: number; reasons: string[] };
   }
@@ -53,7 +53,8 @@ export async function exportNoteToPDF(params: {
 // exportDocumentPdf (step 4.8a)
 // A document's tabs as a PDF with its page setup, pages as the page view
 // shows them (editor/export/printPages.ts). Laptop: the print dialog,
-// where "Save as PDF" writes the file. iPhone: `build` is the PdfRenderer's
+// where "Save as PDF" writes the file (it proposes `fileName`, the print
+// document's title; step 8.3, advisor). iPhone: `build` is the PdfRenderer's
 // (the editor bundle in a WebView); expo-print writes the PDF at the
 // paper's size and the share sheet opens.
 // -------------------------------------------------------------------
@@ -62,14 +63,16 @@ export async function exportDocumentPdf(params: {
   tabs: PrintTab[];
   options: Omit<PrintOptions, 'target'>;
   build?: (tabs: PrintTab[], options: PrintOptions, title: string) => Promise<PrintResult>;
+  /** Step 8.3: a summary's "Course – Lecture – YYYY-MM-DD.pdf"; else the title's. */
+  fileName?: string;
 }): Promise<void> {
   const { title, tabs, options, build } = params;
-  const fileName = pdfFileName(title);
+  const fileName = params.fileName ?? pdfFileName(title);
 
   if (Platform.OS === 'web') {
     const { buildPrint } = await import('../editor/export/printPages');
     const result = await buildPrint(tabs, { ...options, target: 'browser' }, title);
-    window.studiplyPrint = { title, html: result.html, pages: result.pages };
+    window.studiplyPrint = { title, html: result.html, pages: result.pages, fileName };
     await printInBrowser(result.html, fileName.replace(/\.pdf$/, ''));
     return;
   }
@@ -208,6 +211,8 @@ async function printInBrowser(html: string, title: string): Promise<void> {
           img.addEventListener('load', () => resolve(), { once: true });
           img.addEventListener('error', () => resolve(), { once: true });
         });
+  // Laid out first, so the fonts it uses are asked for before their wait (else fonts.ready can resolve at once).
+  void doc.body?.offsetHeight;
   const ready = Promise.all([...Array.from(doc.images).map(loaded), doc.fonts?.ready.catch(() => undefined)]);
   await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, 10000))]);
 

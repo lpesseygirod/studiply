@@ -182,6 +182,16 @@ function linesOf(el: HTMLElement): { top: number; bottom: number; left: number }
 const TEXTBLOCKS_KEEP_WITH_NEXT = ['heading', 'title'];
 const CONTAINERS = ['bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'blockquote'];
 
+/** A summary's notes check line (7.7's id `sm<8>-check`): the document holds a summary (lib/summaryDoc's holdsSummary). */
+const SUMMARY_CHECK = /^sm[0-9a-z]{8}-check$/;
+export function holdsSummary(doc: PMNode): boolean {
+  let found = false;
+  doc.forEach((node) => {
+    if (!found && SUMMARY_CHECK.test(String(node.attrs.blockId ?? ''))) found = true;
+  });
+  return found;
+}
+
 /**
  * Measures the document (no gaps shown) into units for the layout, in CSS px from the first page's text top.
  * `textHeight`: a page's text area (a callout that fits moves whole; a longer one splits between lines).
@@ -199,6 +209,7 @@ function measure(view: EditorView, textHeight: number, scale: number): { units: 
   const y = (v: number) => (v - top0) / scale;
   const units: PageUnit[] = [];
   const elementAt = (pos: number) => view.nodeDOM(pos) as HTMLElement | null;
+  const summary = holdsSummary(view.state.doc);
   const marginBottom = (el: Element) => parseFloat(getComputedStyle(el).marginBottom) || 0;
   // A gap before the block at `at` begins where the block before it ends (its bottom margin
   // included); what is between the block's edge and the unit's top (`lead`) stays.
@@ -229,7 +240,8 @@ function measure(view: EditorView, textHeight: number, scale: number): { units: 
       units.push({ kind: 'break', at: pos + node.nodeSize, place: 'block', start: y(r.top), top: y(r.top), bottom: y(r.top) });
       return;
     }
-    if (name === 'table') {
+    // Step 8.3: in a summary a table that fits on a page moves whole (SUMMARY-SPEC: no block split); elsewhere it splits between rows.
+    if (name === 'table' && !(summary && (r.bottom - r.top) / scale <= textHeight)) {
       const rows = Array.from(el.querySelectorAll('tr')).filter((tr) => !tr.classList.contains(PAGE_GAP_CLASS));
       let rowPos = pos + 1;
       // prosemirror-tables puts a colgroup first; rows follow the table's children.
