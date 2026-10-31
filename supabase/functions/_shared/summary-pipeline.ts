@@ -1,8 +1,10 @@
 /**
  * summary-pipeline.ts
  * The summary engine (step 7.4; SUMMARY-SPEC "How Claude builds the
- * summary"), for lectures up to 60 minutes, without Deno or network code so
- * Jest runs it with Claude faked (src/lib/__tests__/summaryPipeline.test.ts):
+ * summary"), without Deno or network code so Jest runs it with Claude faked
+ * (src/lib/__tests__/summaryPipeline.test.ts). Up to 60 minutes in one
+ * generate call; longer, up to 3 h, in parts merged into one (step 7.6,
+ * summary-long.ts):
  *
  *  1. Align: each note line, mark, photo and assistant question to the
  *     transcript segment at its time (±30 s), else the nearest one.
@@ -47,7 +49,21 @@ import {
   type CheckReport,
   type Part,
 } from './summary-checks.ts';
-import { LISTS_SCHEMA, SECTION_SCHEMA, VERIFY_SCHEMA } from './summary-schema.ts';
+import { LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA } from './summary-schema.ts';
+import {
+  MAX_LONG_LECTURE_MS,
+  PART_MAX_TOKENS as LONG_PART_MAX_TOKENS,
+  assignItems,
+  mergeParts,
+  parsePart,
+  parseWrapUp,
+  partUserText,
+  splitMedia,
+  splitParts,
+  wrapUpPrompt,
+  type PartGenerated,
+  type WrapUp,
+} from './summary-long.ts';
 
 /** Longer lectures are written topic by topic (step 7.6); a little over 60 min (rounding) is still one. */
 export const MAX_LECTURE_MS = 60 * 60_000 + 30_000;
@@ -370,14 +386,28 @@ function budgetLine(plan: SummaryPlan, c: Classification): string {
   return `- Word budget within that length: the takeaways ≈ ${b.takeaways} words, the sections ≈ ${b.sections} words together${topics ? `, by topic: ${topics}` : ''}. The glossary's words count too: keep it short.`;
 }
 
-export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Classification): string {
+/**
+ * The generate call's rules. `part` (step 7.6, a lecture over 60 min): the same rules for one part of
+ * it, the same text for every part (so it is cached once); the part's own topics and length are in
+ * its <part> tag, and the takeaways, self-test and flashcards come from the wrap-up call.
+ */
+export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Classification, mode: 'whole' | 'part' = 'whole'): string {
   const language = languageName(m.summaryLanguage ?? m.language) ?? 'the language of the transcript';
   const p = plan;
+  const part = mode === 'part';
   const lengthLine = p.length.hasHighMarks
     ? `about ${p.length.targetWords} words (between ${p.length.minWords} and ${p.length.maxWordsWithHighMarks}: high-band marks may take up to 20 % more)`
     : `about ${p.length.targetWords} words (between ${p.length.minWords} and ${p.length.maxWords})`;
+  const numbers = part
+    ? [
+        `- Length: this part's sections get the words given in <part> (the whole summary is ${lengthLine}), not counting the student's notes.`,
+        '- Takeaways, the self-test and the flashcards are written later for the whole lecture: leave those mark duties out here (chips, bold, exam signals and confusedHere blocks stay).',
+      ]
+    : [`- Length: ${lengthLine}, not counting the student's notes.`, budgetLine(p, c), `- Key takeaways: exactly ${p.takeaways.count} one-sentence bullets${p.takeaways.markIds.length ? `; these marks must each be in a takeaway's fromMarkIds: ${p.takeaways.markIds.join(', ')}` : ''}.`];
   return [
-    "You are Studiply's summary engine. Write a study summary of one lecture as JSON in the given schema.",
+    part
+      ? "You are Studiply's summary engine. A long lecture is summarized in parts: write ONE part as JSON in the given schema, the sections of the topics named in <part> and the glossary, exam signals, questions, logistics and unclear items of that span."
+      : "You are Studiply's summary engine. Write a study summary of one lecture as JSON in the given schema.",
     MATERIAL_RULE,
     '',
     'Rules:',
@@ -389,9 +419,7 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     `- Subject type: ${c.subjectType}. Use these modules where the content fits: ${c.modules.length ? c.modules.join(', ') : 'none required'}.`,
     '',
     'The numbers (follow them exactly):',
-    `- Length: ${lengthLine}, not counting the student's notes.`,
-    budgetLine(p, c),
-    `- Key takeaways: exactly ${p.takeaways.count} one-sentence bullets${p.takeaways.markIds.length ? `; these marks must each be in a takeaway's fromMarkIds: ${p.takeaways.markIds.join(', ')}` : ''}.`,
+    ...numbers,
     `- Explanations: ${EXPLANATION[p.explanation]}.`,
     `- Prerequisites: ${PREREQUISITES[p.prerequisites]}.`,
     `- Examples: ${EXAMPLES[p.examples]}.`,
@@ -399,7 +427,9 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     `- Exam focus: ${EXAM_WEIGHTING[p.examWeighting]}.`,
     `- Vocabulary: ${VOCABULARY[p.vocabulary]}.`,
     `- Slides: ${RESOURCES[p.resources]}.`,
-    p.selfTest.count === 0
+    part
+      ? ''
+      : p.selfTest.count === 0
       ? '- Self-test: none (an empty list).'
       : `- Self-test: exactly ${p.selfTest.count} questions, ${p.selfTest.whyHow} of them "why"/"how" (kind why), kinds from: ${p.selfTest.kinds.join(', ')}${p.selfTest.requiredMarkIds.length ? `; one question for each of these marks (fromMarkId): ${p.selfTest.requiredMarkIds.join(', ')}` : ''}. fromMarkId is "" otherwise.`,
     p.rules.depthOnExamSectionsOnly ? '- Full depth only on exam-relevant sections; keep the rest short.' : '',
@@ -460,7 +490,7 @@ export interface StoredSummary {
   [key: string]: unknown;
 }
 
-type Generated = {
+export type Generated = {
   subjectType: SubjectType;
   modulesUsed: string[];
   title: string;
@@ -489,12 +519,19 @@ export function parseSummary(
   }
   const outer = SummaryAnswer.safeParse(value);
   if (!outer.success) return { ok: false, errors: issueLines(outer.error).slice(0, 10) };
-  const g = outer.data as Generated;
-  // Each block's data (its fields as JSON in a string) unpacked and checked against its type's shape.
+  const unpacked = unpackSections(outer.data.sections);
+  if (!unpacked.ok) return unpacked;
+  return { ok: true, summary: storedSummary(outer.data as Generated, unpacked.sections, m, plan, builtFrom) };
+}
+
+type PackedSection = Generated['sections'][number];
+
+/** Each block's data (its fields as JSON in a string) unpacked and checked against its type's shape. */
+export function unpackSections(sections: PackedSection[], prefix = '$'): { ok: true; sections: Record<string, unknown>[] } | { ok: false; errors: string[] } {
   const blockErrors: string[] = [];
-  const unpacked = outer.data.sections.map((s, si) =>
+  const unpacked = sections.map((s, si) =>
     s.blocks.map((b, bi) => {
-      const path = `$.sections[${si}].blocks[${bi}]`;
+      const path = `${prefix}.sections[${si}].blocks[${bi}]`;
       let fields: unknown;
       try {
         fields = JSON.parse(b.data);
@@ -502,7 +539,7 @@ export function parseSummary(
         blockErrors.push(`${path}.data: not JSON`);
         return null;
       }
-      const checked = checkBlock(b.type, fields, path);
+      const checked = checkBlock(b.type as Parameters<typeof checkBlock>[0], fields, path);
       if (!checked.ok) {
         blockErrors.push(...checked.errors);
         return null;
@@ -511,7 +548,11 @@ export function parseSummary(
     }),
   );
   if (blockErrors.length) return { ok: false, errors: blockErrors.slice(0, 10) };
+  return { ok: true, sections: sections.map((s, si) => ({ ...s, blocks: unpacked[si] as Record<string, unknown>[] })) };
+}
 
+/** A generated summary (one call, or the parts merged) as stored: the header, the lists, settled. */
+export function storedSummary(g: Generated, sections: Record<string, unknown>[], m: LectureMaterial, plan: SummaryPlan, builtFrom: string[]): StoredSummary {
   const summary: StoredSummary = {
     format: SUMMARY_FORMAT,
     subjectType: g.subjectType,
@@ -528,7 +569,7 @@ export function parseSummary(
     },
     coverage: { noteLines: 0, noteLinesUsed: 0, marks: 0, marksUsed: 0 },
     takeaways: g.takeaways,
-    sections: g.sections.map((s, si) => ({ ...s, blocks: unpacked[si] as Record<string, unknown>[] })),
+    sections,
     glossary: g.glossary,
     examSignals: g.examSignals,
     questionsDuringClass: g.questionsDuringClass,
@@ -537,7 +578,7 @@ export function parseSummary(
     logistics: g.logistics,
     unclear: g.unclear,
   };
-  return { ok: true, summary: settle(summary, m, plan) };
+  return settle(summary, m, plan);
 }
 
 /**
@@ -605,7 +646,8 @@ export interface SummaryRunDeps {
   material: () => Promise<LectureMaterial>;
   /** The photos and slides as Claude content (images consent and ticks checked by the caller); [] without. */
   media: () => Promise<{ blocks: Content; photos: number; pdfs: number }>;
-  claude: (call: 'classify' | 'generate' | 'part', system: string, content: Content, schema: Record<string, unknown>, maxTokens: number) => ClaudeCall;
+  /** `longPart` and `wrapUp`: a lecture over 60 min (step 7.6); `part`: the quality checks' calls (7.5). */
+  claude: (call: 'classify' | 'generate' | 'longPart' | 'wrapUp' | 'part', system: string, content: Content, schema: Record<string, unknown>, maxTokens: number) => ClaudeCall;
   logCost: (message: ClaudeMessage) => Promise<{ costUsd: number; tokensInput: number; tokensOutput: number }>;
   save: (patch: Record<string, unknown>) => Promise<void>;
   log: (event: string, details: Record<string, unknown>) => void;
@@ -678,7 +720,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
   const write = async (part: Part) => {
     calls += 1;
     if (part.kind === 'section' && part.targetWords !== undefined) lengthDone.add(part.index);
-    const prompt = part.kind === 'section' ? sectionPartPrompt(baseSystem, s, part, m, plan) : part.kind === 'lists' ? listsPartPrompt(baseSystem, s, part, plan) : verifyPartPrompt(part, m);
+    const prompt = part.kind === 'section' ? sectionPartPrompt(baseSystem, s, part, m, plan) : part.kind === 'lists' ? listsPartPrompt(baseSystem, s, part, plan) : verifyPartPrompt(part, m, s);
     const schema = part.kind === 'section' ? SECTION_SCHEMA : part.kind === 'lists' ? LISTS_SCHEMA : VERIFY_SCHEMA;
     const answer = await attempt(deps, deps.claude('part', prompt.system, [{ type: 'text', text: prompt.user }], schema, prompt.maxTokens), 'part');
     let ok = false;
@@ -741,6 +783,85 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
   return { ...s, checks: report };
 }
 
+type PartDone = { part: PartGenerated; sections: Record<string, unknown>[]; model: string };
+
+/**
+ * Step 7.6, a lecture over 60 min: the parts written in parallel (part 1 alone first when slides are
+ * shared, so the others read them from the cache), each one that failed once more on its own, one
+ * after another (also after a 429); a part failing twice fails the summary (part_failed). Then the
+ * parts merged by code and the wrap-up call (title, takeaways, self-test, flashcards), retried once.
+ */
+async function generateLong(
+  deps: SummaryRunDeps,
+  m: LectureMaterial,
+  plan: SummaryPlan,
+  c: Classification,
+  wholeSystem: string,
+  mediaBlocks: Content,
+  builtFrom: string[],
+): Promise<{ summary: StoredSummary; model: string } | { error: string }> {
+  const parts = splitParts(m, c);
+  const items = assignItems(m, plan, parts);
+  const { shared, photos } = splitMedia(mediaBlocks);
+  const system = summarySystemPrompt(m, plan, c, 'part');
+  deps.log('long_lecture_parts', { summaryId: deps.summaryId, parts: parts.length, minutes: parts.map((p) => Math.round((p.endMs - p.startMs) / 60_000)) });
+
+  /** One try of part k: done, a final error, or null (try again). */
+  const once = async (k: number): Promise<PartDone | { error: string } | null> => {
+    const content: Content = [...shared, ...items[k].photos.flatMap((ph) => photos.get(ph.id) ?? []), { type: 'text', text: partUserText(m, plan, c, deps.request, parts, k, items[k]) }];
+    const answer = await attempt(deps, deps.claude('longPart', system, content, PART_SCHEMA, LONG_PART_MAX_TOKENS), 'long_part');
+    if (!('message' in answer)) return answer.permanent ? { error: 'claude_rejected' } : null;
+    if (answer.message.stop_reason === 'refusal') return { error: 'refused' };
+    if (answer.message.stop_reason === 'max_tokens') {
+      deps.log('part_cut_off', { summaryId: deps.summaryId, part: k + 1 });
+      return null;
+    }
+    const parsed = parsePart(textOf(answer.message));
+    const unpacked = parsed.ok ? unpackSections(parsed.part.sections, `$.part${k + 1}`) : parsed;
+    if (!parsed.ok || !unpacked.ok) {
+      deps.log('part_unreadable', { summaryId: deps.summaryId, part: k + 1, errors: 'errors' in unpacked ? unpacked.errors : [] });
+      return null;
+    }
+    return { part: parsed.part, sections: unpacked.sections, model: answer.message.model };
+  };
+
+  const results: (PartDone | { error: string } | null)[] = parts.map(() => null);
+  const first = shared.length ? [0] : [];
+  for (const k of first) results[k] = await once(k);
+  if (results.some((r) => r && 'error' in r)) return results.find((r) => r && 'error' in r) as { error: string };
+  await Promise.all(parts.filter((p) => !first.includes(p.index)).map(async (p) => (results[p.index] = await once(p.index))));
+  for (const p of parts) {
+    const r = results[p.index];
+    if (r && 'error' in r) return r;
+    if (!r) results[p.index] = await once(p.index);
+    const again = results[p.index];
+    if (!again) return { error: 'part_failed' };
+    if ('error' in again) return again;
+  }
+  const done = results as PartDone[];
+  await deps.save({ status: 'checking' });
+
+  const merged = mergeParts(
+    done.map((r) => ({ ...r.part, sections: r.sections as unknown as PartGenerated['sections'] })),
+    c,
+  );
+  const sections = merged.sections as unknown as Record<string, unknown>[];
+  const wrap = wrapUpPrompt(wholeSystem, { sections: sections as never }, plan);
+  let lists: WrapUp | null = null;
+  for (let i = 0; i < 2 && !lists; i++) {
+    const answer = await attempt(deps, deps.claude('wrapUp', wrap.system, [{ type: 'text', text: wrap.user }], WRAPUP_SCHEMA, wrap.maxTokens), 'wrap_up');
+    if (!('message' in answer)) {
+      if (answer.permanent) return { error: 'claude_rejected' };
+      continue;
+    }
+    if (answer.message.stop_reason === 'refusal') return { error: 'refused' };
+    lists = answer.message.stop_reason === 'max_tokens' ? null : parseWrapUp(textOf(answer.message));
+    if (!lists) deps.log('wrap_up_unreadable', { summaryId: deps.summaryId, try: i + 1 });
+  }
+  if (!lists) return { error: 'part_failed' };
+  return { summary: storedSummary({ ...merged, ...lists } as Generated, sections, m, plan, builtFrom), model: done[0].model };
+}
+
 /** The whole run, after the row was claimed (status generating). Saves the outcome on the row. */
 export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> {
   const fail = async (error: string): Promise<SummaryOutcome> => {
@@ -751,7 +872,7 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
   try {
     const m = await deps.material();
     if (m.segments.length === 0) return fail('no_transcript');
-    if (m.durationMs > MAX_LECTURE_MS) return fail('long_lecture');
+    if (m.durationMs > MAX_LONG_LECTURE_MS) return fail('long_lecture');
 
     // 2. Classify (its answer is optional: without it the summary still goes on).
     let c = fallbackClassification(m);
@@ -770,6 +891,30 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
     const media = await deps.media();
     const builtFrom = ['notes', 'audio', ...(media.pdfs ? ['slides'] : []), ...(media.photos ? ['photos'] : []), ...(deps.request.resources.assistant && m.questions.length ? ['assistant'] : [])];
     const system = summarySystemPrompt(m, plan, c);
+    // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
+    const finish = async (start: StoredSummary, model: string, tries: number): Promise<SummaryOutcome> => {
+      const s = await qualityPass(deps, m, plan, system, start);
+      await deps.save({
+        status: 'done',
+        result: s,
+        error: null,
+        model,
+        // applied_settings stays the request's (resources, preview); the result carries the run's numbers.
+        note_lines_total: s.coverage.noteLines,
+        note_lines_used: s.coverage.noteLinesUsed,
+        marks_total: s.coverage.marks,
+        marks_used: s.coverage.marksUsed,
+      });
+      deps.log('summary_done', { summaryId: deps.summaryId, tries, sections: (s.sections as unknown[]).length, ...s.coverage });
+      return { status: 'done', summary: s };
+    };
+
+    // Over 60 min (step 7.6): by parts, merged.
+    if (m.durationMs > MAX_LECTURE_MS) {
+      const long = await generateLong(deps, m, plan, c, system, media.blocks, builtFrom);
+      return 'error' in long ? fail(long.error) : finish(long.summary, long.model, 1);
+    }
+
     const content: Content = [...media.blocks, { type: 'text', text: summaryUserText(m, plan, c, deps.request) }];
     let lastError = 'unreadable';
     for (let i = 0; i < 2; i++) {
@@ -794,21 +939,7 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
         deps.log('summary_unreadable', { summaryId: deps.summaryId, try: i + 1, errors: parsed.errors });
         continue;
       }
-      // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
-      const s = await qualityPass(deps, m, plan, system, parsed.summary);
-      await deps.save({
-        status: 'done',
-        result: s,
-        error: null,
-        model: message.model,
-        // applied_settings stays the request's (resources, preview); the result carries the run's numbers.
-        note_lines_total: s.coverage.noteLines,
-        note_lines_used: s.coverage.noteLinesUsed,
-        marks_total: s.coverage.marks,
-        marks_used: s.coverage.marksUsed,
-      });
-      deps.log('summary_done', { summaryId: deps.summaryId, tries: i + 1, sections: (s.sections as unknown[]).length, ...s.coverage });
-      return { status: 'done', summary: s };
+      return finish(parsed.summary, message.model, i + 1);
     }
     return fail(lastError);
   } catch (err) {

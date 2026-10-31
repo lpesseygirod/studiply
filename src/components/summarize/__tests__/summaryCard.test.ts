@@ -80,9 +80,13 @@ describe('the Summary tab card', () => {
   it.each([
     ['too_long', 'The summary got too long and was cut off. Try a lower Length.', 'retry'],
     ['refused', 'Claude can’t summarize this lecture.', 'retry'],
-    ['long_lecture', 'Lectures over 60 minutes are summarized in a later update.', 'settings'],
+    ['part_failed', 'A part of this long lecture couldn’t be written. Nothing was changed.', 'retry'],
     ['unreadable', 'Something went wrong. Nothing was changed.', 'retry'],
   ])('failed (%s): why, and what to do', (error, text, action) => {
     expect(summaryCardText(summary({ status: 'failed', error }))).toEqual({ label: 'The summary wasn’t written', text, action });
+  });
+
+  it('failed, over 3 hours (step 7.6): why, and no button (nothing on the card helps)', () => {
+    expect(summaryCardText(summary({ status: 'failed', error: 'long_lecture' }))).toEqual({ label: 'The summary wasn’t written', text: 'Lectures over 3 hours can’t be summarized yet.' });
   });
 });

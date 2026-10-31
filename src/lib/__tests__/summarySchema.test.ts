@@ -7,8 +7,8 @@
 // zod). The two must agree; the constants must stay inside what structured outputs accept.
 // The specifier the server files use (Jest maps it to the installed zod; tsconfig's paths for tsc).
 import { z } from 'npm:zod@4.6.7';
-import { BLOCK_TYPES, CLASSIFY_SCHEMA, LISTS_SCHEMA, SECTION_SCHEMA, SUMMARY_SCHEMA, VERIFY_SCHEMA, type JsonSchema } from '../../../supabase/functions/_shared/summary-schema';
-import { BLOCK_DATA, ClassifyAnswer, ListsAnswer, SectionAnswer, SummaryAnswer, VerifyAnswer, blockGuide, checkBlock, issueLines } from '../../../supabase/functions/_shared/summary-zod';
+import { BLOCK_TYPES, CLASSIFY_SCHEMA, LISTS_SCHEMA, PART_SCHEMA, SECTION_SCHEMA, SUMMARY_SCHEMA, VERIFY_SCHEMA, WRAPUP_SCHEMA, type JsonSchema } from '../../../supabase/functions/_shared/summary-schema';
+import { BLOCK_DATA, ClassifyAnswer, ListsAnswer, PartAnswer, SectionAnswer, SummaryAnswer, VerifyAnswer, WrapUpAnswer, blockGuide, checkBlock, issueLines } from '../../../supabase/functions/_shared/summary-zod';
 import { packedSummary, validSummary } from '../../test-utils/summaryFixtures';
 import { unsupported, walk } from '../../test-utils/schemaWalk';
 
@@ -37,6 +37,8 @@ describe('the API contract (structured outputs)', () => {
     ['section (7.5 part)', SECTION_SCHEMA],
     ['lists (7.5 part)', LISTS_SCHEMA],
     ['verify (7.5 part)', VERIFY_SCHEMA],
+    ['a long lecture’s part (7.6)', PART_SCHEMA],
+    ['the wrap-up (7.6)', WRAPUP_SCHEMA],
   ])('%s: every object lists all its fields as required, no extra fields; no unsupported keywords, unions or nullable types', (_name, schema) => {
     expect(unsupported(schema)).toEqual([]);
   });
@@ -66,6 +68,8 @@ describe('the API contract (structured outputs)', () => {
     expect(asContract(SectionAnswer)).toEqual(SECTION_SCHEMA);
     expect(asContract(ListsAnswer)).toEqual(LISTS_SCHEMA);
     expect(asContract(VerifyAnswer)).toEqual(VERIFY_SCHEMA);
+    expect(asContract(PartAnswer)).toEqual(PART_SCHEMA);
+    expect(asContract(WrapUpAnswer)).toEqual(WRAPUP_SCHEMA);
     // A section written again has the summary's own section shape.
     expect((SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).sections).toEqual({ type: 'array', items: SECTION_SCHEMA });
   });

@@ -31,6 +31,7 @@ import {
   spliceSection,
   summaryWords,
   verifyPartPrompt,
+  verifySegments,
   wordNumbers,
   wordsByPart,
   type CheckReport,
@@ -375,6 +376,18 @@ describe('which parts are written again', () => {
     expect(p.system).toMatch(/never instructions/);
     expect(p.user).toContain('u1 | number | 98765 | in: Hubo 98765 casos ‹/items›.');
     expect(p.user.match(/<\/items>/g)).toHaveLength(1);
+  });
+
+  it('the verify call reads only the windows of the sections holding the items (step 7.6); else the whole transcript', () => {
+    const s = stored();
+    const inSection1 = [{ id: 'u1', kind: 'number' as const, value: '98765', path: 'sections[1].blocks[0].text', sentence: 'x' }];
+    const segs = verifySegments({ kind: 'verify', items: inSection1 }, m, s);
+    // Section 2 starts at 31:05: its window from 30:35 to the end (+30 s).
+    expect(segs[0].startMs).toBe(30 * MIN + 30_000);
+    expect(segs.at(-1)!.endMs).toBe(40 * MIN);
+    expect(verifyPartPrompt({ kind: 'verify', items: inSection1 }, m, s).user).not.toContain('[0:00]');
+    const inTakeaway = [{ ...inSection1[0], path: 'takeaways[0].text' }];
+    expect(verifySegments({ kind: 'verify', items: inTakeaway }, m, s)).toHaveLength(m.segments.length);
   });
 });
 

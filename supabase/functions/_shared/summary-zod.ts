@@ -90,6 +90,20 @@ export const SummaryAnswer = obj({
 /** Step 7.5: the lists written again. */
 export const ListsAnswer = obj({ takeaways, selfTest, flashcards });
 
+/** Step 7.6: one part of a long lecture. */
+export const PartAnswer = obj({
+  modulesUsed: list(z.enum(MODULES)),
+  sections: list(SectionAnswer),
+  glossary: rest.glossary,
+  examSignals: rest.examSignals,
+  questionsDuringClass: rest.questionsDuringClass,
+  logistics: rest.logistics,
+  unclear: rest.unclear,
+});
+
+/** Step 7.6: the wrap-up after the merge. */
+export const WrapUpAnswer = obj({ title: str, takeaways, selfTest, flashcards });
+
 /** Step 7.5: the faithfulness check's verdicts. */
 export const VerifyAnswer = obj({ items: list(obj({ id: str, verdict: z.enum(VERDICTS), replacement: str })) });
 

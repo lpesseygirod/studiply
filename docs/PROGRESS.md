@@ -495,7 +495,42 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Local only:** it refuses any non-local URL and never prints keys. Exporting from the remote project needs Lea's separate OK.
   - **Tests:** Jest for each check (numbers, words, dates, LaTeX, language, the fixes, effects, length, faithfulness, which parts and their order and cap, the answers parsed and spliced, the verdicts), the quality pass inside the run with faked part answers, the fixture reader, the three new part schemas (zod = constants, structured outputs' subset), and the card's line.
   - **Not run by me (approval needed):** `npm run eval:summaries`, `-- --faults`, and `export:fixture`. The paid `-- --generate` is the advisor's.
-- [ ] 7.6 — Long lectures (split by topic, merge)
+- [x] 7.6 — Long lectures (split by topic, merge). **Done (31 Oct), verified by the advisor on `synthetic-long`. Lea's real 90-min fixture comes later (7.1 / 7.8).**
+  - **Verified:**
+    - The free `eval:summaries`: the 30-min path is unchanged.
+    - One paid `--generate --fixture synthetic-long`: done in **66 s**, 5 calls (classify 9 s, 3 parallel parts 31–38 s, wrap-up 18 s), **$0.6865**. All 6 checks pass: notes 15/15, marks 10/10, length 119 %, faithfulness 11/11, Spanish.
+  - **Over 60 min, up to 3 h** (`_shared/summary-long.ts`, the pipeline's `generateLong`). Up to 60 min nothing changes.
+    1. **Classify** as today. Its topics are grouped into parts of at most 35 min: the cuts go at the topic boundaries nearest an even split, else topics are taken in order. A topic over 35 min is halved. Every cut is at a segment boundary. With no usable topics, the parts are windows of about 30 min.
+    2. **Every note line, mark, photo and question goes to exactly one part:** the part holding its aligned segment (±30 s). A question with a window goes by the window's middle; no time → the last part. Each part's transcript also has 30 s of each neighbour, marked as context.
+    3. **The parts run in parallel**, each with:
+       - the same rules (`summarySystemPrompt(…, 'part')`, so they're cached);
+       - a `<part>` tag: k of N, its share of the sections' words by transcript words and by topic, the other parts' topics (don't write them), and its own items only;
+       - `PART_SCHEMA`: sections, glossary, exam signals, questions, logistics, unclear.
+    4. **Slides** are the shared, cached prefix. With slides, part 1 runs alone first, so the other parts read the cache. Each photo goes only to its own part.
+    5. **A part that fails** is tried once more on its own, one after another (so also after a 429). Failing twice → `part_failed`. A refusal or a 4xx is final, as today.
+    6. **Merge by code:**
+       - sections in order;
+       - the glossary once per term, keeping the fuller definition;
+       - exam signals, questions and unclear in time order;
+       - logistics once each.
+       Then **one wrap-up call** (`WRAPUP_SCHEMA`: title, takeaways, self-test, flashcards for the whole lecture, the 7.2 numbers), retried once.
+    7. **The 7.5 checks run unchanged.** The verify call now reads only the windows of the sections holding the items, or the whole transcript when an item is outside a section.
+  - **No migration, no progress column:** Try again starts a new run (advisor, 31 Oct). The card stays "Writing your summary…". Over 3 h: "Lectures over 3 hours can't be summarized yet." (no button). `part_failed` has its own words and Try again.
+  - **Cost and time (Opus 5.5):**
+
+    | | estimate (plan) | measured |
+    |---|---|---|
+    | 30 min | — | $0.157–0.205, 42–51 s (7.4 / 7.5) |
+    | 90 min, no slides | ≈ $0.38 (≤ $0.53 with 3 check calls), ≈ 65–110 s | **$0.6865, 66 s**, 5 calls, no check calls (synthetic-long) |
+    | 120 min | ≈ $0.48 (≤ $0.63) | not measured; scaled from the 90-min run ≈ $0.90 |
+
+    - **The 90-min run cost ≈ 1.3–1.8 × the estimate.** `eval:summaries` now saves each call's usage (model, tokens in/out, cost, in order) in the output JSON, to trace it.
+    - `ai_usage` has no call-kind or cache columns, so that split isn't saved. Adding them needs a migration: for Lea's list.
+    - **Slides timing risk:** with slides, part 1 runs alone first so the other parts read them from the cache. That adds ≈ 35 s, so a 90-min lecture with slides is ≈ 100–145 s, close to the free plan's 150 s limit. The hosting plan is a before-launch item on Lea's list.
+  - **Fixture:** `scripts/fixtures/synthetic-long-lecture.mjs`, written by `eval:summaries` as `tests/fixtures/lectures/synthetic-long/`.
+    - 90 min, 180 segments, ≈ 13,000 words, six 15-min topics.
+    - 15 notes and 10 marks, some within 30 s of 30:00 and 60:00; two photos; two questions (one window across 60:00); two exam phrases and an injection line.
+  - **Tests:** Jest for the split, the assignment, the context, the part prompt and rules, the media, the merge, the wrap-up, the run (order, cache order, retry, `part_failed`, `refused`, `claude_rejected`, wrap-up failing), the verify windows, the new schemas and the card.
 - [ ] 7.7 — Into the document (JSON → editor blocks, versions, edit-safe regen)
 - [ ] 7.8 — You judge the quality (prompt/calculator fixes)
 - [ ] 7.9 — Extend, merge, exam pack
@@ -587,6 +622,11 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 7.6 (the advisor's decisions, 31 Oct, for Lea's list):**
+  1. **A 3-hour cap for now** (planned at ≈ $0.80 per summary at most; the measured 90-min cost suggests ≈ $1.30 for 3 h). Longer lectures fail with "Lectures over 3 hours can't be summarized yet."
+  2. **Merge by code plus one wrap-up call** (title, takeaways, self-test, flashcards), not a full Claude merge call. It's cheaper (≈ $0.05 vs ≈ $0.25) and keeps the parts as written.
+  3. **Slides are cached:** sent once as a prefix shared by every part, with part 1 first so the others read the cache.
+  - **Not done (advisor):** no migration and no checkpoint or resume. The run fits in one function call (≈ 65–110 s < 150 s), and the hosting plan is a before-launch item on Lea's list.
 - **Step 7.5 (the advisor's decisions, 31 Oct, for Lea to confirm):**
   1. **Missing notes and marks are put in by code** (no Claude call): a note into the "From your notes" block of its section, a mark as a chip.
   2. **At most 3 part calls per summary** (≈ $0.15 and ≈ 30 s at most on top of the summary).

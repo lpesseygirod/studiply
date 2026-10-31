@@ -6,7 +6,6 @@
 // answer checked and stored (notes copied by code, unknown ids dropped, coverage), and the run (one
 // retry when unreadable or cut off, a refusal final, the cost logged once per call).
 import {
-  MAX_LECTURE_MS,
   alignTo,
   classifySystemPrompt,
   classifyUserText,
@@ -25,6 +24,7 @@ import {
   type SummaryRequest,
   type SummaryRunDeps,
 } from '../../../supabase/functions/_shared/summary-pipeline';
+import { MAX_LONG_LECTURE_MS } from '../../../supabase/functions/_shared/summary-long';
 import { MAX_PART_CALLS, sectionWords, summaryWords, type CheckReport, type Section } from '../../../supabase/functions/_shared/summary-checks';
 import { SLIDER_DEFAULTS } from '../../../supabase/functions/_shared/summary-plan';
 import { SUMMARY_FORMAT } from '../../../supabase/functions/_shared/summary-schema';
@@ -492,10 +492,10 @@ describe('the run (Claude faked)', () => {
     });
   });
 
-  it('no transcript, or over 60 minutes: failed before any call', async () => {
+  it('no transcript, or over 3 hours (step 7.6; over 60 min is written in parts): failed before any call', async () => {
     const empty = setup([ok()], { material: lectureMaterial({ segments: [] }) });
     expect(await runSummary(empty.deps)).toEqual({ status: 'failed', error: 'no_transcript' });
-    const long = setup([ok()], { material: lectureMaterial({ durationMs: MAX_LECTURE_MS + 1 }) });
+    const long = setup([ok()], { material: lectureMaterial({ durationMs: MAX_LONG_LECTURE_MS + 1 }) });
     expect(await runSummary(long.deps)).toEqual({ status: 'failed', error: 'long_lecture' });
     expect(empty.calls.length + long.calls.length).toBe(0);
   });

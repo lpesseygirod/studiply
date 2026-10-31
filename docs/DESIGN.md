@@ -260,7 +260,7 @@ As built in step 4.4:
   - **Writing your summary:** "about 1–2 minutes, you can keep working", read again every 5 s.
   - **Summary ready:** its sections, questions and flashcards, "N of N note lines and M of M marks used", and the takeaways.
     - **The checks line (7.5)** sits under the counts. It reads "All checks passed." (plus "N details not said in class are under 'Added context'" when some were moved), or "Checks: …" naming each one that failed, e.g. "2,016 words (aim 1,224–1,656)" or "1 detail not found in the lecture". A failed check never hides the summary.
-  - **The summary wasn't written:** why, in plain words, and **Try again**. Over 60 minutes: Change settings; long lectures come with 7.6.
+  - **The summary wasn't written:** why, in plain words, and **Try again**. Over 3 hours: "Lectures over 3 hours can't be summarized yet.", with no button. A lecture over 60 minutes is written in parts and merged (7.6); the card is the same ("Writing your summary…").
   - **Starting:** Stop & generate summary starts it at once when the permission was already given; a permission is never asked over the screen she's on at Stop.
 - Green banner: "Summary added to this document · Built from your notes (all N lines, M marks) + audio · slides · photos · your questions" + **Extend with next lecture**.
 - At the top of the Summary tab: "All your notes are in this summary · N of N lines and M of M marks used".

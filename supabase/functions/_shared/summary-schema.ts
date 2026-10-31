@@ -121,6 +121,23 @@ export const SUMMARY_SCHEMA: JsonSchema = obj({
 /** Step 7.5, the lists written again (a high mark's takeaway, self-test question or flashcard was missing). */
 export const LISTS_SCHEMA: JsonSchema = obj({ takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
 
+/**
+ * Step 7.6, one part of a long lecture (its topics' sections and what belongs to their span); the
+ * whole-summary lists (title, takeaways, self-test, flashcards) come from the wrap-up call.
+ */
+export const PART_SCHEMA: JsonSchema = obj({
+  modulesUsed: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).modulesUsed,
+  sections: arr(SECTION_SCHEMA),
+  glossary: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).glossary,
+  examSignals: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).examSignals,
+  questionsDuringClass: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).questionsDuringClass,
+  logistics: arr(str),
+  unclear: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).unclear,
+});
+
+/** Step 7.6, the wrap-up call after the parts are merged: the whole lecture's title and lists. */
+export const WRAPUP_SCHEMA: JsonSchema = obj({ title: str, takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
+
 export const VERDICTS = ['found', 'corrected', 'added'] as const;
 
 /**

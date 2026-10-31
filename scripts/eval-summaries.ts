@@ -13,7 +13,8 @@
  *                                                  (Claude, Opus 5.5), saved to tests/output/<name>/, then checked
  *
  * Fixtures: tests/fixtures/lectures/<name>/ (git-ignored; format in summary-fixture.ts). The synthetic
- * one is written here when missing (scripts/fixtures/synthetic-lecture.mjs). A summary saved by step
+ * ones are written here when missing (scripts/fixtures/synthetic-lecture.mjs, 30 min; synthetic-long-
+ * lecture.mjs, 90 min, step 7.6: --fixture synthetic-long). A summary saved by step
  * 7.4 (tests/output/synthetic-*.json) is checked against the synthetic fixture, except its marks
  * (their ids were random then).
  *
@@ -21,6 +22,7 @@
  * supabase/functions/.env and never prints a key (they're read from `supabase status`).
  */
 
+import { syntheticLongFixture } from './fixtures/synthetic-long-lecture.mjs';
 import { syntheticFixture } from './fixtures/synthetic-lecture.mjs';
 import { FIXTURE_FILES, FixtureShape, REQUIRED_FIXTURE_FILES, fixtureInput, type Fixture } from '../supabase/functions/_shared/summary-fixture.ts';
 import { PART_COST_USD, fixMarks, fixNotes, planParts, runChecks, sectionWords, summaryWords, wordsByPart, type CheckReport, type Section } from '../supabase/functions/_shared/summary-checks.ts';
@@ -38,16 +40,26 @@ const writeJson = (path: string, value: unknown) => Deno.writeTextFile(path, `${
 
 // ---------- fixtures ----------
 
-/** The synthetic lecture's folder, written once (its photo made from the app icon with macOS sips, as check:claude does). */
+/** The synthetic lectures (30 min, step 7.4; 90 min, step 7.6) and their photos' files. */
+const SYNTHETIC = [
+  { name: 'synthetic', make: syntheticFixture },
+  { name: 'synthetic-long', make: syntheticLongFixture },
+];
+
+/** Each synthetic lecture's folder, written once (its photos made from the app icon with macOS sips, as check:claude does). */
 async function ensureSynthetic() {
-  const dir = `${FIXTURES}/synthetic`;
-  if (await exists(`${dir}/${FIXTURE_FILES.lecture}`)) return;
-  await Deno.mkdir(`${dir}/media`, { recursive: true });
-  const f = syntheticFixture() as Record<string, unknown>;
-  for (const [key, file] of Object.entries(FIXTURE_FILES)) if (f[key] !== undefined) await writeJson(`${dir}/${file}`, f[key]);
-  const sips = await new Deno.Command('sips', { args: ['-s', 'format', 'jpeg', '-Z', '512', 'assets/icon.png', '--out', `${dir}/media/board.jpg`], stdout: 'null', stderr: 'null' }).output();
-  if (!sips.success) console.log('  (the synthetic photo could not be made with sips; --generate needs media/board.jpg)');
-  console.log(`Wrote the synthetic fixture: ${dir}`);
+  for (const { name, make } of SYNTHETIC) {
+    const dir = `${FIXTURES}/${name}`;
+    if (await exists(`${dir}/${FIXTURE_FILES.lecture}`)) continue;
+    await Deno.mkdir(`${dir}/media`, { recursive: true });
+    const f = make() as Record<string, unknown>;
+    for (const [key, file] of Object.entries(FIXTURE_FILES)) if (f[key] !== undefined) await writeJson(`${dir}/${file}`, f[key]);
+    for (const { file } of f.media as { file: string }[]) {
+      const sips = await new Deno.Command('sips', { args: ['-s', 'format', 'jpeg', '-Z', '512', 'assets/icon.png', '--out', `${dir}/media/${file}`], stdout: 'null', stderr: 'null' }).output();
+      if (!sips.success) console.log(`  (the photo could not be made with sips; --generate needs media/${file})`);
+    }
+    console.log(`Wrote the synthetic fixture: ${dir}`);
+  }
 }
 
 async function readFixture(name: string): Promise<{ fixture: Fixture | null; problems: string[] }> {
@@ -327,15 +339,21 @@ async function generate(name: string, fixture: Fixture): Promise<void> {
       if (row?.status === 'done' || row?.status === 'failed') break;
     }
     const seconds = Math.round((Date.now() - started) / 1000);
-    const usage = (await admin.from('ai_usage').select('cost_usd, tokens_input, tokens_output').eq('user_id', userId)).data ?? [];
-    const costUsd = usage.reduce((sum: number, r: { cost_usd: number }) => sum + Number(r.cost_usd), 0);
+    // Each Claude call as billed, in order, kept with the output (read before the test user is deleted)
+    // so a cost overrun can be traced. ai_usage has no call kind or cache split: tokens_input includes
+    // cache reads and writes.
+    type UsageRow = { created_at: string; operation: string; model: string; tokens_input: number; tokens_output: number; cost_usd: number };
+    const usage: UsageRow[] = (await admin.from('ai_usage').select('created_at, operation, model, tokens_input, tokens_output, cost_usd').eq('user_id', userId).order('created_at')).data ?? [];
+    const costUsd = usage.reduce((sum, r) => sum + Number(r.cost_usd), 0);
+    const usageCalls = usage.map((r) => ({ at: r.created_at, operation: r.operation, model: r.model, tokensIn: r.tokens_input, tokensOut: r.tokens_output, costUsd: Number(r.cost_usd) }));
+    for (const [i, u] of usageCalls.entries()) console.log(`    call ${i + 1}: ${u.model} · in ${u.tokensIn} · out ${u.tokensOut} · $${u.costUsd.toFixed(4)}`);
     console.log(`  ${row?.status ?? '?'} after ${seconds} s${row?.error ? ` (${row.error})` : ''}; ${usage.length} Claude calls, $${costUsd.toFixed(4)}`);
     if (row?.status !== 'done') return;
     // The output in the fixture's own ids.
     let json = JSON.stringify(row.result);
     for (const [mine, theirs] of ids) json = json.replaceAll(theirs, mine);
     await Deno.mkdir(`${OUTPUT}/${name}`, { recursive: true });
-    const out = { fixture: name, at: new Date().toISOString(), seconds, costUsd, calls: usage.length, result: JSON.parse(json) };
+    const out = { fixture: name, at: new Date().toISOString(), seconds, costUsd, calls: usage.length, usage: usageCalls, result: JSON.parse(json) };
     const outFile = `${OUTPUT}/${name}/${out.at.slice(0, 19).replace(/[:T]/g, '-')}.json`;
     await writeJson(outFile, out);
     await writeJson(`${OUTPUT}/${name}/latest.json`, out);

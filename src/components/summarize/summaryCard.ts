@@ -5,7 +5,8 @@ import type { LectureSummary } from '../../services/summarize.service';
 export const SUMMARY_ERRORS: Record<string, string> = {
   refused: 'Claude can’t summarize this lecture.',
   too_long: 'The summary got too long and was cut off. Try a lower Length.',
-  long_lecture: 'Lectures over 60 minutes are summarized in a later update.',
+  long_lecture: 'Lectures over 3 hours can’t be summarized yet.',
+  part_failed: 'A part of this long lecture couldn’t be written. Nothing was changed.',
   no_transcript: 'This lecture has no transcript yet.',
   claude_rejected: 'Claude didn’t accept the request. Nothing was changed.',
 };
@@ -58,10 +59,11 @@ export function summaryCardText(s: LectureSummary): { label: string; text: strin
       };
     }
     case 'failed':
+      // Over 3 hours nothing on the card helps (no button); the rest can be tried again.
       return {
         label: 'The summary wasn’t written',
         text: SUMMARY_ERRORS[s.error ?? ''] ?? 'Something went wrong. Nothing was changed.',
-        action: s.error === 'long_lecture' ? 'settings' : 'retry',
+        ...(s.error !== 'long_lecture' && { action: 'retry' as const }),
       };
   }
 }
