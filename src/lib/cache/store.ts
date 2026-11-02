@@ -18,7 +18,8 @@ import type { SegmentRow } from '../cloudRows';
 
 export const cacheEnabled = true;
 
-export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents';
+/** Step 9.1: flashcards and review_schedule too, so Review works offline. */
+export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents' | 'flashcards' | 'review_schedule';
 
 /** The fields every cached row has. */
 export interface CacheableRow {

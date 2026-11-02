@@ -14,13 +14,30 @@ mkdirSync(SHOTS, { recursive: true });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Whether a Chrome (an earlier run's, left over) already answers on this debugging port. */
+async function portTaken(port) {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(800) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * `micWav`: an audio file (e.g. speech from macOS `say`) that the page's
  * microphone plays, looped, instead of Chrome's fake beep. Done by
  * replacing getUserMedia with a Web Audio stream of the file, because
  * Chrome's --use-file-for-fake-audio-capture stays silent in headless mode.
+ *
+ * `port`: the debugging port (default 9333). When a Chrome left over from an
+ * earlier run still holds it, the next free one is used: attaching to the old
+ * Chrome would run the check in its old profile and pages.
  */
-export async function launch({ port = 9333, width = 1280, height = 900, micWav } = {}) {
+export async function launch({ port: wanted = 9333, width = 1280, height = 900, micWav } = {}) {
+  let port = wanted;
+  while ((await portTaken(port)) && port < wanted + 20) port += 1;
+  if (port !== wanted) console.error(`cdp: port ${wanted} is held by another Chrome (an earlier run?); using ${port}`);
   const profile = join(OUT, `chrome-profile-${port}`);
   rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); // fresh: no session from an earlier run
   const proc = spawn(CHROME, [
@@ -28,6 +45,11 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
     `--window-size=${width},${height}`, '--no-first-run', '--no-default-browser-check',
     '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
     '--autoplay-policy=no-user-gesture-required',
+    // Never throttle the page (as Puppeteer and Playwright launch Chrome): on macOS a headless
+    // window can count as occluded or in the background (nobody at the screen), and Chrome then
+    // pauses animation frames, so animations never end (the splash stays, a flip stops halfway)
+    // and image decoding never finishes.
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
     'about:blank',
   ], { stdio: 'ignore' });
   let targets;
@@ -69,6 +91,8 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
   await send('Page.enable');
   await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+  // The page behaves as the focused one (focus and blur, document.hasFocus()), whatever the OS window.
+  await send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
   await send('Browser.grantPermissions', { permissions: ['audioCapture'] }).catch(() => {});
   if (micWav) {
     const b64 = readFileSync(micWav).toString('base64');
@@ -123,6 +147,8 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
 
   const api = {
     send, evaluate, logs, dialogs, sleep,
+    /** The debugging port this Chrome listens on (another than asked when that one was held). */
+    port,
     async nav(url) { await send('Page.navigate', { url }); await sleep(500); },
     async waitText(text, { timeout = 15000, exact = false, exclude = null } = {}) {
       const end = Date.now() + timeout;
@@ -300,11 +326,19 @@ export async function launch({ port = 9333, width = 1280, height = 900, micWav }
       await api.waitText('COURSES', { timeout: 20000 });
       await sleep(800);
     },
+    /**
+     * Ends Chrome, always: asked to quit, then killed when it hasn't within 3 s. Node never waits
+     * for it after that (a Chrome that ignored the request kept the check's process alive for hours).
+     */
     async close() {
       try { ws.close(); } catch {}
+      if (proc.exitCode !== null || proc.signalCode !== null) return;
       const exited = new Promise((resolve) => proc.once('exit', resolve));
-      proc.kill();
-      await Promise.race([exited, sleep(3000)]);
+      proc.kill('SIGTERM');
+      if (await Promise.race([exited.then(() => true), sleep(3000).then(() => false)])) return;
+      proc.kill('SIGKILL');
+      await Promise.race([exited, sleep(2000)]);
+      proc.unref();
     },
   };
   return api;

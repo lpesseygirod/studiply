@@ -99,7 +99,8 @@ try {
           ['note', `/note/${data.lecture.id}`, 'Summary'],
           ['search', '/search', 'Cancel'],
           ['settings', '/settings', 'Summaries'],
-          ['review', '/review', 'Quizzes and flashcards'],
+          // Review (step 9.1): this user has no flashcards, so both widths show its empty state once loaded.
+          ['review', '/review', 'Nothing to review today'],
           ['post-session', `/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Post-Session'],
         ]) {
           await open(p, text);
@@ -124,7 +125,7 @@ try {
       ['/settings/recording', 'Default recording mode'], ['/settings/ai-privacy', 'AI USAGE TODAY'],
       ['/settings/storage', 'Default file retention'], ['/settings/notifications', 'Reminders come with Review'],
       ['/settings/appearance', 'Light or dark, on this device'], ['/settings/your-data', 'Recently Deleted'],
-      ['/settings/development', 'Simulate offline'], ['/settings/trash', 'Recently Deleted'], ['/search', 'Cancel'], ['/review', 'Review'],
+      ['/settings/development', 'Simulate offline'], ['/settings/trash', 'Recently Deleted'], ['/search', 'Cancel'], ['/review', 'Nothing to review today'],
       [`/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Post-Session'],
     ]) {
       await open(p, text);

@@ -1,3 +1,4 @@
+import { newCards, summaryCards, type NewCard } from '../../lib/review/cards';
 import { hasSummary, isEmptyDoc, mergeRegenerated, summaryToDoc, type SummaryDocJSON } from '../../lib/summaryDoc';
 import type { StoredSummary } from '../../../supabase/functions/_shared/summary-pipeline';
 import type { DocJSON } from '../../editor/types';
@@ -10,7 +11,8 @@ import type { DocJSON } from '../../editor/types';
  *   never touched by a summary she didn't choose to add to it.
  * - Only when she chose "Update the Summary tab" (the panel's `target: 'summary'`): merged into it,
  *   keeping every block she edited or added (lib/summaryDoc mergeRegenerated), with a version before.
- * - A version after (`ai_generation`); its flashcards saved once (`source: 'summary'`).
+ * - A version after (`ai_generation`); its flashcards saved once (`source: 'summary'`; step 9.1:
+ *   with its key terms and self-test, each card once per lecture).
  * - Converted already (its blocks in the Summary tab or a summary tab): nothing. The same summary
  *   gives the same blocks on every device, so two converting at once merge into one document.
  * - Older finished summaries of the lecture (one written again since) are left as they are.
@@ -37,9 +39,9 @@ export interface PlaceDeps {
   version: (lectureId: string, tab: string, doc: DocJSON, name?: string) => Promise<void>;
   /** The lecture's questions to the assistant (the Full answer links). */
   questions: (lectureId: string) => Promise<{ id: string; question: string; askedAtMs: number | null }[]>;
-  /** Whether this summary's flashcards are saved. */
-  hasCards: (summaryId: string) => Promise<boolean>;
-  saveCards: (cards: { front: string; back: string }[], from: { lectureId: string; courseId: string | null; summaryId: string }) => Promise<void>;
+  /** The fronts of the lecture's live flashcards (step 9.1: a card is saved once). */
+  cardFronts: (lectureId: string) => Promise<string[]>;
+  saveCards: (cards: NewCard[], from: { lectureId: string; courseId: string | null; summaryId: string }) => Promise<void>;
 }
 
 export type PlaceOutcome = { tab: string; written: boolean; summaryId: string } | null;
@@ -106,8 +108,14 @@ export async function placeSummary(lectureId: string, deps: PlaceDeps): Promise<
   return { tab, written: true, summaryId: done.id };
 }
 
+/**
+ * Step 9.1: the summary's cards (its flashcards, key terms and self-test), each once: a front the
+ * lecture already has is left out, so a summary written again adds only new ones and one saved
+ * before 9.1 gets its key terms and self-test the next time the lecture opens.
+ */
 async function saveCardsOnce(lectureId: string, done: DoneSummary, deps: PlaceDeps): Promise<void> {
-  const cards = ((done.result.flashcards ?? []) as { front: string; back: string }[]).filter((c) => c.front.trim() && c.back.trim());
-  if (!cards.length || (await deps.hasCards(done.id))) return;
-  await deps.saveCards(cards, { lectureId, courseId: done.courseId, summaryId: done.id });
+  const cards = summaryCards(done.result);
+  if (!cards.length) return;
+  const fresh = newCards(cards, await deps.cardFronts(lectureId));
+  if (fresh.length) await deps.saveCards(fresh, { lectureId, courseId: done.courseId, summaryId: done.id });
 }

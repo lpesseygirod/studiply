@@ -6,7 +6,9 @@
 // Steps:
 //   1. laptop (1280): the lecture's Summary tab: the summary is written in (documents row, its blocks
 //      `sm…`, `ai` but From your notes `student` and the photo `media`); a version (ai_generation); its
-//      2 flashcards saved once (source summary, source_ref = the summary).
+//      cards saved once (source summary, source_ref = the summary): its 2 flashcards (kind card), and
+//      since 9.1 its glossary terms (kind term) and self-test questions (kind question), each front
+//      once; each with one review row, due at once.
 //   2. What desktop-03 shows: the green banner (the window's full width under the top bar, one line;
 //      "Summary added to this document", Built from your notes
 //      (all 6 lines, 6 marks) + 30 min of audio · board photos · your questions to the assistant,
@@ -25,7 +27,7 @@
 //      tab is unchanged.
 //   7. The summarize panel on a lecture that has a summary: "where the new one goes", a new tab chosen.
 //   8. 390 px (the web's phone layout, iphone-06): no banner; + Extend with next (the lecture picker,
-//      7.9) and Quiz me (greyed, "Coming in a later update": 9.1) at the bottom.
+//      7.9) and Quiz me (live since 9.1: not greyed or disabled; what it does is review.mjs's) at the bottom.
 //
 // A failed step closes any menu, dialog or picker it left open, so it can't fail the next ones.
 //   9. No request to summarize, transcribe-chunk, Anthropic or OpenAI.
@@ -211,12 +213,25 @@ try {
     expect(blocks[0].attrs?.kind === 'notesCheck' && blocks[1].attrs?.kind === 'takeaways', `first blocks: ${blocks.slice(0, 2).map((x) => x.attrs?.kind)}`);
     const { data: versions } = await admin.from('document_versions').select('reason, name').eq('file_id', lectureId);
     expect(versions.some((v) => v.reason === 'ai_generation'), `versions: ${JSON.stringify(versions)}`);
+    // Step 9.1: the summary's own flashcards (kind card), its glossary terms (kind term) and its self-test
+    // (kind question); each front once (case, spacing and ** ignored), all saved together.
+    const front = (s) => String(s ?? '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const want = { card: S30.flashcards.map((c) => c.front), term: S30.glossary.map((g) => g.term), question: S30.selfTest.map((q) => q.question) };
+    const total = new Set([...want.term, ...want.card, ...want.question].map(front)).size;
     const cards = await waitFor(async () => {
-      const { data: rows } = await admin.from('flashcards').select('front, source, source_ref, file_id').eq('file_id', lectureId);
-      return rows?.length ? rows : null;
-    }, 'the flashcards', 10000);
-    expect(cards.length === 2 && cards.every((c) => c.source === 'summary' && c.source_ref === firstId), `flashcards: ${JSON.stringify(cards)}`);
-    report.push(`RESULT | blocks ${blocks.length}, versions ${versions.length}, flashcards ${cards.length}`);
+      const { data: rows } = await admin.from('flashcards').select('id, front, kind, source, source_ref, file_id').eq('file_id', lectureId);
+      return rows?.length >= total ? rows : null;
+    }, async () => `the flashcards: ${((await admin.from('flashcards').select('id').eq('file_id', lectureId)).data ?? []).length} of ${total}`, 10000);
+    expect(cards.length === total && cards.every((c) => c.source === 'summary' && c.source_ref === firstId), `flashcards: ${JSON.stringify(cards)}`);
+    expect(new Set(cards.map((c) => front(c.front))).size === cards.length, 'a front saved twice');
+    const kinds = Object.fromEntries(['card', 'term', 'question'].map((k) => [k, cards.filter((c) => c.kind === k).map((c) => front(c.front)).sort()]));
+    expect(JSON.stringify(kinds.card) === JSON.stringify(want.card.map(front).sort()), `the summary's own cards: ${JSON.stringify(kinds.card)}`);
+    expect(kinds.term.length > 0 && kinds.term.every((t) => want.term.map(front).includes(t)), `terms: ${JSON.stringify(kinds.term)}`);
+    expect(kinds.question.length > 0 && kinds.question.every((q) => want.question.map(front).includes(q)), `questions: ${JSON.stringify(kinds.question)}`);
+    // Each card one review row, due at once (the database's trigger).
+    const { data: schedule } = await admin.from('review_schedule').select('flashcard_id, due_at, reps').in('flashcard_id', cards.map((c) => c.id));
+    expect(schedule?.length === cards.length && schedule.every((s) => s.reps === 0 && Date.parse(s.due_at) <= Date.now() + 1000), `review rows: ${JSON.stringify(schedule)}`);
+    report.push(`RESULT | blocks ${blocks.length}, versions ${versions.length}, flashcards ${cards.length} (${kinds.card.length} cards, ${kinds.term.length} terms, ${kinds.question.length} questions)`);
   });
 
   await step('desktop-03: the banner, the notes check line under the title, takeaways, sections with time and chips, the boxes, the questions, the self-test hidden', async () => {
@@ -341,7 +356,7 @@ try {
     await tap('[data-summarize="keep"]');
   });
 
-  await step('390 px (iphone-06): no banner; + Extend with next and Quiz me (greyed) at the bottom', async () => {
+  await step('390 px (iphone-06): no banner; + Extend with next and Quiz me (live since 9.1) at the bottom', async () => {
     await b.resize(390, 844);
     // Pageless, as the iPhone starts (iphone-06 is full width): the web keeps its view in `studiply.view`
     // (lib/viewPrefs, what its Pages / Pageless switch saves), Pages by default even at phone width.
@@ -354,10 +369,16 @@ try {
     await waitFor(() => has('[data-summary-buttons="shown"]'), 'the two buttons', 10000);
     expect((await b.hasText('+ Extend with next')) && (await b.hasText('Quiz me', true)), 'the buttons’ words');
     await shots('summary-doc-390');
-    await b.click('Quiz me', { exact: true });
-    await b.waitText('Coming in a later update');
-    await b.press('Escape');
-    await b.sleep(300);
+    // Quiz me is live (step 9.1): not greyed, not disabled, no "Coming in a later update" (what it does is review.mjs's).
+    const quiz = await b.evaluate(`(() => {
+      const el = document.querySelector('[data-summary-buttons="quiz"]');
+      if (!el) return null;
+      let opacity = 1;
+      for (let n = el; n && n !== document.body; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+      return { opacity, disabled: el.getAttribute('aria-disabled'), label: el.getAttribute('aria-label') };
+    })()`);
+    expect(quiz && quiz.opacity > 0.95 && quiz.disabled !== 'true' && quiz.label === 'Quiz me', `Quiz me: ${JSON.stringify(quiz)}`);
+    expect(!(await b.hasText('Coming in a later update')), 'still "Coming in a later update"');
     // + Extend with next: the lecture picker as a sheet (7.9).
     await tap('[data-summary-buttons="extend"]');
     await waitFor(() => has('[data-picker="panel"][data-mode="extend"]'), 'the lecture picker', 10000);

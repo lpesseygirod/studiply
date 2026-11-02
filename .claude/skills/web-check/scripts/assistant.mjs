@@ -17,8 +17,8 @@
 //   3. The time plays in the mini player; Copy says "Copied"; + says it comes
 //      later. Step 6.3: Add to notes puts a "From the study assistant · m:ss"
 //      box (ai) in My notes, then "Added ✓"; Flashcards proposes the cards
-//      (not editable), Save cards → "2 flashcards saved", flashcards rows only
-//      (no review schedule). Retry asks the same again in its place.
+//      (not editable), Save cards → "2 flashcards saved", flashcards rows, each
+//      with its review row due at once (step 9.1). Retry asks the same again in its place.
 //   4. Typing: Shift+Enter a new line, Enter sends the question as typed.
 //   5. Offline: the note, the chips and send disabled, the draft kept.
 //   6. The panel closed and opened again shows the conversation saved in
@@ -337,7 +337,7 @@ try {
     expect(await has('[data-recording="strip"]'), 'the recording stopped');
   });
 
-  await step('6.3 Flashcards: the proposed cards under the answer (not editable), Save cards → "2 flashcards saved", flashcards rows (source assistant), no review schedule', async () => {
+  await step('6.3 Flashcards: the proposed cards under the answer (not editable), Save cards → "2 flashcards saved", flashcards rows (source assistant), each with its review row due at once (9.1)', async () => {
     await b.clickSelector(`${PANEL} [data-assistant="flashcards"]`);
     await waitFor(() => has(`${PANEL} [data-assistant="cards"]`), 'the proposed cards', 6000);
     expect((await count(`${PANEL} [data-assistant="card"]`)) === 2, 'not two cards');
@@ -348,8 +348,10 @@ try {
     await b.waitText('2 flashcards saved', { timeout: 4000 });
     const { data: rows } = await admin.from('flashcards').select('id, source, source_ref, file_id, course_id, deleted_at').eq('file_id', lectureId);
     expect(rows?.length === 2 && rows.every((r) => r.source === 'assistant' && r.source_ref && r.course_id === data.course.id && !r.deleted_at), `rows: ${JSON.stringify(rows)}`);
-    const { count: scheduled } = await admin.from('review_schedule').select('id', { count: 'exact', head: true }).in('flashcard_id', rows.map((r) => r.id));
-    expect(scheduled === 0, `review_schedule rows: ${scheduled}`);
+    // Step 9.1: every live card has one review row, due at once (made by the database's trigger).
+    const { data: schedule } = await admin.from('review_schedule').select('flashcard_id, due_at, reps').in('flashcard_id', rows.map((r) => r.id));
+    const ids = new Set((schedule ?? []).map((s) => s.flashcard_id));
+    expect(schedule?.length === 2 && rows.every((r) => ids.has(r.id)) && schedule.every((s) => s.reps === 0 && Date.parse(s.due_at) <= Date.now() + 1000), `review_schedule rows: ${JSON.stringify(schedule)}`);
   });
 
   await step('Retry asks the same quick prompt again, its answer in the same place', async () => {

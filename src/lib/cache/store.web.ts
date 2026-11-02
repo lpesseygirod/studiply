@@ -8,7 +8,7 @@ import type { SegmentRow } from '../cloudRows';
 
 export const cacheEnabled = false;
 
-export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents';
+export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents' | 'flashcards' | 'review_schedule';
 
 export interface CacheableRow {
   id: string;

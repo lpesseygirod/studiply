@@ -16,6 +16,7 @@ import { calloutAt, calloutKey, type CalloutKind, type CalloutRequest } from '..
 import { formulaEntry } from '../formulas/library';
 import type { GraphData } from '../graph/data';
 import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/graph';
+import { quizAll, quizInfo } from '../schema/quizMe';
 import { mediaSrc } from '../media/photoSource';
 import { markChipKey, selectedMarkChip, type LinkedMark, type MarkChipRequest, type MarkKind as ChipKind, type MarkPlace } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
@@ -212,7 +213,9 @@ export type FormatCommand =
   /** Find & replace (step 4.7, writing/find.ts). */
   | FindCommand
   /** The outline (step 4.7): jump to the heading starting at `pos`. */
-  | { type: 'outline'; pos: number };
+  | { type: 'outline'; pos: number }
+  /** Quiz me (step 9.1): every summary section hidden behind its cue question (`on`), or all shown again. */
+  | { type: 'quiz'; on: boolean };
 
 export type TableAction =
   | 'insert'
@@ -580,6 +583,13 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
     case 'outline': {
       const pos = Math.min(cmd.pos + 1, editor.state.doc.content.size);
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos))).scrollIntoView());
+      return true;
+    }
+    case 'quiz': {
+      if (!quizInfo(editor.state).available) return false;
+      quizAll(editor.view, cmd.on);
+      // From the top of the summary (the iPhone's button is under it).
+      if (cmd.on) editor.view.dom.querySelector('.studiply-quiz-cue')?.scrollIntoView?.({ block: 'center' });
       return true;
     }
   }

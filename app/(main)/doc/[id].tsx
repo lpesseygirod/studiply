@@ -553,6 +553,16 @@ export default function DocumentScreen() {
       }),
     [tabs, isLecture, wide],
   );
+  // Quiz me (step 9.1): every summary section behind its cue question, from the document menu (both
+  // devices) and the iPhone's button under the summary. View only: off again when the tab changes.
+  const quizHere = summaryHere || ((kind === 'unit_summary' || kind === 'exam_pack') && tab === 'notes');
+  const [quizOn, setQuizOn] = useState(false);
+  useEffect(() => setQuizOn(false), [id, tab]);
+  const toggleQuiz = () => {
+    const on = !quizOn;
+    editorRef.current?.run({ type: 'quiz', on });
+    setQuizOn(on);
+  };
   // Ask Claude on a selection (step 6.3): any document; a suggestion to accept or reject.
   const askClaude = useAskClaude({ fileId: id ?? null, courseId: file?.course_id ?? null, editorRef, showUndo });
   const menuButton = useRef<View>(null);
@@ -571,6 +581,7 @@ export default function DocumentScreen() {
           // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
           { text: 'Comments', icon: 'chatbox-ellipses-outline', section: 'Review', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
+          ...(showEditor && quizHere ? [{ text: quizOn ? 'Show all sections' : 'Quiz me', icon: 'help-circle-outline' as const, onPress: toggleQuiz }] : []),
           // Writing tools (step 4.7); on the laptop also ⌘F, ⌘⇧H and ⌘⌥A, and the word count's line under the page.
           { text: 'Find and replace', icon: 'search-outline', section: 'Tools', onPress: () => editorRef.current?.tool('replace') },
           { text: 'Outline', icon: 'list-outline', onPress: () => editorRef.current?.tool('outline') },
@@ -805,7 +816,7 @@ export default function DocumentScreen() {
           {body}
           {recordingScreen && <RecordingPhoneBar onAsk={isLecture ? () => setAskOpen(true) : undefined} />}
           {/* iphone-06: + Extend with next and Quiz me under a summary (not while recording: the bar is there). */}
-          {!wide && showSummaryChrome && !recordingScreen && <SummaryPhoneButtons lecture={bannerLecture} />}
+          {!wide && showSummaryChrome && !recordingScreen && <SummaryPhoneButtons lecture={bannerLecture} quizOn={quizOn} onQuiz={toggleQuiz} />}
         </View>
       </View>
       {toast}

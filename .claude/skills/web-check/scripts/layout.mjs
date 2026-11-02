@@ -145,7 +145,8 @@ try {
     await open(`/note/${data.lecture.id}`, 'Lecture 1');
     expect(!(await visible('[aria-label="Review"]')), 'tab bar on a document');
     await b.shot('layout-390-document');
-    await open('/review', 'Quizzes and flashcards');
+    // The Review tab (step 9.1, iphone-10): its header's "N due today" once its data is in.
+    await open('/review', 'due today');
     await b.shot('layout-390-review');
   });
 } finally {

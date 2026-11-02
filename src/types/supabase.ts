@@ -199,14 +199,14 @@ isOneToOne: false
                   ]
                 },"flashcards": {
                   Row: {
-                    "back": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"file_id": string | null,"front": string,"id": string,"source": string,"source_ref": string | null,"updated_at": string,"user_id": string
+                    "back": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"file_id": string | null,"front": string,"id": string,"kind": string | null,"source": string,"source_ref": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "back": string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"file_id"?: string | null,"front": string,"id"?: string,"source": string,"source_ref"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "back": string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"file_id"?: string | null,"front": string,"id"?: string,"kind"?: string | null,"source": string,"source_ref"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "back"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"file_id"?: string | null,"front"?: string,"id"?: string,"source"?: string,"source_ref"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "back"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"file_id"?: string | null,"front"?: string,"id"?: string,"kind"?: string | null,"source"?: string,"source_ref"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -433,7 +433,10 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "search_library":
+            "review_card":
+{ Args: { "p_due_at": string,"p_ease": number,"p_flashcard_id": string,"p_grade": string,"p_interval_days": number,"p_reps": number,"p_reviewed_at": string }; Returns: boolean
+                           },
+"search_library":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "course_color": string,"course_id": string,"course_name": string,"field": string,"file_kind": string,"folder_id": string,"item_id": string,"kind": string,"matched": string,"rank": number,"t_ms": number,"title": string
             }[]

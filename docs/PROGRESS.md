@@ -736,7 +736,61 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Builds:** `editor:build` needed (the page view, the print header and footer, the CSS); no new EAS build; no new dependency.
 
 ## Phase 9 — Study tools (`phase-9-study`)
-- [ ] 9.1 — Quiz me and flashcards
+- [ ] 9.1 — Quiz me and flashcards. **Built (31 Oct), not committed, for the advisor's review** (decisions below; the migration local only).
+  - **Quiz me in the document** (`src/editor/schema/quizMe.ts`, both editors):
+    - **Per section:** a "Quiz me" pill on each summary section heading with a cue question (7.7). It hides the section's blocks and shows "? <cue>" with Reveal; Reveal shows it again.
+    - **All sections at once:**
+      - the iPhone's dark Quiz me button under the summary (now live; it reads "Show all" while on);
+      - the document menu's "Quiz me" / "Show all sections" (both devices).
+      - It covers a Summary tab, a New summary tab, a Unit summary, an exam pack.
+    - **View only:** a plugin state and decorations, so no save, no `editedAt`, no version, no undo step. It's per device and per opening.
+    - **Not in exports:** no pill in the read-only editor the PDF export lays its pages out in.
+  - **Flashcards' sources:**
+    - Unchanged: the assistant's Flashcards and Make flashcard (6.3), and a summary's own flashcards (7.7).
+    - **New:** a summary also saves its key terms (glossary, `kind` term → "TERM") and its self-test (`kind` question → "QUESTION"), by code, with its own cards.
+    - **Each front once per lecture** (case, spacing and `**` ignored), so a summary written again adds only new cards. One saved before 9.1 gets its terms and questions the next time the lecture opens.
+    - Unit summaries and exam packs (7.9) still save only their own flashcards.
+  - **Review** (`app/(main)/review`, `src/components/review/`, `src/services/review.service.ts`, `src/lib/review/`):
+    - **Flashcards** (desktop-08 / iphone-10):
+      - The due cards, the longest-waiting first; "Card n of N"; the progress bar; "From your marks: …" (when the cards are one lecture's).
+      - The card: its label (TERM · QUESTION · FLASHCARD; with the course on the iPhone) and "Click / Tap to flip".
+      - **Again · Hard · Good · Easy:** on the laptop each shows its next interval; keys 1–4.
+      - **Flip and skip:** Space flips (laptop), a tap flips (iPhone). A swipe skips on the iPhone, → on the laptop; the card stays due.
+      - **The back:** the answer, "From <lecture>", Delete card (Undo).
+      - **End:** "All done for today · N cards reviewed today".
+    - **Quiz me** (desktop-07, as far as the data allows): the summaries' self-test questions.
+      - The order: the due cards' lectures first, then the others, newest summary first; questions in summary order.
+      - "Question n of N", the lecture's "From your marks" line, the progress bar.
+      - The chip "Exam 9/10 · from 06:40" when the question came from her mark (its type and level from the section's chips, its time from the exam signal or the section).
+      - Show answer (the answer in the card), Next question. No answer options or hints (those come with 9.1b's quizzes).
+    - **Laptop:** no sidebar. The top bar shows "Review today · Course › Lecture" over the lecture's title, and Quiz me | Flashcards (`?mode=quiz`).
+    - **iPhone (the Review tab):** "Review", "N due today", Flashcards | Quiz me.
+  - **The rating rule** (`lib/review/schedule.ts`, SM-2-like):
+    - Again: due in 1 minute (back in the session), the card starts over, ease −0.20.
+    - A new card: Hard 1 day, Good 3 days, Easy 7 days.
+    - After that: Hard × 1.2 (at least a day more), Good × ease, Easy × ease × 1.3.
+    - Ease: Hard −0.15, Easy +0.15, never under 1.3. Whole days, at most 365.
+    - The day 1/3/7/21 lecture reminders stay 9.2's.
+  - **Sync and offline:**
+    - **Laptop:** writes a rating at once with `review_card` (the later review of a card wins).
+    - **iPhone:**
+      - It keeps `flashcards` and `review_schedule` in its copy (the library download), so Review works offline.
+      - A rating is written there and queued (`review_card`, the latest rating per card). Opening Review brings its copy up to date first.
+      - Review today counts from that copy (offline too).
+    - **Delete card** needs a connection.
+  - **Migration `20261029152000_review_cards.sql`** (local; Lea pushes it after a dry run):
+    - `flashcards.kind`, and `review_schedule.last_grade` takes `hard`;
+    - a trigger gives every live card its review row (due at once), removes it when the card goes to the trash, and adds it back when it's restored;
+    - the backfill for cards saved before;
+    - `review_card(…)` (the later review wins, the student's own cards only).
+    - pgTAP `16_review_cards.test.sql`. `01_isolation` no longer inserts the card's row by hand (the trigger does).
+  - **Tests:**
+    - **Jest:**
+      - `review.test.ts`: the rule, the cards, the deck, the counts, the quiz decks, the session;
+      - `quizMe.test.ts`: the pills, hide and reveal, all at once, never an edit, no pill read-only;
+      - updated: the 7.7 placement (cards per lecture) and `useLayoutMode` (`review`).
+    - **Chrome:** `review.mjs` (in my scratchpad; no paid call), with composites beside desktop-07, desktop-08 and iphone-10, light and dark.
+    - **Builds:** `editor:build` needed (the Quiz me plugin and its CSS); no new EAS build; no new dependency.
 - [ ] 9.2 — Spaced review and course settings
 
 ## Phase 10 — App Store and web launch (`phase-10-launch`)
@@ -817,6 +871,14 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   6. **The suggestion's look** (no mockup): a card under the selection on the laptop, a drag sheet on the iPhone, Accept · Reject. Existing styles only.
 
   **Trims:** no Copy on the suggestion card; the cards aren't editable (card editing is Phase 9).
+- **Step 9.1 (the advisor's decisions, 31 Oct, for Lea to confirm):**
+  1. **Four ratings as the mockups:** Again · Hard · Good · Easy (1 min, 1 day, 3 days, 7 days for a new card); `hard` added to the database. BUILD-PLAN said three.
+  2. **Review's Quiz me tab** follows desktop-07 as far as the data allows: the summaries' self-test questions, one per card, with the mark chip, Show answer and Next question. No A–D options and no Show hint (they come with 9.1b's quizzes). The order: lectures in Review-today order, questions in summary order.
+  3. **A swipe on the iPhone skips** to the next card (iphone-10's hint); it doesn't rate.
+  4. **"From your marks: …"** only when the session's cards are one lecture's (that lecture's Exam and Confused marks).
+  5. **Term and question cards are saved by code** with the summary's own; cards can only be deleted in 9.1 (no editing).
+  6. **The laptop's Quiz me on all sections** is in the document menu (desktop-03 has no button).
+  7. **Lea's iPhone check** is on her list.
 - **Step 8.3 (the advisor's decisions, 31 Oct, for Lea to confirm):**
   1. **The laptop keeps the print window's "Save as PDF"** (no new dependency). It proposes the new file name. A true download would need a PDF library and would give pictures of the pages instead of text.
   2. **A summary's margins follow the document's page setup** (Normal 2.54 cm), so the page view and the PDF match, not SUMMARY-SPEC's 20 mm.
@@ -1504,6 +1566,11 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - the offline insert limit and cut not redirecting references are accepted (Known issues). Still out: .xlsx, charts in a sheet, several sheets per tab, styles beyond bold, number formats, column widths, Spanish-style formulas.
 
 ## Things Lea must do
+
+- **Step 9.1 — review on your iPhone** (after `editor:build`, and the migration below pushed to the remote; no new EAS build):
+  - review 10 cards on the iPhone, once in airplane mode too, then see them reviewed on the laptop (fewer due, each card's next date);
+  - the swipe to skip; Quiz me under a summary.
+- **Step 9.1 — the migration `20261029152000_review_cards` on the remote:** after a dry run (`supabase db push --dry-run`), when you're ready.
 
 - **Step 8.3 — a summary's PDF on your iPhone** (after `editor:build`; no new EAS build). Export a Summary tab:
   - in airplane mode: formulas, graphs and the photo are all there;

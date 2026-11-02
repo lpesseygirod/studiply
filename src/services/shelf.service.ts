@@ -22,6 +22,7 @@ import {
   type MediaRow,
 } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
+import { cachedDueCount } from './review.service';
 import { PROJECT_FILES_TITLE } from './session.service';
 import { pendingLibraryFileIds } from './library-upload.service';
 import {
@@ -323,8 +324,11 @@ export async function getCourseContents(courseId: string, folderId: string | nul
 // Review today (Phase 9 fills the schedule)
 // -------------------------------------------------------------------
 
-/** Reviews due by the end of today; null when it can't be known (offline, error). */
+/** Reviews due by the end of today; null when it can't be known (offline without the iPhone's copy, error). */
 export async function getReviewDueCount(now: Date = new Date()): Promise<number | null> {
+  // Step 9.1: the iPhone counts from its own copy (offline too, and after a rating made here).
+  const cached = await cachedDueCount(now).catch(() => null);
+  if (cached !== null) return cached;
   if (isOffline()) return null;
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);

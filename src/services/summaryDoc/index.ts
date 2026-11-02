@@ -5,7 +5,7 @@ import { SUMMARY_FORMAT } from '../../../supabase/functions/_shared/summary-sche
 import type { StoredSummary } from '../../../supabase/functions/_shared/summary-pipeline';
 import { getDocumentFile, openDocument, saveDocument, saveVersion } from '../document.service';
 import { addTab, listTabs } from '../document-tabs.service';
-import { saveFlashcards, summaryCardsSaved } from '../flashcards.service';
+import { cardFronts, saveFlashcards } from '../flashcards.service';
 import { placeCombined } from '../summaryCombine.service';
 import { placeSummary, type DoneSummary, type PlaceDeps, type PlaceOutcome } from './run';
 
@@ -54,7 +54,7 @@ const appDeps: PlaceDeps = {
     if (error) throw serviceError(error, 'Could not load the questions.');
     return (data ?? []).map((m) => ({ id: m.id as string, question: String(m.content ?? ''), askedAtMs: (m.asked_at_ms as number | null) ?? null }));
   },
-  hasCards: summaryCardsSaved,
+  cardFronts,
   saveCards: async (cards, from) => {
     await saveFlashcards(cards, { fileId: from.lectureId, courseId: from.courseId, source: 'summary', sourceRef: from.summaryId });
   },

@@ -19,11 +19,12 @@ export function useLayoutMode(): LayoutMode {
   return layoutFor(width, Platform.OS);
 }
 
-/** What the laptop shell shows around a screen (docs/design desktop-01/04/05). */
-export type ScreenKind = 'library' | 'document' | 'settings';
+/** What the laptop shell shows around a screen (docs/design desktop-01/04/05; review: desktop-07/08). */
+export type ScreenKind = 'library' | 'document' | 'settings' | 'review';
 
 export function screenKindFor(pathname: string): ScreenKind {
   if (pathname.startsWith('/settings')) return 'settings';
   if (pathname.startsWith('/note/') || pathname.startsWith('/doc/') || pathname.startsWith('/record')) return 'document';
+  if (pathname === '/review' || pathname.startsWith('/review/')) return 'review';
   return 'library';
 }

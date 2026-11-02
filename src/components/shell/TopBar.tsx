@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { LightColors, type ThemeColors } from '../../constants/colors';
@@ -18,7 +18,9 @@ import { recordHref, useShell, type Crumb } from './ShellContext';
  *    preselects the course and folder the student is in);
  *  - document: the breadcrumb, title and "Saved · time" the open
  *    document publishes (ShellContext), Share, the assistant toggle;
- *  - settings: Back to library and the page title.
+ *  - settings: Back to library and the page title;
+ *  - review (step 9.1, desktop-07/08): "Review today · Course › Lecture" over the lecture's title,
+ *    and the Quiz me | Flashcards control; no sidebar toggle (Review has no sidebar).
  */
 export function TopBar({
   kind,
@@ -40,8 +42,8 @@ export function TopBar({
 
   return (
     <View style={styles.bar} testID="top-bar">
-      <View style={[styles.brand, kind !== 'settings' && sidebarOpen && styles.brandOverSidebar]}>
-        {kind !== 'settings' && (
+      <View style={[styles.brand, kind !== 'settings' && kind !== 'review' && sidebarOpen && styles.brandOverSidebar]}>
+        {kind !== 'settings' && kind !== 'review' && (
           <IconButton
             icon="menu-outline"
             label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
@@ -99,9 +101,21 @@ export function TopBar({
             <Text style={styles.title}>Settings</Text>
           </View>
         )}
+        {kind === 'review' && (
+          // Step 9.1 (desktop-07/08): "Review today · Course › Lecture" over the card's lecture, as the review screen publishes it.
+          <View style={styles.titleBlock} testID="review-header">
+            <Text style={styles.crumb} numberOfLines={1}>
+              {header?.crumbs.map((c) => c.label).join(' › ') ?? 'Review today'}
+            </Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {header?.title || 'Review'}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.actions}>
+        {kind === 'review' && <ReviewModes />}
         {kind === 'library' && (
           <TouchableOpacity
             style={styles.recordPill}
@@ -130,6 +144,32 @@ export function TopBar({
           <UserAvatar size={34} />
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/** Review's two modes (desktop-07/08): Quiz me | Flashcards, kept in the address (?mode=quiz). */
+function ReviewModes() {
+  const styles = useThemedStyles(makeStyles);
+  const router = useRouter();
+  const { mode } = useGlobalSearchParams<{ mode?: string }>();
+  const quiz = mode === 'quiz';
+  const option = (label: string, on: boolean, href: Href) => (
+    <Pressable
+      onPress={() => router.replace(href)}
+      style={[styles.mode, on && styles.modeOn]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      aria-selected={on}
+      accessibilityLabel={label}
+    >
+      <Text style={[styles.modeText, on && styles.modeTextOn]}>{label}</Text>
+    </Pressable>
+  );
+  return (
+    <View style={styles.modes} accessibilityRole="tablist">
+      {option('Quiz me', quiz, '/review?mode=quiz')}
+      {option('Flashcards', !quiz, '/review')}
     </View>
   );
 }
@@ -220,4 +260,10 @@ const makeStyles = (c: ThemeColors) =>
   outlineText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.primary },
   disabled: { opacity: 0.45 },
   iconButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  // Review's modes (desktop-07/08): a grey segmented control, the chosen one white.
+  modes: { flexDirection: 'row', padding: 3, borderRadius: 10, backgroundColor: c.surfaceMuted, gap: 2 },
+  mode: { height: 32, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center' },
+  modeOn: { backgroundColor: c.card },
+  modeText: { fontSize: Typography.size.sm, color: c.text.secondary },
+  modeTextOn: { fontWeight: Typography.weight.semibold, color: c.text.primary },
 });

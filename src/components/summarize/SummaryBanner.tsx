@@ -1,16 +1,14 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { showAlert } from '../dialogs/dialogs';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 import type { LectureSummary } from '../../services/summarize.service';
 import { openLecturePicker } from './combineState';
-import { bannerText, COMING_LATER } from './summaryCard';
+import { bannerText } from './summaryCard';
 import type { BannerLecture } from './summaryBannerState';
 
-const later = (what: string) => showAlert(COMING_LATER, `${what} comes in a later update.`);
 /** Step 7.9: the lecture picker for Extend, with the next lecture chosen. */
 const extend = (lecture: BannerLecture | undefined) => {
   if (lecture) openLecturePicker({ mode: 'extend', courseId: lecture.courseId, folderId: null, baseLectureId: lecture.id });
@@ -49,8 +47,8 @@ export function SummaryBanner({ summary, lecture }: { summary: LectureSummary | 
   );
 }
 
-/** The iPhone's two buttons under a summary (iphone-06): + Extend with next (7.9) and Quiz me (9.1, greyed for now). */
-export function SummaryPhoneButtons({ lecture }: { lecture?: BannerLecture }) {
+/** The iPhone's two buttons under a summary (iphone-06): + Extend with next (7.9) and Quiz me (9.1: every section behind its cue question; then Show all). */
+export function SummaryPhoneButtons({ lecture, quizOn, onQuiz }: { lecture?: BannerLecture; quizOn: boolean; onQuiz: () => void }) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.phone} {...{ dataSet: { summaryButtons: 'shown' } }}>
@@ -64,14 +62,13 @@ export function SummaryPhoneButtons({ lecture }: { lecture?: BannerLecture }) {
         <Text style={styles.phoneExtendText}>+ Extend with next</Text>
       </Pressable>
       <Pressable
-        onPress={() => later('Quiz me')}
-        style={({ pressed }) => [styles.phoneButton, styles.phoneQuiz, styles.dim, pressed && styles.pressed]}
+        onPress={onQuiz}
+        style={({ pressed }) => [styles.phoneButton, styles.phoneQuiz, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Quiz me"
-        accessibilityHint={COMING_LATER}
-        accessibilityState={{ disabled: true }}
+        accessibilityLabel={quizOn ? 'Show all sections' : 'Quiz me'}
+        {...{ dataSet: { summaryButtons: 'quiz' } }}
       >
-        <Text style={styles.phoneQuizText}>Quiz me</Text>
+        <Text style={styles.phoneQuizText}>{quizOn ? 'Show all' : 'Quiz me'}</Text>
       </Pressable>
     </View>
   );
@@ -92,7 +89,5 @@ const makeStyles = (c: ThemeColors) =>
     phoneExtendText: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.accentDark },
     phoneQuiz: { backgroundColor: c.button.primary },
     phoneQuizText: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.button.primaryText },
-    // Quiz me: greyed (9.1).
-    dim: { opacity: 0.6 },
     pressed: { opacity: 0.6 },
   });

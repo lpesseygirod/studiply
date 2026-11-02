@@ -12,6 +12,7 @@ import { ANSWER_SHOWN_CLASS, CALLOUT_CLASS } from './schema/callout';
 import { SUGGESTION_CLASS } from './schema/suggestion';
 import { FORMULA_CARD_CLASS } from './schema/formulaCard';
 import { GRAPH_CLASS } from './schema/graph';
+import { QUIZ_CLASS } from './schema/quizMe';
 import { STUDY_MODULE_CLASS } from './schema/studyModule';
 import { SELECTION_BAR_CLASS } from './format/selectionBar';
 import { MARK_CHIP_CLASS } from './schema/markChip';
@@ -173,6 +174,14 @@ ${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer'] .${CALLOU
 ${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer'].${ANSWER_SHOWN_CLASS} .${CALLOUT_CLASS}-label::after { content: ' · tap to hide'; }
 ${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-body { display: none; }
 ${pm}[contenteditable='true'] .${CALLOUT_CLASS}[data-callout='answer']:not(.${ANSWER_SHOWN_CLASS}) .${CALLOUT_CLASS}-label { margin-bottom: 0; }
+/* Quiz me (step 9.1, quizMe.ts; view only, never saved): the pill on a section heading; a quizzed section's blocks hidden behind its cue question and Reveal. */
+${pm} .${QUIZ_CLASS}-pill { display: inline-block; margin-left: 10px; padding: 1px 10px; border: 1px solid ${c.accent}; border-radius: 12px; background: ${c.card}; color: ${c.accentDark}; font: 600 12px/18px -apple-system, system-ui, sans-serif; vertical-align: 3px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+${pm} .${QUIZ_CLASS}-pill-on { background: ${c.accentLight}; }
+${pm} .${QUIZ_CLASS}-hidden { display: none; }
+${pm} .${QUIZ_CLASS}-cue { display: flex; align-items: center; gap: 10px; margin: 0.3em 0 0.9em; padding: 12px 14px; border: 1px dashed ${c.accent}; border-radius: 10px; background: ${c.accentLight}; cursor: pointer; user-select: none; -webkit-user-select: none; }
+${pm} .${QUIZ_CLASS}-mark { flex-shrink: 0; width: 26px; height: 26px; border-radius: 13px; background: ${c.accentDark}; color: ${c.card}; font: 700 15px/26px -apple-system, system-ui, sans-serif; text-align: center; }
+${pm} .${QUIZ_CLASS}-question { flex: 1; font-weight: 600; color: ${c.text.primary}; }
+${pm} .${QUIZ_CLASS}-reveal { flex-shrink: 0; padding: 6px 14px; border: 0; border-radius: 16px; background: ${c.accentDark}; color: ${c.card}; font: 600 13px/18px -apple-system, system-ui, sans-serif; cursor: pointer; }
 /* Ask Claude (step 6.3): the text a pending suggestion is about, until it is accepted or rejected. */
 ${pm} .${SUGGESTION_CLASS} { background: ${c.accentLight}; box-shadow: 0 2px 0 ${c.accent}; }
 ${pm} .${MARK_CHIP_CLASS} { display: inline-block; padding: 0 8px; margin: 0 2px; border-radius: 10px; font-size: 0.8em; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.6; vertical-align: 1px; cursor: pointer; user-select: none; -webkit-user-select: none; }

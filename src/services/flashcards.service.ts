@@ -1,9 +1,10 @@
 /**
  * flashcards.service.ts
  * Saving flashcards the student accepted (step 6.3: from a study-assistant
- * answer, or Make flashcard on a selection). Only `flashcards` rows: their
- * review (`review_schedule`, Again / Good / Easy) belongs to Phase 9, so the
- * Review today count doesn't change yet. Undo trashes them (`deleted_at`).
+ * answer, or Make flashcard on a selection) and a summary's (7.7; 9.1 adds its
+ * key terms and self-test). Step 9.1: each new card is due at once (its
+ * review_schedule row is made by the database), so it counts in Review today.
+ * Undo trashes them (`deleted_at`), which takes them out of review.
  */
 
 import { serviceError } from '../lib/cloudRows';
@@ -20,14 +21,22 @@ export interface CardsSource {
   sourceRef: string | null;
 }
 
-/** Whether a summary's flashcards are saved already (step 7.7: each summary's once). */
+/** Whether a summary's flashcards are saved already (step 7.7: each summary's once; 7.9's Unit summaries and exam packs). */
 export async function summaryCardsSaved(summaryId: string): Promise<boolean> {
   const { data, error } = await supabase.from('flashcards').select('id').eq('source', 'summary').eq('source_ref', summaryId).limit(1);
   if (error) throw serviceError(error, 'Could not read the flashcards.');
   return (data ?? []).length > 0;
 }
 
-export async function saveFlashcards(cards: Card[], from: CardsSource): Promise<{ count: number; undo: () => Promise<void> }> {
+/** Step 9.1: the fronts of a document's live cards (a summary's card is saved once per lecture). */
+export async function cardFronts(fileId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('flashcards').select('front').eq('file_id', fileId).is('deleted_at', null);
+  if (error) throw serviceError(error, 'Could not read the flashcards.');
+  return (data ?? []).map((r) => String(r.front ?? ''));
+}
+
+/** `kind` (step 9.1): term | question | card, the card's label in review; absent: a card. */
+export async function saveFlashcards(cards: (Card & { kind?: 'term' | 'question' | 'card' })[], from: CardsSource): Promise<{ count: number; undo: () => Promise<void> }> {
   let courseId = from.courseId ?? null;
   if (from.courseId === undefined && from.fileId) {
     const { data } = await supabase.from('files').select('course_id').eq('id', from.fileId).maybeSingle();
@@ -40,6 +49,7 @@ export async function saveFlashcards(cards: Card[], from: CardsSource): Promise<
     course_id: courseId,
     source: from.source,
     source_ref: from.sourceRef,
+    ...(c.kind && { kind: c.kind }),
   }));
   const { data, error } = await supabase.from('flashcards').insert(rows).select('id');
   if (error) throw serviceError(error, 'Could not save the flashcards.');

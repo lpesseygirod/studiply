@@ -104,7 +104,7 @@ insert into public.media (lecture_id, kind, storage_path, t_ms) values ('a000000
 insert into public.assistant_messages (lecture_id, role, content) values ('a0000000-0000-0000-0000-000000000003', 'user', 'Explain the last 10 min');
 insert into public.summaries (file_id, mode, sliders) values ('a0000000-0000-0000-0000-000000000003', 'new', '{}');
 insert into public.flashcards (id, source, front, back) values ('a0000000-0000-0000-0000-000000000006', 'manual', 'Q', 'A');
-insert into public.review_schedule (flashcard_id, due_at) values ('a0000000-0000-0000-0000-000000000006', now());
+-- Its review_schedule row is made by the card's trigger (step 9.1).
 insert into public.ai_consent (scope, policy_version) values ('transcription', '2026-10');
 
 -- ai_usage is written only by Edge Functions (service role), so seed it as the owner role.

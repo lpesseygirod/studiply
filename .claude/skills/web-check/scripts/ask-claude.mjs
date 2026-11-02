@@ -17,7 +17,8 @@
 //      changed, "Insert below" puts a "From the study assistant" box (ai)
 //      below, the edit stays.
 //   4. Make flashcard → the cards (not editable) → Save cards → "1 flashcard
-//      saved", a flashcards row (source selection), no review schedule.
+//      saved", a flashcards row (source selection) and its review row, due at
+//      once (step 9.1).
 //   5. What each request carried: mode selection, the document, the action,
 //      the text (a formula as $…$) and its paragraph.
 //   6. A lecture after class (Lecture 1): the assistant panel's Add to notes
@@ -299,7 +300,7 @@ try {
     await shots('ask-boxes-1280');
   });
 
-  await step('Make flashcard → the cards (not editable) → Save cards → "1 flashcard saved"; a flashcards row (source selection), no review schedule', async () => {
+  await step('Make flashcard → the cards (not editable) → Save cards → "1 flashcard saved"; a flashcards row (source selection), its review row due at once', async () => {
     await select(P3);
     await askFor('Make flashcard', 'cards');
     expect((await b.evaluate(`document.querySelectorAll('[data-ask="body"] [data-assistant="card"]').length`)) === 1, 'not one card');
@@ -308,8 +309,9 @@ try {
     await b.waitText('1 flashcard saved', { timeout: 6000 });
     const { data: rows } = await admin.from('flashcards').select('id, source, source_ref, file_id, course_id').eq('file_id', docId);
     expect(rows?.length === 1 && rows[0].source === 'selection' && rows[0].source_ref === docId && rows[0].course_id === data.course.id, `rows: ${JSON.stringify(rows)}`);
-    const { count } = await admin.from('review_schedule').select('id', { count: 'exact', head: true }).eq('flashcard_id', rows[0].id);
-    expect(count === 0, `review_schedule rows: ${count}`);
+    // Step 9.1: every live card has one review row, due at once (made by the database's trigger).
+    const { data: schedule } = await admin.from('review_schedule').select('flashcard_id, due_at, reps').eq('flashcard_id', rows[0].id);
+    expect(schedule?.length === 1 && schedule[0].reps === 0 && Date.parse(schedule[0].due_at) <= Date.now() + 1000, `review_schedule rows: ${JSON.stringify(schedule)}`);
   });
 
   await step('what was sent: mode selection, this document, the action, the text (a formula as $…$) and its paragraph', async () => {

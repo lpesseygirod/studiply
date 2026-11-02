@@ -110,7 +110,8 @@ export default function MainLayout() {
   const isFullScreen = isFullScreenRoute(pathname);
   const commentMargin = useCommentMargin();
 
-  const showSidebar = wide && kind !== 'settings' && prefs.sidebarOpen;
+  // Review (step 9.1, desktop-07/08) has no sidebar either: the card on the gradient, the top bar's logo back to the library.
+  const showSidebar = wide && kind !== 'settings' && kind !== 'review' && prefs.sidebarOpen;
   const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
   // A summary's Full answer link (step 7.7) opens the study assistant panel.
   useEffect(() => registerShellCommand('openAssistant', () => setPrefs({ assistantOpen: true })), [setPrefs]);
@@ -140,7 +141,7 @@ export default function MainLayout() {
               <View
                 style={[
                   styles.centerColumn,
-                  wide && kind !== 'library' && !(kind === 'document' && commentMargin.pages) && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
+                  wide && kind !== 'library' && kind !== 'review' && !(kind === 'document' && commentMargin.pages) && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
                   // A document showing its comments margin (step 4.5); in Pages it has the whole pane (step 4.5b).
                   wide && kind === 'document' && !commentMargin.pages && commentMargin.shown && commentMargin.room && styles.centerColumnWithComments,
                 ]}

@@ -8,6 +8,7 @@
 import { Editor, type JSONContent } from '@tiptap/core';
 
 import { studiplyExtensions } from '../../editor/bridges';
+import { summaryCards } from '../review/cards';
 import { hasSummary, holdsSummary, inline, isEmptyDoc, isTouched, mergeRegenerated, summaryKey, summaryToDoc, type SummaryDocJSON } from '../summaryDoc';
 import { placeSummary, questionLinks, type DoneSummary, type PlaceDeps } from '../../services/summaryDoc/run';
 import { parseClassify, parseSummary, planFor, type StoredSummary, type SummaryRequest } from '../../../supabase/functions/_shared/summary-pipeline';
@@ -327,6 +328,8 @@ describe('each question’s Full answer: her message', () => {
 
 describe('where a finished summary goes', () => {
   const done = (over: Partial<DoneSummary> = {}): DoneSummary => ({ id: ID, result: S30, target: null, courseId: 'c1', ...over });
+  /** The 30-min summary's cards: its flashcards, key terms and self-test, each once (step 9.1). */
+  const CARDS = summaryCards(S30).length;
   function fake(tabs: Record<string, SummaryDocJSON | null>, d: DoneSummary | null = done(), { cards = false } = {}) {
     const calls: string[] = [];
     const docs = { ...tabs };
@@ -347,7 +350,8 @@ describe('where a finished summary goes', () => {
         calls.push(`version:${tab}${name ? `:${name}` : ''}`);
       },
       questions: async () => [{ id: 'msg-q1', question: 'Explícame los últimos 10 minutos', askedAtMs: 28 * 60_000 }],
-      hasCards: async () => cards,
+      // Step 9.1: the lecture's cards saved already (all of this summary's, when `cards`).
+      cardFronts: async () => (cards && d ? summaryCards(d.result).map((c) => c.front) : []),
       saveCards: async (list, from) => {
         calls.push(`cards:${list.length}:${from.summaryId}:${from.courseId}`);
       },
@@ -358,7 +362,8 @@ describe('where a finished summary goes', () => {
   it('the Summary tab when it has nothing yet: written, a version, its flashcards; then never again', async () => {
     const t = fake({ summary: null });
     expect(await placeSummary('lec', t.deps)).toEqual({ tab: 'summary', written: true, summaryId: ID });
-    expect(t.calls).toEqual([`cards:2:${ID}:c1`, 'save:summary', 'version:summary']);
+    // Step 9.1: its flashcards with its key terms and self-test, each once.
+    expect(t.calls).toEqual([`cards:${CARDS}:${ID}:c1`, 'save:summary', 'version:summary']);
     expect(hasSummary(t.docs.summary, ID)).toBe(true);
     expect(JSON.stringify(t.docs.summary)).toContain('studiply:assistant/msg-q1');
     const again = fake({ summary: t.docs.summary }, done(), { cards: true });
@@ -370,7 +375,7 @@ describe('where a finished summary goes', () => {
     const earlier = summaryToDoc({ summary: S30, summaryId: ID2 });
     const t = fake({ summary: earlier });
     expect(await placeSummary('lec', t.deps)).toEqual({ tab: 't-new', written: true, summaryId: ID });
-    expect(t.calls).toEqual([`cards:2:${ID}:c1`, 'addTab', 'save:t-new', 'version:t-new']);
+    expect(t.calls).toEqual([`cards:${CARDS}:${ID}:c1`, 'addTab', 'save:t-new', 'version:t-new']);
     expect(t.docs.summary).toBe(earlier);
   });
 
@@ -389,7 +394,7 @@ describe('where a finished summary goes', () => {
     expect(await placeSummary('lec', there.deps)).toEqual({ tab: 't-1', written: false, summaryId: ID });
     expect(await placeSummary('lec', fake({ summary: null }, null).deps)).toBeNull();
     const offline = fake({ summary: null });
-    offline.deps.hasCards = async () => {
+    offline.deps.cardFronts = async () => {
       throw new Error('offline');
     };
     expect(await placeSummary('lec', offline.deps)).toMatchObject({ written: true });

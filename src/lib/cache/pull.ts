@@ -35,6 +35,9 @@ export const PULL_TABLES: CachedTable[] = [
   'media',
   'audio_chunks',
   'documents',
+  // Step 9.1: Review offline (a rating made here is queued, review.service).
+  'flashcards',
+  'review_schedule',
 ];
 
 export const PAGE = 1000;
