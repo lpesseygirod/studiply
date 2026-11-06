@@ -1,5 +1,6 @@
 import { showActionSheet, showAlert, type Anchor } from '../dialogs/dialogs';
 import { imageSize } from '../../editor/photos.web';
+import { isImageFile } from '../../utils/heif';
 import { openWebcam, saveBoardPhoto } from './boardPhoto';
 import { recordingMoment, type Moment } from './markPanelState';
 
@@ -33,7 +34,7 @@ function chooseFiles(m: Moment): Promise<void> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/*,.heic,.heif';
     input.multiple = true;
     // In the page while the picker is open (Safari, and the browser's handing over of the files, need that).
     input.style.display = 'none';
@@ -52,7 +53,8 @@ function chooseFiles(m: Moment): Promise<void> {
 }
 
 async function saveFiles(m: Moment, files: File[]): Promise<void> {
-  const images = files.filter((f) => f.type.startsWith('image/'));
+  // A HEIC can come without a type (toJpeg decodes it, Lea 6 Nov).
+  const images = files.filter(isImageFile);
   if (images.length < files.length) showAlert('Only photos here', 'Images (JPEG, PNG, HEIC…) can go into your notes; other files go in the library.');
   for (const file of images) {
     const url = URL.createObjectURL(file);

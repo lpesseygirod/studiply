@@ -15,19 +15,23 @@
 //      laptop", the recording goes on; back online it's usable again;
 //   6. 390 px: the bar's Photo tile opens the same menu, the webcam as a
 //      sheet; a photo saved;
-//   7. the recording never stopped; Stop: the photos stay;
-//   8. no paid request.
+//   7. HEIC (Lea, 6 Nov): an iPhone photo chosen with Choose files… is decoded in the page
+//      (libheif-js, loaded only then) and saved as a JPEG; its thumbnail shows. The HEIC is made
+//      here from a screenshot with macOS's sips (no fixture file);
+//   8. the recording never stopped; Stop: the photos stay;
+//   9. no paid request.
 // Screenshots (each after the splash): photo-menu-1280(-dark), photo-webcam-1280(-dark),
 // photo-thumbnails-1280(-dark), photo-offline-1280, photo-menu-390(-dark),
-// photo-webcam-390(-dark), photo-thumbnails-390(-dark).
+// photo-webcam-390(-dark), photo-thumbnails-390(-dark), photo-heic-1280.
 // About 3 minutes. PASS/FAIL per step; exit 1 on a FAIL.
 // Run from elsewhere (a copy): WEB_CHECK_SCRIPTS=<the web-check scripts folder> node photos-live.mjs
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scripts = process.env.WEB_CHECK_SCRIPTS ? pathToFileURL(`${process.env.WEB_CHECK_SCRIPTS}/`) : new URL('./', import.meta.url);
-const { launch } = await import(new URL('cdp.mjs', scripts).href);
+const { launch, OUT } = await import(new URL('cdp.mjs', scripts).href);
 const { admin, makeUser, seed, dropUser } = await import(new URL('testuser.mjs', scripts).href);
 
 const BASE = process.env.WEB_CHECK_URL ?? 'http://localhost:8123';
@@ -143,7 +147,7 @@ const offline = async (on) => {
 
 let lectureId = null;
 const rows = async () =>
-  (await admin.from('media').select('id, lecture_id, file_id, kind, t_ms, storage_path, created_at').eq('lecture_id', lectureId).order('created_at')).data ?? [];
+  (await admin.from('media').select('id, lecture_id, file_id, kind, t_ms, storage_path, mime_type, created_at').eq('lecture_id', lectureId).order('created_at')).data ?? [];
 const waitRows = (n, what, timeout = 20000) => waitFor(async () => {
   const list = await rows();
   return list.length >= n ? list : null;
@@ -193,6 +197,19 @@ const pressTake = async () => {
   // The camera is let go.
   await waitFor(() => b.evaluate(`!document.querySelector('[data-photo="webcam"] video')`), 'the video gone', 5000);
 };
+/** Choose files… with these files (the chooser answered here). */
+const chooseFiles = async (files) => {
+  await b.send('Page.setInterceptFileChooserDialog', { enabled: true });
+  try {
+    chooser = null;
+    await openMenu('Photo board');
+    await b.click('Choose files…', { exact: true });
+    await waitFor(async () => chooser, 'the file chooser', 5000);
+    await b.send('DOM.setFileInputFiles', { files, backendNodeId: chooser.backendNodeId });
+  } finally {
+    await b.send('Page.setInterceptFileChooserDialog', { enabled: false });
+  }
+};
 
 let recordingAt = null;
 try {
@@ -240,16 +257,7 @@ try {
     const c = await b.shot('photo-input-b');
     await b.resize(1280, 900);
     await b.sleep(500);
-    await b.send('Page.setInterceptFileChooserDialog', { enabled: true });
-    try {
-      chooser = null;
-      await openMenu('Photo board');
-      await b.click('Choose files…', { exact: true });
-      await waitFor(async () => chooser, 'the file chooser', 5000);
-      await b.send('DOM.setFileInputFiles', { files: [a, c], backendNodeId: chooser.backendNodeId });
-    } finally {
-      await b.send('Page.setInterceptFileChooserDialog', { enabled: false });
-    }
+    await chooseFiles([a, c]);
     const list = await waitRows(3, 'two more rows', 30000);
     const [, r1, r2] = list;
     expect(r1.t_ms === r2.t_ms, `the same moment: ${r1.t_ms}, ${r2.t_ms}`);
@@ -329,6 +337,31 @@ try {
       await b.resize(1280, 900);
     }
     await waitFor(() => has('[data-recording="strip"]'), 'the strip again', 15000);
+  });
+
+  // Lea, 6 Nov: an iPhone photo (HEIC) on the laptop was refused ("This image can't be read").
+  await step('HEIC: an iPhone photo chosen with Choose files… is decoded in the page (libheif-js, loaded only then) and saved as a JPEG; its thumbnail shows', async () => {
+    const png = await b.shot('photo-heic-source');
+    const heic = join(OUT, 'iphone-photo.heic');
+    // A real HEIC, made by macOS's sips from the screenshot (no fixture file in the repository).
+    execFileSync('sips', ['-s', 'format', 'heic', png, '--out', heic], { stdio: 'ignore' });
+    expect(readFileSync(heic).subarray(4, 8).toString('latin1') === 'ftyp', 'sips did not write a HEIC');
+    const libheifRequests = () => requests.filter((u) => /libheif/i.test(u)).length;
+    const loadedBefore = libheifRequests();
+    const before = (await rows()).length;
+    await chooseFiles([heic]);
+    const list = await waitRows(before + 1, 'the HEIC saved', 45000);
+    const r = list.at(-1);
+    expect(r.mime_type === 'image/jpeg' && r.storage_path.endsWith('.jpg'), `the row: ${JSON.stringify(r)}`);
+    const { data: file, error: downloadError } = await admin.storage.from('photos').download(r.storage_path);
+    expect(!downloadError && file, `the Storage file: ${downloadError?.message}`);
+    const head = new Uint8Array(await file.arrayBuffer()).subarray(0, 3);
+    expect(head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff, `not a JPEG: ${[...head].map((x) => x.toString(16)).join(' ')}`);
+    await waitFor(async () => (await photoLines()).some((l) => l.id === r.id), 'the HEIC in My notes', 15000);
+    await waitFor(photosShown, 'its thumbnail shown', 20000);
+    await shot('photo-heic-1280');
+    expect(loadedBefore === 0, `libheif-js was loaded before a HEIC was met (${loadedBefore} requests)`);
+    report.push(`RESULT | HEIC | saved as a JPEG of ${file.size} B; libheif-js requests: ${libheifRequests()} (0 means it came with the page's bundle, loaded on use)`);
   });
 
   await step('the recording never stopped; Stop: the photos stay', async () => {

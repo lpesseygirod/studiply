@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 
 import { showAlert } from '../components/dialogs/dialogs';
 import { addDocPhoto } from '../services/doc-photo.service';
+import { isImageFile } from '../utils/heif';
 import { mediaSrc, providePhoto } from './media/photoSource';
 
 /** An image file's size, so a large one is scaled down (toJpeg). */
@@ -29,7 +30,8 @@ export function blockBoundary(editor: Editor, pos: number): number {
  * student is told why.
  */
 export async function addPhotoFiles(editor: Editor, fileId: string, files: File[], at?: number): Promise<void> {
-  const images = files.filter((f) => f.type.startsWith('image/'));
+  // A HEIC can come without a type (toJpeg decodes it, Lea 6 Nov).
+  const images = files.filter(isImageFile);
   if (images.length < files.length) showAlert('Only photos here', 'Images (JPEG, PNG, HEIC…) can go into a document; other files go in the library.');
   let pos = at === undefined ? undefined : blockBoundary(editor, at);
   for (const file of images) {
@@ -64,7 +66,7 @@ export async function addPhotoFiles(editor: Editor, fileId: string, files: File[
 export function pickPhotoFiles(editor: Editor, fileId: string): void {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'image/*';
+  input.accept = 'image/*,.heic,.heif';
   input.multiple = true;
   // In the page while the picker is open (Safari, and the browser's handing over of the files, need that).
   input.style.display = 'none';
