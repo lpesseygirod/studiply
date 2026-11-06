@@ -16,12 +16,17 @@
  *    its title: Continue records on, Finish hands it off like Stop.
  *  - startIn (step 5.7): the Record button inside a document; a plain
  *    document becomes a lecture only once the student has really started.
+ *  - discard (Cancel recording, Lea 6 Nov): only after the student confirmed;
+ *    the recorder closes the microphone and drops the audio from the device,
+ *    then the lecture's status and the server half (./discard-recording).
+ *    No summary request, no AI call. Not offered after Stop ("Saving…") or
+ *    for an interrupted recording.
  *
  * Everything it uses is passed in (tested with fakes); the app's flow is
  * ./recording.service.
  */
 
-import type { RecorderService } from './recorder/types';
+import type { DiscardedRecording, RecorderService, RecordingOrigin } from './recorder/types';
 
 export interface InterruptedRecording {
   lectureId: string;
@@ -45,6 +50,22 @@ export interface StartParams {
 
 /** A lecture's status as the flow sets it (and puts back): the app's session names (session.service). */
 export type LectureStatus = 'draft' | 'recording' | 'transcribing' | 'processing' | 'review' | 'completed' | 'failed';
+
+/**
+ * Cancel recording (Lea, 6 Nov): what the recorder discarded, with the lecture's status before it
+ * recorded again (case "lecture"; null otherwise or when not known here).
+ */
+export interface DiscardPlan extends DiscardedRecording {
+  before: LectureStatus | null;
+}
+
+/** What Discard will do, for its question (before anything happens). */
+export interface DiscardPreview {
+  lectureId: string;
+  origin: RecordingOrigin;
+  /** Where this recording starts on the lecture's timeline. */
+  fromMs: number;
+}
 
 /** Step 5.7: recording from inside a document: a lecture, or a plain document that becomes one. */
 export interface StartInParams {
@@ -72,6 +93,10 @@ export interface FlowDeps {
   /** The lecture's status on the server ('recording', 'transcribing'…). */
   statusOf: (lectureId: string) => Promise<string>;
   isOffline: () => boolean;
+  /** Cancel recording: the notes and the server half (laptop at once; iPhone saved here and queued). */
+  discardRecording: (plan: DiscardPlan) => Promise<void>;
+  /** A job of a discarded recording wrote to the server after Discard: its rows and files removed again. */
+  cleanUpLate: (plan: DiscardPlan) => Promise<void>;
   wait?: (ms: number) => Promise<void>;
   now?: () => number;
 }
@@ -85,6 +110,8 @@ export function createRecordingFlow(deps: FlowDeps) {
   const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = deps.now ?? Date.now;
   let state: FlowState = { saving: null, interrupted: [] };
+  /** Recording again into a lecture (step 5.7): its status before, put back if the recording is discarded. */
+  const statusBefore = new Map<string, LectureStatus>();
   const listeners = new Set<() => void>();
   const set = (change: Partial<FlowState>) => {
     state = { ...state, ...change };
@@ -152,7 +179,7 @@ export function createRecordingFlow(deps: FlowDeps) {
       const lectureId = await deps.createLecture(p);
       await deps.setStatus(lectureId, 'recording');
       try {
-        await recorder.start({ lectureId, transcribe });
+        await recorder.start({ lectureId, transcribe, origin: 'new' });
       } catch (err) {
         // The lecture stays, empty, as a draft (it can be recorded into later).
         await deps.setStatus(lectureId, 'draft').catch(() => {});
@@ -178,16 +205,52 @@ export function createRecordingFlow(deps: FlowDeps) {
         const before = (await deps.statusOf(lectureId).catch(() => 'draft')) as LectureStatus;
         after = await deps.audioEnd(lectureId);
         putBack = () => deps.setStatus(lectureId, before);
+        statusBefore.set(lectureId, before);
       } else {
         putBack = await deps.convertToLecture(lectureId, p.language);
+        statusBefore.delete(lectureId);
       }
       try {
         await deps.setStatus(lectureId, 'recording');
-        await recorder.start({ lectureId, transcribe, after });
+        await recorder.start({ lectureId, transcribe, after, origin: p.isLecture ? 'lecture' : 'document' });
       } catch (err) {
         await putBack().catch((e) => console.warn('[recording] could not put the document back', e));
         throw err;
       }
+    },
+
+    /** Cancel recording: what Discard would do for the recording running now (null: nothing to discard). */
+    async discardPreview(): Promise<DiscardPreview | null> {
+      const { lectureId, status } = recorder.state();
+      if (!lectureId || status === 'idle' || status === 'stopping' || state.saving) return null;
+      const meta = (await recorder.snapshot(lectureId)).meta;
+      return { lectureId, origin: meta?.origin ?? 'new', fromMs: meta?.from?.ms ?? 0 };
+    },
+
+    /**
+     * Cancel recording (Lea, 6 Nov), once the student confirmed: the recorder stops and drops the audio
+     * (./recorder: in-flight jobs waited for, nothing sent after), then the status and the server half.
+     * Resolves with what was discarded (null when nothing was recording).
+     */
+    async discard(): Promise<DiscardPlan | null> {
+      const { lectureId, status } = recorder.state();
+      if (!lectureId || status === 'idle' || status === 'stopping' || state.saving) return null;
+      const before = statusBefore.get(lectureId) ?? null;
+      const planOf = (d: DiscardedRecording): DiscardPlan => ({ ...d, before: d.origin === 'lecture' ? before : null });
+      const discarded = await recorder.discard(lectureId, { cleanUp: (d) => deps.cleanUpLate(planOf(d)) });
+      if (!discarded) return null;
+      const plan = planOf(discarded);
+      statusBefore.delete(lectureId);
+      // The lecture's status: a new one keeps what reached Studiply (its length); one recorded again gets
+      // its status and length back; a document that became a lecture is a document again (the server half).
+      if (plan.origin === 'new') {
+        const kept = plan.keepBelow > plan.from.seq;
+        await deps.setStatus(lectureId, kept ? 'transcribing' : 'draft', Math.round(plan.keptMs / 1000)).catch((err) => console.warn('[recording] could not set the status', err));
+      } else if (plan.origin === 'lecture') {
+        await deps.setStatus(lectureId, plan.before ?? 'transcribing', Math.round(plan.from.ms / 1000)).catch((err) => console.warn('[recording] could not set the status', err));
+      }
+      await deps.discardRecording(plan);
+      return plan;
     },
 
     /** Stops and hands the recording off; resolves with the lecture once it can be processed. */

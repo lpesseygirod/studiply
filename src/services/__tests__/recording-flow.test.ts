@@ -3,7 +3,7 @@
 // sent and the live transcript has caught up, then "transcribing" with the
 // length) and interrupted recordings (Continue, Finish). Nothing is sent.
 import { createRecordingFlow, type FlowDeps } from '../recording-flow';
-import type { ChunkInfo, RecorderService, RecorderState, RecordingMeta } from '../recorder/types';
+import type { ChunkInfo, DiscardedRecording, RecorderService, RecorderState, RecordingMeta } from '../recorder/types';
 
 const L = 'lecture-1';
 const chunk = (seq: number, state: ChunkInfo['state'], durationMs = 30000): ChunkInfo => ({
@@ -32,6 +32,10 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     offline: opts.offline ?? false,
     /** Where the lecture's audio already ends on the server (step 5.7). */
     audioEnd: null as { seq: number; ms: number } | null,
+    /** Cancel recording: what the recorder reports it discarded, and its clean-up for a late chunk. */
+    discarded: { lectureId: L, origin: 'new', from: { seq: 0, ms: 0 }, toSeq: 3, keepBelow: 2, keptMs: 60_000 } as DiscardedRecording,
+    meta: {} as Partial<RecordingMeta>,
+    late: null as (() => Promise<void>) | null,
   };
   const recorder: RecorderService = {
     supported: true,
@@ -39,6 +43,12 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
       if (opts.startFails) throw new Error('Permission denied');
       calls.push(`recorder.start ${lectureId} transcribe=${transcribe}${after ? ` after ${after.seq}/${after.ms}` : ''}`);
       state = { lectureId, status: 'recording', microphoneLost: false };
+    },
+    discard: async (id, { cleanUp }) => {
+      calls.push(`recorder.discard ${id}`);
+      state = { lectureId: null, status: 'idle', microphoneLost: false };
+      world.late = () => cleanUp(world.discarded);
+      return world.discarded;
     },
     pause: async () => {},
     resume: async () => {},
@@ -60,7 +70,7 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     elapsedMs: () => 125_400,
     level: () => 0,
     snapshot: async () => ({
-      meta: { transcribe: world.transcribe } as RecordingMeta,
+      meta: { transcribe: world.transcribe, ...world.meta } as RecordingMeta,
       chunks: world.chunks.map((c) => ({ ...c })),
       transcript: [],
     }),
@@ -96,6 +106,12 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     titleOf: async (id) => `Title of ${id}`,
     statusOf: async (id) => world.serverStatus[id] ?? 'ready',
     isOffline: () => world.offline,
+    discardRecording: async (p) => {
+      calls.push(`discard ${p.origin} ${p.lectureId}${p.before ? ` before ${p.before}` : ''}`);
+    },
+    cleanUpLate: async (p) => {
+      calls.push(`clean up late ${p.origin} ${p.lectureId}`);
+    },
     wait: async (ms) => {
       world.clock += ms;
       world.onWait();
@@ -271,5 +287,79 @@ describe('step 5.7: Record inside a document', () => {
     const r = rig();
     await r.flow.start(params);
     await expect(r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' })).rejects.toThrow('already running');
+  });
+});
+
+describe('Cancel recording (Lea, 6 Nov): Discard', () => {
+  it('a new lecture: the recorder discards (no Stop, no hand-off), the status keeps what reached Studiply, then the server half', async () => {
+    const r = rig();
+    await r.flow.start(params);
+    const before = r.calls.length;
+    const plan = await r.flow.discard();
+    expect(plan).toMatchObject({ lectureId: L, origin: 'new', keepBelow: 2, before: null });
+    expect(r.calls.slice(before)).toEqual([`recorder.discard ${L}`, `status ${L} transcribing 60s`, `discard new ${L}`]);
+    // Never the hand-off of Stop (Saving…, waiting for transcripts).
+    expect(r.calls).not.toContain('recorder.stop');
+    expect(r.seen).toEqual([]);
+  });
+
+  it('a new lecture none of whose audio reached Studiply: a draft', async () => {
+    const r = rig();
+    await r.flow.start(params);
+    r.world.discarded = { ...r.world.discarded, keepBelow: 0, keptMs: 0 };
+    await r.flow.discard();
+    expect(r.calls.slice(-2)).toEqual([`status ${L} draft 0s`, `discard new ${L}`]);
+  });
+
+  it('a lecture recorded again: its status before and its earlier length back', async () => {
+    const r = rig();
+    r.world.serverStatus[L] = 'completed';
+    r.world.audioEnd = { seq: 4, ms: 121_000 };
+    await r.flow.startIn({ fileId: L, isLecture: true, language: 'es' });
+    r.world.discarded = { lectureId: L, origin: 'lecture', from: { seq: 4, ms: 121_000 }, toSeq: 6, keepBelow: 5, keptMs: 151_000 };
+    await r.flow.discard();
+    expect(r.calls.slice(-3)).toEqual([`recorder.discard ${L}`, `status ${L} completed 121s`, `discard lecture ${L} before completed`]);
+  });
+
+  it('a document that became a lecture: no status (it is a document again: the server half)', async () => {
+    const r = rig();
+    await r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' });
+    r.world.discarded = { lectureId: 'doc-1', origin: 'document', from: { seq: 0, ms: 0 }, toSeq: 2, keepBelow: 2, keptMs: 60_000 };
+    await r.flow.discard();
+    expect(r.calls.slice(-2)).toEqual(['recorder.discard doc-1', 'discard document doc-1']);
+  });
+
+  it('a chunk that lands after Discard: the clean-up runs with the same plan', async () => {
+    const r = rig();
+    await r.flow.start(params);
+    await r.flow.discard();
+    await r.world.late?.();
+    expect(r.calls.at(-1)).toBe(`clean up late new ${L}`);
+  });
+
+  it('nothing to discard: not recording, or after Stop ("Saving…")', async () => {
+    const r = rig();
+    expect(await r.flow.discard()).toBeNull();
+    expect(await r.flow.discardPreview()).toBeNull();
+    await r.flow.start(params);
+    r.world.chunks = [chunk(0, 'on-device')];
+    let during: unknown = 'not asked';
+    r.world.onWait = () => {
+      if (during === 'not asked') {
+        during = null;
+        void r.flow.discard().then((v) => (during = v));
+      }
+      r.world.chunks[0].state = 'transcribed';
+    };
+    await r.flow.stop();
+    expect(during).toBeNull();
+    expect(r.calls).not.toContain(`recorder.discard ${L}`);
+  });
+
+  it('the preview says what it would do, from the recorder', async () => {
+    const r = rig();
+    await r.flow.start(params);
+    r.world.meta = { origin: 'lecture', from: { seq: 4, ms: 121_000 } };
+    expect(await r.flow.discardPreview()).toEqual({ lectureId: L, origin: 'lecture', fromMs: 121_000 });
   });
 });

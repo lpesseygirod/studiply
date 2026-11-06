@@ -210,6 +210,7 @@ export const recorder: RecorderService = (shared.__studiplyRecorder ??= {
   pause: () => (built ? built.pause() : Promise.resolve()),
   resume: () => (built ? built.resume() : Promise.resolve()),
   stop: () => (built ? built.stop() : Promise.resolve()),
+  discard: (id, options) => real().discard(id, options),
   recover: () => real().recover(),
   recordings: () => real().recordings(),
   playback: (id) => real().playback(id),

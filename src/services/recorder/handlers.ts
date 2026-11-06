@@ -10,6 +10,7 @@
  */
 
 import { classify, describeError, PermanentSyncError, SyncHttpError, type SyncHandler } from '../../lib/sync/queue';
+import { isDiscarded, landed } from './discarded';
 import type { AudioData, ChunkRef, RecordingStore, Segment, StoredChunk } from './types';
 
 /** A 20-minute chunk on a slow connection takes a while; longer means it hung (as on the iPhone). */
@@ -27,6 +28,8 @@ export function uploadChunkHandler(deps: {
   return {
     timeoutMs: UPLOAD_TIMEOUT_MS,
     run: async (ref, ctx) => {
+      // Discarded (Cancel recording): never sent.
+      if (isDiscarded(ref)) return;
       const chunk = await deps.store.getChunk(ref.lectureId, ref.seq);
       if (chunk?.storagePath) return;
       if (!chunk?.blob) {
@@ -34,6 +37,12 @@ export function uploadChunkHandler(deps: {
         throw new PermanentSyncError('This part of the recording is no longer on this device.', `${ref.lectureId}/${ref.seq}`);
       }
       const storagePath = await deps.upload({ ...chunk, blob: chunk.blob }, ctx.progress);
+      // Discarded while it was being sent: what it wrote is removed again.
+      if (isDiscarded(ref)) {
+        await landed(ref);
+        await deps.discard?.(chunk.blob).catch(() => {});
+        return;
+      }
       // Only now: until the row exists, the device's copy is the only one.
       await deps.store.updateChunk(ref.lectureId, ref.seq, { storagePath, blob: null });
       await deps.discard?.(chunk.blob).catch(() => {});
@@ -47,6 +56,8 @@ export function transcribeChunkHandler(deps: {
 }): SyncHandler<ChunkRef> {
   return {
     run: async (ref) => {
+      // Discarded (Cancel recording): never sent.
+      if (isDiscarded(ref)) return;
       const chunk = await deps.store.getChunk(ref.lectureId, ref.seq);
       if (!chunk || chunk.segments || chunk.transcriptError) return;
       // Queued only once uploaded; if not (yet), tried again later like a lost connection.
@@ -59,6 +70,11 @@ export function transcribeChunkHandler(deps: {
           startMs: chunk.startMs,
           durationMs: chunk.durationMs,
         });
+        // Discarded while it was being transcribed: transcribe-chunk wrote the chunk and its segments; removed again.
+        if (isDiscarded(ref)) {
+          await landed(ref);
+          return;
+        }
         await deps.store.updateChunk(ref.lectureId, ref.seq, { segments });
       } catch (err) {
         // Tried again (the lane never gives up on these): a lost connection, an expired

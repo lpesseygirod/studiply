@@ -17,6 +17,7 @@ import { formulaEntry } from '../formulas/library';
 import type { GraphData } from '../graph/data';
 import { graphRequestOf, selectedGraph, type GraphRequest } from '../schema/graph';
 import { quizAll, quizInfo } from '../schema/quizMe';
+import { unstampTransaction } from '../discardRecording';
 import { mediaSrc } from '../media/photoSource';
 import { markChipKey, selectedMarkChip, type LinkedMark, type MarkChipRequest, type MarkKind as ChipKind, type MarkPlace } from '../schema/markChip';
 import type { PageSetup } from '../page/pageSetup';
@@ -189,6 +190,8 @@ export type FormatCommand =
   | { type: 'graph'; action: 'delete' }
   /** A timestamp chip (step 4.6), by hand. */
   | { type: 'timestamp'; ms: number }
+  /** Cancel recording (Lea, 6 Nov): stamps from `fromMs` taken off, its mark chips as words (../discardRecording). */
+  | { type: 'unstamp'; fromMs: number }
   /**
    * Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print
    * layout (the sheet fits the screen); `setup`: the document's page setup.
@@ -530,6 +533,13 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
       return chain().deleteMarkChip().run();
     case 'timestamp':
       return chain().insertTimestampChip(cmd.ms).run();
+    case 'unstamp': {
+      // Not focusing the text: the student confirmed Discard, maybe away from the editor.
+      const tr = unstampTransaction(editor.state, cmd.fromMs);
+      if (!tr) return false;
+      editor.view.dispatch(tr);
+      return true;
+    }
     case 'photoLine':
       // Not focusing the text: the student pressed Photo, maybe away from the editor.
       return editor.chain().placePhotoLine(mediaSrc(cmd.mediaId), cmd.ms).run();

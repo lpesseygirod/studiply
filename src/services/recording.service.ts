@@ -14,8 +14,9 @@ import { isMockAiForced } from '../lib/aiMode';
 import { isNetworkError, serviceError } from '../lib/cloudRows';
 import { supabase } from '../lib/supabase';
 import { convertToLecture } from './lecture-conversion.service';
+import { cleanUpLate, discardRecording } from './discard-recording.service';
 
-export type { FlowState, InterruptedRecording } from './recording-flow';
+export type { DiscardPlan, DiscardPreview, FlowState, InterruptedRecording } from './recording-flow';
 
 /**
  * Where a lecture's audio already ends on Studiply (step 5.7: recording again into it), so the new
@@ -71,4 +72,7 @@ export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= 
   titleOf: async (lectureId) => (await getSession(lectureId)).title,
   statusOf: async (lectureId) => (await getSession(lectureId)).status,
   isOffline,
+  // Cancel recording (Lea, 6 Nov): the notes and the server half; a chunk that lands after Discard removed again.
+  discardRecording,
+  cleanUpLate,
 }));

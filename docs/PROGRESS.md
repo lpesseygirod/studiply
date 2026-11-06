@@ -806,6 +806,13 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Review → Quiz me:** + New quiz and every quiz, newest first (title · questions · "Saved · written in a later update" · Take, greyed until 9.1b-3); its … menu (right-click, long-press): Delete quiz, with Undo. The iPhone keeps `quizzes` in its copy, so the list shows offline.
     - **Tests:** Jest +88 (2,579); pgTAP as above; Chrome `quiz.mjs` (in my scratchpad), with composites beside desktop-02 and iphone-05.
     - **Builds:** no `editor:build`, no EAS build, no new dependency.
+  - [ ] **Cancel recording (Lea, 6 Nov; before 9.1b-2). Built (6 Nov), not committed, for the advisor's review.** DESIGN "Discard recording".
+    - **Where:** the Stop & summarize panel's red Discard recording (laptop: far left of the footer; iPhone: a link at the end of the sheet), opened from a recording only; the document menu's Recording › Discard recording… (last), on both devices. It asks "Discard this recording?" (Cancel · Discard) with the lecture's or document's title; the recording goes on until Discard.
+    - **What it does** (`services/discard-recording.service.ts`, `recording-flow` `discard`, the recorder's `discard`): the microphone closes; the recording's waiting upload and transcription jobs are removed and one in flight is waited for (20 s at most); the audio left on the device is deleted (never sent, never offered as interrupted). A new lecture goes to Recently Deleted (keeping the audio that reached Studiply before Discard), with Undo. Recorded inside a document: My notes saved as the version "Before discarding the recording", this recording's time chips taken off and its mark chips kept as words (`editor/discardRecording.ts`, the editor's `unstamp`); only this recording's chunks, segments and audio files deleted; a plain document is a document again (its photos kept); a lecture keeps its earlier audio and gets its status and length back. No summary request, no AI call.
+    - **A late upload or transcription** (`services/recorder/discarded.ts`): checked before it sends and after it wrote; one that still lands after Discard runs the clean-up again, which deletes by the recording's range.
+    - **iPhone offline:** its copy changes at once; the server half is queued (`discard_recording`, after the lecture's own creation or conversion).
+    - **Tests:** Jest +32 (2,611): the recorder (offline, an upload waited for, an upload and a transcription that answer after Discard leave nothing, an earlier recording kept), the flow, the service, the notes. Chrome `discard-recording.mjs` (in my scratchpad).
+    - **Builds:** `editor:build` needed (the editors' `unstamp`); no EAS build, no migration, no new dependency.
   - [ ] 9.1b-2 — generation. [ ] 9.1b-3 — taking, grading, results, offline.
 - [ ] 9.2 — Spaced review and course settings
 
@@ -1582,6 +1589,9 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - the offline insert limit and cut not redirecting references are accepted (Known issues). Still out: .xlsx, charts in a sheet, several sheets per tab, styles beyond bold, number formats, column widths, Spanish-style formulas.
 
 ## Things Lea must do
+
+- **Cancel recording — on your iPhone** (after `editor:build`): start a recording by accident and Discard it from ⋯ (in airplane mode too, then go online: nothing is uploaded, the lecture is in Recently Deleted with its notes); record inside a document, Discard: your notes are there, the marks as words, the version "Before discarding the recording".
+  - **Suggestion, not built:** Discard for an interrupted recording (today it has Continue and Finish).
 
 - **Step 9.1b — your decisions, adopted for now (the advisor, 2 Nov; reversible):**
   - Opus 5.5 writes quizzes; Sonnet 5.5 grades answers and reads a past exam's format.

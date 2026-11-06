@@ -20,12 +20,14 @@
  * the rules are unit tested with in-memory parts.
  */
 
+import { forget, isDiscarded, markDiscarded } from './discarded';
 import { joinTranscript } from './transcriptJoin';
 import type {
   AudioSource,
   ChunkInfo,
   AudioData,
   ChunkRef,
+  DiscardedRecording,
   PlaybackSource,
   RecorderQueue,
   RecorderService,
@@ -41,6 +43,8 @@ export const CHUNK_MS = 30_000;
 export const OVERLAP_MS = 500;
 /** A finished recording's details stay this long after everything is sent. */
 const KEEP_FINISHED_MS = 24 * 60 * 60_000;
+/** Cancel recording: how long Discard waits for an upload or transcription already on its way. */
+export const DISCARD_WAIT_MS = 20_000;
 
 export interface RecorderDeps {
   store: RecordingStore;
@@ -53,7 +57,10 @@ export interface RecorderDeps {
   /** Takes the recording for this app; false while someone else (another tab) holds it. */
   claim: (lectureId: string) => Promise<boolean>;
   release: (lectureId: string) => void;
+  /** Deletes a chunk's audio from the device (the iPhone's file); the web's Blob goes with the store. */
+  dropAudio?: (audio: AudioData) => Promise<void>;
   now?: () => number;
+  wait?: (ms: number) => Promise<void>;
 }
 
 interface Active {
@@ -67,6 +74,7 @@ interface Active {
 export function createRecorderService(deps: RecorderDeps): RecorderService {
   const { store } = deps;
   const now = deps.now ?? Date.now;
+  const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const listeners = new Set<() => void>();
   const emit = () => listeners.forEach((fn) => fn());
   let active: Active | null = null;
@@ -81,6 +89,8 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
   deps.uploads.subscribe((e) => {
     if (e.type === 'done' && e.op.kind === 'upload_chunk') {
       const ref = e.op.payload as ChunkRef;
+      // Discarded meanwhile (Cancel recording): never transcribed.
+      if (isDiscarded(ref)) return;
       void store
         .getRecording(ref.lectureId)
         .then((meta) => meta && queueChunk(meta, ref.seq))
@@ -105,6 +115,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
 
   async function queueChunk(meta: RecordingMeta, seq: number, skip?: { uploads: Set<string>; transcriptions: Set<string> }) {
     const ref: ChunkRef = { lectureId: meta.lectureId, seq };
+    if (isDiscarded(ref)) return;
     const id = `${ref.lectureId}/${seq}`;
     const chunk = await store.getChunk(meta.lectureId, seq);
     if (!chunk) return;
@@ -211,7 +222,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
   const service: RecorderService = {
     supported: true,
 
-    async start({ lectureId, transcribe, chunkMs = CHUNK_MS, overlapMs = OVERLAP_MS, after = null }) {
+    async start({ lectureId, transcribe, chunkMs = CHUNK_MS, overlapMs = OVERLAP_MS, after = null, origin }) {
       if (active) throw new Error('A recording is already running.');
       await deps.ready?.();
       const userId = deps.userId();
@@ -220,6 +231,11 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       // Recording again into a lecture recorded here goes on after its chunks (numbers are never reused).
       if (earlier && earlier.status !== 'stopped') throw new Error('This lecture has an unfinished recording: continue or finish it first.');
       if (!(await deps.claim(lectureId))) throw new Error('This lecture is being recorded somewhere else.');
+      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier, step 5.7).
+      const here = earlier ? await endOf(lectureId) : { seq: 0, ms: 0 };
+      const from = after ? { seq: Math.max(here.seq, after.seq), ms: Math.max(here.ms, after.ms) } : here;
+      // A recording discarded earlier in this lecture no longer applies to the new one.
+      forget(lectureId);
       const at = new Date(now()).toISOString();
       const meta: RecordingMeta = {
         lectureId,
@@ -230,11 +246,10 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
         transcribe,
         createdAt: earlier?.createdAt ?? at,
         updatedAt: at,
+        origin: origin ?? (after || earlier ? 'lecture' : 'new'),
+        from,
       };
       await store.saveRecording(meta);
-      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier, step 5.7).
-      const here = earlier ? await endOf(lectureId) : { seq: 0, ms: 0 };
-      const from = after ? { seq: Math.max(here.seq, after.seq), ms: Math.max(here.ms, after.ms) } : here;
       try {
         await begin(meta, from);
       } catch (err) {
@@ -275,6 +290,54 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       active = null;
       deps.release(a.meta.lectureId);
       emit();
+    },
+
+    async discard(lectureId, { cleanUp, waitMs = DISCARD_WAIT_MS }) {
+      const a = active?.meta.lectureId === lectureId ? active : null;
+      const meta = a?.meta ?? (await store.getRecording(lectureId));
+      if (!meta) return null;
+      const from = meta.from ?? { seq: 0, ms: 0 };
+      // From now on none of its chunks is sent (the ones the microphone still hands over included).
+      markDiscarded({ lectureId, fromSeq: from.seq, toSeq: null });
+      if (a) {
+        a.status = 'stopping';
+        emit();
+        // The microphone first.
+        await a.source.stop().catch((err) => console.warn('[recorder] could not stop the microphone cleanly', err));
+        await work;
+        active = null;
+        deps.release(lectureId);
+        emit();
+      }
+      // Its waiting jobs go; one already on its way is waited for (it may still write: ./discarded).
+      const mine = (op: { key: string; payload: unknown }) => op.key === lectureId && (op.payload as ChunkRef).seq >= from.seq;
+      await Promise.all([deps.uploads.discardWhere(mine), deps.transcriptions.discardWhere(mine)]);
+      await Promise.race([Promise.all([deps.uploads.idleFor(lectureId), deps.transcriptions.idleFor(lectureId)]), wait(waitMs)]);
+
+      const chunks = (await store.listChunks(lectureId)).filter((c) => c.seq >= from.seq).sort((x, y) => x.seq - y.seq);
+      const parts = (await store.listParts(lectureId)).filter((p) => p.seq >= from.seq);
+      const toSeq = [...chunks, ...parts].reduce((n, c) => Math.max(n, c.seq + 1), from.seq);
+      // Uploads go in order: the chunks the server has are the first ones.
+      let keepBelow = from.seq;
+      let keptMs = from.ms;
+      for (const c of chunks) {
+        if (c.seq !== keepBelow || !c.storagePath) break;
+        keepBelow = c.seq + 1;
+        keptMs = c.startMs + c.durationMs;
+      }
+      for (const c of chunks) if (c.blob) await deps.dropAudio?.(c.blob).catch(() => {});
+      // Only this recording's chunks: an earlier recording of the lecture on this device is kept as it was.
+      const earlier = (await store.listChunks(lectureId)).some((c) => c.seq < from.seq);
+      if (earlier) {
+        await store.dropChunks(lectureId, from.seq);
+        await store.saveRecording({ ...meta, status: 'stopped', updatedAt: new Date(now()).toISOString(), origin: undefined, from: undefined });
+      } else {
+        await store.removeRecording(lectureId);
+      }
+      const result: DiscardedRecording = { lectureId, origin: meta.origin ?? 'new', from, toSeq, keepBelow, keptMs };
+      markDiscarded({ lectureId, fromSeq: from.seq, toSeq }, () => cleanUp(result));
+      emit();
+      return result;
     },
 
     async recover() {

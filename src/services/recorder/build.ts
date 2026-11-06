@@ -105,5 +105,6 @@ export function buildRecorder(parts: PlatformParts): RecorderService {
     ready: () => known,
     claim: parts.claim,
     release: parts.release,
+    dropAudio: parts.discard,
   });
 }

@@ -53,9 +53,35 @@ const until = async (fn, msg, timeout = 5000) => {
     if ((await fn()) === true) return;
     await b.sleep(250);
   }
-  throw new Error(msg);
+  throw new Error(typeof msg === 'function' ? await msg() : msg);
 };
 const folderRow = async (id) => (await admin.from('folders').select('name, course_id, parent_id, deleted_at').eq('id', id).single()).data;
+/** The Undo toast's UNDO while it is really on screen (in the window, not faded): its centre, else null. */
+const undoShown = () =>
+  b.evaluate(`(() => {
+    const el = [...document.querySelectorAll('div, span')].find((e) => e.childElementCount === 0 && e.textContent.trim() === 'UNDO');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    let opacity = 1;
+    for (let n = el; n && n !== document.body; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+    return r.width && r.top >= 0 && r.bottom <= innerHeight && opacity > 0.9 ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
+  })()`);
+/**
+ * Undo, as the student does it: the toast's UNDO while it shows (5 s), else ⌘Z (DESIGN: it undoes the
+ * last delete also after the toast has gone). Under load the checks before it can outlast the toast: a
+ * click on a toast that had slid away did nothing (the earlier failure), not the app.
+ */
+const undoNow = async () => {
+  const p = await undoShown();
+  if (p) {
+    // Settled first (it springs up): the same place twice.
+    await b.sleep(300);
+    const q = (await undoShown()) ?? p;
+    await b.clickAt(q.x, q.y);
+  } else {
+    await b.chord({ code: 'KeyZ', key: 'z', meta: true, keyCode: 90 });
+  }
+};
 
 const user = await makeUser();
 const data = await seed(user.client);
@@ -125,10 +151,11 @@ try {
     await b.waitText('Delete Folder', { timeout: 3000 });
     await b.click('Delete', { exact: true });
     await until(async () => !!(await folderRow(sub.id)).deleted_at, 'not trashed');
-    await until(async () => (await at()) === `/project/${data.course.id}?folder=${data.folder.id}`, `not one level up: ${await at()}`);
-    expect((await title()) === 'Funciones', `title ${await title()}`);
-    await b.click('UNDO');
-    await until(async () => !(await folderRow(sub.id)).deleted_at, 'Undo did not restore it');
+    await until(async () => (await at()) === `/project/${data.course.id}?folder=${data.folder.id}`, async () => `not one level up: ${await at()}`);
+    // The parent folder's title comes after the address (its row is read again): waited for, not read once (it failed under load).
+    await until(async () => (await title()) === 'Funciones', async () => `title ${await title()}`, 10000);
+    await undoNow();
+    await until(async () => !(await folderRow(sub.id)).deleted_at, 'Undo did not restore it', 10000);
   });
 
   await step('Move to… the folder you are in (another course): the screen follows it', async () => {
@@ -140,7 +167,7 @@ try {
     await b.sleep(800);
     await b.click('Move to Science', { exact: true });
     await until(async () => (await folderRow(data.folder.id)).course_id === data.science.id, 'not moved');
-    await until(async () => (await at()) === `/project/${data.science.id}?folder=${data.folder.id}`, `did not follow: ${await at()}`);
+    await until(async () => (await at()) === `/project/${data.science.id}?folder=${data.folder.id}`, async () => `did not follow: ${await at()}`);
     await b.waitText('Science', { exact: true, timeout: 5000 });
   });
 
@@ -152,10 +179,12 @@ try {
     await b.click('Delete', { exact: true });
     await b.waitText('Delete Course', { timeout: 3000 });
     await b.click('Delete', { exact: true });
-    await until(async () => (await at()).startsWith('/library'), `not back in the Library: ${await at()}`);
+    await until(async () => (await at()).startsWith('/library'), async () => `not back in the Library: ${await at()}`);
     await until(async () => !!(await admin.from('courses').select('deleted_at').eq('id', data.course.id).single()).data.deleted_at, 'course not trashed');
-    await b.click('UNDO');
-    await until(async () => !(await admin.from('courses').select('deleted_at').eq('id', data.course.id).single()).data.deleted_at, 'Undo did not restore it');
+    await undoNow();
+    await until(async () => !(await admin.from('courses').select('deleted_at').eq('id', data.course.id).single()).data.deleted_at, 'Undo did not restore it', 10000);
+    // Restored with what it held (the lecture, trashed with it).
+    await until(async () => !(await admin.from('files').select('deleted_at').eq('id', data.lecture.id).single()).data.deleted_at, 'its lecture did not come back', 10000);
   });
 
   await step('390: tapping the title opens the same menu', async () => {

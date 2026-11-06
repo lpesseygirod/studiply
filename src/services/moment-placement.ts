@@ -21,9 +21,16 @@ export type MomentItem = { kind: 'mark'; mark: LinkedMark } | { kind: 'photo'; m
 
 export interface MomentTarget {
   place: (item: MomentItem) => void;
+  /** Cancel recording (Lea, 6 Nov): the open editor takes this recording's stamps off (editor/discardRecording) and saves. */
+  unstamp?: (fromMs: number) => Promise<void>;
 }
 
 const targets = new Map<string, MomentTarget>();
+
+/** The editor showing a lecture's My notes on this device, if one is open. */
+export function momentTarget(lectureId: string): MomentTarget | null {
+  return targets.get(lectureId) ?? null;
+}
 
 /** The document screen showing a lecture's My notes; returns the way to let go. */
 export function registerMomentTarget(lectureId: string, target: MomentTarget): () => void {

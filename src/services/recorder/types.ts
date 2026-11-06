@@ -29,6 +29,28 @@ export interface RecordingMeta {
   transcribe: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Cancel recording (Lea, 6 Nov): how this recording began (a new lecture; a plain document that became
+   * one; a lecture recorded again, step 5.7) and where it starts on the lecture's timeline.
+   */
+  origin?: RecordingOrigin;
+  from?: { seq: number; ms: number };
+}
+
+export type RecordingOrigin = 'new' | 'document' | 'lecture';
+
+/** What Discard leaves to the server half (services/discard-recording). */
+export interface DiscardedRecording {
+  lectureId: string;
+  origin: RecordingOrigin;
+  /** Where this recording starts on the lecture's timeline. */
+  from: { seq: number; ms: number };
+  /** The first chunk number after it. */
+  toSeq: number;
+  /** Its chunks below this number had reached the server when Discard ended (uploads go in order). */
+  keepBelow: number;
+  /** Where that uploaded part ends (ms). */
+  keptMs: number;
 }
 
 /** A recorded file on the iPhone (the web keeps a Blob instead). */
@@ -80,6 +102,8 @@ export interface RecordingStore {
   listRecordings(): Promise<RecordingMeta[]>;
   /** The recording with its chunks and pieces. */
   removeRecording(lectureId: string): Promise<void>;
+  /** The chunks and pieces numbered `fromSeq` and after (Cancel recording: only that recording's). */
+  dropChunks(lectureId: string, fromSeq: number): Promise<void>;
   addPart(part: StoredPart): Promise<void>;
   /** Pieces of chunks not finished yet, by chunk and piece number. */
   listParts(lectureId: string): Promise<StoredPart[]>;
@@ -129,6 +153,10 @@ export interface RecorderQueue {
   list(): Promise<SyncOp[]>;
   /** Puts failed jobs back in line (at the next start: the recording's audio is never given up). */
   retryFailed(): Promise<void>;
+  /** Removes the waiting jobs `test` picks (Cancel recording); one in flight finishes. */
+  discardWhere(test: (op: SyncOp) => boolean): Promise<number>;
+  /** Resolves once no job of `key` is being sent. */
+  idleFor(key: string): Promise<void>;
 }
 
 /** What both queued jobs carry: the chunk itself stays in the store. */
@@ -179,10 +207,26 @@ export interface RecorderService {
    * `after`: where the lecture's audio already ends on Studiply (step 5.7, recording again into a lecture
    * recorded elsewhere or earlier): the new chunks are numbered and timed after it, as after this device's own.
    */
-  start(params: { lectureId: string; transcribe: boolean; chunkMs?: number; overlapMs?: number; after?: { seq: number; ms: number } | null }): Promise<void>;
+  start(params: {
+    lectureId: string;
+    transcribe: boolean;
+    chunkMs?: number;
+    overlapMs?: number;
+    after?: { seq: number; ms: number } | null;
+    /** How it began (Cancel recording needs it); default 'new', or 'lecture' with `after`. */
+    origin?: RecordingOrigin;
+  }): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<void>;
+  /**
+   * Cancel recording (Lea, 6 Nov): the recording running now ends and its audio is dropped from this
+   * device. The microphone closes first; its waiting upload and transcription jobs are removed; one
+   * already in flight is waited for (at most `waitMs`); then the chunks' files and the recording's
+   * details are deleted, so it is never sent nor offered as interrupted. `cleanUp` runs again if a
+   * job still writes to the server after this (./discarded). Returns what the server half needs.
+   */
+  discard(lectureId: string, options: { cleanUp: (d: DiscardedRecording) => Promise<void>; waitMs?: number }): Promise<DiscardedRecording | null>;
   /**
    * Recordings the app lost mid-lecture: their unfinished chunk rebuilt from
    * its pieces, everything not uploaded queued again. Returns them.

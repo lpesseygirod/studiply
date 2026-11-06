@@ -52,12 +52,13 @@ export function useItemMenu({
    * screen's own items, before Delete (a document's Version history).
    * `section`: a heading over the item's own actions (laptop menus), when
    * the screen's items come under headings of their own: they then come
-   * first, and the item's own group (ending with Delete) last.
+   * first, and the item's own group (ending with Delete) last. `after`: items after Delete (a document's
+   * Recording › Discard recording…, Lea 6 Nov).
    */
   function open(
     item: ShelfItem,
     anchor?: Anchor,
-    { skip = [], dialogRename = false, extra = [], section }: { skip?: ItemAction[]; dialogRename?: boolean; extra?: DialogButton[]; section?: string } = {},
+    { skip = [], dialogRename = false, extra = [], section, after = [] }: { skip?: ItemAction[]; dialogRename?: boolean; extra?: DialogButton[]; section?: string; after?: DialogButton[] } = {},
   ) {
     const button = (action: ItemAction): DialogButton => {
       const base = actionButton(action);
@@ -116,6 +117,7 @@ export function useItemMenu({
       const at = buttons.findIndex((b) => b.style === 'destructive');
       buttons.splice(at < 0 ? buttons.length : at, 0, ...extra);
     }
+    buttons.push(...after);
     showActionSheet(item.title, buttons, { anchor });
   }
 

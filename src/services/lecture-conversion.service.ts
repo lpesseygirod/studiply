@@ -51,8 +51,11 @@ async function writeConversion(p: ConvertPayload, fail: Fail): Promise<FileRow> 
   return data[0] as FileRow;
 }
 
-/** Back to a plain document: the file's kind first, then the (empty) lecture row. */
-async function writeRevert(p: RevertPayload, fail: Fail): Promise<void> {
+/**
+ * Back to a plain document: the file's kind first, then the (empty) lecture row. Also Cancel recording's
+ * server half (services/discard-recording), after the recording's audio is removed.
+ */
+export async function writeRevert(p: RevertPayload, fail: Fail): Promise<void> {
   const { error } = await supabase.from('files').update({ kind: 'document' }).eq('id', p.fileId).eq('kind', 'lecture');
   if (error) throw fail(error, 'Could not undo the lecture.');
   const { error: deleteError } = await supabase.from('lectures').delete().eq('id', p.fileId);

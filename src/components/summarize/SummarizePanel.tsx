@@ -32,6 +32,8 @@ import { AddButton, PresetChip, ResourceCard, ResourceRow, SliderRow } from '../
 import { makePanelStyles } from '../panel/panelStyles';
 import { choosePhotos } from '../recording/photoBoard';
 import { recordingMoment } from '../recording/markPanelState';
+import { DISCARD_LABEL } from '../recording/discardText';
+import { useDiscardRecording } from '../recording/useDiscardRecording';
 import { PRESET_ORDER, SLIDER_LABELS, countsLine, plural, previewLine, timesText } from './sliderLabels';
 import { closeSummarize, useSummarizePanel, type SummarizeRequest } from './summarizePanelState';
 
@@ -127,6 +129,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const connection = useConnectivity();
   const offline = connection === 'offline';
   const { lectureId, recording } = request;
+  const discardRecording = useDiscardRecording();
 
   const [info, setInfo] = useState<SummarizeInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -406,6 +409,21 @@ function Panel({ request }: { request: SummarizeRequest }) {
     </View>
   );
 
+  // Cancel recording (Lea, 6 Nov): opened from a recording only; it asks first, and only its Discard stops it.
+  const discardButton =
+    recording && !combine ? (
+      <Pressable
+        onPress={() => void discardRecording({ beforeDiscard: closeSummarize })}
+        disabled={busy}
+        style={({ pressed }) => [styles.discard, !wide && styles.discardNarrow, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel="Discard this recording"
+        {...{ dataSet: { summarize: 'discard' } }}
+      >
+        <Text style={styles.discardText}>{DISCARD_LABEL}</Text>
+      </Pressable>
+    ) : null;
+
   const keepLabel = recording ? 'Keep recording' : 'Cancel';
   const goLabel = !wide ? 'Generate' : recording ? 'Stop & generate summary' : 'Generate summary';
   const buttons = (
@@ -523,6 +541,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
       {SLIDER_KEYS.map(slider)}
       {note}
       {saveLink}
+      {discardButton}
     </>
   );
 
@@ -558,6 +577,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
           </ScrollView>
           {wide ? (
             <View style={styles.footer}>
+              {discardButton}
               {saveLink}
               <View style={styles.flex}>{preview}</View>
               {buttons}

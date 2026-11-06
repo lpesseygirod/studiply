@@ -87,6 +87,10 @@ export const makePanelStyles = (c: ThemeColors) =>
     primaryText: { fontSize: Typography.size.base, fontWeight: Typography.weight.semibold, color: c.button.primaryText },
     dim: { opacity: 0.6 },
     pressed: { opacity: 0.7 },
+    // Cancel recording (Lea, 6 Nov): Discard recording, a red text button (at least 44 pt).
+    discard: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+    discardNarrow: { alignSelf: 'center', paddingHorizontal: 12 },
+    discardText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.error },
   });
 
 export type PanelStyles = ReturnType<typeof makePanelStyles>;

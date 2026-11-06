@@ -8,10 +8,11 @@
 import { NetworkError } from '../../../lib/cloudRows';
 import { createMemoryStore } from '../../../lib/sync/memoryStore';
 import { createSyncQueue, SyncHttpError } from '../../../lib/sync/queue';
+import { resetDiscardedForTests } from '../discarded';
 import { transcribeChunkHandler, uploadChunkHandler } from '../handlers';
 import { createMemoryRecordingStore } from '../memoryStore';
 import { createRecorderService } from '../service';
-import type { AudioSource, SourceChunk, SourcePart } from '../types';
+import type { AudioSource, DiscardedRecording, SourceChunk, SourcePart } from '../types';
 
 const L = 'lecture-1';
 
@@ -87,6 +88,9 @@ function rig() {
     transcribed: [] as number[],
     refuse: new Set<number>(),
     transcriptionDown: false,
+    /** Cancel recording: an upload or a transcription held on its way until released. */
+    uploadGate: null as Promise<void> | null,
+    transcribeGate: null as Promise<void> | null,
   };
   const held = new Map<string, number>();
   const sources: FakeSource[] = [];
@@ -117,6 +121,7 @@ function rig() {
         store,
         upload: async (chunk) => {
           if (!server.online) throw new NetworkError();
+          if (server.uploadGate) await server.uploadGate;
           server.uploaded.push(chunk.seq);
           return `u1/${chunk.lectureId}/${String(chunk.seq).padStart(4, '0')}.webm`;
         },
@@ -132,6 +137,7 @@ function rig() {
           if (!server.online) throw new NetworkError();
           if (server.transcriptionDown) throw new SyncHttpError('The transcription service is down.', 503);
           if (server.refuse.has(p.seq)) throw new SyncHttpError('Transcription needs your consent.', 403);
+          if (server.transcribeGate) await server.transcribeGate;
           server.transcribed.push(p.seq);
           return [{ startMs: p.startMs, endMs: p.startMs + 1000, text: `chunk ${p.seq}` }];
         },
@@ -487,5 +493,184 @@ describe('the recorder service', () => {
     expect(await r.store.getRecording(L)).toBeNull();
     expect(r.held.size).toBe(0);
     expect(service.state().status).toBe('idle');
+  });
+});
+
+describe('Cancel recording (Lea, 6 Nov): Discard', () => {
+  beforeEach(() => resetDiscardedForTests());
+
+  /** The server's rows as the clean-up leaves them: the discarded range removed (as discard-recording's deleteAudio). */
+  const cleaner = (r: ReturnType<typeof rig>) => {
+    const runs: DiscardedRecording[] = [];
+    const cleanUp = async (d: DiscardedRecording) => {
+      runs.push(d);
+      const from = d.origin === 'new' ? d.keepBelow : d.from.seq;
+      r.server.uploaded = r.server.uploaded.filter((s) => s < from);
+      r.server.transcribed = r.server.transcribed.filter((s) => s < from);
+    };
+    return { runs, cleanUp };
+  };
+
+  it('offline: the microphone closes, the chunks on the device are dropped and never sent, nothing is offered as interrupted', async () => {
+    const r = rig();
+    const { service, uploads } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    r.server.online = false;
+    const mic = r.source();
+    mic.tick(2);
+    mic.cut();
+    mic.tick(2);
+    mic.cut();
+    mic.tick(1);
+    await idle();
+    expect(r.uploadOps.ops).toHaveLength(2);
+    const { cleanUp } = cleaner(r);
+    const d = await service.discard(L, { cleanUp, waitMs: 10 });
+    expect(d).toEqual({ lectureId: L, origin: 'new', from: { seq: 0, ms: 0 }, toSeq: 3, keepBelow: 0, keptMs: 0 });
+    expect(service.state()).toEqual({ lectureId: null, status: 'idle', microphoneLost: false });
+    expect(r.held.size).toBe(0);
+    // Nothing waits to be sent, nothing is kept on the device.
+    expect(r.uploadOps.ops).toEqual([]);
+    expect(r.transcribeOps.ops).toEqual([]);
+    expect(r.store.chunks).toEqual([]);
+    expect(r.store.parts).toEqual([]);
+    expect(await r.store.getRecording(L)).toBeNull();
+    // Back online, and on the next start: nothing is sent, nothing offered.
+    r.server.online = true;
+    await uploads.flush({ now: true });
+    expect(await r.make().service.recover()).toEqual([]);
+    await idle();
+    expect(r.server.uploaded).toEqual([]);
+    expect(r.server.transcribed).toEqual([]);
+  });
+
+  it('an upload already on its way is waited for; what it wrote after Discard was pressed goes with the server half, and it is never transcribed', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    let release!: () => void;
+    r.server.uploadGate = new Promise<void>((res) => (release = res));
+    r.source().tick(2);
+    r.source().cut();
+    await idle();
+    setTimeout(release, 5);
+    const { runs, cleanUp } = cleaner(r);
+    const d = await service.discard(L, { cleanUp, waitMs: 2000 });
+    await idle();
+    // Discard ended only after the upload did: nothing can land after the server half.
+    expect(r.server.uploaded).toEqual([0]);
+    // Only what reached Studiply before Discard is kept; this chunk landed after: deleted by the server half.
+    expect(d).toMatchObject({ keepBelow: 0, keptMs: 0, toSeq: 1 });
+    expect(runs).toEqual([]);
+    await cleanUp(d!);
+    expect(r.server.uploaded).toEqual([]);
+    expect(r.server.transcribed).toEqual([]);
+    expect(r.transcribeOps.ops).toEqual([]);
+  });
+
+  it('a chunk uploaded before Discard is kept for a new lecture (to Recently Deleted with it)', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false });
+    r.source().tick(2);
+    r.source().cut();
+    await idle();
+    expect(r.server.uploaded).toEqual([0]);
+    r.server.online = false;
+    r.source().tick(1);
+    const { cleanUp } = cleaner(r);
+    const d = await service.discard(L, { cleanUp, waitMs: 10 });
+    expect(d).toMatchObject({ origin: 'new', keepBelow: 1, keptMs: 2000, toSeq: 2 });
+    await cleanUp(d!);
+    expect(r.server.uploaded).toEqual([0]);
+  });
+
+  it('an upload that answers after Discard leaves no row: what it wrote is removed again', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    let release!: () => void;
+    r.server.uploadGate = new Promise<void>((res) => (release = res));
+    r.source().tick(2);
+    r.source().cut();
+    await idle();
+    const { runs, cleanUp } = cleaner(r);
+    // Discard doesn't wait for ever.
+    const d = await service.discard(L, { cleanUp, waitMs: 10 });
+    expect(d).toMatchObject({ keepBelow: 0, toSeq: 1 });
+    release();
+    await idle();
+    // It landed (the row was written), then the clean-up ran with the same range: no row left.
+    expect(runs).toHaveLength(1);
+    expect(r.server.uploaded).toEqual([]);
+    expect(r.server.transcribed).toEqual([]);
+    expect(r.store.chunks).toEqual([]);
+  });
+
+  it('a transcription that answers after Discard leaves no chunk or segment: the clean-up runs again', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: true, origin: 'document' });
+    let release!: () => void;
+    r.server.transcribeGate = new Promise<void>((res) => (release = res));
+    r.source().tick(2);
+    r.source().cut();
+    await idle();
+    expect(r.server.uploaded).toEqual([0]);
+    const { runs, cleanUp } = cleaner(r);
+    const d = await service.discard(L, { cleanUp, waitMs: 10 });
+    expect(d).toMatchObject({ origin: 'document', keepBelow: 1 });
+    // The server half (here: the test's clean-up) removes the recording's range…
+    await cleanUp(d!);
+    expect(r.server.uploaded).toEqual([]);
+    // …and transcribe-chunk, answering late, wrote its chunk and segments again: removed again.
+    release();
+    await idle();
+    expect(runs).toHaveLength(2);
+    expect(r.server.transcribed).toEqual([]);
+    expect(r.server.uploaded).toEqual([]);
+  });
+
+  it('recording again into a lecture recorded here: only the new recording goes; the earlier one is kept as it was', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false });
+    r.source().tick(3);
+    await service.stop();
+    await idle();
+    expect(r.server.uploaded).toEqual([0]);
+    await service.start({ lectureId: L, transcribe: false, origin: 'lecture' });
+    r.server.online = false;
+    r.source().tick(2);
+    r.source().cut();
+    await idle();
+    const { cleanUp } = cleaner(r);
+    const d = await service.discard(L, { cleanUp, waitMs: 10 });
+    expect(d).toEqual({ lectureId: L, origin: 'lecture', from: { seq: 1, ms: 3000 }, toSeq: 2, keepBelow: 1, keptMs: 3000 });
+    expect(r.store.chunks.map((c) => c.seq)).toEqual([0]);
+    expect((await r.store.getRecording(L))?.status).toBe('stopped');
+    r.server.online = true;
+    await r.make().service.recover();
+    await idle();
+    expect(r.server.uploaded).toEqual([0]);
+  });
+
+  it('a new recording of the same lecture after a Discard is sent as usual', async () => {
+    const r = rig();
+    const { service } = r.make();
+    await service.start({ lectureId: L, transcribe: false });
+    r.source().tick(1);
+    await service.discard(L, { cleanUp: async () => {}, waitMs: 10 });
+    await service.start({ lectureId: L, transcribe: false });
+    r.source().tick(2);
+    await service.stop();
+    await idle();
+    expect(r.server.uploaded).toEqual([0]);
+  });
+
+  it('nothing to discard: null', async () => {
+    const r = rig();
+    const { service } = r.make();
+    expect(await service.discard('nothing', { cleanUp: async () => {}, waitMs: 10 })).toBeNull();
   });
 });

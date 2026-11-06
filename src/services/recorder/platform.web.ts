@@ -92,6 +92,11 @@ const idbStore: RecordingStore = {
       await ask(s('chunks').delete(lectureChunks(id)));
       await ask(s('parts').delete(lectureParts(id)));
     }),
+  dropChunks: (id, fromSeq) =>
+    inTx(['chunks', 'parts'], 'readwrite', async (s) => {
+      await ask(s('chunks').delete(IDBKeyRange.bound([id, fromSeq], [id, Infinity])));
+      await ask(s('parts').delete(IDBKeyRange.bound([id, fromSeq, -Infinity], [id, Infinity, Infinity])));
+    }),
   addPart: (part) => inTx(['parts'], 'readwrite', async (s) => void (await ask(s('parts').put(part)))),
   listParts: (id) => inTx(['parts'], 'readonly', async (s) => (await ask(s('parts').getAll(lectureParts(id)))) as StoredPart[]),
   dropParts: (id, seq) => inTx(['parts'], 'readwrite', async (s) => void (await ask(s('parts').delete(chunkParts(id, seq))))),

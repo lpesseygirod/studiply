@@ -40,6 +40,8 @@ import { useRecorderState, useRecordingFlow } from '../../../src/hooks/useRecord
 import { registerMomentTarget } from '../../../src/services/moment-placement';
 import { RecordButton } from '../../../src/components/recording/RecordButton';
 import { useRecordingActions } from '../../../src/components/recording/useRecordingActions';
+import { useDiscardRecording } from '../../../src/components/recording/useDiscardRecording';
+import { DISCARD_LABEL } from '../../../src/components/recording/discardText';
 import { useConnectivity } from '../../../src/lib/connectivity';
 import { recorder } from '../../../src/services/recorder';
 import { RecordingPhoneBar, RecordingPhoneHeader } from '../../../src/components/recording/RecordingPhone';
@@ -359,6 +361,9 @@ export default function DocumentScreen() {
     editorReady: showEditor && readyKey === editorKey,
   });
   const status = showEditor ? saveLabel(sync.state) : null;
+  // The latest save-now of the open tab (Cancel recording waits for it).
+  const flushNotes = useRef(async () => {});
+  flushNotes.current = () => sync.flush();
 
   // Record inside the document (step 5.7): a lecture records again; a plain document becomes a lecture
   // (its first tab is My notes, its other tabs follow). Not while this one records, or in other kinds of file.
@@ -405,6 +410,12 @@ export default function DocumentScreen() {
                 ? { type: 'photoLine', mediaId: item.mediaId, ms: item.ms }
                 : { type: 'assistantNote', note: item.note },
           ),
+        // Cancel recording (Lea, 6 Nov): this recording's stamps off, its marks as words; saved now, before
+        // the server half (a document that became a lecture is a document again right after).
+        unstamp: async (fromMs) => {
+          editorRef.current?.run({ type: 'unstamp', fromMs });
+          await flushNotes.current().catch(() => {});
+        },
       });
     }, [momentsHere, id]),
   );
@@ -565,6 +576,7 @@ export default function DocumentScreen() {
   };
   // Ask Claude on a selection (step 6.3): any document; a suggestion to accept or reject.
   const askClaude = useAskClaude({ fileId: id ?? null, courseId: file?.course_id ?? null, editorRef, showUndo });
+  const discardRecording = useDiscardRecording();
   const menuButton = useRef<View>(null);
   const openMenu = async () => {
     if (!item) return;
@@ -594,8 +606,13 @@ export default function DocumentScreen() {
             : []),
         ]
       : [];
+    // Cancel recording (Lea, 6 Nov): while this document records (not after Stop), last and red, under its own heading.
+    const discardable = recordingHere && live.lectureId === id && (live.status === 'recording' || live.status === 'paused') && !recordingFlowState.saving;
+    const after: DialogButton[] = discardable
+      ? [{ text: `${DISCARD_LABEL}…`, icon: 'trash-outline', style: 'destructive', section: 'Recording', accessibilityLabel: 'Discard this recording', onPress: () => void discardRecording() }]
+      : [];
     // With a document open, Export PDF… (4.8a) takes the place of the lecture's earlier-notes export (still in the library's menu).
-    itemMenu.open(item, await anchorBelow(menuButton), { skip: showEditor ? ['open', 'export'] : ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined });
+    itemMenu.open(item, await anchorBelow(menuButton), { skip: showEditor ? ['open', 'export'] : ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined, after });
   };
 
   const meta = file ? `${courseName ?? 'My library'} · ${isLecture ? 'Lecture' : file.kind === 'unit_summary' ? 'Unit summary' : file.kind === 'exam_pack' ? 'Exam pack' : 'Document'} · ${metaDate(file.created_at)}` : '';

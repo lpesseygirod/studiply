@@ -187,7 +187,15 @@ export function createSyncQueue(deps: QueueDeps) {
   let running: Promise<void> | null = null;
   let again = false;
   let inFlight: string | null = null;
+  let inFlightKey: string | null = null;
   let timer: unknown = null;
+  /** Waiting for an operation in flight to end (idleFor). */
+  const settledWaiters = new Set<() => void>();
+  const setInFlight = (op: SyncOp | null) => {
+    inFlight = op?.id ?? null;
+    inFlightKey = op?.key ?? null;
+    if (!op) settledWaiters.forEach((fn) => fn());
+  };
 
   const emit = (e: SyncEvent) => listeners.forEach((fn) => fn(e));
 
@@ -264,12 +272,12 @@ export function createSyncQueue(deps: QueueDeps) {
 
     let refreshed = false;
     for (;;) {
-      inFlight = op.id;
+      setInFlight(op);
       log(`${op.kind} ${op.key}: sending (try ${op.attempts + 1})`);
       try {
         await runWithTimeout(handler, op);
       } catch (err) {
-        inFlight = null;
+        setInFlight(null);
         const message = describeError(err);
         let kind = classify(err);
         log(`${op.kind} ${op.key}: ${kind} (${message})`);
@@ -298,7 +306,7 @@ export function createSyncQueue(deps: QueueDeps) {
         schedule(next);
         return false;
       }
-      inFlight = null;
+      setInFlight(null);
       // If the app is killed before this, the operation runs again on the
       // next start, which handlers allow.
       await deps.store.remove(op.id);
@@ -403,6 +411,32 @@ export function createSyncQueue(deps: QueueDeps) {
     flush().catch(() => {});
   }
 
+  /**
+   * Cancel recording (Lea, 6 Nov): every waiting operation that `test` picks is removed (one in flight
+   * finishes: see idleFor). Returns how many were removed.
+   */
+  async function discardWhere(test: (op: SyncOp) => boolean): Promise<number> {
+    const userId = deps.userId();
+    if (!userId) return 0;
+    const gone = (await deps.store.list(userId)).filter((o) => o.id !== inFlight && test(o));
+    for (const op of gone) await deps.store.remove(op.id);
+    if (gone.length) emit({ type: 'changed' });
+    return gone.length;
+  }
+
+  /** Resolves once no operation on `key` is being sent (at once when none is). */
+  function idleFor(key: string): Promise<void> {
+    if (inFlightKey !== key) return Promise.resolve();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (inFlightKey === key) return;
+        settledWaiters.delete(check);
+        resolve();
+      };
+      settledWaiters.add(check);
+    });
+  }
+
   function subscribe(fn: (e: SyncEvent) => void): () => void {
     listeners.add(fn);
     return () => {
@@ -416,7 +450,7 @@ export function createSyncQueue(deps: QueueDeps) {
     return userId ? deps.store.list(userId) : [];
   }
 
-  return { enqueue, flush, counts, pendingFor, retryFailed, discard, subscribe, list };
+  return { enqueue, flush, counts, pendingFor, retryFailed, discard, discardWhere, idleFor, subscribe, list };
 }
 
 export type SyncQueue = ReturnType<typeof createSyncQueue>;

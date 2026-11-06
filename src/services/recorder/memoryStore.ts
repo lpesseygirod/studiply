@@ -38,6 +38,10 @@ export function createMemoryRecordingStore(): RecordingStore & {
       chunks = chunks.filter((c) => c.lectureId !== id);
       parts = parts.filter((p) => p.lectureId !== id);
     },
+    async dropChunks(id, fromSeq) {
+      chunks = chunks.filter((c) => c.lectureId !== id || c.seq < fromSeq);
+      parts = parts.filter((p) => p.lectureId !== id || p.seq < fromSeq);
+    },
     async addPart(part) {
       parts.push({ ...part });
     },

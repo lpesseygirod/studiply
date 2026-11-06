@@ -76,6 +76,9 @@ export function createNativeStore(): RecordingStore {
       await queue(id, () => AsyncStorage.removeItem(entryKey(id)));
       await setIndex((ids) => ids.filter((x) => x !== id));
     },
+    async dropChunks(id, fromSeq) {
+      await change(id, (e) => ({ ...e, chunks: e.chunks.filter((c) => c.seq < fromSeq), parts: e.parts.filter((p) => p.seq < fromSeq) }));
+    },
     async addPart(part) {
       await change(part.lectureId, (e) => ({
         ...e,
