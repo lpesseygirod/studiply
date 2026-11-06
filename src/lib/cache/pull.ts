@@ -38,6 +38,8 @@ export const PULL_TABLES: CachedTable[] = [
   // Step 9.1: Review offline (a rating made here is queued, review.service).
   'flashcards',
   'review_schedule',
+  // Step 9.1b: the Quiz me tab's list of quizzes.
+  'quizzes',
 ];
 
 export const PAGE = 1000;

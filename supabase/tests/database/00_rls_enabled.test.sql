@@ -10,7 +10,9 @@ select tables_are(
     'profiles', 'courses', 'course_settings', 'folders', 'files', 'documents',
     'document_versions', 'lectures', 'audio_chunks', 'transcript_segments',
     'note_lines', 'marks', 'media', 'assistant_messages', 'summaries',
-    'flashcards', 'review_schedule', 'ai_usage', 'ai_consent'
+    'flashcards', 'review_schedule', 'ai_usage', 'ai_consent',
+    -- Step 9.1b
+    'quizzes', 'quiz_sources', 'quiz_questions', 'quiz_attempts', 'quiz_answers'
   ],
   'public has exactly the expected tables'
 );

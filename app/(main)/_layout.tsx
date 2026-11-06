@@ -16,6 +16,7 @@ import { RecordingPill } from '../../src/components/recording/RecordingPill';
 import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
 import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
 import { LecturePicker } from '../../src/components/summarize/LecturePicker';
+import { NewQuizPanel } from '../../src/components/quiz/NewQuizPanel';
 import { SummaryBanner } from '../../src/components/summarize/SummaryBanner';
 import { useSummaryBanner } from '../../src/components/summarize/summaryBannerState';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
@@ -189,6 +190,7 @@ export default function MainLayout() {
           {/* Stop & summarize (step 7.3): over any screen, during a recording or after it. */}
           <SummarizePanel />
           <LecturePicker />
+          <NewQuizPanel />
           {!wide && toast}
           {Platform.OS === 'web' && <KeyboardShortcuts />}
           {__DEV__ && <DragDebugOverlay />}

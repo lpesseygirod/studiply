@@ -791,6 +791,22 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
       - updated: the 7.7 placement (cards per lecture) and `useLayoutMode` (`review`).
     - **Chrome:** `review.mjs` (in my scratchpad; no paid call), with composites beside desktop-07, desktop-08 and iphone-10, light and dark.
     - **Builds:** `editor:build` needed (the Quiz me plugin and its CSS); no new EAS build; no new dependency.
+- [ ] 9.1b — Create a quiz, in three parts (the advisor's plan, approved 2 Nov).
+  - [ ] **9.1b-1 — data, calculator, panel (no AI). Built (2 Nov), not committed, for the advisor's review** (the migration local only).
+    - **Migration `20261029152100_quizzes.sql`:**
+      - new tables `quizzes` (settings, the calculator's plan, status pending → generating → ready | failed, soft delete), `quiz_sources` (lecture, resource or past exam), `quiz_questions` (8 types, the type's fields in `data`, `answer_text`, explanation, hint, Added context, the source: lecture and time or file and page, focus, difficulty, `from_question_id`), `quiz_attempts`, `quiz_answers`; owner-only (`apply_owner_rls`, composite foreign keys);
+      - the score trigger: an attempt's points, score out of 10 and pass/fail always from its answers;
+      - wrong answers into review: an answer graded wrong or partly makes one flashcard for its question (`source` quiz, `kind` question; a multiple-choice card lists its options), or brings it back from the trash; 9.1's trigger then schedules it. A grade she changes to correct trashes a card never reviewed, unless another answer to the question is still wrong;
+      - `course_settings.quiz_*` (10 slider defaults), `files.past_exam_format`, `ai_usage` operation `quiz`, `flashcards.source` `quiz` with one card per question (unique index).
+      - pgTAP `17_quizzes.test.sql` (38); `01_isolation` covers the 5 new tables (129).
+    - **The calculator** (`supabase/functions/_shared/quiz-plan.ts`, no imports; Jest `quizPlan.test.ts`): BUILD-PLAN's 10 sliders → numbers and one slot per new question (category, type, difficulty, focus, recall or understanding, lecture). Number of questions 5 × the value; the wrong answers that come back first; the mix where Definitions, Calculations and Theory vs practice pull against each other (the worked example D 8, C 3, T 7, 25 questions → 7 · 3 · 5 · 10); Exam focus (3 questions per flagged moment at most; at 10 only flagged moments, a shorter quiz and a notice when there are too few); My weak spots; a difficulty table; the types (a past exam's shares in 9.1b-2). Whole numbers throughout.
+    - **The settings** (`_shared/quiz-settings.ts`): what Create saves, the choices' defaults, the check.
+    - **New quiz** (`src/components/quiz/NewQuizPanel.tsx`; the rules in `src/lib/quiz/panel.ts`, Jest `quizPanel.test.ts`; data in `src/services/quiz.service.ts`): desktop-02's frame on the laptop, iphone-05's full-screen sheet on the iPhone. The course; the topic (Whole course, folders, lectures; one without a transcript greyed); resources (My notes and marks always, the lectures' summaries and their slides and photos, files **+ From my library** or uploaded into the course); past exams (shown with "Format read in a later update"); the 10 sliders, presets (Quick check, Exam tomorrow, Deep understanding, Reset) and Save as course default; the choices; the calculator's preview line. **Create quiz** saves the quiz pending with its settings, plan and sources; nothing calls a function (the questions are written in 9.1b-2). Needs a connection.
+    - **The summarize panel is unchanged:** its slider rows, presets, resource cards and rows and add buttons are now shared pieces (`src/components/panel/`), drawn exactly as before; its "+ From my library" stays greyed.
+    - **Review → Quiz me:** + New quiz and every quiz, newest first (title · questions · "Saved · written in a later update" · Take, greyed until 9.1b-3); its … menu (right-click, long-press): Delete quiz, with Undo. The iPhone keeps `quizzes` in its copy, so the list shows offline.
+    - **Tests:** Jest +88 (2,579); pgTAP as above; Chrome `quiz.mjs` (in my scratchpad), with composites beside desktop-02 and iphone-05.
+    - **Builds:** no `editor:build`, no EAS build, no new dependency.
+  - [ ] 9.1b-2 — generation. [ ] 9.1b-3 — taking, grading, results, offline.
 - [ ] 9.2 — Spaced review and course settings
 
 ## Phase 10 — App Store and web launch (`phase-10-launch`)
@@ -1566,6 +1582,15 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   - the offline insert limit and cut not redirecting references are accepted (Known issues). Still out: .xlsx, charts in a sheet, several sheets per tab, styles beyond bold, number formats, column widths, Spanish-style formulas.
 
 ## Things Lea must do
+
+- **Step 9.1b — your decisions, adopted for now (the advisor, 2 Nov; reversible):**
+  - Opus 5.5 writes quizzes; Sonnet 5.5 grades answers and reads a past exam's format.
+  - A past exam's length is its number of questions (it sets Number of questions).
+  - Past exams set the format only, never the questions' content.
+  - "Partly" counts as wrong: those questions come back and become review cards.
+  - The presets and defaults (every slider 5, Number of questions 2); uploaded files become normal course files.
+  - **Suggestions, not built:** renaming a quiz; a quiz's attempt history.
+- **Step 9.1b — the migration `20261029152100_quizzes` on the remote:** after a dry run, when you're ready (after 9.1b is done).
 
 - **Step 9.1 — review on your iPhone** (after `editor:build`, and the migration below pushed to the remote; no new EAS build):
   - review 10 cards on the iPhone, once in airplane mode too, then see them reviewed on the laptop (fewer due, each card's next date);

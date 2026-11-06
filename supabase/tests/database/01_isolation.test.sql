@@ -6,7 +6,7 @@
 -- zero counts for B are not vacuous.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(101);
+select plan(129);
 
 -- ---------------------------------------------------------------------
 -- Test helpers (in a throwaway schema, rolled back with the test)
@@ -37,7 +37,12 @@ insert into tests.tables values
   ('flashcards',          'user_id', 'front = front',               '0',      '0'),
   ('review_schedule',     'user_id', 'reps = reps',                 '0',      '0'),
   ('ai_usage',            'user_id', 'model = model',               'denied', 'denied'),
-  ('ai_consent',          'user_id', 'withdrawn_at = now()',        '0',      'denied');
+  ('ai_consent',          'user_id', 'withdrawn_at = now()',        '0',      'denied'),
+  ('quizzes',             'user_id', 'title = title',               '0',      '0'),
+  ('quiz_sources',        'user_id', 'position = position',         '0',      '0'),
+  ('quiz_questions',      'user_id', 'prompt = prompt',             '0',      '0'),
+  ('quiz_attempts',       'user_id', 'status = status',             '0',      '0'),
+  ('quiz_answers',        'user_id', 'reason = reason',             '0',      '0');
 grant select on tests.tables to anon, authenticated;
 
 -- Each helper runs as the current role, so RLS applies. 'denied' means the
@@ -106,13 +111,19 @@ insert into public.summaries (file_id, mode, sliders) values ('a0000000-0000-000
 insert into public.flashcards (id, source, front, back) values ('a0000000-0000-0000-0000-000000000006', 'manual', 'Q', 'A');
 -- Its review_schedule row is made by the card's trigger (step 9.1).
 insert into public.ai_consent (scope, policy_version) values ('transcription', '2026-10');
+-- Step 9.1b: a quiz, its source, a question, an attempt and an answer (right: no review card is made).
+insert into public.quizzes (id, course_id, title, settings, plan) values ('a0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'A quiz', '{}', '{}');
+insert into public.quiz_sources (quiz_id, role, file_id) values ('a0000000-0000-0000-0000-000000000007', 'lecture', 'a0000000-0000-0000-0000-000000000003');
+insert into public.quiz_questions (id, quiz_id, position, type, prompt) values ('a0000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000007', 0, 'true_false', 'Q');
+insert into public.quiz_attempts (id, quiz_id, max_points) values ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000007', 1);
+insert into public.quiz_answers (attempt_id, question_id, verdict, points, graded_by) values ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000008', 'correct', 1, 'code');
 
 -- ai_usage is written only by Edge Functions (service role), so seed it as the owner role.
 reset role;
 insert into public.ai_usage (user_id, operation, provider, model) values ('aaaaaaaa-0000-0000-0000-000000000000', 'transcription', 'openai', 'whisper-1');
 
 -- ---------------------------------------------------------------------
--- Positive control: A sees exactly its one row in every table (19 tests)
+-- Positive control: A sees exactly its one row in every table (24 tests)
 -- ---------------------------------------------------------------------
 
 set local role authenticated;
@@ -122,7 +133,7 @@ select is(tests.count_rows(tbl, owner_col, 'aaaaaaaa-0000-0000-0000-000000000000
 from tests.tables;
 
 -- ---------------------------------------------------------------------
--- B can't see, update or delete A's rows (3 × 19 = 57 tests)
+-- B can't see, update or delete A's rows (3 × 24 = 72 tests)
 -- ---------------------------------------------------------------------
 
 set local request.jwt.claims to '{"sub": "bbbbbbbb-0000-0000-0000-000000000000", "role": "authenticated"}';
@@ -165,8 +176,22 @@ select throws_ok(
   $$ insert into public.document_versions (file_id, content, reason) values ('a0000000-0000-0000-0000-000000000003', '{}', 'conflict') $$,
   '23503', null, 'B can''t add a conflict version to A''s lecture');
 
+select throws_ok(
+  $$ insert into public.quiz_questions (quiz_id, position, type, prompt) values ('a0000000-0000-0000-0000-000000000007', 1, 'numeric', 'planted') $$,
+  '23503', null, 'B can''t add a question to A''s quiz');
+
+select throws_ok(
+  $$ insert into public.quiz_attempts (quiz_id) values ('a0000000-0000-0000-0000-000000000007') $$,
+  '23503', null, 'B can''t start an attempt on A''s quiz');
+
+-- A question A hasn't answered in that attempt (A's own answer to question 8 would hit the
+-- one-answer-per-question key first, 23505).
+select throws_ok(
+  $$ insert into public.quiz_answers (attempt_id, question_id, verdict) values ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-00000000000a', 'wrong') $$,
+  '23503', null, 'B can''t answer in A''s attempt');
+
 -- ---------------------------------------------------------------------
--- Signed-out (anon) can't touch any table (19 tests)
+-- Signed-out (anon) can't touch any table (24 tests)
 -- ---------------------------------------------------------------------
 
 set local role anon;

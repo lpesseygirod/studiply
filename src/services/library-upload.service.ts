@@ -202,6 +202,7 @@ async function queueLibraryFile(p: UploadLibraryPayload, copyPicked: boolean): P
     sort_order: 0,
     starred_at: null,
     last_opened_at: null,
+    past_exam_format: null,
     deleted_at: null,
     created_at: at,
     updated_at: at,

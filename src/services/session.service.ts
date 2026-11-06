@@ -191,6 +191,7 @@ async function createSessionOnDevice(params: Parameters<typeof createSession>[0]
     sort_order: 0,
     starred_at: null,
     last_opened_at: null,
+    past_exam_format: null,
     deleted_at: null,
     created_at: at,
     updated_at: at,

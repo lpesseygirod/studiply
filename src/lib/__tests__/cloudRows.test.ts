@@ -44,6 +44,7 @@ const lectureFile: LectureFileRow = {
   sort_order: 0,
   starred_at: null,
   last_opened_at: null,
+  past_exam_format: null,
   deleted_at: null,
   created_at: T,
   updated_at: T,

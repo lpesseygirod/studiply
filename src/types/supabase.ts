@@ -87,14 +87,14 @@ isOneToOne: false
                   ]
                 },"course_settings": {
                   Row: {
-                    "course_id": string,"created_at": string,"exam_date": string | null,"exam_format": string | null,"professor": string | null,"slider_depth": number,"slider_exam_focus": number,"slider_examples": number,"slider_extra_resources": number,"slider_follow_marks": number,"slider_language": number,"slider_length": number,"slider_self_test": number,"slider_starting_point": number,"slider_visuals": number,"subject_type": string | null,"summary_language": string | null,"updated_at": string,"user_id": string
+                    "course_id": string,"created_at": string,"exam_date": string | null,"exam_format": string | null,"professor": string | null,"quiz_calculations": number,"quiz_count": number,"quiz_definitions": number,"quiz_detail": number,"quiz_difficulty": number,"quiz_exam_focus": number,"quiz_memory_understanding": number,"quiz_theory_practice": number,"quiz_traps": number,"quiz_weak_spots": number,"slider_depth": number,"slider_exam_focus": number,"slider_examples": number,"slider_extra_resources": number,"slider_follow_marks": number,"slider_language": number,"slider_length": number,"slider_self_test": number,"slider_starting_point": number,"slider_visuals": number,"subject_type": string | null,"summary_language": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "course_id": string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "course_id": string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "course_id"?: string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "course_id"?: string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -173,14 +173,14 @@ isOneToOne: false
                   ]
                 },"files": {
                   Row: {
-                    "changed_at": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"folder_id": string | null,"id": string,"kind": string,"last_opened_at": string | null,"sort_order": number,"starred_at": string | null,"title": string,"updated_at": string,"user_id": string
+                    "changed_at": string,"course_id": string | null,"created_at": string,"deleted_at": string | null,"folder_id": string | null,"id": string,"kind": string,"last_opened_at": string | null,"past_exam_format": Json | null,"sort_order": number,"starred_at": string | null,"title": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind": string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind": string,"last_opened_at"?: string | null,"past_exam_format"?: Json | null,"sort_order"?: number,"starred_at"?: string | null,"title": string,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind"?: string,"last_opened_at"?: string | null,"sort_order"?: number,"starred_at"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string
+                    "changed_at"?: string,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"folder_id"?: string | null,"id"?: string,"kind"?: string,"last_opened_at"?: string | null,"past_exam_format"?: Json | null,"sort_order"?: number,"starred_at"?: string | null,"title"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -354,6 +354,130 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"quiz_answers": {
+                  Row: {
+                    "answered_at": string,"attempt_id": string,"created_at": string,"graded_by": string | null,"hint_used": boolean,"id": string,"original_verdict": string | null,"points": number,"question_id": string,"reason": string,"response": NonNullable<Json>,"time_ms": number | null,"updated_at": string,"user_id": string,"verdict": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "answered_at"?: string,"attempt_id": string,"created_at"?: string,"graded_by"?: string | null,"hint_used"?: boolean,"id"?: string,"original_verdict"?: string | null,"points"?: number,"question_id": string,"reason"?: string,"response"?: NonNullable<Json>,"time_ms"?: number | null,"updated_at"?: string,"user_id"?: string,"verdict"?: string
+                  }
+                  Update: {
+                    "answered_at"?: string,"attempt_id"?: string,"created_at"?: string,"graded_by"?: string | null,"hint_used"?: boolean,"id"?: string,"original_verdict"?: string | null,"points"?: number,"question_id"?: string,"reason"?: string,"response"?: NonNullable<Json>,"time_ms"?: number | null,"updated_at"?: string,"user_id"?: string,"verdict"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quiz_answers_attempt_id_user_id_fkey"
+      columns: ["attempt_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quiz_attempts"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "quiz_answers_question_id_user_id_fkey"
+      columns: ["question_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quiz_questions"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"quiz_attempts": {
+                  Row: {
+                    "created_at": string,"duration_ms": number | null,"finished_at": string | null,"grading": string,"id": string,"max_points": number,"pass_threshold": number,"passed": boolean | null,"points": number,"quiz_id": string,"score": number,"started_at": string,"status": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"duration_ms"?: number | null,"finished_at"?: string | null,"grading"?: string,"id"?: string,"max_points"?: number,"pass_threshold"?: number,"passed"?: boolean | null,"points"?: number,"quiz_id": string,"score"?: number,"started_at"?: string,"status"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"duration_ms"?: number | null,"finished_at"?: string | null,"grading"?: string,"id"?: string,"max_points"?: number,"pass_threshold"?: number,"passed"?: boolean | null,"points"?: number,"quiz_id"?: string,"score"?: number,"started_at"?: string,"status"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quiz_attempts_quiz_id_user_id_fkey"
+      columns: ["quiz_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quizzes"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"quiz_questions": {
+                  Row: {
+                    "added_context": string,"answer_text": string,"created_at": string,"data": NonNullable<Json>,"difficulty": string,"explanation": string,"focus": string,"from_question_id": string | null,"hint": string,"id": string,"mark_id": string | null,"position": number,"prompt": string,"quiz_id": string,"source_file_id": string | null,"source_ms": number | null,"source_page": number | null,"type": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_context"?: string,"answer_text"?: string,"created_at"?: string,"data"?: NonNullable<Json>,"difficulty"?: string,"explanation"?: string,"focus"?: string,"from_question_id"?: string | null,"hint"?: string,"id"?: string,"mark_id"?: string | null,"position": number,"prompt": string,"quiz_id": string,"source_file_id"?: string | null,"source_ms"?: number | null,"source_page"?: number | null,"type": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "added_context"?: string,"answer_text"?: string,"created_at"?: string,"data"?: NonNullable<Json>,"difficulty"?: string,"explanation"?: string,"focus"?: string,"from_question_id"?: string | null,"hint"?: string,"id"?: string,"mark_id"?: string | null,"position"?: number,"prompt"?: string,"quiz_id"?: string,"source_file_id"?: string | null,"source_ms"?: number | null,"source_page"?: number | null,"type"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quiz_questions_from_question_id_user_id_fkey"
+      columns: ["from_question_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quiz_questions"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "quiz_questions_quiz_id_user_id_fkey"
+      columns: ["quiz_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quizzes"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "quiz_questions_source_file_id_user_id_fkey"
+      columns: ["source_file_id","user_id"]
+isOneToOne: false
+      referencedRelation: "files"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"quiz_sources": {
+                  Row: {
+                    "created_at": string,"file_id": string | null,"id": string,"position": number,"quiz_id": string,"role": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"file_id"?: string | null,"id"?: string,"position"?: number,"quiz_id": string,"role": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"file_id"?: string | null,"id"?: string,"position"?: number,"quiz_id"?: string,"role"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quiz_sources_file_id_user_id_fkey"
+      columns: ["file_id","user_id"]
+isOneToOne: false
+      referencedRelation: "files"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "quiz_sources_quiz_id_user_id_fkey"
+      columns: ["quiz_id","user_id"]
+isOneToOne: false
+      referencedRelation: "quizzes"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"quizzes": {
+                  Row: {
+                    "course_id": string | null,"created_at": string,"deleted_at": string | null,"error": string | null,"id": string,"language": string | null,"plan": NonNullable<Json>,"question_count": number,"settings": NonNullable<Json>,"status": string,"title": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan": NonNullable<Json>,"question_count"?: number,"settings": NonNullable<Json>,"status"?: string,"title": string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Update: {
+                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan"?: NonNullable<Json>,"question_count"?: number,"settings"?: NonNullable<Json>,"status"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quizzes_course_id_user_id_fkey"
+      columns: ["course_id","user_id"]
+isOneToOne: false
+      referencedRelation: "courses"
+      referencedColumns: ["id","user_id"]
+    }
                   ]
                 },"review_schedule": {
                   Row: {

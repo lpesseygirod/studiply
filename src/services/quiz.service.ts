@@ -1,0 +1,284 @@
+/**
+ * quiz.service.ts
+ * Create a quiz (step 9.1b-1): the New quiz panel's data, Save as course default, the quiz saved,
+ * the Quiz me tab's list, Delete with Undo.
+ *
+ * - Making a quiz needs a connection (BUILD-PLAN), so the panel reads Supabase and Create writes there
+ *   on both devices: a `quizzes` row (pending, its settings and the calculator's plan) and its
+ *   `quiz_sources`. Nothing is sent to an AI service here: the quiz function writes the questions
+ *   in 9.1b-2.
+ * - The list: the iPhone reads its own copy (`quizzes` is downloaded with the library), so Review
+ *   shows the quizzes offline too; the laptop reads Supabase.
+ */
+
+import { NetworkError, serviceError } from '../lib/cloudRows';
+import { cacheEnabled, readRows } from '../lib/cache/store';
+import { remember } from '../lib/cache';
+import { isOffline } from '../lib/connectivity';
+import { newId } from '../lib/mappers';
+import { supabase } from '../lib/supabase';
+import type { Json } from '../types/supabase';
+import { fromQuizCourseSettings, QUIZ_COLUMNS, QUIZ_SLIDER_DEFAULTS, QUIZ_SLIDER_KEYS, toQuizCourseSettings, type QuizPlan, type QuizSliders } from '../../supabase/functions/_shared/quiz-plan';
+import { settingsProblem, type QuizSettings } from '../../supabase/functions/_shared/quiz-settings';
+import { SUMMARY_FORMAT } from '../../supabase/functions/_shared/summary-schema';
+import { CALCULATING_MODULES, type MaterialLecture, type QuizMaterial } from '../lib/quiz/panel';
+
+export type QuizStatus = 'pending' | 'generating' | 'ready' | 'failed';
+
+export interface QuizRow {
+  id: string;
+  user_id: string;
+  course_id: string | null;
+  title: string;
+  status: QuizStatus;
+  error: string | null;
+  question_count: number;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizListItem {
+  id: string;
+  title: string;
+  status: QuizStatus;
+  questionCount: number;
+  courseId: string | null;
+  createdAt: string;
+}
+
+const QUIZ_COLUMNS_READ = 'id, user_id, course_id, title, status, error, question_count, deleted_at, created_at, updated_at';
+
+const toItem = (r: QuizRow): QuizListItem => ({ id: r.id, title: r.title, status: r.status, questionCount: r.question_count, courseId: r.course_id, createdAt: r.created_at });
+
+/** Every quiz not deleted, newest first. */
+export async function listQuizzes(): Promise<QuizListItem[]> {
+  let rows: QuizRow[];
+  if (cacheEnabled) {
+    rows = await readRows<QuizRow>('quizzes');
+  } else {
+    const { data, error } = await supabase.from('quizzes').select(QUIZ_COLUMNS_READ).is('deleted_at', null).order('created_at', { ascending: false });
+    if (error) throw serviceError(error, 'Could not load your quizzes.');
+    rows = (data ?? []) as QuizRow[];
+  }
+  return rows
+    .filter((r) => !r.deleted_at)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .map(toItem);
+}
+
+/** Delete with Undo (the trash: deleted_at). Needs a connection. Returns the undo. */
+export async function deleteQuiz(id: string): Promise<() => Promise<void>> {
+  if (isOffline()) throw new NetworkError();
+  const set = async (deletedAt: string | null, fallback: string) => {
+    const { data, error } = await supabase.from('quizzes').update({ deleted_at: deletedAt }).eq('id', id).select(QUIZ_COLUMNS_READ);
+    if (error) throw serviceError(error, fallback);
+    remember('quizzes', data ?? []);
+  };
+  await set(new Date().toISOString(), 'Could not delete the quiz.');
+  notifyQuizzesChanged();
+  return async () => {
+    await set(null, 'Could not restore the quiz.');
+    notifyQuizzesChanged();
+  };
+}
+
+// -------------------------------------------------------------------
+// The list follows a quiz made or deleted elsewhere (the panel is drawn by the layout)
+// -------------------------------------------------------------------
+const listeners = new Set<() => void>();
+export function onQuizzesChanged(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+export function notifyQuizzesChanged(): void {
+  listeners.forEach((fn) => fn());
+}
+
+// -------------------------------------------------------------------
+// The panel's data
+// -------------------------------------------------------------------
+
+export interface QuizCourse {
+  id: string;
+  name: string;
+}
+
+/** The courses a quiz can be made from (not in the trash), by name. */
+export async function quizCourses(): Promise<QuizCourse[]> {
+  if (isOffline()) throw new NetworkError();
+  const { data, error } = await supabase.from('courses').select('id, name').is('deleted_at', null).order('name');
+  if (error) throw serviceError(error, 'Could not load your courses.');
+  return (data ?? []) as QuizCourse[];
+}
+
+/** The course of the newest quiz, to open the panel on (else none). */
+export async function lastQuizCourse(): Promise<string | null> {
+  const list = await listQuizzes().catch(() => []);
+  return list.find((q) => q.courseId)?.courseId ?? null;
+}
+
+/** The course's quiz defaults, else every slider 5 and Number of questions 2. */
+export async function quizDefaults(courseId: string): Promise<{ sliders: QuizSliders; subjectType: string | null }> {
+  const { data, error } = await supabase.from('course_settings').select(`subject_type, ${QUIZ_SLIDER_KEYS.map((k) => QUIZ_COLUMNS[k]).join(', ')}`).eq('course_id', courseId).maybeSingle();
+  if (error || !data) return { sliders: QUIZ_SLIDER_DEFAULTS, subjectType: null };
+  const row = data as unknown as Record<string, unknown>;
+  return { sliders: fromQuizCourseSettings(row), subjectType: typeof row.subject_type === 'string' ? row.subject_type : null };
+}
+
+/** Save as course default: the course's 10 quiz values. Online only. */
+export async function saveQuizDefaults(courseId: string, s: QuizSliders): Promise<void> {
+  if (isOffline()) throw new NetworkError();
+  const { error } = await supabase
+    .from('course_settings')
+    .update(toQuizCourseSettings(s) as { quiz_difficulty: number })
+    .eq('course_id', courseId);
+  if (error) throw serviceError(error, 'Could not save the course’s defaults.');
+}
+
+type SummaryRead = { file_id: string; result: { format?: unknown; examSignals?: unknown[]; modulesUsed?: unknown[]; subjectType?: unknown } | null; created_at: string };
+
+/** What the panel shows for a course: its lectures (with what makes the quiz's numbers), folders, files and earlier quiz answers. */
+export async function loadQuizMaterial(course: QuizCourse): Promise<QuizMaterial> {
+  if (isOffline()) throw new NetworkError();
+  const [defaults, files, folders] = await Promise.all([
+    quizDefaults(course.id),
+    supabase.from('files').select('id, title, kind, folder_id, created_at').eq('course_id', course.id).is('deleted_at', null).order('created_at'),
+    supabase.from('folders').select('id, name').eq('course_id', course.id).is('deleted_at', null).order('name'),
+  ]);
+  if (files.error) throw serviceError(files.error, 'Could not load the course.');
+  if (folders.error) throw serviceError(folders.error, 'Could not load the course.');
+  const all = (files.data ?? []) as { id: string; title: string; kind: string; folder_id: string | null }[];
+  const lectureFiles = all.filter((f) => f.kind === 'lecture');
+  const ids = lectureFiles.map((f) => f.id);
+
+  const none = { data: [], error: null };
+  const [lectures, summaries, marks, questions, quizzes] = await Promise.all([
+    ids.length ? supabase.from('lectures').select('id, duration_ms').in('id', ids) : none,
+    ids.length ? supabase.from('summaries').select('file_id, result, created_at').in('file_id', ids).eq('status', 'done').order('created_at', { ascending: false }) : none,
+    ids.length ? supabase.from('marks').select('lecture_id, type').in('lecture_id', ids) : none,
+    ids.length ? supabase.from('assistant_messages').select('lecture_id, window_start_ms, window_end_ms').in('lecture_id', ids).eq('role', 'user').not('window_start_ms', 'is', null) : none,
+    supabase.from('quizzes').select('id').eq('course_id', course.id),
+  ]);
+  for (const r of [lectures, summaries, marks, questions, quizzes]) if (r.error) throw serviceError(r.error, 'Could not load the course.');
+
+  // Transcribed: any segment (one row each, in parallel).
+  const transcribed = new Set<string>();
+  await Promise.all(
+    ids.map(async (id) => {
+      const { count } = await supabase.from('transcript_segments').select('id', { count: 'exact', head: true }).eq('lecture_id', id);
+      if (count) transcribed.add(id);
+    }),
+  );
+
+  const duration = new Map(((lectures.data ?? []) as { id: string; duration_ms: number | null }[]).map((l) => [l.id, l.duration_ms ?? 0]));
+  const newest = new Map<string, SummaryRead>();
+  for (const s of (summaries.data ?? []) as SummaryRead[]) if (s.result?.format === SUMMARY_FORMAT && !newest.has(s.file_id)) newest.set(s.file_id, s);
+  const markRows = (marks.data ?? []) as { lecture_id: string; type: string }[];
+  const windows = (questions.data ?? []) as { lecture_id: string; window_start_ms: number; window_end_ms: number | null }[];
+
+  const lectureList: MaterialLecture[] = lectureFiles.map((f) => {
+    const summary = newest.get(f.id)?.result ?? null;
+    const own = markRows.filter((m) => m.lecture_id === f.id);
+    const modules = Array.isArray(summary?.modulesUsed) ? summary.modulesUsed : [];
+    return {
+      id: f.id,
+      title: f.title,
+      folderId: f.folder_id,
+      durationMs: duration.get(f.id) ?? 0,
+      hasTranscript: transcribed.has(f.id),
+      hasSummary: !!summary,
+      examSignals: Array.isArray(summary?.examSignals) ? summary.examSignals.length : 0,
+      marks: own.length,
+      examMarks: own.filter((m) => m.type === 'exam').length,
+      confusedMarks: own.filter((m) => m.type === 'confused').length,
+      assistantWindows: new Set(windows.filter((w) => w.lecture_id === f.id).map((w) => `${w.window_start_ms}-${w.window_end_ms}`)).size,
+      calculations: summary ? modules.some((x) => CALCULATING_MODULES.includes(String(x))) || ['math', 'finance', 'science', 'programming'].includes(String(summary.subjectType)) : null,
+    };
+  });
+
+  // Earlier questions of this course's quizzes, and every answer to them.
+  const quizIds = ((quizzes.data ?? []) as { id: string }[]).map((q) => q.id);
+  let questionRows: { id: string; from_question_id: string | null; source_file_id: string | null }[] = [];
+  let answerRows: { question_id: string; verdict: string; answered_at: string }[] = [];
+  if (quizIds.length) {
+    const q = await supabase.from('quiz_questions').select('id, from_question_id, source_file_id').in('quiz_id', quizIds);
+    if (q.error) throw serviceError(q.error, 'Could not load the course.');
+    questionRows = q.data ?? [];
+    const qIds = questionRows.map((r) => r.id);
+    if (qIds.length) {
+      const a = await supabase.from('quiz_answers').select('question_id, verdict, answered_at').in('question_id', qIds);
+      if (a.error) throw serviceError(a.error, 'Could not load the course.');
+      answerRows = a.data ?? [];
+    }
+  }
+
+  return {
+    courseId: course.id,
+    courseName: course.name,
+    subjectType: defaults.subjectType,
+    defaults: defaults.sliders,
+    folders: (folders.data ?? []) as { id: string; name: string }[],
+    lectures: lectureList,
+    files: all.filter((f) => f.kind !== 'lecture').map((f) => ({ id: f.id, title: f.title, kind: f.kind })),
+    questions: questionRows.map((r) => ({ id: r.id, fromQuestionId: r.from_question_id, sourceFileId: r.source_file_id })),
+    answers: answerRows.map((r) => ({ questionId: r.question_id, verdict: r.verdict, answeredAt: r.answered_at })),
+  };
+}
+
+// -------------------------------------------------------------------
+// Create quiz
+// -------------------------------------------------------------------
+
+export interface CreateQuiz {
+  courseId: string;
+  title: string;
+  settings: QuizSettings;
+  plan: QuizPlan;
+}
+
+/**
+ * Saves the quiz: a pending `quizzes` row (its settings and plan) and its sources. No AI is called:
+ * the quiz is written in 9.1b-2. Every file must be on the server already (an upload from the iPhone
+ * may still be on its way).
+ */
+export async function createQuiz(ask: CreateQuiz): Promise<string> {
+  if (isOffline()) throw new NetworkError();
+  const problem = settingsProblem(ask.settings);
+  if (problem) throw new Error(problem);
+  const s = ask.settings;
+  const fileIds = [...new Set([...s.topic.lectureIds, ...s.resources.fileIds, ...s.pastExamIds])];
+  const { data: present, error: filesError } = await supabase.from('files').select('id').in('id', fileIds);
+  if (filesError) throw serviceError(filesError, 'Could not save the quiz.');
+  if ((present ?? []).length < fileIds.length) throw new Error('A file you added is still uploading. Try again in a moment.');
+
+  const id = newId();
+  const { data, error } = await supabase
+    .from('quizzes')
+    .insert({
+      id,
+      course_id: ask.courseId,
+      title: ask.title,
+      status: 'pending',
+      settings: s as unknown as NonNullable<Json>,
+      plan: ask.plan as unknown as NonNullable<Json>,
+      language: s.choices.language,
+      question_count: ask.plan.count,
+    })
+    .select(QUIZ_COLUMNS_READ);
+  if (error) throw serviceError(error, 'Could not save the quiz.');
+  const sources = [
+    ...s.topic.lectureIds.map((fileId, position) => ({ quiz_id: id, role: 'lecture', file_id: fileId, position })),
+    ...s.resources.fileIds.map((fileId, position) => ({ quiz_id: id, role: 'resource', file_id: fileId, position })),
+    ...s.pastExamIds.map((fileId, position) => ({ quiz_id: id, role: 'past_exam', file_id: fileId, position })),
+  ];
+  const { error: sourcesError } = await supabase.from('quiz_sources').insert(sources);
+  if (sourcesError) {
+    // Not half saved: the quiz goes with its sources or not at all.
+    await supabase.from('quizzes').delete().eq('id', id);
+    throw serviceError(sourcesError, 'Could not save the quiz.');
+  }
+  remember('quizzes', data ?? []);
+  notifyQuizzesChanged();
+  return id;
+}

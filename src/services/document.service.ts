@@ -215,6 +215,7 @@ async function createDocumentOnDevice(payload: CreateDocumentPayload): Promise<s
     sort_order: 0,
     starred_at: null,
     last_opened_at: at,
+    past_exam_format: null,
     deleted_at: null,
     created_at: at,
     updated_at: at,

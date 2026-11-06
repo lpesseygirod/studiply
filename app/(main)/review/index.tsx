@@ -10,6 +10,8 @@ import { Typography } from '../../../src/constants/typography';
 import { GradientBackground } from '../../../src/components/GradientBackground';
 import { FlashcardsView } from '../../../src/components/review/FlashcardsView';
 import { QuizView } from '../../../src/components/review/QuizView';
+import { QuizList } from '../../../src/components/quiz/QuizList';
+import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useShellScreen, type DocumentHeader } from '../../../src/components/shell/ShellContext';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { loadReview, type ReviewCard, type ReviewData } from '../../../src/services/review.service';
@@ -19,7 +21,7 @@ import { errorMessage } from '../../../src/utils/errors';
 type Mode = 'cards' | 'quiz';
 
 /**
- * Review (step 9.1): Flashcards and Quiz me.
+ * Review (step 9.1): Flashcards and Quiz me (step 9.1b: + New quiz and the quizzes made, above).
  * - Laptop (desktop-07/08): no sidebar; the top bar names the card's course and lecture and holds the
  *   Quiz me | Flashcards control (?mode=quiz); the card in a centred column on the gradient.
  * - iPhone (iphone-10): the Review tab: "Review", "N due today", Flashcards | Quiz me, the card.
@@ -38,6 +40,7 @@ export default function ReviewScreen() {
   const [session, setSession] = useState(0);
   const [reviewed, setReviewed] = useState(0);
   const [shown, setShown] = useState<{ course: string | null; lecture: string | null; fileId: string | null } | null>(null);
+  const { showUndo, toast: undoToast } = useUndoToast();
 
   const load = useCallback(() => {
     setError(null);
@@ -121,9 +124,12 @@ export default function ReviewScreen() {
               </View>
             </>
           )}
+          {/* Step 9.1b: + New quiz and the quizzes made, above the summaries' questions. */}
+          {mode === 'quiz' && <QuizList showUndo={showUndo} />}
           {body}
         </View>
       </ScrollView>
+      {undoToast}
     </GradientBackground>
   );
 }
