@@ -16,15 +16,19 @@
  * - Step 8.2: function plots, model graphs and data charts (line, bar, stacked bar, histogram) are each a
  *   `graph` block of their own kind (editor/graph/data.ts), drawn by the charts module; a kind it doesn't
  *   draw yet shows its line in its place. A data chart with no series is still a placeholder line.
+ * - Lea, 6 Nov: pie and scatter charts too; a graph redrawn from a photo (`fromPhoto`) is followed by the
+ *   photo, small (the board photos' 35 %, `media`), and "Redrawn from your photo at mm:ss — check the
+ *   values" (`ai`), in place of the photo full size; a value read between gridlines shows as "≈7.5".
  * - Step 8.1: the twelve text modules (timeline, cause → effect, key figures, comparison, process,
  *   framework, theory card, case card, argument, code, vocabulary, worked example) are each one
  *   `studyModule` block (editor/schema/studyModule.ts) holding ordinary lists, tables and paragraphs.
  */
 
 import type { StoredSummary } from '../../supabase/functions/_shared/summary-pipeline';
-import { cleanRange, curveId, FUNCTION_MARKS, LATER, MODEL_CURVES, type GraphKind, type ModelTemplate } from '../editor/graph/data';
+import { APPROX, cleanRange, curveId, FUNCTION_MARKS, LATER, MODEL_CURVES, type GraphKind, type ModelTemplate } from '../editor/graph/data';
 import { mediaSrc } from '../editor/media/photoSource';
 import type { Origin } from '../editor/schema/blockMeta';
+import { BOARD_PHOTO_WIDTH } from '../editor/schema/photo';
 import { parseClock } from '../editor/schema/timestampChip';
 import { assistantLink, tabLink } from './appLinks';
 
@@ -73,6 +77,8 @@ export const WORDS = {
   premises: 'Supporting premises',
   objections: 'Objections',
   reply: 'Reply',
+  // Lea, 6 Nov: under a graph redrawn from a photo, the photo small and this line.
+  redrawn: (t: string) => `Redrawn from your photo${t ? ` at ${t}` : ''} — check the values`,
 };
 type Words = typeof WORDS;
 
@@ -340,6 +346,9 @@ function gridTable(cells: { label: string; content: string }[]): Node | null {
   return { type: 'table', content: rows };
 }
 
+/** The photo a graph is redrawn from (Lea, 6 Nov: `fromPhoto`); "" when none. */
+const photoOf = (b: Block): string => (['dataChart', 'functionPlot', 'modelGraph'].includes(b.type) && typeof b.fromPhoto === 'string' ? b.fromPhoto.trim() : '');
+
 /** A graph block (4.7d) of a summary's kind; a function or a model graph keeps the table's defaults. */
 const graph = (kind: GraphKind, title: string, extra: Record<string, unknown>): Node => ({ type: 'graph', attrs: { kind, title, xLabel: '', yLabel: '', series: ['Series 1'], rows: [], ...extra } });
 
@@ -347,10 +356,12 @@ const graph = (kind: GraphKind, title: string, extra: Record<string, unknown>): 
 function dataChart(b: Block): Node | null {
   const series = (Array.isArray(b.series) ? b.series : []) as { name: string; points: { x: string; y: number }[] }[];
   if (!series.length) return null;
-  const kind = ['line', 'bar', 'stackedBar', 'histogram'].find((k) => k === b.chart) as GraphKind | undefined;
+  const kind = ['line', 'bar', 'stackedBar', 'histogram', 'pie', 'scatter'].find((k) => k === b.chart) as GraphKind | undefined;
   if (!kind) return null;
   const labels = [...new Set(series.flatMap((s) => s.points.map((pt) => String(pt.x))))];
-  const rows = labels.map((x) => [x, ...series.slice(0, 3).map((s) => String(s.points.find((pt) => String(pt.x) === x)?.y ?? ''))]);
+  // A value read between a photo's gridlines (Lea, 6 Nov): "≈7.5" in its cell (the graph still reads the number).
+  const cell = (pt: { y: number; approx?: boolean } | undefined) => (pt ? `${pt.approx ? APPROX : ''}${pt.y}` : '');
+  const rows = labels.map((x) => [x, ...series.slice(0, 3).map((s) => cell((s.points as { x: string; y: number; approx?: boolean }[]).find((pt) => String(pt.x) === x)))]);
   return graph(kind, String(b.title ?? ''), { xLabel: String(b.xLabel ?? ''), yLabel: String(b.yLabel ?? ''), series: series.slice(0, 3).map((s) => s.name), rows });
 }
 
@@ -399,15 +410,35 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [], check 
   const takeaways = (s.takeaways ?? []) as { text: string }[];
   if (takeaways.length) add('takeaways', { type: 'callout', attrs: { kind: 'takeaways' }, content: [list(takeaways.map((t) => inline(t.text)))] });
 
-  ((s.sections ?? []) as (Section & { lecture?: string })[]).forEach((sec, si) => {
+  const allSections = (s.sections ?? []) as (Section & { lecture?: string })[];
+  // Each photo's time and caption (its capturedImage), for the graphs redrawn from it.
+  const photos = new Map(allSections.flatMap((x) => x.blocks.filter((b) => b.type === 'capturedImage').map((b) => [String(b.imageId), { t: String(b.timestamp ?? ''), caption: String(b.caption ?? '') }] as const)));
+  allSections.forEach((sec, si) => {
     const at = ms(sec.timestamp);
     // Chips are her own marks only: the implicit signals (a question to the assistant, a concept
     // explained 3+ times) shaped the section's content but must not look like marks she set.
     const chips = sec.markChips.filter((k) => !isImplicitMark(k.markId)).map((k) => markChip(k.type, k.level));
     // Step 7.9: a section a lecture added is tagged with it ("4 · Lecture 2 · La sinapsis").
     add(`s${si}`, { type: 'heading', attrs: { level: 2, cue: sec.cueQuestion || null }, content: [text(`${si + firstSection} · ${sec.lecture ? `${sec.lecture} · ` : ''}${sec.heading}`), ...(at !== null ? [text(' '), chip(at)] : []), ...(chips.length ? [text(' '), ...spaced(chips)] : [])] });
+    const converted = sec.blocks.map((b) => convertBlock(b, w));
+    // Lea, 6 Nov: a graph redrawn from a photo has the photo small under it (after the last one from it)
+    // and "Redrawn from your photo at mm:ss — check the values"; the photo isn't shown full size again.
+    const lastFrom = new Map<string, number>();
     sec.blocks.forEach((b, bi) => {
-      const { nodes, origin } = convertBlock(b, w);
+      if (photoOf(b) && converted[bi].nodes.length) lastFrom.set(photoOf(b), bi);
+    });
+    sec.blocks.forEach((b, bi) => {
+      if (b.type === 'capturedImage' && lastFrom.has(String(b.imageId))) return;
+      const done = converted[bi];
+      let nodes = done.nodes;
+      let origin = done.origin;
+      const id = photoOf(b);
+      if (id && lastFrom.get(id) === bi) {
+        const photo = photos.get(id);
+        const own: Origin[] = nodes.map((_, ni) => (Array.isArray(origin) ? origin[ni] : (origin ?? 'ai')));
+        nodes = [...nodes, { type: 'image', attrs: { src: mediaSrc(id), alt: photo?.caption || null, width: BOARD_PHOTO_WIDTH } }, para([text(w.redrawn(photo?.t || String(b.timestamp ?? '')), [{ type: 'italic' }])])];
+        origin = [...own, 'media', 'ai'];
+      }
       nodes.forEach((n, ni) => add(`s${si}-b${bi}${nodes.length > 1 ? `-${ni}` : ''}`, n, Array.isArray(origin) ? origin[ni] : origin));
     });
   });

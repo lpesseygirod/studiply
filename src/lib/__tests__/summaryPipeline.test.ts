@@ -10,6 +10,7 @@ import {
   classifySystemPrompt,
   classifyUserText,
   noteMarkdown,
+  PHOTO_CHARTS_RULE,
   parseClassify,
   parseSummary,
   planFor,
@@ -400,6 +401,52 @@ describe('the run (Claude faked)', () => {
       expect(s.sections[0].blocks.filter((b) => b.type === 'capturedImage')).toEqual([{ type: 'capturedImage', imageId: 'p1', timestamp: '12:40', caption: 'Fig. 1.1' }]);
       expect(s.sections[1].blocks.some((b) => b.type === 'capturedImage')).toBe(false);
       expect(s.checks.photos).toEqual({ pass: true, total: 1, misplaced: [], fixedByCode: ['p1'] });
+    });
+
+    describe('Lea, 6 Nov: graphs redrawn from photos', () => {
+      /** validSummary with a bar chart redrawn from p1 (12:40) put in section 1 (31:05), its values not in the lecture. */
+      const withPhotoChart = () => {
+        const v = validSummary();
+        v.sections[1].blocks.push({ type: 'dataChart', chart: 'bar', title: 'Leído de la foto', xLabel: 'Año', yLabel: 'M€', series: [{ name: 'Ventas', points: [{ x: '2019', y: 12 }, { x: '2020', y: 98765, approx: true }] }], timestamp: '12:40', fromPhoto: 'p1' } as never);
+        return answer(JSON.stringify(packedSummary(v)));
+      };
+      const respond = (system: string, user: string) => (system.startsWith('You check a study summary') ? verify(user) : answer('{}'));
+
+      it('Visuals 8, the photos sent: the rule in the prompt; the graph moved to its photo’s section, before the photo; its values not verified; the report', async () => {
+        const t = setup([withPhotoChart()], { respond });
+        t.deps.request = { ...REQUEST, sliders: { ...SLIDER_DEFAULTS, visuals: 8 } };
+        const out = await runSummary(t.deps);
+        if (out.status !== 'done') throw new Error(out.error);
+        const generate = t.calls.find((c) => c.call === 'generate')!;
+        expect(generate.system).toContain(PHOTO_CHARTS_RULE);
+        expect(generate.system).toContain('; redraw the graphs in the photos.');
+        const s = out.summary as unknown as Stored;
+        expect(s.sections[0].blocks.slice(-2).map((b) => [b.type, b.fromPhoto ?? b.imageId])).toEqual([
+          ['dataChart', 'p1'],
+          ['capturedImage', 'p1'],
+        ]);
+        expect(s.sections[1].blocks.some((b) => b.fromPhoto)).toBe(false);
+        // Read off the photo: never sent to the verify call, never taken out of its chart.
+        expect(t.calls.some((c) => c.call === 'part' && c.system.startsWith('You check a study summary') && (c.content[0].text ?? '').includes('98765'))).toBe(false);
+        expect((s.sections[0].blocks.at(-2) as { series: { points: { y: number }[] }[] }).series[0].points.map((p) => p.y)).toEqual([12, 98765]);
+        expect(s.checks.photoCharts).toEqual({ pass: true, kept: 1, approxValues: 1, removed: [], moved: ['dataChart “Leído de la foto” (photo p1)'], cleared: [] });
+      });
+
+      it('Visuals 4 (the default), or no photo sent (no images consent): no rule, and the graph taken out', async () => {
+        const four = setup([withPhotoChart()], { respond });
+        const a = await runSummary(four.deps);
+        if (a.status !== 'done') throw new Error(a.error);
+        expect(four.calls.find((c) => c.call === 'generate')!.system).not.toContain(PHOTO_CHARTS_RULE);
+        expect((a.summary as unknown as Stored).sections.some((x) => x.blocks.some((b) => b.fromPhoto))).toBe(false);
+        expect((a.summary as unknown as Stored).checks.photoCharts).toMatchObject({ kept: 0, removed: [expect.stringContaining('Visuals 5')] });
+        const unsent = setup([withPhotoChart()], { respond });
+        unsent.deps.request = { ...REQUEST, sliders: { ...SLIDER_DEFAULTS, visuals: 8 } };
+        unsent.deps.media = async () => ({ blocks: [], photos: 0, pdfs: 0 });
+        const b = await runSummary(unsent.deps);
+        if (b.status !== 'done') throw new Error(b.error);
+        expect(unsent.calls.find((c) => c.call === 'generate')!.system).not.toContain(PHOTO_CHARTS_RULE);
+        expect((b.summary as unknown as Stored).checks.photoCharts).toMatchObject({ kept: 0, removed: [expect.stringContaining('Visuals 5')] });
+      });
     });
 
     it('a paragraph in English: that one section written again (first), spliced in, the check passing', async () => {

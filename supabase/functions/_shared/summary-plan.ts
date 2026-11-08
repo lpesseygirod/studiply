@@ -150,6 +150,8 @@ export interface SummaryPlan {
   prerequisites: 'defineAll' | 'defineCourseNew' | 'skipBasics';
   examples: 'none' | 'perThreeSections' | 'perSection' | 'perKeyIdea';
   visuals: 'none' | 'curvesModels' | 'plusTimelinesComparisonsProcesses' | 'perShapedSection';
+  /** Lea, 6 Nov: a graph in a photo may be redrawn as a chart (Visuals 5 and up; with photos ticked and the images consent). */
+  visualsFromPhotos: boolean;
   examWeighting: 'flagsOnly' | 'signalsSection' | 'examFirst';
   selfTest: { count: number; whyHow: number; kinds: QuestionKind[]; requiredMarkIds: string[] };
   vocabulary: 'plain' | 'definedOnFirstUse' | 'professorExact';
@@ -179,6 +181,8 @@ const ASSISTANT_CONFUSED_LEVEL = 6;
 const REPETITION_IMPORTANT_LEVEL = 6;
 const REPETITION_TIMES = 3;
 const MAX_TAKEAWAYS = 5;
+/** Lea, 6 Nov: from this Visuals level (the mid and high levels), graphs in photos are redrawn. */
+export const VISUALS_FROM_PHOTOS = 5;
 
 const KINDS_BY_FORMAT: Record<ExamFormat | 'none', QuestionKind[]> = {
   multiple_choice: ['recall', 'apply'],
@@ -329,6 +333,7 @@ export function planSummary(input: PlanInput): SummaryPlan {
     prerequisites: third(s.startingPoint, 'defineAll', 'defineCourseNew', 'skipBasics'),
     examples: fourth(s.examples, 'none', 'perThreeSections', 'perSection', 'perKeyIdea'),
     visuals: fourth(s.visuals, 'none', 'curvesModels', 'plusTimelinesComparisonsProcesses', 'perShapedSection'),
+    visualsFromPhotos: s.visuals >= VISUALS_FROM_PHOTOS,
     examWeighting: third(s.examFocus, 'flagsOnly', 'signalsSection', 'examFirst'),
     selfTest: { count: selfTestCount, whyHow: whyHowCount(selfTestCount), kinds: KINDS_BY_FORMAT[input.examFormat ?? 'none'], requiredMarkIds: required },
     vocabulary: third(s.language, 'plain', 'definedOnFirstUse', 'professorExact'),

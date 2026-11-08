@@ -813,6 +813,14 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **iPhone offline:** its copy changes at once; the server half is queued (`discard_recording`, after the lecture's own creation or conversion).
     - **Tests:** Jest +32 (2,611): the recorder (offline, an upload waited for, an upload and a transcription that answer after Discard leave nothing, an earlier recording kept), the flow, the service, the notes. Chrome `discard-recording.mjs` (in my scratchpad).
     - **Builds:** `editor:build` needed (the editors' `unstamp`); no EAS build, no migration, no new dependency.
+  - [ ] **Graphs redrawn from photos (Lea, 6 Nov; the approved plan). Built (8 Nov), not committed, for the advisor's review.** DESIGN "Graphs redrawn from her photos", SUMMARY-SPEC "Where the visual comes from" (source 5).
+    - **When:** Visuals 5 or more (the calculator's `visualsFromPhotos`), the photos ticked and sent (images consent). Then the generate prompt has the photo rule (`PHOTO_CHARTS_RULE`) and the Visuals line adds "redraw the graphs in the photos".
+    - **Blocks** (`summary-zod.ts`, all optional so older summaries still pass): `fromPhoto` on dataChart, functionPlot and modelGraph; dataChart adds pie and scatter and `approx` on a point.
+    - **Checks** (`summary-checks.ts` `fixPhotoCharts`, before `fixPhotos`): a photo it wasn't given → an ordinary chart (data) or gone (function, model); below Visuals 5 or without the photos → gone; at most 2 per photo; fewer than 2 values → gone; another section → moved to its photo's, before the photo. Faithfulness and `fixCharts` skip a graph from a given photo. Report `photoCharts { pass, kept, approxValues, removed, moved, cleared }`.
+    - **Document** (`summaryDoc.ts`): the graph, the photo small (35 %, `media`), the italic caption "Redrawn from your photo at mm:ss — check the values" (`ai`); the full-size photo dropped in that section. "≈7.5" in the table; `editor/graph/data.ts` `readNumber` reads ≈ and ~.
+    - **Free eval** (`scripts/eval-summaries.ts`): 4 new `--faults` (a photo not given, Visuals 3, 1 value, the wrong section); the fixture `synthetic-chart` (`scripts/fixtures/synthetic-chart-lecture.ts`, 10 min, a bar chart 2019–2023: 12, 15, 9, 18, 21, the values never said); its saved summary compared with the photo (±10 %, kind, series, section, the photo's time). Its photo is drawn by the web-check folder's `chart-photo.mjs`.
+    - **Tests:** Jest +17 (2,639). One paid run by the advisor (≈ $0.10–0.15, cap $0.30).
+    - **Builds:** `editor:build` needed (`readNumber` is in the iPhone's editor). `summarize` redeployed for the remote (Lea). No migration, no new dependency, `src/lib/charts` untouched.
   - [ ] 9.1b-2 — generation. [ ] 9.1b-3 — taking, grading, results, offline.
 - [ ] 9.2 — Spaced review and course settings
 

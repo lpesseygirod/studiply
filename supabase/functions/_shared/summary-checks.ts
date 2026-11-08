@@ -17,7 +17,10 @@
  *  - language: stopword ratios, no dependency;
  *  - step 8.2: each data chart value is a number for faithfulness; one still not found after the verify
  *    call is taken out of its chart and listed under unclear (a chart left with < 2 values goes); the
- *    photos given are put once each in the section at their time, by code.
+ *    photos given are put once each in the section at their time, by code;
+ *  - Lea, 6 Nov: a graph redrawn from a photo (fromPhoto) must name a photo given, at Visuals 5+ with
+ *    the photos included, and sit in its photo's section (fixPhotoCharts, before fixPhotos); its values
+ *    are read off the photo, so faithfulness skips them.
  *
  * "Regenerate only the failed part" (planParts): a section written again (language, length, a missing
  * confusedHere), the lists written again (takeaways, self-test, flashcards), or the verify call; at most
@@ -288,11 +291,13 @@ export interface Unverified {
   sentence: string;
 }
 
-/** What the lecture says, as code can compare it: numbers (digits and words), dates, formulas. */
+/** What the lecture says, as code can compare it: numbers (digits and words), dates, formulas; and the photos it has. */
 export interface Sources {
   numbers: Set<number>;
   dates: Set<string>;
   formulas: Set<string>;
+  /** Lea, 6 Nov: the photos' ids; a graph redrawn from one of them is read off the photo, not the transcript. */
+  photos: Set<string>;
 }
 
 function latexIn(content: unknown, out: string[] = []): string[] {
@@ -321,7 +326,7 @@ export function sourcesOf(m: LectureMaterial): Sources {
   }
   const formulas = new Set<string>([...m.notes.flatMap((n) => [...latexIn(n.content), ...inlineFormulas(n.text)])].map(normalizeLatex));
   formulas.forEach((f) => digitNumbers(f.replace(/[a-z\\_^{}]+/gi, ' ')).forEach((n) => n.readings.forEach((r) => numbers.add(r))));
-  return { numbers, dates: dateSet, formulas };
+  return { numbers, dates: dateSet, formulas, photos: new Set(m.photos.map((ph) => ph.id)) };
 }
 
 const sentenceOf = (text: string, value: string) => text.split(/(?<=[.!?])\s+/).find((s) => s.includes(value)) ?? text;
@@ -331,7 +336,8 @@ const EXERCISE_FIELDS = new Set(['example', 'practiceQuestion']);
 /** Self-test kinds whose numbers are an exercise's (made up to practise on). */
 const EXERCISE_KINDS = new Set(['apply', 'calculate']);
 
-type CheckedText = { path: string; text: string; latex?: boolean; exercise?: boolean };
+/** `fromPhoto`: a graph redrawn from that photo (its title and labels read off it). */
+type CheckedText = { path: string; text: string; latex?: boolean; exercise?: boolean; fromPhoto?: string };
 
 /**
  * The text Claude wrote, with where it is (labelled Added context and the notes left out). Exercise
@@ -348,10 +354,11 @@ export function checkedTexts(s: StoredSummary): CheckedText[] {
       if (b.type === 'fromNotes' || b.type === 'capturedImage' || (b.type === 'callout' && b.kind === 'addedContext')) return;
       if (b.type === 'formula') out.push({ path: `sections[${si}].blocks[${bi}].latex`, text: String(b.latex), latex: true });
       const exampleCallout = b.type === 'callout' && b.kind === 'example';
+      const photo = photoOf(b);
       for (const [k, v] of Object.entries(b)) {
         if (typeof v !== 'string' || NOT_PROSE.has(k)) continue;
         const exercise = exampleCallout || (b.type === 'confusedHere' && EXERCISE_FIELDS.has(k));
-        out.push({ path: `sections[${si}].blocks[${bi}].${k}`, text: v, ...(exercise && { exercise }) });
+        out.push({ path: `sections[${si}].blocks[${bi}].${k}`, text: v, ...(exercise && { exercise }), ...(photo && { fromPhoto: photo }) });
       }
     });
   });
@@ -363,8 +370,15 @@ export function checkedTexts(s: StoredSummary): CheckedText[] {
   return out;
 }
 
-type ChartSeries = { name: string; points: { x: string; y: number }[] };
+type ChartSeries = { name: string; points: { x: string; y: number; approx?: boolean }[] };
 const seriesOf = (b: Block) => (Array.isArray(b.series) ? (b.series as ChartSeries[]) : []);
+
+/** The block types a photo's graph is redrawn as (Lea, 6 Nov). */
+const CHART_TYPES = new Set(['dataChart', 'functionPlot', 'modelGraph']);
+/** The photo a graph says it is redrawn from; "" when none. */
+export const photoOf = (b: Block): string => (CHART_TYPES.has(b.type) && typeof b.fromPhoto === 'string' ? b.fromPhoto.trim() : '');
+/** Redrawn from a photo the lecture has: its values are read off the photo, not checked against the transcript. */
+const fromGivenPhoto = (b: Block, photos: Set<string> | undefined) => !!photos?.has(photoOf(b));
 
 /** A data chart's value: where it is, and the line the verify call reads ("Chart “Ventas”: 2021, 7.5"). */
 export interface ChartValue {
@@ -374,12 +388,15 @@ export interface ChartValue {
   sentence: string;
 }
 
-/** Step 8.2: every data chart's values (BUILD-PLAN: "data charts only from numbers in the transcript"). */
-export function chartValues(s: StoredSummary): ChartValue[] {
+/**
+ * Step 8.2: every data chart's values (BUILD-PLAN: "data charts only from numbers in the transcript"),
+ * except a chart redrawn from one of `photos` (Lea, 6 Nov: read off the photo).
+ */
+export function chartValues(s: StoredSummary, photos?: Set<string>): ChartValue[] {
   const out: ChartValue[] = [];
   sectionsOf(s).forEach((x, si) =>
     x.blocks.forEach((b, bi) => {
-      if (b.type !== 'dataChart') return;
+      if (b.type !== 'dataChart' || fromGivenPhoto(b, photos)) return;
       seriesOf(b).forEach((se, k) =>
         (Array.isArray(se?.points) ? se.points : []).forEach((p, l) => {
           if (typeof p?.y !== 'number' || !Number.isFinite(p.y)) return;
@@ -397,7 +414,8 @@ const valueFound = (y: number, src: Sources, confirmed: Set<string>) => src.numb
 /**
  * Step 8.2: a chart value neither found in the lecture by code nor confirmed by the verify call (or
  * corrected by it) is taken out of its chart and listed under unclear; a series left empty goes, and
- * a chart with fewer than 2 values (left, or as written) goes. Nothing else is changed.
+ * a chart with fewer than 2 values (left, or as written) goes. Nothing else is changed. A chart redrawn
+ * from one of the lecture's photos is left to fixPhotoCharts.
  */
 export function fixCharts(s: StoredSummary, src: Sources, confirmed: Set<string>): { summary: StoredSummary; removed: string[]; chartsRemoved: number } {
   const out = clone(s);
@@ -406,7 +424,7 @@ export function fixCharts(s: StoredSummary, src: Sources, confirmed: Set<string>
   const unclear = (out.unclear ?? []) as { timestamp: string; note: string }[];
   for (const sec of sectionsOf(out)) {
     sec.blocks = sec.blocks.filter((b) => {
-      if (b.type !== 'dataChart') return true;
+      if (b.type !== 'dataChart' || fromGivenPhoto(b, src.photos)) return true;
       const series = seriesOf(b)
         .map((se) => ({
           ...se,
@@ -428,6 +446,96 @@ export function fixCharts(s: StoredSummary, src: Sources, confirmed: Set<string>
   if (!removed.length && !chartsRemoved) return { summary: s, removed, chartsRemoved };
   out.unclear = unclear;
   return { summary: out, removed, chartsRemoved };
+}
+
+// ---------- graphs redrawn from photos (Lea, 6 Nov) ----------
+
+/** At most this many graphs redrawn from one photo. */
+export const MAX_CHARTS_PER_PHOTO = 2;
+
+export interface PhotoChartsFix {
+  summary: StoredSummary;
+  /** The graphs left that are redrawn from a photo, and their values read between gridlines. */
+  kept: number;
+  approxValues: number;
+  /** "dataChart “title” (photo p1): why", taken out. */
+  removed: string[];
+  /** Moved to their photo's section. */
+  moved: string[];
+  /** Named a photo it wasn't given: an ordinary data chart again (the numbers rule then applies). */
+  cleared: string[];
+}
+
+const pointCount = (b: Block) => seriesOf(b).reduce((n, se) => n + (Array.isArray(se?.points) ? se.points.filter((p) => typeof p?.y === 'number').length : 0), 0);
+const approxCount = (b: Block) => seriesOf(b).reduce((n, se) => n + (Array.isArray(se?.points) ? se.points.filter((p) => p?.approx === true).length : 0), 0);
+
+/**
+ * Lea, 6 Nov: the graphs Claude redrew from a photo (`fromPhoto`), before the photos are placed
+ * (fixPhotos). `allowed`: Visuals 5 or more, the photos ticked and sent (images consent); otherwise
+ * each goes. One naming a photo it wasn't given: a data chart becomes an ordinary one (its values must
+ * then be in the lecture, fixCharts), a function or model graph goes. A data chart from a photo needs
+ * 2 values; at most MAX_CHARTS_PER_PHOTO per photo (the first ones kept); one in another section is
+ * moved to its photo's (the section at the photo's time), just before the photo when it's there.
+ * Nothing to fix: the summary as it was (the same object).
+ */
+export function fixPhotoCharts(s: StoredSummary, m: LectureMaterial, allowed: boolean): PhotoChartsFix {
+  const given = new Map(m.photos.map((ph) => [ph.id, ph]));
+  const out = clone(s);
+  const sections = sectionsOf(out);
+  const removed: string[] = [];
+  const moved: string[] = [];
+  const cleared: string[] = [];
+  const perPhoto = new Map<string, number>();
+  const toMove: { block: Block; to: number; photo: string }[] = [];
+  sections.forEach((sec, si) => {
+    sec.blocks = sec.blocks.filter((b) => {
+      const id = photoOf(b);
+      if (!id) return true;
+      const label = `${b.type} “${String(b.title ?? '')}” (photo ${id})`;
+      if (!allowed) {
+        removed.push(`${label}: graphs from photos need Visuals 5 or more and the photos included`);
+        return false;
+      }
+      const photo = given.get(id);
+      if (!photo) {
+        if (b.type !== 'dataChart') {
+          removed.push(`${label}: not one of the photos given`);
+          return false;
+        }
+        b.fromPhoto = '';
+        for (const se of seriesOf(b)) for (const p of Array.isArray(se?.points) ? se.points : []) delete p.approx;
+        cleared.push(label);
+        return true;
+      }
+      if (b.type === 'dataChart' && pointCount(b) < 2) {
+        removed.push(`${label}: fewer than 2 values`);
+        return false;
+      }
+      const n = (perPhoto.get(id) ?? 0) + 1;
+      perPhoto.set(id, n);
+      if (n > MAX_CHARTS_PER_PHOTO) {
+        removed.push(`${label}: more than ${MAX_CHARTS_PER_PHOTO} graphs from one photo`);
+        return false;
+      }
+      const to = sectionAt(sections, photo.tMs);
+      if (to !== si) {
+        toMove.push({ block: b, to, photo: id });
+        moved.push(label);
+        return false;
+      }
+      return true;
+    });
+  });
+  for (const { block, to, photo } of toMove) {
+    const blocks = sections[to].blocks;
+    const at = blocks.findIndex((b) => b.type === 'capturedImage' && b.imageId === photo);
+    blocks.splice(at === -1 ? blocks.length : at, 0, block);
+  }
+  const photoCharts = sections.flatMap((x) => x.blocks.filter((b) => given.has(photoOf(b))));
+  const kept = photoCharts.length;
+  const approxValues = photoCharts.reduce((n, b) => n + approxCount(b), 0);
+  const changed = removed.length + moved.length + cleared.length > 0;
+  return { summary: changed ? out : s, kept, approxValues, removed, moved, cleared };
 }
 
 // ---------- photos at their time (8.2) ----------
@@ -477,13 +585,14 @@ export function faithfulness(s: StoredSummary, src: Sources): { checked: number;
   const add = (kind: Unverified['kind'], value: string, path: string, text: string) =>
     unverified.push({ id: `u${unverified.length + 1}`, kind, value, path, sentence: sentenceOf(text, value) });
   // Step 8.2: each data chart value, found in the lecture's numbers (else to the verify call).
-  for (const v of chartValues(s)) {
+  for (const v of chartValues(s, src.photos)) {
     checked += 1;
     if (!src.numbers.has(round(v.y))) unverified.push({ id: `u${unverified.length + 1}`, kind: 'number', value: v.value, path: v.path, sentence: v.sentence });
   }
-  for (const { path, text, latex, exercise } of checkedTexts(s)) {
-    // Exercise content: its numbers, dates and formulas are made up to practise on.
-    if (exercise) continue;
+  for (const { path, text, latex, exercise, fromPhoto } of checkedTexts(s)) {
+    // Exercise content: its numbers, dates and formulas are made up to practise on. A graph redrawn from a
+    // photo of the lecture (Lea, 6 Nov): read off the photo, which the transcript doesn't say.
+    if (exercise || (fromPhoto && src.photos.has(fromPhoto))) continue;
     const formulas = latex ? [text] : inlineFormulas(text);
     for (const f of formulas) {
       checked += 1;
@@ -584,6 +693,11 @@ export interface CheckReport {
   charts?: { values: number; removed: string[]; chartsRemoved: number };
   /** Step 8.2 (not in older reports): the photos given, once each in the section at their time (fixed by code). */
   photos?: { pass: boolean; total: number; misplaced: string[]; fixedByCode: string[] };
+  /**
+   * Lea, 6 Nov (not in older reports): the graphs redrawn from photos (fixPhotoCharts). As checked: what
+   * code would take out, move or clear; in a stored report, what it did (and `pass` after it).
+   */
+  photoCharts?: { pass: boolean; kept: number; approxValues: number; removed: string[]; moved: string[]; cleared: string[] };
   regenerations: { part: string; reason: string; ok: boolean }[];
 }
 
@@ -595,7 +709,12 @@ export interface CheckOptions {
   marksComparable?: boolean;
   /** Step 8.2: the photos were ticked (each must be in the summary); default false. */
   photos?: boolean;
+  /** Lea, 6 Nov: graphs may be redrawn from the photos (sent with the images consent); default: photos ticked and the plan's visualsFromPhotos. */
+  photoCharts?: boolean;
 }
+
+/** Whether graphs may be redrawn from the photos, for these options. */
+export const photoChartsAllowed = (plan: SummaryPlan | null, o: Pick<CheckOptions, 'photos' | 'photoCharts'>) => o.photoCharts ?? (!!o.photos && !!plan?.visualsFromPhotos);
 
 /** Every check on a stored summary (no fixes, no calls). */
 export function runChecks(s: StoredSummary, m: LectureMaterial, plan: SummaryPlan | null, o: CheckOptions): CheckReport {
@@ -611,6 +730,7 @@ export function runChecks(s: StoredSummary, m: LectureMaterial, plan: SummaryPla
   const faith = faithfulness(s, sourcesOf(m));
   const lang = languageCheck(s, m.summaryLanguage ?? m.language);
   const misplaced = o.photos ? fixPhotos(s, m).fixed : [];
+  const pc = fixPhotoCharts(s, m, photoChartsAllowed(plan, o));
   return {
     version: 1,
     schema: { pass: shape.success, errors: shape.success ? [] : issueLines(shape.error).slice(0, 10) },
@@ -619,8 +739,9 @@ export function runChecks(s: StoredSummary, m: LectureMaterial, plan: SummaryPla
     length: { pass: bounds.target === 0 || (words >= bounds.min && words <= bounds.max), words, ...bounds },
     faithfulness: { pass: faith.unverified.length === 0, ...faith, corrected: 0, labelled: 0 },
     language: lang,
-    charts: { values: chartValues(s).length, removed: [], chartsRemoved: 0 },
+    charts: { values: chartValues(s, sourcesOf(m).photos).length, removed: [], chartsRemoved: 0 },
     photos: { pass: misplaced.length === 0, total: o.photos ? m.photos.length : 0, misplaced, fixedByCode: [] },
+    photoCharts: { pass: pc.removed.length + pc.moved.length + pc.cleared.length === 0, kept: pc.kept, approxValues: pc.approxValues, removed: pc.removed, moved: pc.moved, cleared: pc.cleared },
     regenerations: [],
   };
 }

@@ -1,7 +1,8 @@
 // visuals.mjs — step 8.2, formulas and graphs from a summary, in Chrome against local Supabase. NO paid
 // call: each summary is a finished `summaries` row the check puts in (the hand-made fixtures
-// src/test-utils/summary-calculus.json and summary-finance.json, their board photos uploaded first);
-// nothing calls summarize, Anthropic or OpenAI (checked at the end).
+// src/test-utils/summary-calculus.json and summary-finance.json, their board photos uploaded first;
+// Lea, 6 Nov: the saved synthetic-chart summary, tests/output/synthetic-chart/latest.json, with its
+// photo); nothing calls summarize, Anthropic or OpenAI (checked at the end).
 //
 // The charts module doesn't draw function plots or model graphs yet (docs/charts-work-order-8.2.md):
 // until it does, each shows its line of text in its place ("… · drawn in a later update"), never an
@@ -18,10 +19,23 @@
 //      the photo in its section. Each card and graph whole on a page.
 //   4. 390 (pageless, as the iPhone starts): both summaries, nothing wider than the screen; the charts
 //      scale down to the width; the lines wrap.
-//   5. No request to summarize, transcribe-chunk, Anthropic or OpenAI.
-//   6. Composites (no mockup exists: for the advisor's eye): the formula cards, the graphs and the
+//   5. Lea, 6 Nov, a graph redrawn from a photo (the saved synthetic-chart summary and its photo,
+//      tests/fixtures/lectures/synthetic-chart/media/chart.jpg, at 4:00), 1280 (Pages): in this order the
+//      bar chart (drawn, 5 bars, its title the takeaway), the photo small under it (≈ 35 % of the page,
+//      media) and the italic "Redrawn from your photo at 4:00 — check the values"; no second copy of the
+//      photo; the table's "≈" values; a click opens the graph's form with them. Screenshots
+//      chart-photo-doc-1280 (light, dark).
+//   6. The same at 390 (pageless): nothing wider than the screen. chart-photo-doc-390 (light, dark).
+//   7. Its PDF (Export PDF…, the print document): the page with the chart has the chart, the small photo
+//      and the caption, in that order. chart-photo-pdf.
+//   8. No request to summarize, transcribe-chunk, Anthropic or OpenAI.
+//   9. Composites (no mockup exists: for the advisor's eye): the formula cards, the graphs and the
 //      photos cropped at 1280 and at 390, and both pages light and dark at both widths:
 //      shots/visuals-compose-1280.png, shots/visuals-compose-390.png.
+//
+// Steps 5–7 need the paid run's saved summary and the photo (else they fail, saying so):
+//   node .claude/skills/web-check/scripts/chart-photo.mjs tests/fixtures/lectures/synthetic-chart/media/chart.jpg
+//   npm run eval:summaries -- --generate --fixture synthetic-chart
 //
 // Run with a dev server on 8123 (the web-check skill), `supabase start`, and `npm run editor:build` done:
 //   node .claude/skills/web-check/scripts/visuals.mjs
@@ -78,6 +92,11 @@ const CALC_LINES = [
 ];
 const FIN_MODEL_LINE = `Si sube la demanda de préstamos, sube el tipo de interés (D → right) · ${LATER}`;
 const FIN_CHARTS = ['Al 5 % anual, 1.000 € se convierten en 1.276 € en cinco años', 'Solo los proyectos B y D tienen un VAN positivo'];
+/** Lea, 6 Nov: the paid run's saved summary of synthetic-chart, its photo (id chart-photo in it), and the caption under the redrawn chart. */
+const CHART_SAVED = join(repo, 'tests/output/synthetic-chart/latest.json');
+const CHART_JPG = join(repo, 'tests/fixtures/lectures/synthetic-chart/media/chart.jpg');
+const CHART_PHOTO_ID = 'chart-photo';
+const CHART_CAPTION = 'Redrawn from your photo at 4:00 — check the values';
 
 const user = await makeUser();
 const data = await seed(user.client);
@@ -162,6 +181,42 @@ const cardsShown = () =>
 /** Graphs, cards and photos split across two pages (Pages view). */
 const splitAcrossPages = () =>
   b.evaluate(`[...document.querySelectorAll('.ProseMirror .studiply-graph, .ProseMirror .studiply-formula-card')].filter((e) => e.querySelector('.studiply-page-gap')).length`);
+/**
+ * Lea, 6 Nov: the redrawn chart on the page: drawn (its SVG's title and description), the photo blocks
+ * (loaded, the first one's width as a share of the editor's), the caption (italic), whether they come
+ * in that order, and whether any of them is wider than the window.
+ */
+const photoChartShown = () =>
+  b.evaluate(`(() => {
+    const pm = document.querySelector('.ProseMirror');
+    const after = (a, z) => !!a && !!z && !!(a.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const photos = [...pm.querySelectorAll('.studiply-photo')];
+    // The graph just before the photo (the summary may have other graphs).
+    const g = [...pm.querySelectorAll('.studiply-graph')].filter((x) => after(x, photos[0])).at(-1) ?? null;
+    // Named for the clicks and scrolls that follow.
+    g?.setAttribute('data-check', 'redrawn');
+    const img = photos[0]?.querySelector('img');
+    const cap = [...pm.querySelectorAll('p')].find((p) => p.textContent.trim() === ${JSON.stringify(CHART_CAPTION)});
+    const right = (e) => (e ? e.getBoundingClientRect().right : 0);
+    // The page's text width: the editor's box without its padding (the page margins in Pages).
+    const cs = getComputedStyle(pm);
+    const text = pm.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    return {
+      drawn: !!g?.querySelector('svg'),
+      title: g?.querySelector('svg title')?.textContent ?? null,
+      desc: g?.querySelector('svg desc')?.textContent ?? null,
+      photos: photos.length,
+      loaded: !!img && img.complete && img.naturalWidth > 0,
+      share: img ? Math.round((img.getBoundingClientRect().width / text) * 100) : 0,
+      caption: !!cap,
+      italic: !!cap && (!!cap.querySelector('em') || getComputedStyle(cap).fontStyle === 'italic'),
+      order: after(g, photos[0]) && after(photos[0], cap),
+      wide: [g?.querySelector('svg'), img, cap].filter((e) => right(e) > innerWidth + 1).length,
+    };
+  })()`);
+/** The redrawn chart (named by photoChartShown) scrolled to the top of the view, so the photo and caption under it show. */
+const scrollToChart = () =>
+  b.evaluate(`(() => { const g = document.querySelector('.ProseMirror [data-check="redrawn"]') ?? document.querySelector('.ProseMirror .studiply-graph'); if (!g) return false; g.scrollIntoView({ block: 'start' }); return true; })()`);
 
 /** A board photo, drawn here (a chalkboard with the lecture's formula), as JPEG bytes (the `photos` bucket takes JPEG only, as the app uploads). */
 const boardJpeg = async (text) => {
@@ -177,9 +232,10 @@ const boardJpeg = async (text) => {
   expect(url.startsWith('data:image/jpeg;base64,'), `the board photo isn't a JPEG: ${url.slice(0, 30)}`);
   return Buffer.from(url.replace(/^data:image\/jpeg;base64,/, ''), 'base64');
 };
-const addPhoto = async (lectureId, name, tMs, text) => {
+/** A photo of the lecture at `tMs` (JPEG bytes: drawn here, or a file's); its media id. */
+const addPhoto = async (lectureId, name, tMs, text, bytes = null) => {
   const path = `${user.id}/${lectureId}/${name}.jpg`;
-  const { error } = await admin.storage.from('photos').upload(path, await boardJpeg(text), { contentType: 'image/jpeg' });
+  const { error } = await admin.storage.from('photos').upload(path, bytes ?? (await boardJpeg(text)), { contentType: 'image/jpeg' });
   if (error) throw new Error(`the photo: ${error.message}`);
   const { data: row, error: e2 } = await admin.from('media').insert({ user_id: user.id, lecture_id: lectureId, kind: 'photo', storage_path: path, mime_type: 'image/jpeg', t_ms: tMs, caption: 'Pizarra' }).select('id').single();
   if (e2) throw new Error(`the photo row: ${e2.message}`);
@@ -200,7 +256,43 @@ const doneRow = async (lectureId, result) => {
   if (error) throw new Error(`the summary row: ${error.message}`);
 };
 
+// ---------- Lea, 6 Nov: the redrawn chart's PDF (the print document, as summary-pdf.mjs reads it) ----------
+
+/** Export PDF… with the defaults; the print document as the laptop made it (window.studiplyPrint). */
+const exportPdf = async () => {
+  await b.evaluate('window.studiplyPrint = undefined');
+  await b.clickSelector('[aria-label="Document menu"]');
+  await b.waitText('Version history', { exact: true, timeout: 5000 });
+  await b.click('Export PDF…', { exact: true });
+  await waitFor(() => has('[aria-label="Export"]'), 'the export dialog');
+  await b.sleep(600);
+  await b.clickSelector('[aria-label="Export"]');
+  const made = await waitFor(() => b.evaluate('window.studiplyPrint ? { pages: window.studiplyPrint.pages } : null'), 'the print document', 120000);
+  await waitFor(async () => !(await has('[aria-label="Export"]')), 'the dialog closed', 15000);
+  return made;
+};
+/** The print document in a frame over the app, to read it and see it. */
+const showPrint = () =>
+  b.evaluate(`(async () => {
+    document.getElementById('print-check')?.remove();
+    const f = document.createElement('iframe');
+    f.id = 'print-check';
+    Object.assign(f.style, { position: 'fixed', left: '0', top: '0', width: '100vw', height: '100vh', border: '0', zIndex: '99999', background: '#e5e5e5' });
+    document.body.appendChild(f);
+    const d = f.contentDocument;
+    d.open(); d.write(window.studiplyPrint.html); d.close();
+    await Promise.all([...d.images].map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = r; i.onerror = r; }))));
+    await d.fonts.ready;
+    await new Promise((r) => setTimeout(r, 400));
+    return true;
+  })()`);
+const hidePrint = () => b.evaluate(`document.getElementById('print-check')?.remove()`);
+
 let finId = null;
+let chartId = null;
+let chartMedia = null;
+/** The chart redrawn from the photo, as the saved summary has it (the photo's id replaced by its media row's). */
+let savedChart = null;
 try {
   // The Finance lecture beside Lecture 1 (Calculus), in the same course.
   const { data: file, error: fe } = await admin.from('files').insert({ user_id: user.id, kind: 'lecture', title: 'Tema 2 · Finanzas', course_id: data.course.id }).select().single();
@@ -217,6 +309,19 @@ try {
   await b.signIn(BASE, user.email, user.password);
   await doneRow(calcId, CALC);
   await doneRow(finId, FIN);
+
+  // Lea, 6 Nov: the synthetic-chart lecture with its photo at 4:00 and the paid run's saved summary.
+  if (existsSync(CHART_SAVED) && existsSync(CHART_JPG)) {
+    const { data: cf, error: ce } = await admin.from('files').insert({ user_id: user.id, kind: 'lecture', title: 'Tema 3 · La evolución de las ventas', course_id: data.course.id }).select().single();
+    if (ce) throw new Error(`the chart lecture: ${ce.message}`);
+    chartId = cf.id;
+    await admin.from('lectures').insert({ id: chartId, user_id: user.id, status: 'transcribing', duration_ms: 10 * MIN });
+    chartMedia = await addPhoto(chartId, 'chart', 4 * MIN, '', readFileSync(CHART_JPG));
+    const saved = JSON.parse(readFileSync(CHART_SAVED, 'utf8')).result;
+    const result = JSON.parse(JSON.stringify(saved).replaceAll(JSON.stringify(CHART_PHOTO_ID), JSON.stringify(chartMedia)));
+    savedChart = result.sections.flatMap((s) => s.blocks).find((x) => x.fromPhoto === chartMedia) ?? null;
+    await doneRow(chartId, result);
+  }
 
   await step('1280 (Pages), Calculus: three function plots (graph blocks, ai, their data); each its line on the page, never empty; no form on a click', async () => {
     await view(true);
@@ -336,6 +441,126 @@ try {
     }
     report.push(`RESULT | 390: ${fits.calculus.graphs} + ${fits.finance.graphs} graphs, none wider than the screen`);
     await b.resize(1280, 900);
+  });
+
+  // Lea, 6 Nov: a graph redrawn from a photo (the paid run's saved summary, no call here).
+  const needChart = () =>
+    expect(chartId && savedChart, `needs ${CHART_SAVED} with a chart redrawn from ${CHART_PHOTO_ID}, and ${CHART_JPG} (chart-photo.mjs, then eval:summaries -- --generate --fixture synthetic-chart)${chartId && !savedChart ? ': the saved summary has no chart from the photo' : ''}`);
+
+  await step('1280 (Pages), a graph redrawn from a photo: the bar chart (5 bars, its takeaway as title), the photo small under it (≈ 35 %), the italic “Redrawn from your photo at 4:00 — check the values”; the photo once; “≈” in its table and its form', async () => {
+    needChart();
+    await view(true);
+    await openSummary(chartId, '.studiply-graph svg');
+    // The documents row: the three blocks, in order, and the photo once.
+    const doc = await waitFor(async () => (await summaryTab(chartId))?.content ?? null, 'the documents row', 15000);
+    // The photo's block, with the block before it (the graph) and after it (the caption).
+    const at = doc.content.findIndex((x) => x.type === 'image' && x.attrs?.src === `media:${chartMedia}`);
+    expect(at > 0, `no photo block media:${chartMedia} after a block: ${JSON.stringify(doc.content.map((x) => x.type))}`);
+    const [graph, photo, caption] = doc.content.slice(at - 1, at + 2);
+    expect(graph?.type === 'graph' && graph.attrs?.kind === 'bar' && graph.attrs.origin === 'ai' && graph.attrs.title === savedChart.title, `the graph block: ${JSON.stringify(graph?.attrs)} (the saved title: ${savedChart.title})`);
+    expect(graph.attrs.rows.length === 5, `its rows: ${JSON.stringify(graph.attrs.rows)}`);
+    const approx = savedChart.series.flatMap((s) => s.points).filter((p) => p.approx).length;
+    const cells = graph.attrs.rows.flatMap((r) => r.slice(1));
+    expect(cells.filter((c) => String(c).startsWith('≈')).length === approx && approx > 0, `≈ cells: ${JSON.stringify(cells)} (${approx} approximate in the summary)`);
+    expect(photo?.type === 'image' && photo.attrs.src === `media:${chartMedia}` && photo.attrs.width === 35 && photo.attrs.origin === 'media', `the photo block after it: ${JSON.stringify(photo)}`);
+    expect(caption?.type === 'paragraph' && blockText(caption) === CHART_CAPTION && caption.content?.[0]?.marks?.some((m) => m.type === 'italic') && caption.attrs.origin === 'ai', `the caption after it: ${JSON.stringify(caption)}`);
+    const copies = doc.content.filter((x) => x.type === 'image' && x.attrs.src === `media:${chartMedia}`).length;
+    expect(copies === 1, `the photo ${copies} times in the document`);
+    // On the page.
+    const shown = await waitFor(async () => {
+      const s = await photoChartShown();
+      return s.drawn && s.loaded ? s : null;
+    }, async () => `on the page: ${JSON.stringify(await photoChartShown())}`, 20000);
+    const bars = graph.attrs.rows.filter((r) => (shown.desc ?? '').includes(`${r[0]}: `)).length;
+    expect(/^Bar chart/.test(shown.desc ?? '') && bars === 5, `the drawing (${bars} bars named in its description): ${shown.desc}`);
+    expect(shown.title === savedChart.title, `the drawing's title: ${shown.title}`);
+    expect(shown.photos === 1 && shown.share >= 30 && shown.share <= 40, `the photo: ${shown.photos} shown, ${shown.share} % of the page's width`);
+    expect(shown.caption && shown.italic && shown.order, `the caption and the order: ${JSON.stringify(shown)}`);
+    expect((await splitAcrossPages()) === 0, 'the graph split across pages');
+    report.push(`RESULT | redrawn chart: “${shown.title}”, ${bars} bars, values ${cells.join(' ')}, the photo at ${shown.share} % of the page`);
+    await scrollToChart();
+    await shot('chart-photo-doc-1280');
+    await dark(true);
+    await scrollToChart();
+    await shot('chart-photo-doc-1280-dark');
+    await dark(false);
+    // A click opens the graph's form, its table with the "≈" values as written.
+    await scrollToChart();
+    await b.sleep(300);
+    await b.clickSelector('.ProseMirror [data-check="redrawn"]');
+    await waitFor(() => has('[aria-label="Graph type: Bar"]'), 'the graph form', 5000);
+    const typed = await b.evaluate(`[...document.querySelectorAll('input, textarea')].map((i) => i.value).filter((v) => v.startsWith('≈'))`);
+    expect(typed.length === approx, `the form's ≈ cells: ${JSON.stringify(typed)}`);
+    await shot('chart-photo-form-1280');
+    if (await b.hasText('Done', true)) await b.click('Done', { exact: true });
+    else await b.press('Escape');
+    await b.sleep(400);
+  });
+
+  await step('390 (pageless), the redrawn chart: the chart, the photo and the caption in order, none wider than the screen', async () => {
+    needChart();
+    await b.resize(390, 844);
+    await view(false);
+    await openSummary(chartId, '.studiply-graph svg');
+    const shown = await waitFor(async () => {
+      const s = await photoChartShown();
+      return s.drawn && s.loaded ? s : null;
+    }, async () => `on the page: ${JSON.stringify(await photoChartShown())}`, 20000);
+    const page = await b.evaluate('document.documentElement.scrollWidth');
+    expect(shown.order && shown.italic && shown.wide === 0 && page <= 391, `at 390: ${JSON.stringify({ ...shown, page })}`);
+    report.push(`RESULT | redrawn chart at 390: the photo at ${shown.share} % of the page`);
+    await scrollToChart();
+    await shot('chart-photo-doc-390');
+    await dark(true);
+    await scrollToChart();
+    await shot('chart-photo-doc-390-dark');
+    await dark(false);
+    await b.resize(1280, 900);
+    await view(true);
+  });
+
+  await step('its PDF: the page with the chart has the chart, the small photo and the caption, in that order', async () => {
+    needChart();
+    await openSummary(chartId, '.studiply-graph svg');
+    await b.sleep(800);
+    const made = await exportPdf();
+    await showPrint();
+    // The print's one photo, the graph just before it and the caption after it, and the pages they are on.
+    const found = await b.evaluate(`(() => {
+      const d = document.getElementById('print-check').contentDocument;
+      const pages = [...d.querySelectorAll('.studiply-print-page')];
+      const after = (a, z) => !!a && !!z && !!(a.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const photos = [...d.querySelectorAll('.studiply-photo')];
+      const photo = photos[0];
+      const g = [...d.querySelectorAll('.studiply-graph')].filter((x) => after(x, photo)).at(-1) ?? null;
+      const cap = [...d.querySelectorAll('p')].find((x) => x.textContent.trim() === ${JSON.stringify(CHART_CAPTION)});
+      const img = photo?.querySelector('img');
+      const pageOf = (e) => (e ? pages.findIndex((p) => p.contains(e)) : -1);
+      const body = (photo && pages[pageOf(photo)]?.querySelector('.studiply-print-body')) ?? null;
+      return {
+        pages: [pageOf(g), pageOf(photo), pageOf(cap)],
+        drawn: !!g?.querySelector('svg'),
+        loaded: !!img && img.complete && img.naturalWidth > 0,
+        share: img && body ? Math.round((img.getBoundingClientRect().width / body.getBoundingClientRect().width) * 100) : 0,
+        caption: !!cap,
+        order: after(g, photo) && after(photo, cap),
+        photos: photos.length,
+      };
+    })()`);
+    const [kGraph, kPhoto, kCaption] = found.pages;
+    expect(kGraph >= 0 && found.drawn && found.loaded && found.caption && found.order && found.photos === 1, `the print (${made.pages} pages): ${JSON.stringify(found)}`);
+    report.push(`RESULT | redrawn chart in the PDF: the chart on page ${kGraph + 1}, the photo on ${kPhoto + 1}, the caption on ${kCaption + 1} (of ${made.pages}); the photo at ${found.share} % of the text width`);
+    await b.resize(1000, 1250);
+    // The chart's page (and, when the photo or caption moved on, theirs too: chart-photo-pdf-2).
+    for (const [k, name] of [[kGraph, 'chart-photo-pdf'], ...(kCaption !== kGraph ? [[kCaption, 'chart-photo-pdf-2']] : [])]) {
+      const r = await b.evaluate(`(() => { const d = document.getElementById('print-check').contentDocument; const p = d.querySelectorAll('.studiply-print-page')[${k}]; p.scrollIntoView({ block: 'start' }); const r = p.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height }; })()`);
+      await b.sleep(250);
+      const { data: png } = await b.send('Page.captureScreenshot', { format: 'png', clip: { ...r, scale: 0.6 } });
+      writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(png, 'base64'));
+      taken.add(name);
+    }
+    await b.resize(1280, 900);
+    await hidePrint();
   });
 
   await step('no request reached summarize or transcribe-chunk, nor Anthropic or OpenAI', async () => {

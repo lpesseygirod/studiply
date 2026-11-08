@@ -5,8 +5,9 @@
  *   npm run eval:summaries                         every fixture's saved summary checked again: free, no network
  *   npm run eval:summaries -- --faults             faults planted in the saved summaries (a note left out, a mark
  *                                                  left out, a number not in the lecture, a paragraph in English,
- *                                                  40 % too long, a formula not in the lecture): free; fails if
- *                                                  a check misses one
+ *                                                  40 % too long, a formula not in the lecture; Lea, 6 Nov: a graph
+ *                                                  from a photo not given, at Visuals 3, with 1 value, in the wrong
+ *                                                  section): free; fails if a check misses one
  *   npm run eval:summaries -- --generate [--fixture <name>]
  *                                                  PAID: each fixture (or one) seeded into LOCAL Supabase as a
  *                                                  throwaway user, summarized by the local summarize function
@@ -24,7 +25,9 @@
  *
  * Fixtures: tests/fixtures/lectures/<name>/ (git-ignored; format in summary-fixture.ts). The synthetic
  * ones are written here when missing (scripts/fixtures/synthetic-lecture.mjs, 30 min; synthetic-long-
- * lecture.mjs, 90 min, step 7.6: --fixture synthetic-long). A summary saved by step
+ * lecture.mjs, 90 min, step 7.6: --fixture synthetic-long; synthetic-chart-lecture.ts, 10 min, a photo of a
+ * bar chart, Lea 6 Nov: its photo drawn by .claude/skills/web-check/scripts/chart-photo.mjs, and its saved
+ * summary's chart compared with the photo's values). A summary saved by step
  * 7.4 (tests/output/synthetic-*.json) is checked against the synthetic fixture, except its marks
  * (their ids were random then).
  *
@@ -34,12 +37,29 @@
 
 import { syntheticLongFixture } from './fixtures/synthetic-long-lecture.mjs';
 import { syntheticFixture } from './fixtures/synthetic-lecture.mjs';
+import { CHART_EXPECTED, syntheticChartFixture } from './fixtures/synthetic-chart-lecture.ts';
 import { syntheticTema2Fixture } from './fixtures/synthetic-tema2-lecture.ts';
+import { stamp } from '../supabase/functions/_shared/assistant.ts';
 import type { Addition, ExamPack } from '../supabase/functions/_shared/summary-combine.ts';
 import { existingSummaryText, summaryAnchors } from '../supabase/functions/_shared/summary-extend.ts';
 import { FIXTURE_FILES, FixtureShape, REQUIRED_FIXTURE_FILES, fixtureInput, type Fixture } from '../supabase/functions/_shared/summary-fixture.ts';
-import { PART_COST_USD, fixMarks, fixNotes, planParts, runChecks, sectionWords, summaryWords, wordsByPart, type CheckReport, type Section } from '../supabase/functions/_shared/summary-checks.ts';
+import {
+  PART_COST_USD,
+  fixMarks,
+  fixNotes,
+  photoOf,
+  planParts,
+  runChecks,
+  sectionAt,
+  sectionWords,
+  summaryWords,
+  wordsByPart,
+  type CheckOptions,
+  type CheckReport,
+  type Section,
+} from '../supabase/functions/_shared/summary-checks.ts';
 import { fallbackClassification, planFor, settle, type LectureMaterial, type StoredSummary } from '../supabase/functions/_shared/summary-pipeline.ts';
+import type { Sliders, SummaryPlan } from '../supabase/functions/_shared/summary-plan.ts';
 
 const FIXTURES = 'tests/fixtures/lectures';
 const OUTPUT = 'tests/output';
@@ -59,17 +79,30 @@ const SYNTHETIC = [
   { name: 'synthetic-long', make: syntheticLongFixture },
   // Step 7.9: the lecture after Tema 1 (a repeat, an exam statement about Tema 1, a correction).
   { name: 'synthetic-tema2', make: syntheticTema2Fixture },
+  // Lea, 6 Nov: a photographed bar chart, redrawn as a chart; its photo is drawn by chart-photo.mjs, not the icon.
+  { name: 'synthetic-chart', make: syntheticChartFixture, drawn: true },
 ];
 
-/** Each synthetic lecture's folder, written once (its photos made from the app icon with macOS sips, as check:claude does). */
+/** The command that draws synthetic-chart's photo (the web-check folder's Chrome driver). */
+const CHART_PHOTO_COMMAND = `node .claude/skills/web-check/scripts/chart-photo.mjs ${FIXTURES}/synthetic-chart/media/${CHART_EXPECTED.file}`;
+
+/**
+ * Each synthetic lecture's folder, written once (its photos made from the app icon with macOS sips, as
+ * check:claude does; a photo already there is kept). A drawn photo (synthetic-chart) isn't made here.
+ */
 async function ensureSynthetic() {
-  for (const { name, make } of SYNTHETIC) {
+  for (const { name, make, drawn } of SYNTHETIC) {
     const dir = `${FIXTURES}/${name}`;
     if (await exists(`${dir}/${FIXTURE_FILES.lecture}`)) continue;
     await Deno.mkdir(`${dir}/media`, { recursive: true });
     const f = make() as Record<string, unknown>;
     for (const [key, file] of Object.entries(FIXTURE_FILES)) if (f[key] !== undefined) await writeJson(`${dir}/${file}`, f[key]);
     for (const { file } of f.media as { file: string }[]) {
+      if (await exists(`${dir}/media/${file}`)) continue;
+      if (drawn) {
+        console.log(`  (--generate needs media/${file}: ${CHART_PHOTO_COMMAND})`);
+        continue;
+      }
       const sips = await new Deno.Command('sips', { args: ['-s', 'format', 'jpeg', '-Z', '512', 'assets/icon.png', '--out', `${dir}/media/${file}`], stdout: 'null', stderr: 'null' }).output();
       if (!sips.success) console.log(`  (the photo could not be made with sips; --generate needs media/${file})`);
     }
@@ -109,11 +142,15 @@ async function savedOutput(name: string): Promise<{ path: string; result: Stored
 
 const mark = (ok: boolean) => (ok ? 'PASS' : 'FAIL');
 
-function context(fixture: Fixture, result: StoredSummary, legacy: boolean) {
-  const { material, request } = fixtureInput(fixture);
+/** `sliders`: changed for a planted fault (Visuals 3). */
+function context(fixture: Fixture, result: StoredSummary, legacy: boolean, sliders: Partial<Sliders> = {}) {
+  const input = fixtureInput(fixture);
+  const request = { ...input.request, sliders: { ...input.request.sliders, ...sliders } };
+  const material = input.material;
   const plan = planFor(material, request, fallbackClassification(material));
   const targetWords = Number((result.appliedSettings as { targetWords?: number })?.targetWords ?? plan.length.targetWords);
-  return { material, plan, options: { targetWords, hasHighMarks: plan.length.hasHighMarks, marksComparable: !legacy } };
+  const options: CheckOptions = { targetWords, hasHighMarks: plan.length.hasHighMarks, marksComparable: !legacy, photos: request.resources.photos };
+  return { material, plan, options };
 }
 
 function printReport(r: CheckReport, s: StoredSummary, m: LectureMaterial, legacy: boolean) {
@@ -128,6 +165,14 @@ function printReport(r: CheckReport, s: StoredSummary, m: LectureMaterial, legac
   console.log(`  ${mark(r.faithfulness.pass)} faithfulness: ${r.faithfulness.found}/${r.faithfulness.checked} numbers, dates and formulas found in the lecture`);
   for (const u of r.faithfulness.unverified.slice(0, 8)) console.log(`        not found: ${u.kind} "${u.value}" in ${u.path}: "${u.sentence.slice(0, 90)}"`);
   console.log(`  ${mark(r.language.pass)} language: expected ${r.language.expected ?? '?'}, detected ${r.language.detected ?? '?'}${r.language.offBlocks.length ? `; blocks in another language: ${r.language.offBlocks.map((b) => `section ${b.section + 1} block ${b.block + 1} (${b.detected})`).join(', ')}` : ''}`);
+  // Lea, 6 Nov: the graphs redrawn from photos (and, from a stored report, what code did about them).
+  const pc = r.photoCharts;
+  if (pc) {
+    const off = [...pc.removed.map((x) => `would take out ${x}`), ...pc.moved.map((x) => `would move ${x}`), ...pc.cleared.map((x) => `would clear ${x}`)];
+    console.log(`  ${mark(pc.pass)} graphs from photos: ${pc.kept} kept, ${pc.approxValues} values read between gridlines (≈)${off.length ? `; ${off.join('; ')}` : ''}`);
+  }
+  const done = (s.checks as CheckReport | undefined)?.photoCharts;
+  if (done && done.removed.length + done.moved.length + done.cleared.length) console.log(`        the server: removed ${done.removed.length}, moved ${done.moved.length}, cleared ${done.cleared.length}`);
   const parts = planParts(r, s, m);
   if (parts.length) {
     const cost = parts.reduce((sum, p) => sum + PART_COST_USD[p.kind], 0);
@@ -160,14 +205,63 @@ async function checkSaved(): Promise<number> {
     printReport(r, saved.result, material, saved.legacy);
     const n = passes(r, saved.legacy);
     console.log(`  ${n} of 6 checks pass`);
-    if (n < 6) failing += 1;
+    const chartOk = name === 'synthetic-chart' ? checkChartFromPhoto(saved.result) : true;
+    if (n < 6 || !chartOk) failing += 1;
   }
   return failing;
 }
 
+/**
+ * Lea, 6 Nov: synthetic-chart's summary has the photo's bar chart redrawn: one chart citing the photo, a
+ * bar chart of one series, each value within ±10 % of the photo's or half its gridline step (the larger), in the photo's section, with the
+ * photo at its time (the caption's mm:ss, written by the app: summaryDoc).
+ */
+function checkChartFromPhoto(s: StoredSummary): boolean {
+  const e = CHART_EXPECTED;
+  const sections = (s.sections ?? []) as Section[];
+  const found = sections.flatMap((sec, si) => sec.blocks.filter((b) => photoOf(b) === e.photoId).map((b) => ({ b, si })));
+  const results: boolean[] = [];
+  const check = (ok: boolean, what: string) => {
+    results.push(ok);
+    console.log(`  ${mark(ok)} ${what}`);
+  };
+  check(found.length >= 1, `a graph redrawn from the photo (fromPhoto ${e.photoId}): ${found.length}`);
+  const first = found[0];
+  if (!first) return false;
+  const { b, si } = first;
+  const series = (Array.isArray(b.series) ? b.series : []) as { name: string; points: { x: string; y: number; approx?: boolean }[] }[];
+  check(b.type === 'dataChart' && b.chart === e.chart, `its kind: ${b.type} ${String(b.chart ?? '')} (the photo: dataChart ${e.chart})`);
+  check(series.length === 1, `its series: ${series.length} (the photo: 1)`);
+  const points = series[0]?.points ?? [];
+  const read = e.values.map((v) => ({ ...v, got: points.find((p) => String(p.x).trim() === v.x) }));
+  // A value read off a photo is only as precise as its gridlines (advisor, 8 Nov): ±10 % or half a step, the larger.
+  const allowed = (y: number) => Math.max(y * e.tolerance, e.gridStep / 2);
+  const off = read.filter((v) => !v.got || Math.abs(v.got.y - v.y) > allowed(v.y));
+  check(
+    points.length === e.values.length && off.length === 0,
+    `its values within max(±${e.tolerance * 100} %, ±${e.gridStep / 2}: half the photo's gridline step of ${e.gridStep}): ${read.map((v) => `${v.x} ${v.got ? `${v.got.approx ? '≈' : ''}${v.got.y}` : '—'} (${v.y} ±${allowed(v.y)})`).join(', ')}`,
+  );
+  check(si === sectionAt(sections, e.tMs), `in the photo's section (section ${si + 1})`);
+  const photo = sections.flatMap((sec) => sec.blocks).find((x) => x.type === 'capturedImage' && x.imageId === e.photoId);
+  check(String(photo?.timestamp ?? '') === stamp(e.tMs), `the photo at its time, for the caption “Redrawn from your photo at ${stamp(e.tMs)} — check the values”: ${String(photo?.timestamp ?? 'no photo block')}`);
+  console.log(`        ${points.filter((p) => p.approx).length} values marked approximate (≈); title “${String(b.title ?? '')}”`);
+  return results.every(Boolean);
+}
+
 // ---------- planted faults ----------
 
-type Fault = { name: string; plant: (s: StoredSummary, m: LectureMaterial) => StoredSummary | null; caught: (r: CheckReport, s: StoredSummary, m: LectureMaterial) => boolean; needsMarks?: boolean };
+/**
+ * `sliders`: the plan's sliders changed for this fault (Visuals 3); `options`: the checks' options
+ * changed (graphs from photos allowed, as with Visuals 5+ and the photos sent).
+ */
+type Fault = {
+  name: string;
+  plant: (s: StoredSummary, m: LectureMaterial) => StoredSummary | null;
+  caught: (r: CheckReport, s: StoredSummary, m: LectureMaterial) => boolean;
+  needsMarks?: boolean;
+  sliders?: Partial<Sliders>;
+  options?: Partial<CheckOptions>;
+};
 const sectionsOf = (s: StoredSummary) => s.sections as Section[];
 const firstText = (s: StoredSummary) => {
   for (const [si, sec] of sectionsOf(s).entries()) for (const [bi, b] of sec.blocks.entries()) if (b.type === 'paragraph' && typeof b.text === 'string') return { si, bi };
@@ -237,7 +331,47 @@ const FAULTS: Fault[] = [
     },
     caught: (r, s, m) => !r.length.pass && r.length.words > r.length.max && planParts(r, s, m).some((p) => p.kind === 'section' && p.reasons.includes('shorten it')),
   },
+  // Lea, 6 Nov: graphs redrawn from photos.
+  {
+    name: 'a graph from a photo it was not given (its values not in the lecture)',
+    options: { photoCharts: true },
+    plant: (s, m) => photoChart(s, m, { photo: 'not-a-photo', points: [{ x: 'a', y: 98765 }, { x: 'b', y: 4321 }] }),
+    caught: (r) => r.photoCharts!.cleared.length > 0 && r.faithfulness.unverified.some((u) => u.value === '98765'),
+  },
+  {
+    name: 'a graph from a photo at Visuals 3',
+    sliders: { visuals: 3 },
+    plant: (s, m) => photoChart(s, m, {}),
+    caught: (r) => r.photoCharts!.removed.some((x) => x.includes('Visuals 5')),
+  },
+  {
+    name: 'a graph from a photo with 1 value',
+    options: { photoCharts: true },
+    plant: (s, m) => photoChart(s, m, { points: [{ x: 'a', y: 7 }] }),
+    caught: (r) => r.photoCharts!.removed.some((x) => x.includes('fewer than 2 values')),
+  },
+  {
+    name: 'a graph from a photo in another section than its photo',
+    options: { photoCharts: true },
+    plant: (s, m) => photoChart(s, m, { elsewhere: true }),
+    caught: (r) => r.photoCharts!.moved.length > 0,
+  },
 ];
+
+/**
+ * A bar chart redrawn from the lecture's first photo (or `photo`), in that photo's section (or, with
+ * `elsewhere`, another one); null when the lecture has no photo (or one section only, for elsewhere).
+ */
+function photoChart(s: StoredSummary, m: LectureMaterial, o: { photo?: string; points?: { x: string; y: number }[]; elsewhere?: boolean }): StoredSummary | null {
+  const ph = m.photos[0];
+  const sections = sectionsOf(s);
+  if (!ph || !sections.length || (o.elsewhere && sections.length < 2)) return null;
+  const home = sectionAt(sections, ph.tMs);
+  const at = o.elsewhere ? (home === 0 ? 1 : 0) : home;
+  const points = o.points ?? [{ x: 'a', y: 3 }, { x: 'b', y: 5 }];
+  sections[at].blocks.push({ type: 'dataChart', chart: 'bar', title: 'Planted', xLabel: '', yLabel: '', series: [{ name: 's', points }], timestamp: '', fromPhoto: o.photo ?? ph.id });
+  return s;
+}
 
 async function plantFaults(): Promise<number> {
   let missed = 0;
@@ -259,7 +393,8 @@ async function plantFaults(): Promise<number> {
         console.log(`  ---- ${f.name}: no place to plant it in this summary`);
         continue;
       }
-      const r = runChecks(planted, material, plan, options);
+      const its: { plan: SummaryPlan; options: CheckOptions } = f.sliders ? context(fixture, saved.result, saved.legacy, f.sliders) : { plan, options };
+      const r = runChecks(planted, material, its.plan, { ...its.options, ...f.options });
       const ok = f.caught(r, planted, material);
       if (!ok) missed += 1;
       console.log(`  ${ok ? 'CAUGHT' : 'MISSED'} ${f.name}`);

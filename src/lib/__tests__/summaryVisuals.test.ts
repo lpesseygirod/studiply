@@ -14,7 +14,7 @@ import { studiplyExtensions } from '../../editor/bridges';
 import { editorCss } from '../../editor/editorCss';
 import { formatState } from '../../editor/format';
 import { canDraw, graphDescription, graphMarkup, laterLine } from '../../editor/graph/charts';
-import { cleanGraph, curveId, DEFAULT_RANGE, hasTable, MAX_EXPRESSION, planGraph } from '../../editor/graph/data';
+import { cleanGraph, curveId, DEFAULT_RANGE, hasTable, MAX_EXPRESSION, planGraph, readNumber } from '../../editor/graph/data';
 import { checkBlock, StoredSummaryShape } from '../../../supabase/functions/_shared/summary-zod';
 import type { StoredSummary } from '../../../supabase/functions/_shared/summary-pipeline';
 import { summaryKey, summaryToDoc, type SummaryDocJSON } from '../summaryDoc';
@@ -161,6 +161,78 @@ describe('Finance (BUILD-PLAN 8.2’s check: its formulas shown)', () => {
     expect(model.querySelector('svg')).toBeNull();
     expect(model.querySelector('.studiply-graph-later')?.textContent).toBe('Si sube la demanda de préstamos, sube el tipo de interés (D → right) · drawn in a later update');
     expect(e.view.dom.querySelectorAll('.studiply-formula-card .katex').length).toBeGreaterThanOrEqual(3 + 4);
+  });
+});
+
+describe('Lea, 6 Nov: a graph redrawn from a photo', () => {
+  /** A summary of one section: a paragraph, a bar chart redrawn from photo p1 (one value read between gridlines), the photo. */
+  const summary = (chart: Record<string, unknown> = {}, more: Record<string, unknown>[] = []): StoredSummary =>
+    ({
+      ...CALC,
+      sections: [
+        {
+          heading: 'Ventas',
+          timestamp: '4:00',
+          cueQuestion: '',
+          markChips: [],
+          blocks: [
+            { type: 'paragraph', text: 'Las ventas cayeron en 2021.', keyTerms: [] },
+            { type: 'dataChart', chart: 'bar', title: 'Las ventas se recuperan tras 2021', xLabel: 'Año', yLabel: 'M€', series: [{ name: 'Ventas', points: [{ x: '2019', y: 12 }, { x: '2020', y: 7.5, approx: true }] }], timestamp: '4:00', fromPhoto: 'p1', ...chart },
+            ...more,
+            { type: 'capturedImage', imageId: 'p1', timestamp: '4:00', caption: 'La gráfica de la pizarra' },
+          ],
+        },
+      ],
+    }) as unknown as StoredSummary;
+  const blocks = (doc: SummaryDocJSON) => doc.content.filter((b) => /-s0-b/.test(String(b.attrs?.blockId)));
+
+  it('the chart, then the photo small (35 %, media), then the italic caption (ai); the photo not again full size', () => {
+    const doc = summaryToDoc({ summary: summary(), summaryId: ID });
+    expect(blocks(doc).map((b) => [b.type, b.attrs?.origin])).toEqual([
+      ['paragraph', 'ai'],
+      ['graph', 'ai'],
+      ['image', 'media'],
+      ['paragraph', 'ai'],
+    ]);
+    const [, chart, photo, caption] = blocks(doc);
+    expect(chart.attrs).toMatchObject({ kind: 'bar', series: ['Ventas'], rows: [['2019', '12'], ['2020', '≈7.5']] });
+    expect(photo.attrs).toMatchObject({ src: 'media:p1', width: 35, alt: 'La gráfica de la pizarra' });
+    expect(caption.content).toEqual([{ type: 'text', text: 'Redrawn from your photo at 4:00 — check the values', marks: [{ type: 'italic' }] }]);
+    expect(doc.content.filter((b) => b.type === 'image')).toHaveLength(1);
+  });
+
+  it('valid in the editor; the ≈ value is drawn as its number, kept as typed in the table', () => {
+    const e = load(summaryToDoc({ summary: summary(), summaryId: ID }));
+    const graph = e.getJSON().content!.find((b) => b.type === 'graph')!;
+    expect(planGraph(cleanGraph(graph.attrs)).spec.series[0].values).toEqual([12, 7.5]);
+    expect(e.getJSON().content!.find((b) => b.type === 'image')?.attrs).toMatchObject({ width: 35 });
+    expect(e.view.dom.querySelector('.studiply-graph svg')).not.toBeNull();
+  });
+
+  it('pie and scatter charts are graph blocks of their kind', () => {
+    for (const kind of ['pie', 'scatter']) {
+      const doc = summaryToDoc({ summary: summary({ chart: kind, fromPhoto: '' }), summaryId: ID });
+      expect(blocks(doc).find((b) => b.type === 'graph')?.attrs?.kind).toBe(kind);
+    }
+  });
+
+  it('two graphs from one photo: the photo and caption once, after the second; a function plot from a photo keeps its line in its place', () => {
+    const second = { type: 'functionPlot', expression: 'x^2 - 4', xRange: [-5, 5], mark: [], title: 'Parábola de la foto', fromPhoto: 'p1' };
+    const doc = summaryToDoc({ summary: summary({}, [second]), summaryId: ID });
+    expect(blocks(doc).map((b) => (b.type === 'graph' ? `graph:${b.attrs?.kind}` : b.type))).toEqual(['paragraph', 'graph:bar', 'graph:function', 'image', 'paragraph']);
+    const shown = load(doc).view.dom.querySelectorAll('.studiply-graph-later');
+    expect([...shown].map((n) => n.textContent)).toEqual(['Parábola de la foto: y = x^2 - 4 on [-5, 5] · drawn in a later update']);
+  });
+
+  it('not from a photo: as before (the photo full size with its caption)', () => {
+    const doc = summaryToDoc({ summary: summary({ fromPhoto: '' }), summaryId: ID });
+    expect(blocks(doc).map((b) => b.type)).toEqual(['paragraph', 'graph', 'image', 'paragraph']);
+    expect(blocks(doc)[2].attrs).not.toHaveProperty('width');
+    expect(textOf(blocks(doc)[3])).toBe('La gráfica de la pizarra');
+  });
+
+  it('readNumber reads ≈ and ~ as the number', () => {
+    expect(['≈7.5', '≈ 7,5', '~12', '≈'].map(readNumber)).toEqual([7.5, 7.5, 12, null]);
   });
 });
 

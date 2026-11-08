@@ -136,6 +136,12 @@ This is the hard part: Whisper hears the lecture but never sees the whiteboard o
 2. **Drawn from a template.** For standard models (supply–demand, IS–LM, normal curve), Claude only picks the template and which curve shifts; the app draws it. Claude never free-draws a graph.
 3. **Drawn from spoken numbers.** When the professor reads out figures, Claude returns a chart spec with the values and their timestamp. Values not in the transcript are never invented; they go to `unclear` instead.
 4. **Captured by the student.** A camera button during recording snaps the board or slide, stamped with the time; it appears next to the matching section. Students can also import the professor's slide PDF. Claude can read these images to improve the summary, which needs the same consent as the audio.
+5. **Redrawn from the student's photo (Lea, 6 Nov).** At Visuals 5 or more (never at 1–4), with the photos ticked and the images consent, a graph Claude can read in a photo is redrawn in that photo's section, its block's `fromPhoto` the photo's id:
+   - **dataChart** (line, bar, pie, scatter, stacked bar, histogram): only values read off the photo's axes and gridlines, 2 or more; a value read between gridlines has `approx: true` and shows as "≈7.5". No point that can't be seen.
+   - **functionPlot** only when the function is written in the photo; **modelGraph** only when it is one of the templates.
+   - Axes or values not clearly readable: no graph, the photo alone.
+   - **In the document:** the graph, the photo small under it (35 %), and the caption "Redrawn from your photo at mm:ss — check the values"; the photo isn't repeated full size.
+   - **Checks (fixPhotoCharts, before the photos are placed):** a graph citing a photo it wasn't given is an ordinary chart again (a data chart then needs its values in the lecture; a function or model graph goes); below Visuals 5 or without the photos, it goes; at most 2 per photo; a data chart with fewer than 2 values goes; one in another section moves to its photo's. Its values are read off the photo, so the faithfulness check skips them. The report: `photoCharts { kept, approxValues, removed, moved, cleared }`.
 
 Never use AI image generation for academic diagrams: it invents labels and gets details wrong.
 
@@ -334,7 +340,7 @@ Examples are for a 90-minute lecture of 12,000 transcript words with the default
 | Explanation mode | Slider 3 · Depth | 1–3 → the statement only · 4–7 → statement + one-line “why” · 8–10 → why + how + link to earlier lectures | Statement + why |
 | Prerequisites | Slider 1 · Starting point | 1–3 → define every prerequisite term, show every step · 4–7 → define only terms new in this course · 8–10 → skip basics, tag what's new in this lecture | Every term defined |
 | Examples | Slider 4 · Examples | 1 → none · 2–4 → one per 3 sections · 5–7 → one per section · 8–10 → one per key idea | One per section |
-| Visual budget | Slider 5 · Visuals | 1 → none · 2–4 → only where the content is a curve or model · 5–7 → also timelines, comparisons, processes · 8–10 → one per section that has a shape. Always within the Graphs and visuals rules | Curves and models only |
+| Visual budget | Slider 5 · Visuals | 1 → none · 2–4 → only where the content is a curve or model · 5–7 → also timelines, comparisons, processes · 8–10 → one per section that has a shape. From 5, graphs in the student's photos are redrawn (Graphs and visuals, source 5). Always within the Graphs and visuals rules | Curves and models only |
 | Exam weighting | Slider 6 · Exam focus | 1–3 → professor's explicit flags only · 4–7 → Exam signals section and highlighted exam points · 8–10 → background cut, sections ordered by exam likelihood, exam tips added | Exam signals section |
 | Self-test size | Slider 7 · Self-test | 1 → none; otherwise 2 + (value − 2) × 1.6, rounded: 2 → 2, 5 → 7, 10 → 15. Question types from the course's exam format; 30% are “why/how” questions | 7 questions |
 | Vocabulary | Slider 8 · Language | 1–3 → plain words and analogies, technical term in brackets · 4–7 → technical terms, defined on first use · 8–10 → the professor's exact terminology and notation | Defined on first use |
@@ -585,9 +591,9 @@ Have Claude return the summary as structured JSON, not as free markdown. The app
         { "type": "argument", "claim": "", "premises": [""], "objections": [{ "objection": "", "reply": "" }] },
         { "type": "code", "language": "c", "code": "", "output": "" },
         { "type": "vocabulary", "entries": [{ "term": "", "meaning": "", "example": "" }] },
-        { "type": "functionPlot", "expression": "x^2 - 4", "xRange": [-5, 5], "mark": ["roots", "vertex"], "title": "" },
-        { "type": "modelGraph", "template": "supplyDemand | islm | normalCurve | costCurves", "shifts": [{ "curve": "", "direction": "left | right" }], "title": "" },
-        { "type": "dataChart", "chart": "line | bar | stackedBar | histogram", "title": "", "xLabel": "", "yLabel": "", "series": [{ "name": "", "points": [{ "x": "", "y": 0 }] }], "timestamp": "mm:ss" },
+        { "type": "functionPlot", "expression": "x^2 - 4", "xRange": [-5, 5], "mark": ["roots", "vertex"], "title": "", "fromPhoto": "" },
+        { "type": "modelGraph", "template": "supplyDemand | islm | normalCurve | costCurves", "shifts": [{ "curve": "", "direction": "left | right" }], "title": "", "fromPhoto": "" },
+        { "type": "dataChart", "chart": "line | bar | stackedBar | histogram | pie | scatter", "title": "", "xLabel": "", "yLabel": "", "series": [{ "name": "", "points": [{ "x": "", "y": 0, "approx": false }] }], "timestamp": "mm:ss", "fromPhoto": "" },
         { "type": "capturedImage", "imageId": "", "timestamp": "mm:ss", "caption": "" }
       ]
     }

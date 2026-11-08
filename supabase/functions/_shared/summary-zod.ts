@@ -27,6 +27,12 @@ const obj = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
 export const EXPRESSION_GRAMMAR =
   'y in terms of x only: numbers, x, + - * / ^ ( ), pi, e, sin cos tan exp ln log sqrt abs with parentheses; write 2*x not 2x, sin(x) not sin x; -x^2 means -(x^2)';
 
+/**
+ * Lea, 6 Nov: a graph redrawn from a photo names the photo (its id in <photos>); "" when not from one.
+ * Optional, so summaries stored before still pass.
+ */
+const fromPhoto = str.describe('the id of the photo this graph is redrawn from, "" if not from a photo').optional();
+
 /** Each block type's data (its fields besides `type`): the spec's block shapes. */
 export const BLOCK_DATA = {
   paragraph: obj({ text: str, keyTerms: list(str) }),
@@ -54,19 +60,23 @@ export const BLOCK_DATA = {
     xRange: list(num).describe('two numbers: from, to'),
     mark: list(str).describe('any of "roots", "vertex", "extrema", "yIntercept"'),
     title: str,
+    fromPhoto,
   }),
   modelGraph: obj({
     template: z.enum(['supplyDemand', 'islm', 'normalCurve', 'costCurves']),
     shifts: list(obj({ curve: str.describe('D or S; IS or LM; N; MC, ATC or AVC'), direction: z.enum(['left', 'right']) })),
     title: str,
+    fromPhoto,
   }),
+  // Lea, 6 Nov: pie and scatter too (the graph block draws both); `approx`: a value read between a photo's gridlines.
   dataChart: obj({
-    chart: z.enum(['line', 'bar', 'stackedBar', 'histogram']),
+    chart: z.enum(['line', 'bar', 'stackedBar', 'histogram', 'pie', 'scatter']),
     title: str,
     xLabel: str,
     yLabel: str,
-    series: list(obj({ name: str, points: list(obj({ x: str, y: num })) })),
+    series: list(obj({ name: str, points: list(obj({ x: str, y: num, approx: z.boolean().describe('true when read between a photo\'s gridlines').optional() })) })),
     timestamp: str,
+    fromPhoto,
   }),
   capturedImage: obj({ imageId: str, timestamp: str, caption: str }),
 } satisfies Record<BlockType, z.ZodObject>;

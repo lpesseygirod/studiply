@@ -35,6 +35,7 @@ import {
   fixCharts,
   fixMarks,
   fixNotes,
+  fixPhotoCharts,
   fixPhotos,
   lengthPart,
   listsPartPrompt,
@@ -392,11 +393,22 @@ function budgetLine(plan: SummaryPlan, c: Classification): string {
 }
 
 /**
+ * Lea, 6 Nov: with Visuals 5 or more and the photos sent, a graph in a photo is redrawn as a chart in
+ * that photo's section, read off the photo and nothing invented (summary-checks.ts fixPhotoCharts).
+ */
+export const PHOTO_CHARTS_RULE = [
+  '- Graphs in the photos: a graph you can read in a photo of <photos> may be redrawn in that photo\'s section (at most 2 per photo), with fromPhoto set to the photo\'s id.',
+  '  - dataChart (line, bar, pie, scatter, stackedBar, histogram): only the values you can read off its axes and gridlines (2 or more), approx true for a value read between gridlines; no point you can\'t see. Its labels as written in the photo.',
+  '  - functionPlot only when the function is written in the photo; modelGraph only when it is one of the templates.',
+  '  - Axes or values not clearly readable: no chart, the photo alone (capturedImage).',
+].join('\n');
+
+/**
  * The generate call's rules. `part` (step 7.6, a lecture over 60 min): the same rules for one part of
  * it, the same text for every part (so it is cached once); the part's own topics and length are in
  * its <part> tag, and the takeaways, self-test and flashcards come from the wrap-up call.
  */
-export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Classification, mode: 'whole' | 'part' = 'whole'): string {
+export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Classification, mode: 'whole' | 'part' = 'whole', opts: { photoCharts?: boolean } = {}): string {
   const language = languageName(m.summaryLanguage ?? m.language) ?? 'the language of the transcript';
   const p = plan;
   const part = mode === 'part';
@@ -428,7 +440,7 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     `- Explanations: ${EXPLANATION[p.explanation]}.`,
     `- Prerequisites: ${PREREQUISITES[p.prerequisites]}.`,
     `- Examples: ${EXAMPLES[p.examples]}.`,
-    `- Visuals: ${VISUALS[p.visuals]}.`,
+    `- Visuals: ${VISUALS[p.visuals]}${opts.photoCharts ? '; redraw the graphs in the photos' : ''}.`,
     `- Exam focus: ${EXAM_WEIGHTING[p.examWeighting]}.`,
     `- Vocabulary: ${VOCABULARY[p.vocabulary]}.`,
     `- Slides: ${RESOURCES[p.resources]}.`,
@@ -446,7 +458,9 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     '- questionsDuringClass: one entry per question in <questions>, with a short answer.',
     '- capturedImage: a photo in <photos> where it belongs, imageId as given.',
     // Step 8.2 (BUILD-PLAN: data charts only from numbers in the transcript; templates, never free drawing).
-    '- Graphs: a dataChart only from numbers said in class, on the slides or in the notes (5 values or more; fewer: a sentence), its title the takeaway, at most 3 series. A functionPlot only for a function the professor gave, its expression in the grammar below. A modelGraph only picks its template and its shifts.',
+    '- Graphs: a dataChart only from numbers said in class, on the slides or in the notes (5 values or more; fewer: a sentence), its title the takeaway, at most 3 series. A functionPlot only for a function the professor gave, its expression in the grammar below. A modelGraph only picks its template and its shifts. fromPhoto is "" for these.',
+    // Lea, 6 Nov: a graph in a photo redrawn as a chart (Visuals 5+, the photos sent).
+    opts.photoCharts ? PHOTO_CHARTS_RULE : '',
     '',
     "A section's blocks: each is { type, data }, data being a JSON object written as a string, with exactly these fields for its type (all of them; \"\" or [] when empty):",
     blockGuide(),
@@ -743,18 +757,23 @@ export async function attempt(
  * it is still off and calls remain); then the checks run once more and their report is stored with the
  * summary (result.checks), passing or not: a failed check never hides the summary.
  */
-export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan: SummaryPlan, baseSystem: string, start: StoredSummary): Promise<StoredSummary> {
-  // Step 8.2: with the photos ticked, each one is in the summary at its time.
+export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan: SummaryPlan, baseSystem: string, start: StoredSummary, photoCharts = false): Promise<StoredSummary> {
+  // Step 8.2: with the photos ticked, each one is in the summary at its time. `photoCharts` (Lea, 6 Nov):
+  // graphs may be redrawn from the photos (Visuals 5+, the photos sent).
   const photos = deps.request.resources.photos;
-  const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks, photos };
+  const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks, photos, photoCharts };
   let s = start;
   const fixed = { notes: new Set<string>(), marks: new Set<string>(), photos: new Set<string>() };
+  const fromPhotos = { removed: new Set<string>(), moved: new Set<string>(), cleared: new Set<string>() };
   const fixCoverage = () => {
     const n = fixNotes(s, m);
     n.fixed.forEach((id) => fixed.notes.add(id));
     const k = fixMarks(n.summary, m);
     k.fixed.forEach((id) => fixed.marks.add(id));
-    const ph = photos ? fixPhotos(k.summary, m) : { summary: k.summary, fixed: [] };
+    // The graphs from photos first, so a moved one lands by its photo.
+    const pc = fixPhotoCharts(k.summary, m, photoCharts);
+    for (const key of ['removed', 'moved', 'cleared'] as const) pc[key].forEach((x) => fromPhotos[key].add(x));
+    const ph = photos ? fixPhotos(pc.summary, m) : { summary: pc.summary, fixed: [] };
     ph.fixed.forEach((id) => fixed.photos.add(id));
     s = settle(ph.summary, m, plan);
   };
@@ -820,8 +839,9 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
     await write(next);
   }
   // Step 8.2: chart values still not found nor confirmed are taken out (listed under unclear); counted before they go.
-  const chartCount = chartValues(s).length;
-  const charts = fixCharts(s, sourcesOf(m), confirmed);
+  const src = sourcesOf(m);
+  const chartCount = chartValues(s, src.photos).length;
+  const charts = fixCharts(s, src, confirmed);
   s = charts.summary;
   const report = runChecks(s, m, plan, options);
   const unverified = report.faithfulness.unverified.filter((u) => !confirmed.has(`${u.kind}:${u.value}`));
@@ -830,6 +850,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
   report.notes.fixedByCode = [...fixed.notes];
   report.marks.fixedByCode = [...fixed.marks];
   if (report.photos) report.photos.fixedByCode = [...fixed.photos];
+  if (report.photoCharts) report.photoCharts = { ...report.photoCharts, removed: [...fromPhotos.removed], moved: [...fromPhotos.moved], cleared: [...fromPhotos.cleared] };
   report.regenerations = regenerations;
   deps.log('checks', {
     summaryId: deps.summaryId,
@@ -860,13 +881,14 @@ async function generateLong(
   wholeSystem: string,
   mediaBlocks: Content,
   builtFrom: string[],
+  photoCharts = false,
 ): Promise<{ summary: StoredSummary; model: string; extend?: ExtendLists } | { error: string }> {
   const parts = splitParts(m, c);
   const items = assignItems(m, plan, parts);
   const { shared, photos } = splitMedia(mediaBlocks);
   // Extend (7.9): every part sees the existing summary and answers its own alreadyCovered / corrections.
   const x = deps.extend;
-  const system = summarySystemPrompt(m, plan, c, 'part') + (x ? `\n${extendRules(x)}` : '');
+  const system = summarySystemPrompt(m, plan, c, 'part', { photoCharts }) + (x ? `\n${extendRules(x)}` : '');
   const existing = x ? `${existingSummaryText(x.anchors).text}\n` : '';
   const found: ExtendLists = { alreadyCovered: [], corrections: [] };
   deps.log('long_lecture_parts', { summaryId: deps.summaryId, parts: parts.length, minutes: parts.map((p) => Math.round((p.endMs - p.startMs) / 60_000)) });
@@ -966,10 +988,12 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
     const builtFrom = ['notes', 'audio', ...(media.pdfs ? ['slides'] : []), ...(media.photos ? ['photos'] : []), ...(deps.request.resources.assistant && m.questions.length ? ['assistant'] : [])];
     // Extend (7.9): the rules for adding to the existing summary, which is in the user content.
     const x = deps.extend;
-    const system = summarySystemPrompt(m, plan, c) + (x ? `\n${extendRules(x)}` : '');
+    // Lea, 6 Nov: graphs in the photos redrawn (Visuals 5+, the photos ticked and sent: images consent).
+    const photoCharts = plan.visualsFromPhotos && deps.request.resources.photos && media.photos > 0;
+    const system = summarySystemPrompt(m, plan, c, 'whole', { photoCharts }) + (x ? `\n${extendRules(x)}` : '');
     // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
     const finish = async (start: StoredSummary, model: string, tries: number, lists?: ExtendLists): Promise<SummaryOutcome> => {
-      const s = await qualityPass(deps, m, plan, system, start);
+      const s = await qualityPass(deps, m, plan, system, start, photoCharts);
       // Extend: the caller stores the combined result on its row.
       if (x) {
         deps.log('extend_written', { summaryId: deps.summaryId, tries, sections: (s.sections as unknown[]).length, alreadyCovered: lists?.alreadyCovered.length ?? 0, corrections: lists?.corrections.length ?? 0 });
@@ -992,7 +1016,7 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
 
     // Over 60 min (step 7.6): by parts, merged.
     if (m.durationMs > MAX_LECTURE_MS) {
-      const long = await generateLong(deps, m, plan, c, system, media.blocks, builtFrom);
+      const long = await generateLong(deps, m, plan, c, system, media.blocks, builtFrom, photoCharts);
       return 'error' in long ? fail(long.error) : finish(long.summary, long.model, 1, long.extend);
     }
 

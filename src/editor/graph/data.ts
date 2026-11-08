@@ -199,9 +199,16 @@ export function cleanGraph(value: unknown): GraphData {
   };
 }
 
-/** A typed number: "3,5", "3.5", "-2", "1 200"; with both marks, the last one is the decimal one. Not a number: null. */
+/** Lea, 6 Nov: a value read off a photo between its gridlines is written "≈7.5" (APPROX + the number). */
+export const APPROX = '≈';
+
+/**
+ * A typed number: "3,5", "3.5", "-2", "1 200"; with both marks, the last one is the decimal one; an
+ * approximate one ("≈7.5", "~7.5") as its number. Not a number: null.
+ */
 export function readNumber(cell: string): number | null {
   let s = cell.replace(/[\s ]/g, '');
+  s = s.replace(/^[≈~]/, '');
   if (!s) return null;
   const comma = s.lastIndexOf(',');
   const point = s.lastIndexOf('.');

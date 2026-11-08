@@ -18,6 +18,7 @@ import {
   fixCharts,
   fixMarks,
   fixNotes,
+  fixPhotoCharts,
   fixPhotos,
   languageCheck,
   lengthBounds,
@@ -45,6 +46,8 @@ import {
 import { FixtureShape, fixtureInput } from '../../../supabase/functions/_shared/summary-fixture';
 import { parseClassify, parseSummary, planFor, type StoredSummary, type SummaryRequest } from '../../../supabase/functions/_shared/summary-pipeline';
 import { SLIDER_DEFAULTS, type SummaryPlan } from '../../../supabase/functions/_shared/summary-plan';
+import { checkBlock } from '../../../supabase/functions/_shared/summary-zod';
+import { CHART_EXPECTED, syntheticChartFixture } from '../../../scripts/fixtures/synthetic-chart-lecture';
 import { lectureMaterial, packedSummary, validSummary } from '../../test-utils/summaryFixtures';
 
 const MIN = 60_000;
@@ -604,5 +607,109 @@ describe('step 8.2: the photos at their time', () => {
     expect(runChecks(fine, m, plan, { hasHighMarks: false, photos: true }).photos).toMatchObject({ pass: true, misplaced: [] });
     // Photos not ticked: nothing asked of them.
     expect(runChecks(stored(), m, plan, { hasHighMarks: false }).photos).toEqual({ pass: true, total: 0, misplaced: [], fixedByCode: [] });
+  });
+});
+
+describe('Lea, 6 Nov: graphs redrawn from photos', () => {
+  type Pt = { x: string; y: number; approx?: boolean };
+  /** A bar chart redrawn from `photo` (values not in the lecture), in section `at` (p1 is 12:40: section 0's). */
+  const withPhotoChart = (o: { photo?: string; at?: number; points?: Pt[]; type?: string; more?: number } = {}) =>
+    stored((v) => {
+      const points = o.points ?? [{ x: '2019', y: 12 }, { x: '2020', y: 98765, approx: true }];
+      const block =
+        o.type === 'functionPlot'
+          ? { type: 'functionPlot', expression: 'x^2', xRange: [-2, 2], mark: [], title: 'Parábola de la foto', fromPhoto: o.photo ?? 'p1' }
+          : { type: 'dataChart', chart: 'bar', title: 'Leído de la foto', xLabel: 'Año', yLabel: 'M€', series: [{ name: 'Ventas', points }], timestamp: '12:40', fromPhoto: o.photo ?? 'p1' };
+      for (let i = 0; i <= (o.more ?? 0); i++) v.sections[o.at ?? 0].blocks.push({ ...block, title: `${block.title}${i ? ` ${i}` : ''}` } as never);
+    });
+  const photoCharts = (s: StoredSummary) => sections(s).map((x) => x.blocks.filter((b) => b.fromPhoto).map((b) => String(b.title)));
+  const src = sourcesOf(m);
+
+  it('the calculator: from Visuals 5 (mid and high), never below', () => {
+    const at = (visuals: number) => planFor(m, { ...REQUEST, sliders: { ...SLIDER_DEFAULTS, visuals } }, parseClassify(JSON.stringify({ subjectType: 'science', modules: [], topics: [], professorExamPhrases: [], repeatedConcepts: [] }))!).visualsFromPhotos;
+    expect([1, 4, 5, 7, 8, 10].map(at)).toEqual([false, false, true, true, true, true]);
+  });
+
+  it('its values are read off the photo: not checked against the transcript (nor its title), and fixCharts leaves it', () => {
+    const s = withPhotoChart();
+    expect(chartValues(s, src.photos).some((v) => v.value === '98765')).toBe(false);
+    expect(faithfulness(s, src).unverified.filter((u) => u.value === '98765' || u.path.includes(`blocks[${sections(s)[0].blocks.length - 1}]`))).toEqual([]);
+    // (validSummary's own one-value chart goes; the photo's stays whole.)
+    const left = sections(fixCharts(s, src, new Set()).summary)[0].blocks.at(-1)!;
+    expect(left).toMatchObject({ fromPhoto: 'p1', series: [{ points: [{ y: 12 }, { y: 98765, approx: true }] }] });
+    // Without the photos known (an older caller), it is an ordinary chart.
+    expect(chartValues(s).some((v) => v.value === '98765')).toBe(true);
+  });
+
+  it('allowed and in its photo’s section: kept as it is (the same object), its ≈ values counted', () => {
+    const s = withPhotoChart();
+    const out = fixPhotoCharts(s, m, true);
+    expect(out).toMatchObject({ kept: 1, approxValues: 1, removed: [], moved: [], cleared: [] });
+    expect(out.summary).toBe(s);
+    expect(runChecks(s, m, plan, { hasHighMarks: false, photos: true, photoCharts: true }).photoCharts).toEqual({ pass: true, kept: 1, approxValues: 1, removed: [], moved: [], cleared: [] });
+  });
+
+  it('below Visuals 5, or the photos not included: taken out', () => {
+    const out = fixPhotoCharts(withPhotoChart(), m, false);
+    expect(photoCharts(out.summary)).toEqual([[], []]);
+    expect(out.removed).toEqual(['dataChart “Leído de la foto” (photo p1): graphs from photos need Visuals 5 or more and the photos included']);
+    // The report's default: the photos ticked and the plan's Visuals (4 here).
+    expect(runChecks(withPhotoChart(), m, plan, { hasHighMarks: false, photos: true }).photoCharts).toMatchObject({ pass: false, kept: 0, removed: [expect.stringContaining('Visuals 5')] });
+  });
+
+  it('naming a photo it wasn’t given: a data chart becomes an ordinary one (then the numbers rule), a function plot goes', () => {
+    const out = fixPhotoCharts(withPhotoChart({ photo: 'invented' }), m, true);
+    const chart = sections(out.summary)[0].blocks.find((b) => b.title === 'Leído de la foto')!;
+    expect(chart.fromPhoto).toBe('');
+    expect((chart.series as { points: Pt[] }[])[0].points).toEqual([{ x: '2019', y: 12 }, { x: '2020', y: 98765 }]);
+    expect(out).toMatchObject({ kept: 0, cleared: ['dataChart “Leído de la foto” (photo invented)'], removed: [] });
+    // Its values are checked again: 98765 isn't in the lecture.
+    expect(faithfulness(withPhotoChart({ photo: 'invented' }), src).unverified.some((u) => u.value === '98765')).toBe(true);
+    const fn = fixPhotoCharts(withPhotoChart({ photo: 'invented', type: 'functionPlot' }), m, true);
+    expect(photoCharts(fn.summary)).toEqual([[], []]);
+    expect(fn.removed).toEqual(['functionPlot “Parábola de la foto” (photo invented): not one of the photos given']);
+  });
+
+  it('a data chart from a photo with 1 value goes; a third one from the same photo goes', () => {
+    const one = fixPhotoCharts(withPhotoChart({ points: [{ x: '2019', y: 12 }] }), m, true);
+    expect(photoCharts(one.summary)).toEqual([[], []]);
+    expect(one.removed).toEqual([expect.stringContaining('fewer than 2 values')]);
+    const three = fixPhotoCharts(withPhotoChart({ more: 2 }), m, true);
+    expect(photoCharts(three.summary)).toEqual([['Leído de la foto', 'Leído de la foto 1'], []]);
+    expect(three.removed).toEqual(['dataChart “Leído de la foto 2” (photo p1): more than 2 graphs from one photo']);
+  });
+
+  it('in another section than its photo: moved to the photo’s, just before the photo when it is there', () => {
+    // validSummary has p1 in section 1 (31:05) although it is 12:40: fixPhotos moves it after.
+    const out = fixPhotoCharts(withPhotoChart({ at: 1 }), m, true);
+    expect(photoCharts(out.summary)).toEqual([['Leído de la foto'], []]);
+    expect(out.moved).toEqual(['dataChart “Leído de la foto” (photo p1)']);
+    const placed = fixPhotos(out.summary, m).summary;
+    expect(sections(placed)[0].blocks.slice(-2).map((b) => b.type)).toEqual(['dataChart', 'capturedImage']);
+    // The photo already in its section: the chart goes just before it.
+    const there = stored((v) => {
+      v.sections[0].blocks.push({ type: 'capturedImage', imageId: 'p1', timestamp: '12:40', caption: '' } as never, paragraph('Después de la foto.'));
+      v.sections[1].blocks.push({ type: 'dataChart', chart: 'bar', title: 'Leído', xLabel: '', yLabel: '', series: [{ name: 's', points: [{ x: 'a', y: 1 }, { x: 'b', y: 2 }] }], timestamp: '', fromPhoto: 'p1' } as never);
+    });
+    const moved = sections(fixPhotoCharts(there, m, true).summary)[0].blocks.map((b) => b.type).slice(-3);
+    expect(moved).toEqual(['dataChart', 'capturedImage', 'paragraph']);
+  });
+
+  it('pie and scatter are data charts too; a value read between gridlines is marked approx', () => {
+    for (const chart of ['pie', 'scatter']) {
+      const checked = checkBlock('dataChart', { chart, title: '', xLabel: '', yLabel: '', series: [{ name: 's', points: [{ x: '1', y: 2, approx: true }] }], timestamp: '', fromPhoto: 'p1' }, '$');
+      expect(checked.ok).toBe(true);
+    }
+    // Stored before (no fromPhoto, no approx): still valid.
+    expect(checkBlock('dataChart', { chart: 'bar', title: '', xLabel: '', yLabel: '', series: [], timestamp: '' }, '$').ok).toBe(true);
+    expect(checkBlock('functionPlot', { expression: 'x', xRange: [0, 1], mark: [], title: '' }, '$').ok).toBe(true);
+  });
+
+  it('the synthetic-chart fixture: the photo’s values are nowhere in the lecture, so only a graph read off the photo has them', () => {
+    const { material, request } = fixtureInput(FixtureShape.parse(syntheticChartFixture()));
+    const numbers = sourcesOf(material).numbers;
+    expect(CHART_EXPECTED.values.filter((v) => numbers.has(v.y))).toEqual([]);
+    expect(material.photos).toEqual([{ id: CHART_EXPECTED.photoId, tMs: CHART_EXPECTED.tMs }]);
+    expect(request.resources.photos && request.sliders.visuals >= 5).toBe(true);
   });
 });

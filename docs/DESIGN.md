@@ -295,6 +295,12 @@ As built in step 4.4:
   - **Worked example:** its answer boxed.
   - **Behaviour:** everything inside is text she can edit; the box moves whole between pages.
 
+- **Graphs redrawn from her photos (Lea, 6 Nov; no mockup, existing styles only):** at Visuals 5 or more, with board photos included (and the images permission), a graph Claude can read in a photo is drawn again as a real graph in that photo's section. The same on both devices and in the PDF.
+  - **In order:** the graph (titled with its takeaway), then the photo small under it (35 % of the page, the board photos' size in My notes), then a small italic line **"Redrawn from your photo at 12:40 — check the values"**. The photo isn't shown full size again in that section. Two graphs from one photo: the photo and the line once, after the second.
+  - **Values read between gridlines** show as **≈7.5** in the graph's table; the graph draws them as 7.5. She edits them like any graph's (a click opens the form).
+  - **Kinds:** bar, line, pie, scatter (and stacked bar, histogram); a function or a model graph read off a photo shows its line in its place until the charts module draws those kinds (8.2).
+  - **Not redrawn:** at Visuals 1–4, without photos included, or when the axes or values can't be read clearly: the photo alone, as before.
+
 ### 4. Extend, Merge, Exam pack (step 7.9; no mockup, existing styles only)
 - **Where:** **Extend with next lecture…** in a lecture's menu (library, sidebar, the document menu) and from the banner's pill / the iPhone's **+ Extend with next**; **Merge lectures…** and **Make exam pack…** in a course's or folder's menu.
 - **The lecture picker** (a centred card on the laptop, a bottom sheet on the iPhone): the course's (or folder's) lectures in teaching order, "Lecture n · title", and under each "Has a summary" or "No summary yet".
