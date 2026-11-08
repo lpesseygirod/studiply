@@ -15,6 +15,7 @@ import { showActionSheet } from '../dialogs/dialogs';
 import UserAvatar from '../UserAvatar';
 import { AssistantAnswer } from './AssistantAnswer';
 import { CardsList } from './CardsList';
+import { SCROLL_KEYS, createFollower, onGrow } from './followEnd';
 import { useAppUndo } from '../../hooks/useAppUndo';
 import { recorder } from '../../services/recorder';
 import { placeAtMoment } from '../../services/moment-placement';
@@ -73,6 +74,7 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
   // A summary's Full answer link (step 7.7): this question scrolled to and marked for a few seconds,
   // instead of the end of the conversation.
   const tops = useRef(new Map<string, number>());
+  const [follow] = useState(createFollower);
   // Asked just now (the sheet or panel opening for it), not a link followed earlier.
   const fresh = () => {
     const f = assistantFocus();
@@ -85,13 +87,46 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     if (!focused || !focusShown) return;
     const y = tops.current.get(focused);
     if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+    // She reads that question: the conversation doesn't go to the end afterwards either.
+    follow.stop();
     const t = setTimeout(() => setFocused(null), FOCUS_MS);
     return () => clearTimeout(t);
-  }, [focused, focusShown]);
+  }, [focused, focusShown, follow]);
+
+  // The end is followed only while she is at the bottom (Lea, 6 Nov: reading up, a streaming answer
+  // pulled her back down). Asking takes her to the end and it follows again. Only her own scrolling
+  // changes it (./followEnd): wheel, trackpad, touch, scroll keys and the scrollbar on the web; a drag
+  // and its momentum on the iPhone.
+  const onScroll = (e: { nativeEvent: { contentOffset: { y: number }; layoutMeasurement: { height: number }; contentSize: { height: number } } }) => {
+    const n = e.nativeEvent;
+    follow.scrolled({ offsetY: n.contentOffset.y, viewHeight: n.layoutMeasurement.height, contentHeight: n.contentSize.height });
+  };
+  const userScroll =
+    Platform.OS === 'web'
+      ? {
+          onWheel: follow.userInput,
+          onTouchMove: follow.userInput,
+          onKeyDown: (e: { key: string }) => SCROLL_KEYS.has(e.key) && follow.userInput(),
+          // On the scrollbar (the conversation itself, not a turn in it): hers until the button is released.
+          onMouseDown: (e: { target: unknown; currentTarget: unknown }) => {
+            if (e.target !== e.currentTarget) return;
+            follow.dragStart();
+            window.addEventListener('mouseup', follow.dragEnd, { once: true });
+          },
+        }
+      : {};
+  const followEnd = () => {
+    follow.asked();
+    scroll.current?.scrollToEnd({ animated: false });
+  };
 
   const canAsk = !!chat.lectureId && !chat.busy && !offline;
   const canSend = canAsk && chat.draft.trim().length > 0;
-  const send = () => canSend && chat.ask(chat.draft, null);
+  const send = () => {
+    if (!canSend) return;
+    followEnd();
+    chat.ask(chat.draft, null);
+  };
   const lengthMs = chat.knownUpToMs;
 
   const copy = async (turn: ChatTurn) => {
@@ -243,14 +278,22 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
         style={styles.fill}
         contentContainerStyle={[styles.conversation, !panel && styles.conversationSheet]}
         onContentSizeChange={() => {
+          const next = onGrow({ focusing: !!focused && focusShown, following: follow.following });
           // At a question a summary's link asked for, the conversation stays there.
-          if (focused && focusShown) {
-            const y = tops.current.get(focused);
+          if (next === 'focus') {
+            const y = focused ? tops.current.get(focused) : undefined;
             if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - 12), animated: false });
             return;
           }
-          scroll.current?.scrollToEnd({ animated: false });
+          if (next === 'end') scroll.current?.scrollToEnd({ animated: false });
         }}
+        onScroll={onScroll}
+        scrollEventThrottle={32}
+        onScrollBeginDrag={follow.dragStart}
+        onScrollEndDrag={follow.dragEnd}
+        onMomentumScrollBegin={follow.dragStart}
+        onMomentumScrollEnd={follow.dragEnd}
+        {...userScroll}
         keyboardShouldPersistTaps="handled"
         {...{ dataSet: { assistant: 'conversation' } }}
       >
@@ -278,7 +321,10 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
         {QUICK_PROMPT_ORDER.map((key) => (
           <Pressable
             key={key}
-            onPress={() => chat.ask('', key)}
+            onPress={() => {
+              followEnd();
+              chat.ask('', key);
+            }}
             disabled={!canAsk}
             aria-disabled={!canAsk}
             style={({ pressed }) => [styles.chip, !canAsk && styles.off, pressed && styles.pressed]}

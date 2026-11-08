@@ -19,7 +19,9 @@
 //      box (ai) in My notes, then "Added ✓"; Flashcards proposes the cards
 //      (not editable), Save cards → "2 flashcards saved", flashcards rows, each
 //      with its review row due at once (step 9.1). Retry asks the same again in its place.
-//   4. Typing: Shift+Enter a new line, Enter sends the question as typed.
+//   4. Typing: Shift+Enter a new line, Enter sends the question as typed. Reading up while a long
+//      answer streams (Lea, 6 Nov): the conversation stays where she scrolled; a quick prompt takes
+//      her to the end and it follows again.
 //   5. Offline: the note, the chips and send disabled, the draft kept.
 //   6. The panel closed and opened again shows the conversation saved in
 //      assistant_messages (not a reload: that would end the recording).
@@ -133,7 +135,9 @@ const PAGE_SETUP = `(() => {
       const now = typeof body.nowMs === 'number' ? body.nowMs : 0;
       const start = body.quickPrompt ? Math.max(0, now - SPANS[body.quickPrompt]) : 0;
       const pieces = [frame('meta', { questionId: 'q' + n, answerId: crypto.randomUUID(), window: { startMs: start, endMs: now }, knownUpToMs: 0 })];
-      for (let i = 0; i < ANSWER.length; i += 24) pieces.push(frame('delta', { text: ANSWER.slice(i, i + 24) }));
+      // A question with LARGO: a long answer (the canned one six times), for reading up while it streams.
+      const text = String(body.message || '').includes('LARGO') ? Array(6).fill(ANSWER).join('\\n\\n') : ANSWER;
+      for (let i = 0; i < text.length; i += 24) pieces.push(frame('delta', { text: text.slice(i, i + 24) }));
       pieces.push(frame('done', { model: 'claude-sonnet-5-5', stopReason: 'end_turn', usage: { input: 1, output: 1 }, costUsd: 0 }));
       const enc = new TextEncoder();
       const stream = new ReadableStream({
@@ -377,6 +381,46 @@ try {
     expect(turn.question.trim() === '¿Qué es la sinapsis?\nCon un ejemplo', `bubble: ${JSON.stringify(turn.question)}`);
     expect(/^From 0:00 to /.test(turn.window), `a typed question's window: ${turn.window}`);
     expect((await b.evaluate(`document.querySelector('${PANEL} textarea').value`)) === '', 'the box not emptied');
+  });
+
+  // Lea, 6 Nov: scrolled up to read, a streaming answer no longer pulls the conversation to the end.
+  await step('reading up while a long answer streams: the conversation stays where she is; asking again goes to the end and follows', async () => {
+    const CONV = `${PANEL} [data-assistant="conversation"]`;
+    const metrics = () => b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(CONV)}); return e ? { top: e.scrollTop, gap: e.scrollHeight - e.clientHeight - e.scrollTop, height: e.scrollHeight } : null; })()`);
+    await b.clickSelector(`${PANEL} textarea`);
+    await b.type('Explícalo con detalle, LARGO');
+    await b.press('Enter');
+    // While it streams and she is at the bottom, it follows.
+    await waitFor(async () => (await lastTurn(PANEL))?.status === 'streaming' && (await lastTurn(PANEL)).answer.length > 200, 'the long answer streaming', 10000);
+    const following = await metrics();
+    expect(following.gap <= 40, `not following the end while at the bottom: ${JSON.stringify(following)}`);
+    // She scrolls up with the wheel to read.
+    const c = await center(CONV);
+    await b.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: c.x, y: c.y, deltaX: 0, deltaY: -900 });
+    await b.sleep(400);
+    const up = await metrics();
+    expect(up.gap > 200, `the wheel didn't scroll up: ${JSON.stringify(up)}`);
+    const { turn } = await watchStream(PANEL);
+    expect(turn.status === 'done', `status ${turn.status}`);
+    await b.sleep(300);
+    const after = await metrics();
+    expect(after.height > up.height, `the answer didn't grow after scrolling up: ${JSON.stringify({ up, after })}`);
+    expect(Math.abs(after.top - up.top) <= 2, `pulled away while reading: scrollTop ${up.top} → ${after.top}`);
+    report.push(`RESULT | reading up: scrollTop ${up.top} kept while the answer grew ${after.height - up.height} px`);
+    // A quick prompt: to the end, and it follows again. "Am I missing something?" is the chips' last one, past
+    // the panel's edge in their sideways row: scrolled to first (a click where it isn't asked nothing, so the
+    // last turn was the long answer, already done, and the conversation hadn't moved).
+    const asked = (await calls()).length;
+    await b.evaluate(`document.querySelector('${PANEL} [data-quick-prompt="missing"]').scrollIntoView({ block: 'nearest', inline: 'center' })`);
+    await b.sleep(300);
+    await b.clickSelector(`${PANEL} [data-quick-prompt="missing"]`);
+    await waitFor(async () => (await calls()).length === asked + 1, 'the quick prompt asked', 5000);
+    await waitFor(async () => (await lastTurn(PANEL))?.question.trim() === 'Am I missing something?', async () => `its question last in the conversation: ${JSON.stringify(await lastTurn(PANEL))}`, 5000);
+    await watchStream(PANEL);
+    await b.sleep(300);
+    const back = await metrics();
+    expect(back.height > after.height, `the conversation didn't grow with the new turn: ${JSON.stringify({ after, back })}`);
+    expect(back.gap <= 40, `not at the end after asking: ${JSON.stringify(back)}`);
   });
 
   await step('offline: the note, the chips and send disabled; the draft stays; back online they work again', async () => {
