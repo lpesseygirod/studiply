@@ -11,12 +11,13 @@
  * half the price, quicker in class); summaries stay on Opus. Every model here
  * must be in PRICES below.
  */
-export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; quizFormat: string } = {
+export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; quizFormat: string; quizGrade: string } = {
   assistant: 'claude-sonnet-5-5',
   summary: 'claude-opus-5-5',
-  // Step 9.1b (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format.
+  // Step 9.1b (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format and grades answers.
   quiz: 'claude-opus-5-5',
   quizFormat: 'claude-sonnet-5-5',
+  quizGrade: 'claude-sonnet-5-5',
 };
 
 /**

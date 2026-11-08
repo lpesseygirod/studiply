@@ -57,6 +57,20 @@ export const FormatAnswer = obj({
 });
 export type PastExamFormatRead = z.infer<typeof FormatAnswer>;
 
+/** Step 9.1b-3: the grading call's answer. */
+export const GradeAnswer = obj({ grades: z.array(obj({ answerId: str, verdict: z.enum(['correct', 'partly', 'wrong']), reason: str })) });
+export type GradeAnswerValue = z.infer<typeof GradeAnswer>;
+
+/** The grading call's grades, or null when they aren't the shape. */
+export function parseGrades(text: string): GradeAnswerValue['grades'] | null {
+  try {
+    const parsed = GradeAnswer.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data.grades : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A batch's answer: its questions (data unparsed), or null when it isn't the shape. */
 export function parseQuizAnswer(text: string): RawQuestion[] | null {
   try {

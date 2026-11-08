@@ -318,11 +318,30 @@ As built in step 4.4:
 - **Create quiz** in the New quiz panel (desktop-02's frame, iphone-05's sheet) asks the permissions it needs first, in the app's dialog: "Send the transcript to Anthropic?" always; "Send photos and PDFs to Anthropic?" only when photos, slides or PDFs go with the quiz (declining that one still writes the quiz, without them). The button shows its spinner; the panel closes.
 - **Review → Quiz me, the quiz's row** (the same on both devices):
   - **Writing:** "25 questions · Writing your quiz…" with a small spinner, and under it "About 1–2 minutes, you can keep working". Take greyed. The row is read every 5 s.
-  - **Ready:** "25 questions · Ready" (with fewer: "24 of 25 questions · Ready", and "1 couldn’t be checked" under it). Take enabled; until 9.1b-3 it says "Taking quizzes comes in a later update".
+  - **Ready:** "25 questions · Ready" (with fewer: "24 of 25 questions · Ready", and "1 couldn’t be checked" under it). **Take** opens the quiz (step 9.1b-3, below); **Resume** while an attempt is in progress; "Last: 7.5 / 10" under it once one is finished.
   - **Saved · not started:** the reason under it when it was tried ("Nothing was sent: Studiply needs your permission", "Today’s limit is reached; try again tomorrow", "Needs a connection"), and a **Start** button where Take is.
   - **Couldn’t be written:** its reason in plain words under it ("Claude couldn’t be reached", "It took too long" for one with no news for 5 minutes…), and **Try again** where Take is.
   - **Delete** (its … menu, with Undo) while it is written stops it; Undo shows it as Couldn’t be written, with Try again.
 - **A past exam added** in the panel: its format is read at once (after the permission it needs). Its line says "Reading its format…", then "12 questions · multiple choice, true/false, short answer"; Number of questions moves to its length and the preview follows its mix. If it can't be read: the reason, and a "Try again: read “Parcial 2024.pdf”" link under the list.
+
+### 6. Taking a quiz (step 9.1b-3; desktop-07 and iphone-10)
+- **Where:** Take / Resume on the quiz's row opens `/review/quiz/<id>`. The row's … menu adds **Results** (the latest finished attempt only; no list of attempts). The laptop takes quizzes online only: offline, Take is greyed ("Taking a quiz needs a connection on the laptop"). The iPhone takes them offline too (its copy holds the questions; answers are queued).
+- **Laptop (desktop-07):** no sidebar; the top bar's breadcrumb "Review today · Course" over the quiz's title. Above the card "Question 3 of 8" on the left, "From your marks: 2 Exam · 1 Confused" on the right (or "12:30 left" with a time limit), the lavender-to-amber bar. The 720 px white card: the mark chip ("Exam 9/10 · from 06:40") when the question came from a mark, the question (lg, bold), the answer area, then Quit (quiet, left), **Show hint** (outlined), **Check** / **Next question** (dark).
+- **iPhone (iphone-10's look):** full screen, no tab bar. **‹ Quit** and the quiz's title on top, "Question 3 of 8" and the time left, the bar, the same card.
+- **The answer area, by type:**
+  - multiple choice: A–D rows in the stored order (a lettered circle; the chosen row lavender); true/false: True / False rows.
+  - short answer: a one-line field; long answer: a multi-line field with "n words".
+  - fill in the blank: the text with ① ② in place of the blanks, a field for each.
+  - match pairs: each left item with a "Choose…" button opening a menu of the right items, shown shuffled (fixed per question).
+  - put in order: rows with ↑ ↓, shown shuffled (never in the right order).
+  - calculation: a field and its unit.
+- **The laptop's keys:** A–D or 1–4 choose (True = A/1); Enter checks and goes on (⌘/Ctrl + Enter in a long answer, where Enter is a new line); Escape quits with the answers kept.
+- **After each question** (the quiz's choice): Check locks the answer and shows the verdict box (green "✓ Right", amber "½ Partly", red "✗ Wrong", lavender "… Grading your answer…" while Claude grades a written answer), the AI's one-line reason, RIGHT ANSWER (when not right), WHY (the explanation, when the quiz has explanations), the dashed **Added context · not from the lecture** box, and the source chip: a lecture's time plays in the mini player under the card; a PDF opens at its page (laptop: a new tab at `#page=N`; iPhone: the system preview, the chip saying "go to p. 12"); a document opens. Multiple choice marks the right option green and hers red; pairs and steps show where each belonged. **At the end** (the other choice): Next question only, no feedback until the results.
+- **Short and long answers:** graded by code when a short one matches the model answer; otherwise by Claude (Sonnet) right after Check, or at Finish. Claude sees only the question, the model answer, its key points and her answer.
+- **Time limit:** in all or per question. When it runs out, what she wrote is saved and graded (per question: the next one comes; in all: the results).
+- **Quit / Escape:** back to the list; her answers are kept and the row says Resume. At Finish, questions left unanswered count as wrong and come back for review.
+- **Results** (no mockup; the same card): the score ("7.5 / 10", or "Passed · 72 % (pass at 60 %)"), the number of questions and the time, "2 answers are being graded…" while Claude grades (or why not: "graded when you’re online", "needs your permission…", with **Grade now**), "4 wrong answers saved for review". A row per question: "3. the question", "Your answer: …" or "Not answered", "Right answer: …", the AI's reason (italic), a verdict pill. **Take again** · **Done**.
+- **Her grade:** tap a row's verdict pill → "Your grade": Correct · Partly · Wrong. The row then says "Changed by you (was: Wrong)" (or "Graded by you" when she graded it before Claude did) and the score follows. Her grade always wins over Claude's, also when Claude's arrives later.
 
 ## Study assistant (Claude-style chat)
 - Header: icon, "Study assistant", "Knows this lecture up to mm:ss", "Recording continues" badge while recording.

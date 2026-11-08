@@ -42,6 +42,7 @@ import {
   type SlotSpec,
 } from './quiz-checks.ts';
 import { DATA_GUIDE, QUIZ_SCHEMA } from './quiz-schema.ts';
+import { seededShuffle } from './quiz-shuffle.ts';
 import { parseQuizAnswer, type PastExamFormatRead, type RawQuestion } from './quiz-zod.ts';
 import { parseVerdicts, sourcesOf, stampMs, tagSafe, type Sources } from './summary-checks.ts';
 import { attempt, noteMarkdown, textOf, transcriptLines, type ClaudeCall, type Content, type CostMeter, type LectureMaterial, type StoredSummary, type SummaryRunDeps } from './summary-pipeline.ts';
@@ -349,30 +350,8 @@ export function formatUserText(title: string, text: string | null): string {
 
 // ---------- helpers ----------
 
-/** A number from a string (the quiz's id), for the shuffle's seed. */
-function seedOf(text: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
-
-/** The same order every time for the same seed (mulberry32, Fisher–Yates). */
-export function seededShuffle<T>(list: readonly T[], seed: string): T[] {
-  let a = seedOf(seed);
-  const random = () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
+// The fixed shuffle (moved to quiz-shuffle.ts in 9.1b-3: the app shuffles with it too).
+export { seededShuffle };
 
 /** Every lecture's sources together, plus the text resources' numbers and the photos' ids. */
 export function quizSources(m: QuizRunMaterial): Sources {

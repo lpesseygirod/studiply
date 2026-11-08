@@ -3,7 +3,9 @@
 // applied). NO AI call: every /functions/v1/* request the page makes is answered in the page (and
 // listed). Step 9.1b-2: the quiz function's answers are the page's (a past exam's format; 202 for a
 // quiz, or 429), and this check plays the server's part with admin writes (the row writing, its
-// questions, ready or failed), so the app's states are seen as the student sees them. The last steps
+// questions, ready or failed), so the app's states are seen as the student sees them. Step 9.1b-3:
+// taking quizzes; the grade requests (mode grade) are held in the page while this check writes the
+// AI's grades as the quiz function would (only where an answer is still pending). The last steps
 // check nothing reached the quiz function on the server or Anthropic.
 //
 // The material: Math (the test user's course) with Lecture 1 (30 min, transcribed, a finished summary
@@ -32,7 +34,7 @@
 //      and started: one quiz request with its id (no more permission asked). The check plays the
 //      server: the row "generating" → Quiz me shows "10 questions · Writing your quiz…" with its
 //      spinner; 10 questions written and the row ready → within the list's 5 s reads "10 questions ·
-//      Ready", Take enabled (still "Taking quizzes comes in a later update").
+//      Ready", Take enabled.
 //   5. Delete with Undo: … → Delete quiz; the row leaves the list; Undo brings it back.
 //   6. Saved, not started: a quiz saved but never started, the permissions withdrawn: Start → "Send
 //      the transcript to Anthropic?" → Not now: nothing sent, the row says "Nothing was sent: Studiply
@@ -45,16 +47,50 @@
 //   8. 390 (iphone-05): + New quiz opens the full-screen sheet: one column of sliders, the presets as
 //      chips that scroll, Save as course default after the sliders, Cancel · Create quiz at the
 //      bottom; a quiz of Lecture 1 only (started: the request made); the list newest first; the
-//      list's states at 390, none cut (no state line or reason wider or taller than its box: the
-//      writing row's "Writing your quiz…" whole; a quiz never started says "Not started yet")
-//      (quiz-list-390, light and dark).
-//   9. No request reached the quiz function on the server or Anthropic (the page's requests to it,
+//      list's states at 390, none cut (quiz-list-390, light and dark).
+//   Step 9.1b-3 (taking quizzes; a quiz of each of the 8 types seeded ready, one from the Exam 9 mark):
+//   9. Laptop (desktop-07): Take opens /review/quiz/<id>: the top bar's "Review today · Math", "Question
+//      1 of 8", "From your marks: 1 Exam", the 720 px card; Check greyed until there is an answer. Every
+//      type answered, with the laptop's keys where they apply: multiple choice by its letter (Show hint
+//      first: the hint, hint_used saved) and Enter, right, its source chip plays the lecture in the mini
+//      player; true/false by "2" (False), wrong: the right answer and the "Added context · not from the
+//      lecture" box; a short answer code can't match (Enter in its field): one grade request (held),
+//      "Grading your answer…", the check writes the AI's partly → "½ Partly" with its reason; fill in the
+//      blank half right: partly; a long answer (word count; ⌘ + Enter): the AI's wrong; match pairs
+//      chosen in their menus (the right column shuffled): right; put in order with ↑ (shown shuffled):
+//      right; a calculation "1.234,5" for 1234.5: right. Enter goes on after each. Results: 6.3 / 10,
+//      8 rows, "4 wrong answers saved for review" (4 quiz cards); her grade on the true/false row →
+//      Correct: "Changed by you (was: Wrong)", 7.5 / 10, the database the same. Shots quiz-take-1280,
+//      quiz-feedback-1280, quiz-results-1280 (light, dark).
+//  10. One question answered → Escape: back on the list with the answers kept; the row says Resume;
+//      Resume goes on at "Question 2 of 3" in the same attempt; the end (10 / 10); Take again: a new
+//      attempt at "Question 1 of 3"; Quit.
+//  11. The list: "Last: 7.5 / 10" (an attempt finished earlier, one grade hers); … → Results opens that
+//      attempt's results ("Changed by you (was: Wrong)"); Done.
+//  12. After each at the end, 10 s a question: a calculation typed but not sent when the time runs out
+//      is saved (and graded) and the next question comes; no feedback (at the end); the last question's
+//      button says Finish; Enter finishes: 5 / 10.
+//  13. The whole quiz's time (1 minute; the attempt started 40 s ago): Resume → "0:xx left"; what she
+//      typed is saved when it runs out, the question not reached written wrong; the results: 0 / 10.
+//  14. 390 (iphone-10): Take full screen (no tab bar, ‹ Quit, "Question 1 of 2"), a multiple choice and
+//      a calculation with their feedback, the results (10 / 10), nothing wider than the screen
+//      (quiz-take-390, quiz-feedback-390, quiz-results-390, light and dark).
+//  15. The laptop offline (a quiz being written makes the list read every 5 s, so it notices): Take
+//      greyed ("Taking a quiz needs a connection on the laptop"); back online: Take again.
+//  Steps 9–15 each take a quiz of their own and start clean (1280 or 390, light, online, the list), so
+//  one failure doesn't carry over. Everything of the quiz screen is read and clicked inside its root,
+//  [data-quiz-screen="<quiz id>"]: the Review tab stays mounted under a quiz being taken (at 1280
+//  covered, not hidden), and its 9.1 self-test card has the same data-quiz-card and the same progress
+//  label (ReviewProgress, which the quiz screen reuses).
+//  QUIZ_STEPS=9,13 runs only those steps (9–17 need none of 1–8).
+//  16. No request reached the quiz function on the server or Anthropic (the page's requests to it,
 //      answered in the page, are listed in the report).
-//  10. Composites beside the mockups, light and dark: quiz-compose-panel-1280 (desktop-02),
-//      quiz-compose-panel-390 (iphone-05).
+//  17. Composites beside the mockups, light and dark: quiz-compose-panel-1280 (desktop-02),
+//      quiz-compose-panel-390 (iphone-05), quiz-compose-take-1280 (desktop-07), quiz-compose-take-390
+//      (iphone-10).
 //
 // The run always ends (its Chrome closed, the process exits), also after failures, when stopped, or
-// after 15 minutes.
+// after 20 minutes.
 //
 // Run with a dev server on 8123 (the web-check skill) and `supabase start` (migrations applied):
 //   node .claude/skills/web-check/scripts/quiz.mjs
@@ -75,7 +111,15 @@ const { planQuiz, countValueFor, DEFAULT_TYPES, QUIZ_SLIDER_DEFAULTS, QUIZ_PRESE
 const results = [];
 const report = [];
 let b;
+/** QUIZ_STEPS=9,12 runs only those steps (the taking steps 9–15 need none of 1–8). */
+const ONLY = process.env.QUIZ_STEPS ? new Set(process.env.QUIZ_STEPS.split(',').map(Number)) : null;
+let stepNo = 0;
 const step = async (name, fn) => {
+  stepNo += 1;
+  if (ONLY && !ONLY.has(stepNo)) {
+    results.push(['SKIP', name]);
+    return;
+  }
   try {
     await fn();
     results.push(['PASS', name]);
@@ -114,13 +158,16 @@ const FORMAT_LINE = '12 questions · multiple choice, true/false, short answer';
 /**
  * Before the app: every Edge Function request is answered in the page and listed. The quiz function
  * (9.1b-2): a format request gets FORMAT; a quiz request waits 1.5 s (so the check can play the
- * server's part first) and gets 202, or 429 daily_limit when window.__quizReply says so.
+ * server's part first) and gets 202, or 429 daily_limit when window.__quizReply says so. 9.1b-3: a
+ * grade request waits while window.__gradeHold is set (the check writes the AI's grades meanwhile),
+ * then gets 200.
  */
 const PAGE_SETUP = `(() => {
   const realFetch = window.fetch.bind(window);
   window.__functionCalls = [];
   window.__quizBodies = [];
   window.__quizReply = 'ok';
+  window.__gradeHold = false;
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : input && input.url;
     if (url && url.includes('/functions/v1/')) {
@@ -131,6 +178,10 @@ const PAGE_SETUP = `(() => {
         window.__quizBodies.push(body);
         const json = (status, value) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
         if (body.mode === 'format') return json(200, { format: ${JSON.stringify(FORMAT)} });
+        if (body.mode === 'grade') {
+          for (const until = Date.now() + 20000; window.__gradeHold && Date.now() < until; ) await new Promise((r) => setTimeout(r, 100));
+          return json(200, { graded: 1, left: 0 });
+        }
         await new Promise((r) => setTimeout(r, 1500));
         if (window.__quizReply === 'daily_limit') return json(429, { code: 'daily_limit', error: 'You have reached today’s limit for the assistant and summaries. Try again tomorrow.' });
         return json(202, { quizId: body.quizId, status: 'generating' });
@@ -157,9 +208,9 @@ const finish = async (code) => {
 process.on('SIGINT', () => void finish(130));
 process.on('SIGTERM', () => void finish(143));
 const watchdog = setTimeout(() => {
-  console.error('quiz.mjs: still running after 15 minutes; stopping');
+  console.error('quiz.mjs: still running after 20 minutes; stopping');
   void finish(1);
-}, 15 * MIN);
+}, 20 * MIN);
 watchdog.unref();
 
 const requests = [];
@@ -167,10 +218,24 @@ b.onEvent('Network.requestWillBeSent', (p) => requests.push(p.request.url));
 await b.send('Network.enable', {});
 await b.send('Page.addScriptToEvaluateOnNewDocument', { source: PAGE_SETUP });
 
-const has = (css) => b.evaluate(`!!document.querySelector(${JSON.stringify(css)})`);
-const count = (css) => b.evaluate(`document.querySelectorAll(${JSON.stringify(css)}).length`);
-const text = (css) => b.evaluate(`document.querySelector(${JSON.stringify(css)})?.textContent ?? ''`);
-const attr = (css, name) => b.evaluate(`document.querySelector(${JSON.stringify(css)})?.getAttribute(${JSON.stringify(name)}) ?? null`);
+/**
+ * The tab navigator keeps the Review tab mounted under a quiz being taken (at 1280 covered, not
+ * hidden), and its 9.1 self-test card has the same data-quiz-card and the same progress label
+ * (ReviewProgress, which the quiz screen reuses). So everything of the quiz screen (data-quiz-…,
+ * data-review-progress) is read inside its root, [data-quiz-screen="<the quiz being taken>"]; the rest
+ * (the list, the panel) on the page, visible only.
+ */
+let screenId = null;
+const VISIBLE = `((css) => [...document.querySelectorAll(css)].filter((e) => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden'))`;
+const IN_SCREEN = `((css, id) => { const root = id ? document.querySelector('[data-quiz-screen="' + id + '"]') : null; return root ? [...root.querySelectorAll(css)] : []; })`;
+const ofScreen = (css) => /\[data-(quiz-|review-progress)/.test(css);
+const visible = (css) => (ofScreen(css) ? `${IN_SCREEN}(${JSON.stringify(css)}, ${JSON.stringify(screenId)})` : `${VISIBLE}(${JSON.stringify(css)})`);
+/** On the list again (the quiz screen stays mounted under it, so the list's own selectors aren't enough). */
+const onList = async () => (await b.evaluate('location.pathname')) === '/review' && (await has('[data-quizzes="new"]'));
+const has = (css) => b.evaluate(`${visible(css)}.length > 0`);
+const count = (css) => b.evaluate(`${visible(css)}.length`);
+const text = (css) => b.evaluate(`${visible(css)}[0]?.textContent ?? ''`);
+const attr = (css, name) => b.evaluate(`${visible(css)}[0]?.getAttribute(${JSON.stringify(name)}) ?? null`);
 const splashShown = () =>
   b.evaluate(`(() => {
     const el = [...document.querySelectorAll('div, span')].find((e) => e.childElementCount === 0 && e.textContent.trim() === 'AUTOMATED STUDY');
@@ -213,14 +278,15 @@ const sliderValues = () => b.evaluate(`Object.fromEntries([...document.querySele
 const checked = (css) => attr(css, 'data-checked').then((v) => v === 'true');
 const scrollPanelTo = (css) => b.evaluate(`document.querySelector(${JSON.stringify(css)})?.scrollIntoView({ block: 'start' })`);
 /**
- * A click on an element of the panel, scrolled into view first: clickSelector clicks where the element
- * is, also outside the panel's scroll area (the first run's type chip was below it: the click missed).
+ * A click on an element, scrolled into view first: clickSelector clicks where the element is, also
+ * outside a scroll area (the first run's type chip was below it: the click missed).
  */
 const tap = async (css) => {
-  const found = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(css)}); if (!e) return false; e.scrollIntoView({ block: 'center' }); return true; })()`);
+  const found = await b.evaluate(`(() => { const e = ${visible(css)}[0]; if (!e) return false; e.scrollIntoView({ block: 'center' }); return true; })()`);
   if (!found) throw new Error(`no element: ${css}`);
   await b.sleep(250);
-  await b.clickSelector(css);
+  const p = await b.evaluate(`(() => { const r = ${visible(css)}[0].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  await b.clickAt(p.x, p.y);
 };
 /** A permission dialog (src/services/consent.service.ts) answered: Allow or Not now. */
 const answer = async (title, button, timeout = 8000) => {
@@ -273,6 +339,7 @@ const examFormat = { questionCount: FORMAT.questionCount, types: FORMAT.types };
 let L2 = null;
 let L3 = null;
 let apuntes = null;
+let examMark = null;
 // What the panel gives the calculator for the whole course (Lecture 1 and 2).
 const calc1 = S30.modulesUsed.some((m) => ['formula', 'workedExample', 'keyFigures'].includes(m)) || ['math', 'finance', 'science', 'programming'].includes(S30.subjectType);
 const flaggedSpans = S30.examSignals.length + 1; // Lecture 1's summary's signals; Lecture 2 (no summary): its Exam mark.
@@ -297,14 +364,134 @@ const previewIs = async (plan, what) => {
   const notice = await text('[data-newquiz="notice"]');
   expect(notice === (plan.notice ?? ''), `${what}: notice "${notice}", calculator "${plan.notice ?? ''}"`);
 };
+const CHOICES = { types: DEFAULT_TYPES, timeLimit: { kind: 'none' }, language: null, answers: 'afterEach', explanations: true, hints: true, grading: { kind: 'score' }, wrongComeBack: true };
+const settingsWith = (choices = {}) => ({ version: 1, sliders: QUIZ_SLIDER_DEFAULTS, choices: { ...CHOICES, ...choices }, topic: { wholeCourse: false, lectureIds: [L1] }, resources: { notes: true, summaries: true, lectureMedia: false, fileIds: [] }, pastExamIds: [] });
 /** A quiz row as the panel saves one (for the states of steps 6 and 7), as the student (RLS). */
 const savedQuiz = async (title, over = {}) => {
-  const settings = { version: 1, sliders: QUIZ_SLIDER_DEFAULTS, choices: { types: DEFAULT_TYPES, timeLimit: { kind: 'none' }, language: null, answers: 'afterEach', explanations: true, hints: true, grading: { kind: 'score' }, wrongComeBack: true }, topic: { wholeCourse: false, lectureIds: [L1] }, resources: { notes: true, summaries: true, lectureMedia: false, fileIds: [] }, pastExamIds: [] };
   const plan = planQuiz(input({ lectures: [{ id: L1, durationMs: 30 * MIN }], flaggedSpans: S30.examSignals.length }));
-  const r = await user.client.from('quizzes').insert({ course_id: data.course.id, title, status: 'pending', settings, plan, question_count: plan.count, ...over }).select('id').single();
+  const r = await user.client.from('quizzes').insert({ course_id: data.course.id, title, status: 'pending', settings: settingsWith(), plan, question_count: plan.count, ...over }).select('id').single();
   if (r.error) throw new Error(`a quiz: ${r.error.message}`);
   return r.data.id;
 };
+
+// ---------- step 9.1b-3: quizzes to take ----------
+
+/** A ready quiz with its questions (as the quiz function writes them); its id and its questions by id. */
+const readyQuiz = async (title, questions, choices = {}) => {
+  const q = await admin.from('quizzes').insert({ user_id: user.id, course_id: data.course.id, title, status: 'ready', language: 'es', settings: settingsWith(choices), plan: {}, question_count: questions.length }).select('id').single();
+  if (q.error) throw new Error(`${title}: ${q.error.message}`);
+  const rows = questions.map((x, position) => ({ user_id: user.id, quiz_id: q.data.id, position, focus: 'any', difficulty: 'medium', explanation: '', hint: '', added_context: '', answer_text: '', ...x }));
+  const r = await admin.from('quiz_questions').insert(rows).select('id, type, prompt, data');
+  if (r.error) throw new Error(`${title}'s questions: ${r.error.message}`);
+  return { id: q.data.id, questions: new Map(r.data.map((x) => [x.id, x])) };
+};
+const PAIRS = [
+  { left: 'Darwin', right: 'Selección natural' },
+  { left: 'Cajal', right: 'Doctrina neuronal' },
+  { left: 'Broca', right: 'Área del lenguaje' },
+];
+const STEPS = ['Estímulo', 'Receptor', 'Vía aferente', 'Respuesta'];
+const ALL_TYPES = () => [
+  { type: 'multiple_choice', prompt: '¿Cuál de estas NO es una de las 5 preguntas de la Psicobiología?', data: { options: ['Estructuras', 'Memoria', 'Regulación', 'Evolución'], correct: 1 }, answer_text: 'Memoria', explanation: 'Las cinco: descripción, mecanismo, desarrollo, evolución y función.', hint: 'Piensa en lo que dijo al principio.', mark_id: examMark, source_file_id: L1, source_ms: 400000 },
+  { type: 'true_false', prompt: 'La psicobiología estudia las bases biológicas de la conducta.', data: { correct: true }, answer_text: 'True', explanation: 'Es su definición.', added_context: 'En otros manuales se llama «psicología fisiológica».' },
+  { type: 'short_answer', prompt: '¿Qué indica el parentesco filogenético?', data: { modelAnswer: 'Un antepasado común' }, answer_text: 'Un antepasado común' },
+  { type: 'fill_blank', prompt: 'Completa:', data: { text: 'La ___ transmite el impulso por la ___.', blanks: [{ answer: 'neurona', accept: [] }, { answer: 'sinapsis', accept: [] }] }, answer_text: 'neurona · sinapsis' },
+  { type: 'long_answer', prompt: 'Explica las cinco preguntas de la psicobiología.', data: { modelAnswer: 'Descripción, mecanismo, desarrollo, evolución y función.', keyPoints: ['descripción', 'mecanismo', 'desarrollo', 'evolución', 'función'] }, answer_text: 'Descripción, mecanismo, desarrollo, evolución y función.' },
+  { type: 'match_pairs', prompt: 'Une cada autor con su idea.', data: { pairs: PAIRS }, answer_text: PAIRS.map((p) => `${p.left} → ${p.right}`).join('; ') },
+  { type: 'order_steps', prompt: 'Ordena el arco reflejo.', data: { steps: STEPS }, answer_text: STEPS.map((s, i) => `${i + 1}. ${s}`).join(' ') },
+  { type: 'numeric', prompt: 'Calcula el tiempo de reacción total.', data: { answer: 1234.5, tolerance: 0.1, relative: false, unit: 'ms', decimals: 1 }, answer_text: '1234,5 ms' },
+];
+const twoNumeric = () => [
+  { type: 'numeric', prompt: 'Primera cuenta.', data: { answer: 1234.5, tolerance: 0.1, relative: false, unit: 'ms', decimals: 1 }, answer_text: '1234,5 ms' },
+  { type: 'numeric', prompt: 'Segunda cuenta.', data: { answer: 42, tolerance: 0.5, relative: false, unit: '', decimals: 0 }, answer_text: '42' },
+];
+
+const threeNumeric = () => [...twoNumeric(), { type: 'numeric', prompt: 'Tercera cuenta.', data: { answer: 7, tolerance: 0.5, relative: false, unit: '', decimals: 0 }, answer_text: '7' }];
+/** The calculation on screen answered right (its own answer typed), not sent. */
+const answerNumeric = async (quiz) => {
+  const c = await current();
+  await fillNth('[data-quiz-field="numeric"]', 0, String(quiz.questions.get(c.id).data.answer));
+};
+
+const KEY = (k) => (/^[0-9]$/.test(k) ? { code: `Digit${k}`, key: k, keyCode: 48 + Number(k) } : { code: `Key${k.toUpperCase()}`, key: k, keyCode: k.toUpperCase().charCodeAt(0) });
+const keyTap = (k) => b.chord(KEY(k));
+const blur = () => b.evaluate('document.activeElement && document.activeElement.blur && document.activeElement.blur()');
+/** The question on screen: its phase (question | feedback), type and id. */
+const current = () => b.evaluate(`(() => { const c = ${visible('[data-quiz-card][data-quiz-question]')}[0]; return c ? { phase: c.getAttribute('data-quiz-card'), type: c.getAttribute('data-quiz-type'), id: c.getAttribute('data-quiz-question') } : null; })()`);
+const progressLabel = () => text('[data-review-progress="label"]');
+const fillNth = async (css, n, value) => {
+  await b.evaluate(`(() => { const e = ${visible(css)}[${n}]; e.scrollIntoView({ block: 'center' }); e.focus(); })()`);
+  await b.sleep(150);
+  await b.type(value);
+};
+const attemptOf = async (quizId, status = 'in_progress') => (await admin.from('quiz_attempts').select('*').eq('quiz_id', quizId).eq('status', status).order('started_at', { ascending: false }).limit(1).maybeSingle()).data;
+const answersOf = async (attemptId) => (await admin.from('quiz_answers').select('*').eq('attempt_id', attemptId)).data ?? [];
+const gradeCalls = async () => (await quizCalls()).filter((c) => c.mode === 'grade');
+/** The AI's grade as the quiz function writes it: only where the answer is still pending. */
+const aiGrade = (attemptId, questionId, verdict, reason) =>
+  admin.from('quiz_answers').update({ verdict, points: verdict === 'correct' ? 1 : verdict === 'partly' ? 0.5 : 0, reason, graded_by: 'ai' }).eq('attempt_id', attemptId).eq('question_id', questionId).eq('verdict', 'pending');
+/** A question's answer typed or chosen as `how` says (right, or the planned partly/wrong one), not sent. */
+const fill = async (q, how = 'planned') => {
+  switch (q.type) {
+    case 'multiple_choice':
+      return keyTap(how === 'wrong' ? 'a' : 'b');
+    case 'true_false':
+      return keyTap(how === 'right' ? '1' : '2');
+    case 'short_answer':
+      return fillNth('[data-quiz-field="text"]', 0, how === 'right' ? 'Un antepasado común' : 'Que se parecen');
+    case 'fill_blank':
+      await fillNth('[data-quiz-field="text"]', 0, 'neurona');
+      return fillNth('[data-quiz-field="text"]', 1, how === 'right' ? 'sinapsis' : 'axón');
+    case 'long_answer':
+      return fillNth('[data-quiz-field="long"]', 0, 'Se pregunta cómo es la conducta y para qué sirve.');
+    case 'match_pairs':
+      for (let i = 0; i < PAIRS.length; i++) {
+        await tap(`[data-quiz-pair-choice="${i}"]`);
+        await b.waitText(PAIRS[i].right, { exact: true, timeout: 4000 });
+        await b.click(PAIRS[i].right, { exact: true });
+        await b.sleep(300);
+      }
+      return;
+    case 'order_steps':
+      for (let guard = 0; guard < 12; guard++) {
+        const order = await b.evaluate(`${visible('[data-quiz-step]')}.map((e) => Number(e.getAttribute('data-quiz-step')))`);
+        const at = order.findIndex((k, i) => k !== i);
+        if (at === -1) return;
+        await tap(`[data-quiz-step="${at}"] [aria-label^="Move up"]`);
+        await b.sleep(250);
+      }
+      throw new Error('the steps never got in order');
+    case 'numeric':
+      return fillNth('[data-quiz-field="numeric"]', 0, how === 'wrong' ? '12' : '1.234,5');
+  }
+};
+/** Each taking step starts the same way, whatever the step before left: 1280 (or 390), light, nothing held. */
+const clean = async (width = 1280) => {
+  screenId = null;
+  await b.press('Escape').catch(() => {});
+  await dark(false);
+  await b.resize(width, width === 390 ? 844 : 900);
+  await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 }).catch(() => {});
+  await openQuizTab();
+  await b.evaluate('window.__gradeHold = false');
+};
+const openTaking = async (quizId, button = 'take') => {
+  await openQuizTab();
+  await waitFor(() => has(`${row(quizId)} [data-quizzes="${button}"]`), async () => `${button} on the row (${await text(row(quizId))})`, 10000);
+  screenId = quizId;
+  await tap(`${row(quizId)} [data-quizzes="${button}"]`);
+  await waitForScreen(quizId);
+};
+/** The quiz screen of `quizId` on screen: its route, and its root holding a question or the results. */
+const waitForScreen = async (quizId) => {
+  screenId = quizId;
+  await waitFor(async () => (await b.evaluate('location.pathname')) === `/review/quiz/${quizId}`, async () => `the route (${await b.evaluate('location.pathname')})`, 20000);
+  await waitFor(() => has('[data-quiz-card], [data-quiz-results]'), 'the quiz screen’s card or results', 20000);
+  await b.sleep(400);
+};
+let allTypes = null;
+let timed = null;
+let total = null;
 
 try {
   // The material (as the student: RLS applies; the summary row as the server writes it).
@@ -324,12 +511,16 @@ try {
     const { error } = await user.client.from('transcript_segments').insert({ lecture_id: lecture, start_ms: 0, end_ms: 6000, text: words });
     if (error) throw new Error(`a transcript: ${error.message}`);
   }
-  const marks = await user.client.from('marks').insert([
-    { lecture_id: L1, type: 'exam', level: 9, t_ms: 400000 },
-    { lecture_id: L1, type: 'confused', level: 7, t_ms: 900000 },
-    { lecture_id: L2, type: 'exam', level: 8, t_ms: 600000 },
-  ]);
+  const marks = await user.client
+    .from('marks')
+    .insert([
+      { lecture_id: L1, type: 'exam', level: 9, t_ms: 400000 },
+      { lecture_id: L1, type: 'confused', level: 7, t_ms: 900000 },
+      { lecture_id: L2, type: 'exam', level: 8, t_ms: 600000 },
+    ])
+    .select('id, lecture_id, type');
   if (marks.error) throw new Error(`the marks: ${marks.error.message}`);
+  examMark = marks.data.find((m) => m.lecture_id === L1 && m.type === 'exam').id;
   const summary = await admin.from('summaries').insert({
     user_id: user.id,
     file_id: L1,
@@ -466,7 +657,7 @@ try {
     const before = (await quizCalls()).length;
     await tap('[data-newquiz="create"]');
     // The start request (the page answers after 1.5 s): the server's part first, the row writing.
-    const call = await waitFor(async () => (await quizCalls()).slice(before).find((c) => c.quizId), 'the quiz request', 15000);
+    const call = await waitFor(async () => (await quizCalls()).slice(before).find((c) => c.quizId && !c.mode), 'the quiz request', 15000);
     quizId = call.quizId;
     await server.writing(quizId);
     await waitFor(async () => !(await has(PANEL)), 'the panel closed', 15000);
@@ -493,11 +684,9 @@ try {
     await server.ready(quizId, plan.count);
     await waitFor(async () => (await rowDetail(quizId)) === `${plan.count} questions · Ready`, async () => `the row after ready: ${await rowDetail(quizId)}`, 15000);
     expect(!(await has(`${row(quizId)} [data-quizzes="writing"]`)), 'the spinner still there');
+    // 9.1b-3: Take opens the quiz (steps 9–15 take quizzes of their own).
     expect((await attr(`${row(quizId)} [data-quizzes="take"]`, 'aria-disabled')) !== 'true', 'Take still greyed');
-    await tap(`${row(quizId)} [data-quizzes="take"]`);
-    await b.waitText('Taking quizzes comes in a later update', { timeout: 4000 });
-    await b.click('OK', { exact: true });
-    expect((await quizCalls()).filter((c) => c.quizId).length === 1, `quiz requests: ${JSON.stringify(await quizCalls())}`);
+    expect((await quizCalls()).filter((c) => c.quizId && !c.mode).length === 1, `quiz requests: ${JSON.stringify(await quizCalls())}`);
     report.push(`RESULT | quiz created and written (played): ${plan.count} questions, ${plan.slots.length} slots`);
     await shots('quiz-list-1280');
   });
@@ -608,7 +797,7 @@ try {
     await waitFor(async () => (await count('[data-quizzes="row"]')) === rowsBefore + 1, 'the new quiz listed');
     const titles = await b.evaluate(`[...document.querySelectorAll('[data-quizzes="row"]')].map((r) => r.textContent)`);
     expect(titles[0].startsWith('Math · Lecture 1'), `the list's order: ${JSON.stringify(titles)}`);
-    expect((await quizCalls()).slice(before).filter((c) => c.quizId).length === 1, `the 390 quiz wasn't started: ${JSON.stringify((await quizCalls()).slice(before))}`);
+    expect((await quizCalls()).slice(before).filter((c) => c.quizId && !c.mode).length === 1, `the 390 quiz wasn't started: ${JSON.stringify((await quizCalls()).slice(before))}`);
     report.push(`RESULT | 390: the quiz started${asked.length ? ` (asked: ${asked.join(' · ')})` : ''}`);
     // The states readable at 390: no state line or reason cut (sideways or by a line clamp); the
     // writing row's state whole; a quiz saved but not started always says why (here: never tried).
@@ -623,16 +812,307 @@ try {
     await b.resize(1280, 900);
   });
 
+  // ---------- step 9.1b-3: taking quizzes ----------
+
+  let firstAttempt = null;
+  await step('laptop (desktop-07): Take; the top bar, Question 1 of 8, From your marks; every type answered (keys, hint, mini player, the AI’s grades played); results 6.3 / 10, 4 to review; her grade → 7.5 / 10', async () => {
+    // The consent the grading asks for (the transcript permission), given as the student would have.
+    await user.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: 'dev-2026-10-elevenlabs' }).then(() => {}, () => {});
+    allTypes = await readyQuiz('Psico · every type', ALL_TYPES());
+    await clean();
+    await openTaking(allTypes.id);
+    expect((await b.evaluate('location.pathname')) === `/review/quiz/${allTypes.id}`, `the route: ${await b.evaluate('location.pathname')}`);
+    expect(await b.hasText('Review today · Math'), 'the top bar’s breadcrumb');
+    expect((await text('[role="tab"][aria-selected="true"]')) === 'Quiz me', `the top bar's mode: ${await text('[role="tab"][aria-selected="true"]')}`);
+    expect((await progressLabel()) === 'Question 1 of 8', `the label: ${await progressLabel()}`);
+    expect((await text('[data-review-progress="marks"]')) === 'From your marks: 1 Exam', `the marks line: ${await text('[data-review-progress="marks"]')}`);
+    const width = await b.evaluate(`${visible('[data-quiz-card][data-quiz-question]')}[0].getBoundingClientRect().width`);
+    expect(width >= 700 && width <= 721, `the card's width: ${width}`);
+    firstAttempt = (await attemptOf(allTypes.id)).id;
+    const seen = [];
+    for (let n = 1; n <= 8; n++) {
+      const q0 = await waitFor(async () => {
+        const c = await current();
+        return c?.phase === 'question' ? c : null;
+      }, `question ${n}`);
+      const q = { ...allTypes.questions.get(q0.id), type: q0.type, id: q0.id };
+      seen.push(q.type);
+      expect((await progressLabel()) === `Question ${n} of 8`, `the label at ${n}: ${await progressLabel()}`);
+      if (!['order_steps'].includes(q.type)) expect((await attr('[data-quiz-action="check"]', 'aria-disabled')) === 'true', `Check enabled before an answer (${q.type})`);
+      const graded = (await gradeCalls()).length;
+      switch (q.type) {
+        case 'multiple_choice': {
+          expect((await text('[data-quiz-chip]')).startsWith('Exam 9/10 · from 06:40'), `the mark chip: ${await text('[data-quiz-chip]')}`);
+          await shots('quiz-take-1280');
+          await tap('[data-quiz-action="hint"]');
+          await waitFor(() => has('[data-quiz-hint]'), 'the hint');
+          await blur();
+          await fill(q, 'right');
+          await waitFor(async () => (await attr('[data-quiz-option="B"]', 'data-on')) === 'yes', 'B chosen by its key');
+          await b.press('Enter');
+          await waitFor(() => has('[data-quiz-feedback="correct"]'), 'Right');
+          await tap('[data-quiz-source]');
+          await waitFor(() => has('[aria-label="Recording player"]'), 'the mini player');
+          break;
+        }
+        case 'true_false':
+          await blur();
+          await fill(q, 'wrong');
+          await b.press('Enter');
+          await waitFor(() => has('[data-quiz-feedback="wrong"]'), 'Wrong');
+          expect((await text('[data-quiz-right]')) === 'True', `the right answer: ${await text('[data-quiz-right]')}`);
+          expect((await text('[data-quiz-added]')).startsWith('Added context · not from the lecture'), 'the added-context box');
+          await shots('quiz-feedback-1280');
+          break;
+        case 'short_answer':
+        case 'long_answer': {
+          await b.evaluate('window.__gradeHold = true');
+          await fill(q);
+          // The text settled in the field and in the app (its word count / Check enabled) before the key.
+          if (q.type === 'long_answer') await waitFor(async () => (await attr('[data-quiz-words]', 'data-quiz-words')) === '10', async () => `the word count: ${await attr('[data-quiz-words]', 'data-quiz-words')}`);
+          await waitFor(async () => (await attr('[data-quiz-action="check"]', 'aria-disabled')) !== 'true', 'Check enabled by the answer');
+          await b.sleep(300);
+          if (q.type === 'long_answer') await b.chord({ code: 'Enter', key: 'Enter', meta: true, keyCode: 13 });
+          else await b.press('Enter');
+          // The phase, and any dialog open, when something doesn't come.
+          const state = async () => `phase ${(await current())?.phase ?? '?'}; dialog: ${(await b.hasText(ASK_TRANSCRIPT, true)) ? ASK_TRANSCRIPT : 'none'}; grade requests ${(await gradeCalls()).length - graded}`;
+          await waitFor(async () => (await current())?.phase === 'feedback', async () => `Check by ${q.type === 'long_answer' ? '⌘ + Enter' : 'Enter'} (${await state()})`, 8000);
+          await answerAny({ [ASK_TRANSCRIPT]: 'Allow' }, 4000);
+          await waitFor(async () => (await gradeCalls()).length > graded, async () => `the grade request (decision 5: right after Check) (${await state()})`, 15000);
+          const call = (await gradeCalls()).at(-1);
+          expect(call.quizId === allTypes.id && call.attemptId === firstAttempt, `the grade request: ${JSON.stringify(call)}`);
+          await waitFor(() => has('[data-quiz-feedback="pending"]'), 'Grading your answer…');
+          const verdict = q.type === 'short_answer' ? 'partly' : 'wrong';
+          const g = await aiGrade(firstAttempt, q.id, verdict, verdict === 'partly' ? 'Falta decir que es común.' : 'No nombra las cinco preguntas.');
+          if (g.error) throw new Error(`the AI's grade: ${g.error.message}`);
+          await b.evaluate('window.__gradeHold = false');
+          await waitFor(() => has(`[data-quiz-feedback="${verdict}"]`), `the AI's ${verdict}`, 10000);
+          expect((await text('[data-quiz-reason]')).length > 5, 'the reason');
+          break;
+        }
+        case 'fill_blank':
+          await fill(q);
+          await tap('[data-quiz-action="check"]');
+          await waitFor(() => has('[data-quiz-feedback="partly"]'), 'partly (one blank of two)');
+          break;
+        case 'match_pairs': {
+          const shown = await b.evaluate(`${visible('[data-quiz-pair-choice]')}.map((e) => e.textContent)`);
+          expect(shown.every((t) => t.startsWith('Choose')), `pairs chosen before: ${JSON.stringify(shown)}`);
+          await fill(q, 'right');
+          await tap('[data-quiz-action="check"]');
+          await waitFor(() => has('[data-quiz-feedback="correct"]'), 'the pairs right');
+          break;
+        }
+        case 'order_steps': {
+          const shown = await b.evaluate(`${visible('[data-quiz-step]')}.map((e) => Number(e.getAttribute('data-quiz-step')))`);
+          expect(shown.some((k, i) => k !== i), `the steps shown in the right order: ${shown}`);
+          await fill(q, 'right');
+          await tap('[data-quiz-action="check"]');
+          await waitFor(() => has('[data-quiz-feedback="correct"]'), 'the steps right');
+          break;
+        }
+        case 'numeric':
+          await fill(q, 'right');
+          await b.press('Enter');
+          await waitFor(() => has('[data-quiz-feedback="correct"]'), '1.234,5 right');
+          break;
+      }
+      // Enter goes on (a locked field doesn't keep it). A button clicked last (the source chip) keeps the
+      // focus and answers Enter itself, as on any web page: the focus is left first. A locked field keeps
+      // it (Enter there must go on: react-native-web's fields stop key events, the app listens in capture).
+      await b.evaluate(`(() => { const a = document.activeElement; if (a && !/^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur?.(); })()`);
+      await b.press('Enter');
+      await waitFor(async () => (n === 8 ? has('[data-quiz-results]') : (await current())?.phase === 'question' && (await current()).id !== q.id), `after question ${n}`);
+    }
+    expect(new Set(seen).size === 8, `the types seen: ${seen.join(', ')}`);
+    await waitFor(async () => (await attr('[data-quiz-results]', 'data-quiz-results')) === 'done', 'the results, all graded');
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '6.3 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+    expect((await count('[data-quiz-result-row]')) === 8, `rows: ${await count('[data-quiz-result-row]')}`);
+    expect((await attr('[data-quiz-to-review]', 'data-quiz-to-review')) === '4', `to review: ${await text('[data-quiz-to-review]')}`);
+    const done = (await admin.from('quiz_attempts').select('*').eq('id', firstAttempt).single()).data;
+    expect(done.status === 'finished' && Number(done.score) === 6.3 && done.duration_ms > 0, `the attempt: ${JSON.stringify(done)}`);
+    const answers = await answersOf(firstAttempt);
+    const mc = answers.find((a) => allTypes.questions.get(a.question_id).type === 'multiple_choice');
+    expect(answers.length === 8 && mc.hint_used === true && mc.graded_by === 'code', `answers: ${answers.length}, the MC: ${JSON.stringify(mc)}`);
+    const cards = (await admin.from('flashcards').select('id').eq('user_id', user.id).eq('source', 'quiz').is('deleted_at', null)).data ?? [];
+    expect(cards.length === 4, `quiz cards: ${cards.length}`);
+
+    // Her grade on the true/false row.
+    const tf = [...allTypes.questions.values()].find((x) => x.type === 'true_false');
+    const n = await b.evaluate(`${visible('[data-quiz-result-row]')}.find((r) => r.textContent.includes(${JSON.stringify(tf.prompt)}))?.getAttribute('data-quiz-result-row')`);
+    await tap(`[data-quiz-result-row="${n}"] [data-quiz-verdict]`);
+    await b.waitText('Your grade', { timeout: 4000 });
+    await b.click('Correct', { exact: true });
+    await waitFor(async () => (await text(`[data-quiz-result-row="${n}"] [data-quiz-changed]`)) === 'Changed by you (was: Wrong)', 'Changed by you (was: Wrong)');
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '7.5 / 10', `score after her grade: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+    const mine = answers.find((a) => a.question_id === tf.id);
+    const after = (await admin.from('quiz_answers').select('verdict, original_verdict, graded_by').eq('id', mine.id).single()).data;
+    expect(after.verdict === 'correct' && after.original_verdict === 'wrong' && after.graded_by === 'student', `her grade saved: ${JSON.stringify(after)}`);
+    await waitFor(async () => Number((await admin.from('quiz_attempts').select('score').eq('id', firstAttempt).single()).data.score) === 7.5, 'the database’s score 7.5');
+    report.push(`RESULT | every type taken: 6.3 / 10 → her grade → 7.5 / 10; grade requests ${(await gradeCalls()).length}`);
+    await shots('quiz-results-1280');
+  });
+
+  await step('one answer → Escape: answers kept, the row says Resume; Resume goes on at Question 2 of 3; the end; Take again: a new attempt; Quit', async () => {
+    const quiz = await readyQuiz('Psico · resume', threeNumeric());
+    await clean();
+    await openTaking(quiz.id);
+    const first = await attemptOf(quiz.id);
+    await answerNumeric(quiz);
+    await tap('[data-quiz-action="check"]');
+    await waitFor(async () => (await current())?.phase === 'feedback', 'its feedback');
+    await b.press('Escape');
+    await waitFor(onList, 'back on the list', 8000);
+    await waitFor(() => has(`${row(quiz.id)} [data-quizzes="resume"]`), async () => `Resume on the row (${await text(row(quiz.id))})`);
+    expect((await answersOf(first.id)).length === 1, 'the answer not kept');
+    await openTaking(quiz.id, 'resume');
+    await waitFor(async () => (await progressLabel()) === 'Question 2 of 3', async () => `resumed at: ${await progressLabel()}`);
+    expect((await attemptOf(quiz.id)).id === first.id, 'a new attempt instead of the same one');
+    for (let n = 2; n <= 3; n++) {
+      await answerNumeric(quiz);
+      await b.press('Enter');
+      await waitFor(async () => (await current())?.phase === 'feedback', `feedback ${n}`);
+      await blur();
+      await b.press('Enter');
+    }
+    await waitFor(() => has('[data-quiz-results]'), 'the results');
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '10 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+    await tap('[data-quiz-action="again"]');
+    await waitFor(async () => (await current())?.phase === 'question' && (await progressLabel()) === 'Question 1 of 3', 'a new attempt');
+    const again = await attemptOf(quiz.id);
+    expect(again && again.id !== first.id, 'Take again made no new attempt');
+    await tap('[data-quiz-action="quit"]');
+    await waitFor(onList, 'the list after Quit');
+  });
+
+  await step('the list: “Last: 7.5 / 10”; … → Results opens that attempt’s results; Done', async () => {
+    const quiz = await readyQuiz('Psico · last score', twoNumeric());
+    const ids = [...quiz.questions.keys()];
+    const a = await admin.from('quiz_attempts').insert({ user_id: user.id, quiz_id: quiz.id, status: 'finished', started_at: new Date(Date.now() - 5 * MIN).toISOString(), finished_at: new Date().toISOString(), duration_ms: 300000, max_points: 2 }).select('id').single();
+    if (a.error) throw new Error(`the attempt: ${a.error.message}`);
+    const ans = await admin.from('quiz_answers').insert([
+      { user_id: user.id, attempt_id: a.data.id, question_id: ids[0], response: { text: '1234,5' }, verdict: 'correct', points: 1, graded_by: 'code' },
+      { user_id: user.id, attempt_id: a.data.id, question_id: ids[1], response: { text: '40' }, verdict: 'partly', points: 0.5, graded_by: 'student', original_verdict: 'wrong' },
+    ]);
+    if (ans.error) throw new Error(`the answers: ${ans.error.message}`);
+    await clean();
+    await waitFor(async () => (await rowSub(quiz.id)).includes('Last: 7.5 / 10'), async () => `the row: ${await rowSub(quiz.id)}`);
+    await tap(`${row(quiz.id)} [data-quizzes="more"]`);
+    await b.waitText('Results', { exact: true, timeout: 4000 });
+    await b.click('Results', { exact: true });
+    await waitForScreen(quiz.id);
+    await waitFor(() => has('[data-quiz-results]'), 'the results');
+    expect((await b.evaluate('location.search')).includes(`attempt=${a.data.id}`), `the results' attempt: ${await b.evaluate('location.search')}`);
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '7.5 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+    expect((await text('[data-quiz-changed]')) === 'Changed by you (was: Wrong)', `her grade's line: ${await text('[data-quiz-changed]')}`);
+    await tap('[data-quiz-action="done"]');
+    await waitFor(onList, 'the list after Done');
+  });
+
+  await step('at the end, 10 s a question: what she typed is saved and graded when the time runs out, the next question comes (no feedback); Finish; 5 / 10', async () => {
+    timed = await readyQuiz('Psico · 10 s each', twoNumeric(), { answers: 'atEnd', timeLimit: { kind: 'perQuestion', seconds: 10 } });
+    await clean();
+    await openTaking(timed.id);
+    expect(/^0:(0\d|10) left$/.test(await text('[data-review-progress="marks"]')), `the time: ${await text('[data-review-progress="marks"]')}`);
+    const first = await current();
+    await fillNth('[data-quiz-field="numeric"]', 0, '12');
+    await waitFor(async () => (await progressLabel()) === 'Question 2 of 2', 'the next question after 10 s', 16000);
+    expect(!(await has('[data-quiz-feedback]')), 'feedback shown at the end mode');
+    const attempt = await attemptOf(timed.id);
+    const saved = (await answersOf(attempt.id)).find((a) => a.question_id === first.id);
+    expect(saved?.response?.text === '12' && saved.verdict === 'wrong' && saved.graded_by === 'code', `the typed answer: ${JSON.stringify(saved)}`);
+    expect((await text('[data-quiz-action="next"]')) === 'Finish', `the last button: ${await text('[data-quiz-action="next"]')}`);
+    const second = await current();
+    const right = timed.questions.get(second.id).data.answer;
+    await fillNth('[data-quiz-field="numeric"]', 0, String(right));
+    await b.press('Enter');
+    await waitFor(() => has('[data-quiz-results]'), 'the results after Finish');
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '5 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+  });
+
+  await step('the whole quiz’s time (1 min, started 40 s ago): Resume; what she typed is saved when it runs out, the question not reached is wrong; 0 / 10', async () => {
+    total = await readyQuiz('Psico · 1 minute', twoNumeric(), { timeLimit: { kind: 'total', minutes: 1 } });
+    const a = await admin.from('quiz_attempts').insert({ user_id: user.id, quiz_id: total.id, status: 'in_progress', started_at: new Date(Date.now() - 40_000).toISOString(), max_points: 2 }).select('id').single();
+    if (a.error) throw new Error(`the attempt: ${a.error.message}`);
+    await clean();
+    await openTaking(total.id, 'resume');
+    // Some seconds left (a slow page load eats into the 20 s): whatever is shown, under a minute.
+    expect(/^0:[0-2]\d left$/.test(await text('[data-review-progress="marks"]')), `the time: ${await text('[data-review-progress="marks"]')}`);
+    const q = await current();
+    await fillNth('[data-quiz-field="numeric"]', 0, '99');
+    await waitFor(() => has('[data-quiz-results]'), 'the results when the time ran out', 35000);
+    const answers = await answersOf(a.data.id);
+    const typed = answers.find((x) => x.question_id === q.id);
+    const other = answers.find((x) => x.question_id !== q.id);
+    expect(answers.length === 2 && typed?.response?.text === '99' && typed.verdict === 'wrong' && other?.verdict === 'wrong' && JSON.stringify(other.response) === '{}', `answers: ${JSON.stringify(answers.map((x) => [x.response, x.verdict]))}`);
+    const done = (await admin.from('quiz_attempts').select('status').eq('id', a.data.id).single()).data;
+    expect(done.status === 'finished', `the attempt: ${done.status}`);
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '0 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+  });
+
+  await step('390 (iphone-10): Take full screen (no tab bar, ‹ Quit, Question n of 2), an answer and its feedback, the results; nothing wider than the screen', async () => {
+    const quiz = await readyQuiz('Psico · 390', [ALL_TYPES()[0], twoNumeric()[1]]);
+    await clean(390);
+    await openTaking(quiz.id);
+    const tabBar = await b.evaluate(`[...document.querySelectorAll('div, span')].some((e) => e.childElementCount === 0 && e.textContent.trim() === 'Library' && e.getClientRects().length > 0 && e.getBoundingClientRect().height > 0)`);
+    expect(!tabBar, 'the tab bar shown');
+    expect((await text('[data-quiz-action="quit"]')).includes('Quit'), '‹ Quit');
+    expect(await b.hasText('Question 1 of 2', true), 'the phone’s Question 1 of 2');
+    const wide = () => b.evaluate('document.documentElement.scrollWidth > 391');
+    expect(!(await wide()), 'wider than the screen (question)');
+    await shots('quiz-take-390');
+    for (let n = 1; n <= 2; n++) {
+      const c = await current();
+      if (c.type === 'multiple_choice') {
+        await blur();
+        await keyTap('b');
+      } else await answerNumeric(quiz);
+      await tap('[data-quiz-action="check"]');
+      await waitFor(async () => (await current())?.phase === 'feedback', `the feedback at 390 (${n})`);
+      expect(!(await wide()), 'wider than the screen (feedback)');
+      if (n === 1) await shots('quiz-feedback-390');
+      await tap('[data-quiz-action="next"]');
+    }
+    await waitFor(() => has('[data-quiz-results]'), 'the results at 390');
+    expect((await attr('[data-quiz-score]', 'data-quiz-score')) === '10 / 10', `score: ${await attr('[data-quiz-score]', 'data-quiz-score')}`);
+    expect(!(await wide()), 'wider than the screen (results)');
+    await shots('quiz-results-390');
+    await tap('[data-quiz-action="done"]');
+    await waitFor(onList, 'the list after Done');
+  });
+
+  await step('the laptop offline: Take greyed (“Taking a quiz needs a connection on the laptop”); online again: Take again', async () => {
+    const quiz = await readyQuiz('Psico · offline', twoNumeric());
+    // A quiz being written: the list reads it every 5 s, so going offline is noticed (as any request would).
+    const writing = await savedQuiz('Math · being written', { status: 'generating' });
+    try {
+      await clean();
+      const take = `${row(quiz.id)} [data-quizzes="take"]`;
+      await waitFor(async () => (await attr(take, 'aria-disabled')) !== 'true', 'Take enabled online');
+      await b.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      try {
+        await waitFor(async () => (await attr(take, 'aria-disabled')) === 'true', 'Take greyed offline', 20000);
+        expect((await attr(take, 'aria-label')) === 'Take Psico · offline', `its label: ${await attr(take, 'aria-label')}`);
+        await shots('quiz-list-1280-offline');
+      } finally {
+        await b.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+      }
+      await waitFor(async () => (await attr(take, 'aria-disabled')) !== 'true', 'Take enabled again online', 30000);
+    } finally {
+      await admin.from('quizzes').update({ deleted_at: new Date().toISOString() }).eq('id', writing);
+    }
+  });
+
   await step('no request reached the quiz function on the server or Anthropic (the page answered every one)', async () => {
     const out = requests.filter((u) => /functions\/v1\/quiz\b|anthropic\.com/.test(u));
     expect(out.length === 0, `requests: ${JSON.stringify(out)}`);
     const calls = await quizCalls();
-    report.push(`RESULT | the quiz function asked in the page: ${calls.map((c) => (c.mode === 'format' ? 'format' : 'quiz')).join(', ') || 'never'}`);
+    report.push(`RESULT | the quiz function asked in the page: ${calls.map((c) => c.mode ?? 'quiz').join(', ') || 'never'}`);
     const others = ((await b.evaluate('window.__functionCalls').catch(() => [])) ?? []).filter((u) => !/\/functions\/v1\/quiz\b/.test(u));
     report.push(`RESULT | other function requests answered in the page: ${others.length ? others.map((u) => u.replace(/^.*\/functions\/v1\//, '')).join(', ') : 'none'}`);
   });
 
-  await step('the composites beside the mockups: desktop-02 (the panel at 1280), iphone-05 (the sheet at 390), light and dark', async () => {
+  await step('the composites beside the mockups: desktop-02 and iphone-05 (the panel), desktop-07 and iphone-10 (taking a quiz), light and dark', async () => {
     const png = (file) => (existsSync(file) ? `data:image/png;base64,${readFileSync(file).toString('base64')}` : null);
     const shotOf = (name) => (taken.has(name) ? png(join(SHOTS, `${name}.png`)) : null);
     const mock = (name) => png(join(repo, 'docs/design', `${name}.png`));
@@ -676,8 +1156,39 @@ try {
       ],
       390,
     );
+    await compose(
+      'quiz-compose-take-1280',
+      [
+        ['desktop-07 (mockup)', mock('desktop-07-review-quiz')],
+        ['Question · light', shotOf('quiz-take-1280')],
+        ['Question · dark', shotOf('quiz-take-1280-dark')],
+        ['Feedback · light', shotOf('quiz-feedback-1280')],
+        ['Feedback · dark', shotOf('quiz-feedback-1280-dark')],
+        ['Results · light', shotOf('quiz-results-1280')],
+        ['Results · dark', shotOf('quiz-results-1280-dark')],
+      ],
+      560,
+    );
+    await compose(
+      'quiz-compose-take-390',
+      [
+        ['iphone-10 (mockup)', mock('iphone-10-review')],
+        ['Question · light', shotOf('quiz-take-390')],
+        ['Question · dark', shotOf('quiz-take-390-dark')],
+        ['Feedback · light', shotOf('quiz-feedback-390')],
+        ['Feedback · dark', shotOf('quiz-feedback-390-dark')],
+        ['Results · light', shotOf('quiz-results-390')],
+        ['Results · dark', shotOf('quiz-results-390-dark')],
+      ],
+      390,
+    );
     await b.resize(1280, 900);
-    const wanted = ['quiz-panel-1280', 'quiz-panel-1280-dark', 'quiz-panel-1280-sliders', 'quiz-panel-1280-sliders-dark', 'quiz-panel-390', 'quiz-panel-390-dark', 'quiz-panel-390-sliders', 'quiz-panel-390-sliders-dark', 'quiz-list-1280-writing', 'quiz-list-1280', 'quiz-states-1280', 'quiz-states-1280-dark', 'quiz-list-390', 'quiz-list-390-dark'];
+    const wanted = [
+      'quiz-panel-1280', 'quiz-panel-1280-dark', 'quiz-panel-1280-sliders', 'quiz-panel-1280-sliders-dark', 'quiz-panel-390', 'quiz-panel-390-dark', 'quiz-panel-390-sliders', 'quiz-panel-390-sliders-dark',
+      'quiz-list-1280-writing', 'quiz-list-1280', 'quiz-states-1280', 'quiz-states-1280-dark', 'quiz-list-390', 'quiz-list-390-dark',
+      'quiz-take-1280', 'quiz-take-1280-dark', 'quiz-feedback-1280', 'quiz-feedback-1280-dark', 'quiz-results-1280', 'quiz-results-1280-dark',
+      'quiz-take-390', 'quiz-take-390-dark', 'quiz-feedback-390', 'quiz-feedback-390-dark', 'quiz-results-390', 'quiz-results-390-dark',
+    ];
     const missing = wanted.filter((n) => !taken.has(n));
     expect(missing.length === 0, `not taken in this run: ${missing.join(', ')}`);
   });

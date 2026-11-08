@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useGlobalSearchParams, useRouter, type Href } from 'expo-router';
+import { useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { LightColors, type ThemeColors } from '../../constants/colors';
@@ -148,12 +148,13 @@ export function TopBar({
   );
 }
 
-/** Review's two modes (desktop-07/08): Quiz me | Flashcards, kept in the address (?mode=quiz). */
+/** Review's two modes (desktop-07/08): Quiz me | Flashcards, kept in the address (?mode=quiz); a quiz being taken (step 9.1b-3) is Quiz me. */
 function ReviewModes() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const pathname = usePathname();
   const { mode } = useGlobalSearchParams<{ mode?: string }>();
-  const quiz = mode === 'quiz';
+  const quiz = mode === 'quiz' || pathname.startsWith('/review/quiz/');
   const option = (label: string, on: boolean, href: Href) => (
     <Pressable
       onPress={() => router.replace(href)}

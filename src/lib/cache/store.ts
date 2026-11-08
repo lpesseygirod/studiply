@@ -18,8 +18,25 @@ import type { SegmentRow } from '../cloudRows';
 
 export const cacheEnabled = true;
 
-/** Step 9.1: flashcards and review_schedule too, so Review works offline; 9.1b: the quizzes (Quiz me's list). */
-export type CachedTable = 'courses' | 'folders' | 'files' | 'lectures' | 'summaries' | 'media' | 'audio_chunks' | 'documents' | 'flashcards' | 'review_schedule' | 'quizzes';
+/**
+ * Step 9.1: flashcards and review_schedule too, so Review works offline; 9.1b: the quizzes (Quiz me's
+ * list); 9.1b-3: their questions, attempts and answers, so a quiz is taken offline.
+ */
+export type CachedTable =
+  | 'courses'
+  | 'folders'
+  | 'files'
+  | 'lectures'
+  | 'summaries'
+  | 'media'
+  | 'audio_chunks'
+  | 'documents'
+  | 'flashcards'
+  | 'review_schedule'
+  | 'quizzes'
+  | 'quiz_questions'
+  | 'quiz_attempts'
+  | 'quiz_answers';
 
 /** The fields every cached row has. */
 export interface CacheableRow {
@@ -127,7 +144,16 @@ export function cacheUser(): string | null {
 
 /** The row a child belongs to, for loading one lecture's rows. */
 function parentOf(tbl: CachedTable, row: Record<string, unknown>): string | null {
-  const key = tbl === 'summaries' || tbl === 'documents' ? 'file_id' : tbl === 'media' || tbl === 'audio_chunks' ? 'lecture_id' : null;
+  const key =
+    tbl === 'summaries' || tbl === 'documents'
+      ? 'file_id'
+      : tbl === 'media' || tbl === 'audio_chunks'
+        ? 'lecture_id'
+        : tbl === 'quiz_questions' || tbl === 'quiz_attempts'
+          ? 'quiz_id'
+          : tbl === 'quiz_answers'
+            ? 'attempt_id'
+            : null;
   const value = key ? row[key] : null;
   return typeof value === 'string' ? value : null;
 }

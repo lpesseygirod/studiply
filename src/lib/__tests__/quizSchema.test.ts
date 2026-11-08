@@ -4,8 +4,8 @@
 // Step 9.1b-2: the quiz function's structured-output schemas (quiz-schema.ts) and their zod twins
 // (quiz-zod.ts) agree; they stay small (below the section rewrite's, which the API takes): nothing
 // nullable, no anyOf; the probe sends them; the prompt's field guide matches each type's zod shape.
-import { FORMAT_SCHEMA, QUIZ_SCHEMA, DATA_GUIDE, type JsonSchema } from '../../../supabase/functions/_shared/quiz-schema';
-import { QUESTION_DATA, QuizAnswer, FormatAnswer, checkData, parseFormat, parseQuizAnswer } from '../../../supabase/functions/_shared/quiz-zod';
+import { FORMAT_SCHEMA, GRADE_SCHEMA, QUIZ_SCHEMA, DATA_GUIDE, type JsonSchema } from '../../../supabase/functions/_shared/quiz-schema';
+import { QUESTION_DATA, QuizAnswer, FormatAnswer, GradeAnswer, checkData, parseFormat, parseGrades, parseQuizAnswer } from '../../../supabase/functions/_shared/quiz-zod';
 import { QUESTION_TYPES } from '../../../supabase/functions/_shared/quiz-plan';
 import { PROBE_SCHEMAS, schemaWeight } from '../../../supabase/functions/_shared/schema-probe';
 import { SECTION_SCHEMA } from '../../../supabase/functions/_shared/summary-schema';
@@ -23,8 +23,18 @@ const walk = (s: JsonSchema, visit: (n: JsonSchema) => void) => {
 };
 
 describe('the quiz schemas', () => {
+  it('step 9.1b-3: the grades — schema and zod take the same fields; three verdicts only; the probe sends it', () => {
+    expect(keys(GRADE_SCHEMA)).toEqual({ grades: [{ answerId: 'string', verdict: 'string', reason: 'string' }] });
+    const g = { answerId: 'a1', verdict: 'partly', reason: 'Falta la segunda idea.' };
+    expect(parseGrades(JSON.stringify({ grades: [g] }))).toEqual([g]);
+    expect(GradeAnswer.safeParse({ grades: [{ ...g, verdict: 'pending' }] }).success).toBe(false);
+    expect(GradeAnswer.safeParse({ grades: [{ ...g, points: 1 }] }).success).toBe(false);
+    expect(parseGrades('not json')).toBeNull();
+    expect(PROBE_SCHEMAS.map((p) => p.schema)).toContain(GRADE_SCHEMA);
+  });
+
   it('lighter than the section rewrite’s, nothing nullable, no anyOf, every object closed', () => {
-    for (const s of [QUIZ_SCHEMA, FORMAT_SCHEMA]) {
+    for (const s of [QUIZ_SCHEMA, FORMAT_SCHEMA, GRADE_SCHEMA]) {
       expect(schemaWeight(s)).toBeLessThan(schemaWeight(SECTION_SCHEMA));
       walk(s, (n) => {
         expect(n.anyOf).toBeUndefined();

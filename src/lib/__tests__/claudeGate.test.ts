@@ -113,4 +113,17 @@ describe('step 9.1b-2: a quiz must be hers, and it counts for the limit', () => 
     expect(await claudeGate(at.d)).toMatchObject({ status: 429, code: 'daily_limit' });
     expect(at.asked[0]).toContain('quiz');
   });
+
+  it('step 9.1b-3: grading an attempt goes through the same checks (her quiz, consent, the limit)', async () => {
+    const ATTEMPT = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+    const grade = (quizId: string, over: Partial<GateDeps<{ lectureId: string; fileId: string | null; quizId: string }>> = {}, spent = 0) => {
+      const g = gate(quizId, over, spent);
+      g.d.body = { mode: 'grade', quizId, attemptId: ATTEMPT };
+      return g;
+    };
+    expect(await claudeGate(grade(QUIZ).d)).toMatchObject({ ok: true, value: { quizId: QUIZ } });
+    expect(await claudeGate(grade('2c5ea4c0-4067-11e9-8bad-9b1deb4d3b7d').d)).toMatchObject({ status: 404, code: 'quiz_not_found' });
+    expect(await claudeGate(grade(QUIZ, { hasConsent: async () => false }).d)).toMatchObject({ status: 403, code: 'consent_required' });
+    expect(await claudeGate(grade(QUIZ, {}, DAILY_CLAUDE_LIMIT_USD).d)).toMatchObject({ status: 429, code: 'daily_limit' });
+  });
 });

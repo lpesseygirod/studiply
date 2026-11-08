@@ -13,6 +13,14 @@
  *                                              (Exam focus 8) written by the local quiz function (the past exam's
  *                                              format read on Sonnet, the questions on Opus); saved to
  *                                              tests/output/quiz-synthetic-pair/, then checked
+ *   npm run eval:quizzes -- --grading          step 9.1b-3, free: ~40 synthetic answers graded in code
+ *                                              (scripts/fixtures/quiz-answers.ts) as expected, and each
+ *                                              planted grading fault caught by them
+ *   npm run eval:quizzes -- --grade            step 9.1b-3, PAID (≈ $0.03, cap $0.10): 8 written Spanish
+ *                                              answers graded by Sonnet through the LOCAL quiz function
+ *                                              (grade mode); each verdict among the right ones, reasons one
+ *                                              line in Spanish, her own grade untouched; saved to
+ *                                              tests/output/quiz-grade/
  *
  * What a saved quiz is checked for: it is ready; every question's data and form for its type (4 options
  * as the past exam has); its source one of the lectures (never the past exam: format only), its time
@@ -30,6 +38,9 @@ import { syntheticTema2Fixture } from './fixtures/synthetic-tema2-lecture.ts';
 import { goodAnswer, goodContext } from './fixtures/quiz-good-answer.ts';
 import { evaluateAnswer, QUIZ_FAULTS } from './fixtures/quiz-faults.ts';
 import { PAST_EXAM_EXPECTED, syntheticPastExam } from './fixtures/synthetic-past-exam.ts';
+import { AI_ANSWERS, CODE_ANSWERS, GRADING_FAULTS, gradingMisses } from './fixtures/quiz-answers.ts';
+import { gradeAnswer } from '../supabase/functions/_shared/quiz-grade.ts';
+import { MAX_REASON } from '../supabase/functions/_shared/quiz-grading.ts';
 import { FixtureShape, fixtureInput, type Fixture } from '../supabase/functions/_shared/summary-fixture.ts';
 import { formProblems, hintGivesAway, normalizePrompt, SPAN_SLACK_MS } from '../supabase/functions/_shared/quiz-checks.ts';
 import { planInputFor, type MaterialLecture } from '../supabase/functions/_shared/quiz-input.ts';
@@ -40,7 +51,7 @@ import { detectLanguage, sourcesOf } from '../supabase/functions/_shared/summary
 
 const OUTPUT = 'tests/output';
 const args = Deno.args;
-const mode = args.includes('--generate') ? 'generate' : args.includes('--faults') ? 'faults' : 'check';
+const mode = args.includes('--generate') ? 'generate' : args.includes('--faults') ? 'faults' : args.includes('--grading') ? 'grading' : args.includes('--grade') ? 'grade' : 'check';
 const only = args.includes('--fixture') ? args[args.indexOf('--fixture') + 1] : null;
 const MIN = 60_000;
 
@@ -313,8 +324,132 @@ async function generate(): Promise<number> {
   }
 }
 
+// ---------- --grading: answers graded in code (free) ----------
+
+function checkGrading(): number {
+  console.log(`\nAnswers graded in code (${CODE_ANSWERS.length}, scripts/fixtures/quiz-answers.ts)`);
+  let failing = 0;
+  const misses = new Set(gradingMisses(gradeAnswer));
+  for (const a of CODE_ANSWERS) {
+    const g = gradeAnswer(a.type, a.data, a.response);
+    const ok = !misses.has(a.name);
+    if (!ok) failing += 1;
+    console.log(`  ${mark(ok)} ${a.name}: ${g.verdict} ${g.points}${ok ? '' : ` (expected ${a.expected}${a.points !== undefined ? ` ${a.points}` : ''})`}`);
+  }
+  console.log('\nGrading faults planted');
+  for (const f of GRADING_FAULTS) {
+    const caught = gradingMisses(f.grade);
+    if (!caught.length) failing += 1;
+    console.log(`  ${caught.length ? 'CAUGHT' : 'MISSED'} ${f.name}${caught.length ? ` (by ${caught.slice(0, 2).join('; ')})` : ''}`);
+  }
+  // The paid run's answers must reach Sonnet: code leaves each pending.
+  for (const a of AI_ANSWERS.filter((x) => !x.hers)) {
+    const g = gradeAnswer(a.type, a.data, { text: a.answer });
+    if (g.verdict !== 'pending') {
+      failing += 1;
+      console.log(`  FAIL ${a.name}: code grades it ${g.verdict}, so --grade wouldn't send it`);
+    }
+  }
+  return failing;
+}
+
+// ---------- --grade: Sonnet grades written answers (PAID) ----------
+
+const GRADE_CAP_USD = 0.1;
+
+async function gradeWithSonnet(): Promise<number> {
+  const { createClient } = await import('npm:@supabase/supabase-js@2');
+  const env = await localSupabase();
+  const options = { auth: { persistSession: false, autoRefreshToken: false } };
+  const admin = createClient(env.API_URL, env.SERVICE_ROLE_KEY, options);
+  const email = `eval-grade-${crypto.randomUUID().slice(0, 8)}@claude-check.test`;
+  const password = `Pw-${crypto.randomUUID()}`;
+  const made = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  if (made.error) throw new Error(`Could not create the test user: ${made.error.message}`);
+  const userId = made.data.user.id;
+  try {
+    const user = createClient(env.API_URL, env.ANON_KEY, options);
+    const signedIn = await user.auth.signInWithPassword({ email, password });
+    if (signedIn.error) throw new Error(`Could not sign in: ${signedIn.error.message}`);
+    must(await user.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: 'dev-2026-10-elevenlabs' }), 'the consent');
+    const course = must(await user.from('courses').insert({ name: 'Psicobiología (grading check)' }).select('id').single(), 'the course');
+    const settings = { version: SETTINGS_VERSION, sliders: QUIZ_SLIDER_DEFAULTS, choices: DEFAULT_CHOICES, topic: { wholeCourse: true, lectureIds: [] }, resources: { notes: true, summaries: true, lectureMedia: false, fileIds: [] }, pastExamIds: [] };
+    const quiz = must(await user.from('quizzes').insert({ course_id: course.data!.id, title: 'Grading check', status: 'ready', language: 'es', settings, plan: {}, question_count: AI_ANSWERS.length }).select('id').single(), 'the quiz');
+    const quizId = quiz.data!.id as string;
+    const questions = must(
+      await user.from('quiz_questions').insert(AI_ANSWERS.map((a, position) => ({ quiz_id: quizId, position, type: a.type, prompt: a.prompt, data: a.data, answer_text: a.data.modelAnswer }))).select('id, position'),
+      'the questions',
+    );
+    const qid = new Map((questions.data ?? []).map((q: { id: string; position: number }) => [q.position, q.id]));
+    const attempt = must(await user.from('quiz_attempts').insert({ quiz_id: quizId, max_points: AI_ANSWERS.length }).select('id').single(), 'the attempt');
+    const attemptId = attempt.data!.id as string;
+    must(
+      await user.from('quiz_answers').insert(
+        AI_ANSWERS.map((a, i) => ({
+          attempt_id: attemptId,
+          question_id: qid.get(i),
+          response: { text: a.answer },
+          ...(a.hers ? { verdict: a.hers, points: a.hers === 'correct' ? 1 : a.hers === 'partly' ? 0.5 : 0, graded_by: 'student' } : { verdict: 'pending', points: 0 }),
+        })),
+      ),
+      'the answers',
+    );
+
+    const started = Date.now();
+    const res = await fetch(`${env.API_URL}/functions/v1/quiz`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${signedIn.data.session!.access_token}` }, body: JSON.stringify({ mode: 'grade', quizId, attemptId }) });
+    const body = await res.json().catch(() => ({}));
+    const seconds = Math.round((Date.now() - started) / 1000);
+    if (res.status !== 200) throw new Error(`quiz (grade) answered ${res.status} ${body.code ?? ''} (is \`supabase functions serve\` running with the new code?)`);
+
+    const rows = (await admin.from('quiz_answers').select('question_id, verdict, points, reason, graded_by').eq('attempt_id', attemptId)).data ?? [];
+    const byQuestion = new Map(rows.map((r: { question_id: string }) => [r.question_id, r]));
+    const usage = ((await admin.from('ai_usage').select('operation, model, tokens_input, tokens_output, cost_usd').eq('user_id', userId)).data ?? []) as { operation: string; model: string; tokens_input: number; tokens_output: number; cost_usd: number }[];
+    const costUsd = usage.reduce((n, u) => n + Number(u.cost_usd), 0);
+    const score = (await admin.from('quiz_attempts').select('points, score').eq('id', attemptId).single()).data;
+
+    console.log(`\nSonnet's grades (${seconds} s, ${body.graded ?? '?'} graded, ${body.left ?? '?'} left; $${costUsd.toFixed(4)})`);
+    let failing = 0;
+    const check = (ok: boolean, what: string) => {
+      if (!ok) failing += 1;
+      console.log(`  ${mark(ok)} ${what}`);
+    };
+    const graded: { name: string; verdict: string; reason: string }[] = [];
+    AI_ANSWERS.forEach((a, i) => {
+      const r = byQuestion.get(qid.get(i) ?? '') as { verdict: string; reason: string; graded_by: string } | undefined;
+      if (a.hers) return check(r?.verdict === a.hers && r?.graded_by === 'student' && !r?.reason, `${a.name}: still hers (${r?.verdict})`);
+      graded.push({ name: a.name, verdict: r?.verdict ?? '?', reason: r?.reason ?? '' });
+      check(!!r && r.graded_by === 'ai' && (a.allowed as string[]).includes(r.verdict), `${a.name}: ${r?.verdict ?? 'missing'} (allowed ${a.allowed.join('/')}) — “${r?.reason ?? ''}”`);
+      check(!!r?.reason && !r.reason.includes('\n') && r.reason.length <= MAX_REASON, `${a.name}: its reason is one line`);
+    });
+    check(detectLanguage(graded.map((g) => g.reason).join(' '), 'es') === 'es', 'the reasons are in Spanish');
+    const sum = rows.reduce((n: number, r: { points: number }) => n + Number(r.points), 0);
+    check(Math.abs(Number(score?.points) - sum) < 1e-6, `the attempt's score follows the grades (${score?.points} points, ${score?.score} / 10)`);
+    check(usage.length === 1 && usage[0].operation === 'quiz' && usage[0].model === 'claude-sonnet-5-5', `one Sonnet call logged as quiz (${usage.map((u) => `${u.operation}/${u.model}`).join(', ')})`);
+    check(costUsd <= GRADE_CAP_USD, `under the cap ($${costUsd.toFixed(4)} ≤ $${GRADE_CAP_USD})`);
+
+    const saved = { at: new Date().toISOString(), seconds, costUsd, usage, graded, score, response: body };
+    const dir = `${OUTPUT}/quiz-grade`;
+    await Deno.mkdir(dir, { recursive: true });
+    await writeJson(`${dir}/${saved.at.slice(0, 19).replace(/[:T]/g, '-')}.json`, saved);
+    await writeJson(`${dir}/latest.json`, saved);
+    console.log(`  saved to ${dir}/latest.json`);
+    return failing;
+  } finally {
+    await admin.auth.admin.deleteUser(userId);
+  }
+}
+
 // ---------- main ----------
 
+if (mode === 'grading') {
+  const failing = checkGrading();
+  console.log(failing ? `\n${failing} grading check(s) FAILED.` : '\nEvery answer graded as expected; every planted grading fault caught.');
+  Deno.exit(failing ? 1 : 0);
+}
+if (mode === 'grade') {
+  console.log('\nGrading 8 written answers with Sonnet (paid, ≈ $0.03)');
+  Deno.exit((await gradeWithSonnet()) ? 1 : 0);
+}
 if (mode === 'faults') {
   const missed = plantFaults();
   console.log(missed ? `\n${missed} planted fault(s) MISSED.` : '\nEvery planted fault was caught.');

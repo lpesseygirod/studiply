@@ -40,6 +40,10 @@ export const PULL_TABLES: CachedTable[] = [
   'review_schedule',
   // Step 9.1b: the Quiz me tab's list of quizzes.
   'quizzes',
+  // Step 9.1b-3: taking a quiz offline (answers made here are queued, quiz-attempt.service).
+  'quiz_questions',
+  'quiz_attempts',
+  'quiz_answers',
 ];
 
 export const PAGE = 1000;

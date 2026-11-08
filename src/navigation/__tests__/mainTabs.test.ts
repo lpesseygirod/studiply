@@ -24,6 +24,10 @@ describe('the iPhone tab bar', () => {
     expect(isFullScreenRoute('/record/post-session')).toBe(true);
     expect(isFullScreenRoute('/record/review')).toBe(true);
     expect(isFullScreenRoute('/doc/abc')).toBe(true);
+    // Step 9.1b-3: a quiz being taken; the Review tab itself keeps the bar.
+    expect(isFullScreenRoute('/review/quiz/abc')).toBe(true);
+    expect(isFullScreenRoute('/review')).toBe(false);
+    expect(HIDDEN_ROUTES).toContain('review/quiz/[id]');
     expect(isFullScreenRoute('/record')).toBe(false);
     expect(isFullScreenRoute('/library')).toBe(false);
     expect(isFullScreenRoute('/project/abc')).toBe(false);

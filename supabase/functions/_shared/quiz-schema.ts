@@ -52,6 +52,11 @@ export const FORMAT_SCHEMA: JsonSchema = obj({
   examples: arr(str),
 });
 
+/** Step 9.1b-3: Sonnet's grades of short and long answers, each with a one-line reason. */
+export const GRADE_SCHEMA: JsonSchema = obj({
+  grades: arr(obj({ answerId: str, verdict: oneOf(['correct', 'partly', 'wrong']), reason: str })),
+});
+
 /** What each type's `data` holds, in words, for the prompt (the zod shapes in quiz-zod.ts agree: Jest). */
 export const DATA_GUIDE: Record<(typeof QUESTION_TYPES)[number], string> = {
   multiple_choice: '{ "options": [string], "correct": integer (the right option\'s index, from 0) }',
