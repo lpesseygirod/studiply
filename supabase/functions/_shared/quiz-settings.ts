@@ -61,6 +61,12 @@ export interface QuizSettings {
   pastExamIds: string[];
 }
 
+/**
+ * Step 9.1b-2: a quiz still "generating" with no news this long is shown as taking too long, and the
+ * quiz function may claim it again (Try again). The function's run stops by itself at 150 s.
+ */
+export const QUIZ_STALE_MS = 5 * 60_000;
+
 export const MAX_PASS_THRESHOLD = 100;
 export const LIMIT_MINUTES = { min: 1, max: 300 } as const;
 export const LIMIT_SECONDS = { min: 10, max: 1800 } as const;

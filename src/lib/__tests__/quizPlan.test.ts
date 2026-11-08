@@ -17,6 +17,7 @@ import {
   countValueFor,
   fromQuizCourseSettings,
   largestRemainder,
+  mergeFormats,
   planQuiz,
   roundDiv,
   spread,
@@ -324,5 +325,20 @@ describe('lectures, time and the preview line', () => {
     expect(plan({ types: ['multiple_choice'] }).preview).toBe('10 questions · 10 multiple choice · ≈ 8 min');
     const p = plan({ pendingWrong: 3 }, { count: 5 });
     expect(p.preview).toMatch(/^25 questions · \d+ [a-z/ ]+ · \d+ [a-z/ ]+ · \d+ [a-z/ ]+ · … · 3 come back · ≈ \d+ min$/);
+  });
+});
+
+describe('step 9.1b-2: several past exams as one format', () => {
+  it('their average length (rounded half up) and their types summed; none read: null', () => {
+    expect(
+      mergeFormats([
+        { questionCount: 12, types: [{ type: 'multiple_choice', count: 8 }, { type: 'true_false', count: 4 }] },
+        { questionCount: 15, types: [{ type: 'multiple_choice', count: 10 }, { type: 'short_answer', count: 5 }] },
+      ]),
+    ).toEqual({ questionCount: 14, types: [{ type: 'multiple_choice', count: 18 }, { type: 'true_false', count: 4 }, { type: 'short_answer', count: 5 }] });
+    expect(mergeFormats([])).toBeNull();
+    expect(mergeFormats([{ questionCount: 0, types: [] }])).toBeNull();
+    // Its length is the Number of questions value nearest it (Lea's list, 2 Nov: the length is the count).
+    expect(countValueFor(14)).toBe(3);
   });
 });

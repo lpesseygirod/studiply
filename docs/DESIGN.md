@@ -314,6 +314,16 @@ As built in step 4.4:
   - a correction becomes an **Update** callout right after the block it corrects, in the exam amber family: "UPDATE · LECTURE 4 · 18:30".
 - **An Exam pack** is a document in the course ("Exam pack · Psicobiología"): "Built from the summaries of N lectures (3, 4)", then per topic "n · topic", an **Exam signal** box (each with "· Lecture n" and its ▶ time), formula cards, key terms and a self-test with the answers hidden; then "N flashcards saved for review".
 
+### 5. Quizzes being written (step 9.1b-2; no mockup, the 9.1b-1 rows' styles)
+- **Create quiz** in the New quiz panel (desktop-02's frame, iphone-05's sheet) asks the permissions it needs first, in the app's dialog: "Send the transcript to Anthropic?" always; "Send photos and PDFs to Anthropic?" only when photos, slides or PDFs go with the quiz (declining that one still writes the quiz, without them). The button shows its spinner; the panel closes.
+- **Review → Quiz me, the quiz's row** (the same on both devices):
+  - **Writing:** "25 questions · Writing your quiz…" with a small spinner, and under it "About 1–2 minutes, you can keep working". Take greyed. The row is read every 5 s.
+  - **Ready:** "25 questions · Ready" (with fewer: "24 of 25 questions · Ready", and "1 couldn’t be checked" under it). Take enabled; until 9.1b-3 it says "Taking quizzes comes in a later update".
+  - **Saved · not started:** the reason under it when it was tried ("Nothing was sent: Studiply needs your permission", "Today’s limit is reached; try again tomorrow", "Needs a connection"), and a **Start** button where Take is.
+  - **Couldn’t be written:** its reason in plain words under it ("Claude couldn’t be reached", "It took too long" for one with no news for 5 minutes…), and **Try again** where Take is.
+  - **Delete** (its … menu, with Undo) while it is written stops it; Undo shows it as Couldn’t be written, with Try again.
+- **A past exam added** in the panel: its format is read at once (after the permission it needs). Its line says "Reading its format…", then "12 questions · multiple choice, true/false, short answer"; Number of questions moves to its length and the preview follows its mix. If it can't be read: the reason, and a "Try again: read “Parcial 2024.pdf”" link under the list.
+
 ## Study assistant (Claude-style chat)
 - Header: icon, "Study assistant", "Knows this lecture up to mm:ss", "Recording continues" badge while recording.
 - Messages: the student's in a rounded light bubble (right), the assistant's as plain full-width text with Copy, Retry, **Add to notes**, **Flashcards** under each answer.

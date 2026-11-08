@@ -19,6 +19,7 @@ import {
   extendSchema,
   type JsonSchema,
 } from './summary-schema.ts';
+import { FORMAT_SCHEMA, QUIZ_SCHEMA } from './quiz-schema.ts';
 
 export const PROBE_MAX_TOKENS = 16;
 export const PROBE_SYSTEM = 'This is a schema check. Answer with the smallest valid JSON for the schema.';
@@ -36,6 +37,9 @@ export const PROBE_SCHEMAS: { name: string; schema: JsonSchema }[] = [
   { name: 'lists rewrite (7.5)', schema: LISTS_SCHEMA },
   { name: 'verify (7.5)', schema: VERIFY_SCHEMA },
   { name: 'exam pack (7.9)', schema: EXAM_PACK_SCHEMA },
+  // Step 9.1b-2: the quiz function's (its verify call sends VERIFY_SCHEMA, above).
+  { name: 'quiz questions (9.1b-2)', schema: QUIZ_SCHEMA },
+  { name: 'past exam format (9.1b-2)', schema: FORMAT_SCHEMA },
 ];
 
 /**

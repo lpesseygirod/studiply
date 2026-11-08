@@ -1,12 +1,17 @@
 /**
  * quiz.service.ts
- * Create a quiz (step 9.1b-1): the New quiz panel's data, Save as course default, the quiz saved,
- * the Quiz me tab's list, Delete with Undo.
+ * Create a quiz (step 9.1b): the New quiz panel's data, Save as course default, the quiz saved,
+ * the Quiz me tab's list, Delete with Undo; step 9.1b-2: the quiz written by the quiz function.
  *
  * - Making a quiz needs a connection (BUILD-PLAN), so the panel reads Supabase and Create writes there
  *   on both devices: a `quizzes` row (pending, its settings and the calculator's plan) and its
- *   `quiz_sources`. Nothing is sent to an AI service here: the quiz function writes the questions
- *   in 9.1b-2.
+ *   `quiz_sources`.
+ * - Step 9.1b-2: then `startQuiz` asks the permissions (the transcript always; photos and PDFs when the
+ *   quiz has them: declining that one makes the quiz without them) and starts the quiz function, which
+ *   answers at once and writes the quiz in the background; the list follows the row (`quizNow`, every
+ *   5 s while it is writing). Start and Try again are the same call: the server claims a pending or
+ *   failed quiz, or one left "generating" too long; the app never writes a quiz's status itself.
+ *   A past exam's format is read when it is added (`pastExamFormat`), once per file.
  * - The list: the iPhone reads its own copy (`quizzes` is downloaded with the library), so Review
  *   shows the quizzes offline too; the laptop reads Supabase.
  */
@@ -15,13 +20,15 @@ import { NetworkError, serviceError } from '../lib/cloudRows';
 import { cacheEnabled, readRows } from '../lib/cache/store';
 import { remember } from '../lib/cache';
 import { isOffline } from '../lib/connectivity';
+import { callFunction, FunctionError } from '../lib/functions';
 import { newId } from '../lib/mappers';
 import { supabase } from '../lib/supabase';
 import type { Json } from '../types/supabase';
-import { fromQuizCourseSettings, QUIZ_COLUMNS, QUIZ_SLIDER_DEFAULTS, QUIZ_SLIDER_KEYS, toQuizCourseSettings, type QuizPlan, type QuizSliders } from '../../supabase/functions/_shared/quiz-plan';
+import { fromQuizCourseSettings, QUIZ_COLUMNS, QUIZ_SLIDER_DEFAULTS, QUIZ_SLIDER_KEYS, toQuizCourseSettings, type PastExamFormatRead, type QuizPlan, type QuizSliders } from '../../supabase/functions/_shared/quiz-plan';
 import { settingsProblem, type QuizSettings } from '../../supabase/functions/_shared/quiz-settings';
 import { SUMMARY_FORMAT } from '../../supabase/functions/_shared/summary-schema';
 import { CALCULATING_MODULES, type MaterialLecture, type QuizMaterial } from '../lib/quiz/panel';
+import { ConsentDeclinedError, ensureConsent, forgetConsent } from './consent.service';
 
 export type QuizStatus = 'pending' | 'generating' | 'ready' | 'failed';
 
@@ -33,6 +40,7 @@ export interface QuizRow {
   status: QuizStatus;
   error: string | null;
   question_count: number;
+  plan?: { count?: number } | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -42,14 +50,35 @@ export interface QuizListItem {
   id: string;
   title: string;
   status: QuizStatus;
+  /** The questions in it (asked for until it is written). */
   questionCount: number;
+  /** The questions the plan asked for (a ready quiz may have fewer: some couldn't be checked). */
+  requested: number;
+  error: string | null;
   courseId: string | null;
   createdAt: string;
+  updatedAt: string;
+  /** Why it wasn't started this session (permission declined, today's limit, no connection), else null. */
+  note: string | null;
 }
 
-const QUIZ_COLUMNS_READ = 'id, user_id, course_id, title, status, error, question_count, deleted_at, created_at, updated_at';
+const QUIZ_COLUMNS_READ = 'id, user_id, course_id, title, status, error, question_count, plan, deleted_at, created_at, updated_at';
 
-const toItem = (r: QuizRow): QuizListItem => ({ id: r.id, title: r.title, status: r.status, questionCount: r.question_count, courseId: r.course_id, createdAt: r.created_at });
+/** Why a quiz wasn't started, this app session (the row shows it until it starts). */
+const notStarted = new Map<string, string>();
+
+const toItem = (r: QuizRow): QuizListItem => ({
+  id: r.id,
+  title: r.title,
+  status: r.status,
+  questionCount: r.question_count,
+  requested: typeof r.plan?.count === 'number' ? r.plan.count : r.question_count,
+  error: r.error,
+  courseId: r.course_id,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+  note: r.status === 'pending' ? (notStarted.get(r.id) ?? null) : null,
+});
 
 /** Every quiz not deleted, newest first. */
 export async function listQuizzes(): Promise<QuizListItem[]> {
@@ -281,4 +310,97 @@ export async function createQuiz(ask: CreateQuiz): Promise<string> {
   remember('quizzes', data ?? []);
   notifyQuizzesChanged();
   return id;
+}
+
+// -------------------------------------------------------------------
+// Writing the quiz (step 9.1b-2)
+// -------------------------------------------------------------------
+
+/** One quiz's row as it is now (the list reads it every 5 s while the quiz is being written); kept in the iPhone's copy. */
+export async function quizNow(id: string): Promise<QuizListItem | null> {
+  const { data, error } = await supabase.from('quizzes').select(QUIZ_COLUMNS_READ).eq('id', id).maybeSingle();
+  if (error) throw serviceError(error, 'Could not read the quiz.');
+  if (!data) return null;
+  remember('quizzes', [data]);
+  return toItem(data as unknown as QuizRow);
+}
+
+const IMAGE_KINDS = ['pdf', 'image'];
+
+/** Whether a quiz sends photos or PDFs: a PDF or photo added (resource or past exam), or the lectures' own slides and photos. */
+async function quizNeedsImages(id: string): Promise<boolean> {
+  const { data, error } = await supabase.from('quizzes').select('settings').eq('id', id).single();
+  if (error) throw serviceError(error, 'Could not read the quiz.');
+  const s = data.settings as unknown as QuizSettings;
+  const added = [...(s.resources?.fileIds ?? []), ...(s.pastExamIds ?? [])];
+  if (added.length) {
+    const files = await supabase.from('files').select('kind').in('id', added);
+    if (files.error) throw serviceError(files.error, 'Could not read the quiz.');
+    if ((files.data ?? []).some((f) => IMAGE_KINDS.includes(f.kind))) return true;
+  }
+  if (!s.resources?.lectureMedia || !s.topic?.lectureIds?.length) return false;
+  const media = await supabase.from('media').select('id').in('lecture_id', s.topic.lectureIds).in('kind', ['photo', 'slides']).limit(1);
+  if (media.error) throw serviceError(media.error, 'Could not read the quiz.');
+  return (media.data ?? []).length > 0;
+}
+
+/** Why a start failed, in the row's words. */
+export function startProblem(err: unknown): string {
+  if (err instanceof ConsentDeclinedError) return 'Nothing was sent: Studiply needs your permission';
+  if (err instanceof FunctionError && err.code === 'daily_limit') return 'Today’s limit is reached; try again tomorrow';
+  if (err instanceof NetworkError || (err instanceof FunctionError && err.unreachable)) return 'Needs a connection';
+  return err instanceof Error && err.message ? err.message : 'It couldn’t be started';
+}
+
+/**
+ * Starts writing a quiz (Create, Start, Try again): the permissions first (the transcript; photos and
+ * PDFs only when the quiz has them, and declining that one still writes it, without them), then the
+ * quiz function, which answers at once. A failure is noted on the row ("Saved · not started") and thrown.
+ */
+export async function startQuiz(id: string): Promise<void> {
+  try {
+    if (isOffline()) throw new NetworkError();
+    await ensureConsent('assistant_summary');
+    if (await quizNeedsImages(id)) {
+      await ensureConsent('images').catch((err) => {
+        if (!(err instanceof ConsentDeclinedError)) throw err;
+      });
+    }
+    await callFunction('quiz', { quizId: id });
+    notStarted.delete(id);
+  } catch (err) {
+    // Already being written (twice, or from another device): the list follows the row.
+    if (err instanceof FunctionError && err.code === 'already_started') {
+      notStarted.delete(id);
+      return;
+    }
+    // Withdrawn on another device: asked again next time.
+    if (err instanceof FunctionError && err.code === 'consent_required') forgetConsent();
+    notStarted.set(id, startProblem(err));
+    throw err;
+  } finally {
+    if (!isOffline()) await quizNow(id).catch(() => null);
+    notifyQuizzesChanged();
+  }
+}
+
+/**
+ * A past exam's format (its length and question types), read once per file by the quiz function and
+ * saved on the file: the saved one when there is one. Asks the permission it needs first (a PDF or a
+ * photo: photos and PDFs too); declining throws ConsentDeclinedError.
+ */
+export async function pastExamFormat(fileId: string): Promise<PastExamFormatRead> {
+  if (isOffline()) throw new NetworkError();
+  const { data, error } = await supabase.from('files').select('kind, past_exam_format').eq('id', fileId).maybeSingle();
+  if (error) throw serviceError(error, 'Could not read the exam.');
+  if (data?.past_exam_format) return data.past_exam_format as unknown as PastExamFormatRead;
+  await ensureConsent('assistant_summary');
+  if (data && IMAGE_KINDS.includes(data.kind)) await ensureConsent('images');
+  try {
+    const res = await callFunction<{ format: PastExamFormatRead }>('quiz', { mode: 'format', fileId });
+    return res.format;
+  } catch (err) {
+    if (err instanceof FunctionError && err.code === 'consent_required') forgetConsent();
+    throw err;
+  }
 }

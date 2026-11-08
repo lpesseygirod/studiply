@@ -461,14 +461,14 @@ isOneToOne: false
                   ]
                 },"quizzes": {
                   Row: {
-                    "course_id": string | null,"created_at": string,"deleted_at": string | null,"error": string | null,"id": string,"language": string | null,"plan": NonNullable<Json>,"question_count": number,"settings": NonNullable<Json>,"status": string,"title": string,"updated_at": string,"user_id": string
+                    "checks": Json | null,"course_id": string | null,"created_at": string,"deleted_at": string | null,"error": string | null,"id": string,"language": string | null,"plan": NonNullable<Json>,"question_count": number,"settings": NonNullable<Json>,"status": string,"title": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan": NonNullable<Json>,"question_count"?: number,"settings": NonNullable<Json>,"status"?: string,"title": string,"updated_at"?: string,"user_id"?: string
+                    "checks"?: Json | null,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan": NonNullable<Json>,"question_count"?: number,"settings": NonNullable<Json>,"status"?: string,"title": string,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan"?: NonNullable<Json>,"question_count"?: number,"settings"?: NonNullable<Json>,"status"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string
+                    "checks"?: Json | null,"course_id"?: string | null,"created_at"?: string,"deleted_at"?: string | null,"error"?: string | null,"id"?: string,"language"?: string | null,"plan"?: NonNullable<Json>,"question_count"?: number,"settings"?: NonNullable<Json>,"status"?: string,"title"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {

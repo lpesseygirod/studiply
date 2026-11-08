@@ -17,7 +17,7 @@ import { answerFromSse, createSseReader, errorFromResponse, networkError, type S
 
 export { FunctionError } from './functionResult';
 
-export type FunctionName = 'transcribe-chunk' | 'summarize' | 'assistant-chat';
+export type FunctionName = 'transcribe-chunk' | 'summarize' | 'assistant-chat' | 'quiz';
 
 type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }) => Promise<Response>;
 

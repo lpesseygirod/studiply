@@ -164,6 +164,15 @@ export interface PastExamFormat {
   types: { type: QuestionType; count: number }[];
 }
 
+/** Step 9.1b-2: a past exam's format as read and saved on its file (files.past_exam_format; quiz-zod.ts FormatAnswer). */
+export interface PastExamFormatRead extends PastExamFormat {
+  language: string;
+  optionsPerQuestion: number;
+  avgQuestionWords: number;
+  styleNotes: string;
+  examples: string[];
+}
+
 export interface QuizPlanInput {
   sliders: QuizSliders;
   /** The question types ticked (at least one). */
@@ -290,6 +299,21 @@ export function categoryWeights(s: QuizSliders, hasCalculations: boolean): Recor
     calculation: hasCalculations ? (s.calculations - 1) * (18 - (10 - T)) : 0,
     concept: (10 - T) * 18,
     application: (T - 1) * 18,
+  };
+}
+
+/**
+ * Step 9.1b-2: several past exams' formats as the one the calculator takes: their average length
+ * (rounded half up) and their type counts summed (the shares are what count). Null when none.
+ */
+export function mergeFormats(formats: readonly PastExamFormat[]): PastExamFormat | null {
+  const usable = formats.filter((f) => Number.isInteger(f.questionCount) && f.questionCount > 0);
+  if (!usable.length) return null;
+  const counts = new Map<QuestionType, number>();
+  for (const f of usable) for (const t of f.types) if (QUESTION_TYPES.includes(t.type) && t.count > 0) counts.set(t.type, (counts.get(t.type) ?? 0) + Math.round(t.count));
+  return {
+    questionCount: roundDiv(usable.reduce((n, f) => n + f.questionCount, 0), usable.length),
+    types: QUESTION_TYPES.filter((t) => counts.has(t)).map((type) => ({ type, count: counts.get(type)! })),
   };
 }
 

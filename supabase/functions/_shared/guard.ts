@@ -49,6 +49,13 @@ export async function ownFile(db: SupabaseClient, fileId: string) {
   return data;
 }
 
+/** The caller's own quiz (RLS), not in the Trash (step 9.1b-2). */
+export async function ownQuiz(db: SupabaseClient, quizId: string) {
+  const { data, error } = await db.from('quizzes').select('id').eq('id', quizId).is('deleted_at', null).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Whether the caller has consent for this scope under the current policy, not withdrawn. */
 export async function hasConsent(db: SupabaseClient, scope: ConsentScope): Promise<boolean> {
   const { data, error } = await db
@@ -91,7 +98,7 @@ export async function usedToday(
 export interface UsageRow {
   user_id: string;
   lecture_id: string | null;
-  operation: 'transcription' | 'assistant' | 'summary';
+  operation: 'transcription' | 'assistant' | 'summary' | 'quiz';
   /** 'elevenlabs' needs the ai_usage.provider check widened by a migration first (docs/PROGRESS.md). */
   provider: 'openai' | 'anthropic' | 'elevenlabs';
   model: string;

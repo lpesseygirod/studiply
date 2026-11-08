@@ -616,7 +616,8 @@ export function faithfulness(s: StoredSummary, src: Sources): { checked: number;
 
 // ---------- language ----------
 
-const STOPWORDS: Record<string, string[]> = {
+/** Each language's function words (step 9.1b-2 also leaves them out of a quiz answer's content words). */
+export const STOPWORDS: Record<string, string[]> = {
   // "no", "si", "qué", "tras", "otra" are Spanish too (without them a Spanish block sharing el / la / en with Catalan could read as Catalan).
   es: ['el', 'la', 'los', 'las', 'de', 'del', 'que', 'qué', 'y', 'en', 'un', 'una', 'es', 'no', 'si', 'por', 'con', 'para', 'se', 'su', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 'sí', 'porque', 'esta', 'entre', 'cuando', 'muy', 'sin', 'sobre', 'también', 'hay', 'son', 'tras', 'otra', 'otro'],
   en: ['the', 'of', 'and', 'to', 'in', 'is', 'that', 'it', 'for', 'as', 'with', 'was', 'on', 'are', 'by', 'this', 'be', 'from', 'or', 'which', 'an', 'at', 'not', 'but', 'have', 'they', 'their', 'can', 'its', 'when', 'how', 'what', 'there', 'these'],

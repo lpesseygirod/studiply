@@ -12,12 +12,12 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { claudeCost, claudeRequest, type Cost } from './claude.ts';
 import { claudeGate } from './claude-gate.ts';
-import { hasConsent, logUsage, ownFile, ownLecture, signedIn, usedToday } from './guard.ts';
+import { hasConsent, logUsage, ownFile, ownLecture, ownQuiz, signedIn, usedToday } from './guard.ts';
 import { fail } from './http.ts';
 
 const TIMEOUT_MS = 120_000;
 
-type Operation = 'assistant' | 'summary';
+type Operation = 'assistant' | 'summary' | 'quiz';
 
 export type Ready<T> =
   | { ok: true; db: SupabaseClient; userId: string; claude: Anthropic; value: T }
@@ -29,7 +29,7 @@ export type Ready<T> =
  * limit. Nothing reaches
  * Anthropic unless all of them pass.
  */
-export async function readyForClaude<T extends { lectureId: string; fileId?: string | null }>(
+export async function readyForClaude<T extends { lectureId: string; fileId?: string | null; quizId?: string | null }>(
   req: Request,
   validate: (body: unknown) => { ok: true; value: T } | { ok: false; status: number; code: string; error: string },
   log: (event: string, details: Record<string, unknown>) => void,
@@ -46,6 +46,7 @@ export async function readyForClaude<T extends { lectureId: string; fileId?: str
     validate,
     ownFile: (fileId) => ownFile(db, fileId),
     ownLecture: (lectureId) => ownLecture(db, lectureId),
+    ownQuiz: (quizId) => ownQuiz(db, quizId),
     hasConsent: () => hasConsent(db, 'assistant_summary'),
     spentToday: (operations) => usedToday(db, [...operations], 'cost_usd'),
     log,

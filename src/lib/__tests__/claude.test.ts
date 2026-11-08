@@ -86,7 +86,8 @@ describe('sseEvent', () => {
 describe('constants', () => {
   it('match the decisions in docs/PROGRESS.md', () => {
     // The study assistant on Sonnet 5.5, summaries on Opus 5.5 (Lea, 30 Oct 2026)
-    expect(CLAUDE_MODELS).toEqual({ assistant: 'claude-sonnet-5-5', summary: 'claude-opus-5-5' });
+    // Step 9.1b-2: Opus writes quizzes, Sonnet reads a past exam's format (advisor, 2 Nov).
+    expect(CLAUDE_MODELS).toEqual({ assistant: 'claude-sonnet-5-5', summary: 'claude-opus-5-5', quiz: 'claude-opus-5-5', quizFormat: 'claude-sonnet-5-5' });
     // Every configured model has its own price (none falls back to the dearest)
     for (const model of Object.values(CLAUDE_MODELS)) expect(priceOf(model)).not.toBe(priceOf('claude-not-in-the-table'));
     expect(priceOf('claude-sonnet-5-5')).toEqual({ input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 });

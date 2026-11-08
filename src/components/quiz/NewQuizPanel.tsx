@@ -10,10 +10,24 @@ import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useConnectivity } from '../../lib/connectivity';
 import { chosenLectures, countsLine, planInputFor, quizTitle, suggestedMinutes, type MaterialLecture, type QuizMaterial } from '../../lib/quiz/panel';
 import { libraryTitle, uploadKindOf, uploadLibraryFile } from '../../services/library-upload.service';
-import { createQuiz, lastQuizCourse, loadQuizMaterial, quizCourses, saveQuizDefaults, type QuizCourse } from '../../services/quiz.service';
+import { createQuiz, lastQuizCourse, loadQuizMaterial, pastExamFormat, quizCourses, saveQuizDefaults, startQuiz, type QuizCourse } from '../../services/quiz.service';
+import { ConsentDeclinedError } from '../../services/consent.service';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { errorMessage } from '../../utils/errors';
-import { planQuiz, QUESTION_TYPES, QUIZ_PRESETS, QUIZ_SLIDER_KEYS, type QuestionType, type QuizPlan, type QuizSliderKey, type QuizSliders } from '../../../supabase/functions/_shared/quiz-plan';
+import {
+  countValueFor,
+  mergeFormats,
+  planQuiz,
+  QUESTION_TYPE_LABELS,
+  QUESTION_TYPES,
+  QUIZ_PRESETS,
+  QUIZ_SLIDER_KEYS,
+  type PastExamFormatRead,
+  type QuestionType,
+  type QuizPlan,
+  type QuizSliderKey,
+  type QuizSliders,
+} from '../../../supabase/functions/_shared/quiz-plan';
 import { DEFAULT_CHOICES, QUIZ_LANGUAGES, SETTINGS_VERSION, settingsProblem, type QuizChoices, type QuizSettings } from '../../../supabase/functions/_shared/quiz-settings';
 import { showAlert } from '../dialogs/dialogs';
 import { AddButton, CheckBox, PresetChip, ResourceCard, ResourceRow, SliderRow } from '../panel/PanelParts';
@@ -28,10 +42,13 @@ import { kindLabel, QUIZ_PRESET_ORDER, QUIZ_SLIDER_LABELS, TYPE_CHIPS } from './
  * - What it covers: the course, then the topic (the whole course, or lectures and folders).
  * - Resources: My notes and marks (always), the lectures' summaries and their slides and photos,
  *   files added from the library or uploaded (they become files of the course).
- * - Example quizzes or past exams: they set the quiz's format (read in 9.1b-2).
+ * - Example quizzes or past exams: they set the quiz's format. Step 9.1b-2: each one's format is read
+ *   when it is added (once per file, after the permission it needs): its line shows its length and
+ *   types, Number of questions moves to its length, and the preview follows its mix.
  * - The 10 sliders, presets and Save as course default; the choices.
  * - The calculator's preview line (quiz-plan.ts); Create quiz saves the quiz (pending) with its
- *   settings and plan. No AI is called: the questions are written in 9.1b-2.
+ *   settings and plan, then (9.1b-2) starts the quiz function, which writes it in the background
+ *   (Review → Quiz me follows it).
  * Making a quiz needs a connection.
  */
 export function NewQuizPanel() {
@@ -78,6 +95,8 @@ function Panel({ request }: { request: NewQuizRequest }) {
   const [thresholdText, setThresholdText] = useState('60');
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Step 9.1b-2: each past exam's format, read when it is added.
+  const [formats, setFormats] = useState<Record<string, { state: 'reading' | 'read' | 'failed'; format?: PastExamFormatRead; note?: string }>>({});
 
   // The courses, then the one to start on: the one asked for, the newest quiz's, else the first.
   useEffect(() => {
@@ -153,21 +172,47 @@ function Panel({ request }: { request: NewQuizRequest }) {
         }
       : null;
 
+  // The past exams' formats read so far, as the one the calculator takes.
+  const pastExam = useMemo(() => mergeFormats(pastExamIds.flatMap((id) => (formats[id]?.format ? [formats[id].format!] : []))), [pastExamIds, formats]);
   const plan: QuizPlan | null = useMemo(() => {
     const s = settingsWith(null);
     if (!material || !s || !chosen.length || !choices.types.length) return null;
     try {
-      return planQuiz(planInputFor(material, s));
+      return planQuiz(planInputFor(material, s, pastExam));
     } catch {
       return null;
     }
     // settingsWith reads the state below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [material, sliders, choices, chosen, ticks, fileIds, pastExamIds]);
+  }, [material, sliders, choices, chosen, ticks, fileIds, pastExamIds, pastExam]);
 
   const settings = settingsWith(plan);
   const problem = !material ? null : !chosen.length ? 'Pick at least one lecture.' : settings ? settingsProblem(settings) : null;
-  const canCreate = !!plan && !!settings && !problem && !offline && !busy && !uploading;
+  const readingFormat = pastExamIds.some((id) => formats[id]?.state === 'reading');
+  const canCreate = !!plan && !!settings && !problem && !offline && !busy && !uploading && !readingFormat;
+
+  /** A past exam's format, read now (the saved one when there is one); its length becomes Number of questions (Lea's list, 2 Nov). */
+  const readFormat = async (id: string) => {
+    setFormats((f) => ({ ...f, [id]: { state: 'reading' } }));
+    try {
+      const format = await pastExamFormat(id);
+      setFormats((f) => ({ ...f, [id]: { state: 'read', format } }));
+      if (format.questionCount > 0) {
+        setTouched(true);
+        setSliders((s) => (s ? { ...s, count: countValueFor(format.questionCount) } : s));
+      }
+    } catch (err) {
+      const note = err instanceof ConsentDeclinedError ? 'Not read: Studiply needs your permission' : errorMessage(err, 'Couldn’t read its format');
+      setFormats((f) => ({ ...f, [id]: { state: 'failed', note } }));
+    }
+  };
+  const formatLine = (id: string): string => {
+    const f = formats[id];
+    if (!f || f.state === 'reading') return 'Reading its format…';
+    if (f.state === 'failed' || !f.format) return f.note ?? 'Couldn’t read its format';
+    const kinds = f.format.types.filter((t) => t.count > 0).sort((a, b) => b.count - a.count).map((t) => QUESTION_TYPE_LABELS[t.type]);
+    return [`${f.format.questionCount} questions`, kinds.slice(0, 3).join(', ')].filter(Boolean).join(' · ');
+  };
 
   const close = () => {
     if (!busy) closeNewQuiz();
@@ -208,7 +253,10 @@ function Panel({ request }: { request: NewQuizRequest }) {
   // Files: from the library, or uploaded into the course.
   const listFor = (role: Role) => (role === 'resource' ? fileIds : pastExamIds);
   const setListFor = (role: Role) => (role === 'resource' ? setFileIds : setPastExamIds);
-  const addFile = (role: Role, id: string) => setListFor(role)((list) => (list.includes(id) ? list : [...list, id]));
+  const addFile = (role: Role, id: string) => {
+    setListFor(role)((list) => (list.includes(id) ? list : [...list, id]));
+    if (role === 'pastExam' && formats[id]?.state !== 'read') void readFormat(id);
+  };
   const removeFile = (role: Role, id: string) => setListFor(role)((list) => list.filter((x) => x !== id));
   const upload = async (role: Role) => {
     if (!material) return;
@@ -244,13 +292,21 @@ function Panel({ request }: { request: NewQuizRequest }) {
   const create = async () => {
     if (!canCreate || !material || !plan || !settings) return;
     setBusy(true);
+    let id: string;
     try {
-      await createQuiz({ courseId: material.courseId, title: quizTitle(material.courseName, chosen, wholeCourse), settings, plan });
-      closeNewQuiz();
+      id = await createQuiz({ courseId: material.courseId, title: quizTitle(material.courseName, chosen, wholeCourse), settings, plan });
     } catch (err) {
       showAlert('The quiz wasn’t saved', errorMessage(err, 'Please try again.'));
       setBusy(false);
+      return;
     }
+    // Saved: now written (9.1b-2). If it can't start, it stays "Saved · not started" with Start.
+    try {
+      await startQuiz(id);
+    } catch (err) {
+      if (!(err instanceof ConsentDeclinedError)) showAlert('Your quiz was saved but not started', errorMessage(err, 'Start it from Quiz me.'));
+    }
+    closeNewQuiz();
   };
 
   // -----------------------------------------------------------------
@@ -357,7 +413,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
       (id): Res => ({
         key: `${role}-${id}`,
         title: titles[id]?.title ?? 'File',
-        detail: role === 'pastExam' ? 'Format read in a later update' : kindLabel(titles[id]?.kind ?? 'pdf'),
+        detail: role === 'pastExam' ? formatLine(id) : kindLabel(titles[id]?.kind ?? 'pdf'),
         on: true,
         onPress: () => removeFile(role, id),
         data: { newquiz: role === 'resource' ? 'resource-file' : 'past-exam', id },
@@ -594,6 +650,20 @@ function Panel({ request }: { request: NewQuizRequest }) {
 
         {label('EXAMPLE QUIZZES OR PAST EXAMS')}
         {pastExams.length > 0 && (wide ? <View style={styles.grid}>{pastExams.map(resourceView)}</View> : <View style={styles.list}>{pastExams.map(resourceView)}</View>)}
+        {pastExamIds
+          .filter((id) => formats[id]?.state === 'failed')
+          .map((id) => (
+            <Pressable
+              key={`retry-${id}`}
+              onPress={() => void readFormat(id)}
+              disabled={offline}
+              accessibilityRole="button"
+              accessibilityLabel={`Read the format of ${titles[id]?.title ?? 'the exam'} again`}
+              {...{ dataSet: { newquiz: 'format-retry', id } }}
+            >
+              <Text style={[styles.small, q.link]}>Try again: read “{titles[id]?.title ?? 'the exam'}”</Text>
+            </Pressable>
+          ))}
         <Text style={styles.small}>The quiz copies their format: the same question types, length and style of wording.</Text>
         {adds('pastExam')}
         {library === 'pastExam' && libraryBox('pastExam')}
@@ -706,4 +776,6 @@ const makeQuizStyles = (c: ThemeColors) =>
     notice: { color: c.status.warning.text },
     offline: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: c.status.warning.bg },
     offlineText: { fontSize: Typography.size.sm, color: c.status.warning.text },
+    // A past exam's format that couldn't be read: read it again.
+    link: { color: c.accentDark, fontWeight: Typography.weight.semibold, textDecorationLine: 'underline' },
   });

@@ -28,6 +28,7 @@
     "ios",
     "supabase/functions",
     "scripts/eval-summaries.ts",
+    "scripts/eval-quizzes.ts",
     "_to_delete"
   ]
 }

@@ -11,9 +11,12 @@
  * half the price, quicker in class); summaries stay on Opus. Every model here
  * must be in PRICES below.
  */
-export const CLAUDE_MODELS: { assistant: string; summary: string } = {
+export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; quizFormat: string } = {
   assistant: 'claude-sonnet-5-5',
   summary: 'claude-opus-5-5',
+  // Step 9.1b (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format.
+  quiz: 'claude-opus-5-5',
+  quizFormat: 'claude-sonnet-5-5',
 };
 
 /**
@@ -63,10 +66,12 @@ export function claudeRequest<M>(model: string, system: string, messages: M[], o
 export const DAILY_CLAUDE_LIMIT_USD = 3;
 /**
  * The ai_usage operations that count for that limit. Every summarize call (a summary, Extend, Merge, an
- * Exam pack, the schema probe) logs as `summary`; the study assistant's as `assistant`.
+ * Exam pack, the schema probe) logs as `summary`; the study assistant's as `assistant`; the quiz
+ * function's (step 9.1b-2: writing a quiz, reading a past exam's format) as `quiz`.
  */
-export const CLAUDE_LIMIT_OPERATIONS = ['assistant', 'summary'] as const;
+export const CLAUDE_LIMIT_OPERATIONS = ['assistant', 'summary', 'quiz'] as const;
 export const SUMMARY_OPERATION = 'summary' satisfies (typeof CLAUDE_LIMIT_OPERATIONS)[number];
+export const QUIZ_OPERATION = 'quiz' satisfies (typeof CLAUDE_LIMIT_OPERATIONS)[number];
 
 // The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
 export const SUMMARIZE_TEST_PROMPT =
