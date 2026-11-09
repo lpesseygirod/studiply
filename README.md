@@ -1,15 +1,46 @@
 # Studiply
 
-Turn a recorded lecture into structured, searchable study notes — on iPhone
-and in the browser, with your library in the cloud.
+Record a lecture, keep your own notes, and get an editable study document — on
+your iPhone and on your laptop, with one library in the cloud.
 
-Students record lectures and never revisit them, because a 50-minute audio file
-isn't studiable. Studiply records the lecture, transcribes it, and produces
-organised notes you can search, annotate, ask follow-up questions about, and
-export as a PDF — filed under the project and folder it belongs to.
+Students record lectures and rarely go back to them, because a 90-minute audio
+file isn't something you can study from. In Studiply you record the class while
+you take live notes and mark moments (Important, Confused or Exam, each with a
+level from 1 to 10). You can ask a study assistant questions during the lecture.
+Afterwards Studiply writes a summary into the same document, and it never
+overwrites what you wrote yourself. Then you review with flashcards and quizzes
+made from your own material.
 
-![Studiply screenshot](docs/screenshot.png)
-<!-- TODO: replace with a real screenshot -->
+**What it does**
+
+- **Recording** on the iPhone (it keeps going with the screen locked) and in the
+  browser, with a live transcript.
+- **During class:** live notes, marks and a study assistant that answers from
+  what has been said so far.
+- **Summaries** written into your document and tuned with 10 sliders (length,
+  depth, examples, exam focus and more). They include tables, formulas and
+  charts, and graphs from your photos are redrawn as charts. Export to PDF or
+  Word.
+- **Library:** courses and folders like Finder or Google Drive, with search,
+  Favorites and Recently Deleted.
+- **Review:** flashcards with spaced repetition, and quizzes made from your
+  lectures, slides and past exams. Answers are graded with an explanation that
+  links to the moment in the recording.
+- **Your data stays yours:**
+  - AI is used only after you allow it, and you can switch it off in one tap.
+  - Recordings are deleted 3 days after transcription by default; the
+    transcript and notes stay.
+  - Export my data and Delete account are in Settings.
+
+**Built with:** Expo / React Native (one codebase for the iPhone and the web),
+Supabase (Postgres with row-level security, Auth, Storage, Edge Functions),
+ElevenLabs for transcription and Anthropic's Claude for summaries, the assistant
+and quizzes.
+
+**Keys stay on the server.** The app holds no AI key: transcription and Claude
+are called only by Supabase Edge Functions, with keys kept in server secrets.
+The app sends only the student's own sign-in token. `npm run check:bundle`
+builds the web and iOS bundles and checks that no key is inside.
 
 ## Stack
 
@@ -85,27 +116,29 @@ nothing is counted. Store builds never simulate.
 
 ## Status
 
-**Built and working:**
+In development, heading for the App Store and a web launch (Phase 10 of
+`docs/BUILD-PLAN.md`).
 
-- Audio recording with background-audio support, uploaded to private cloud storage
-- Whisper transcription and Claude note generation through Edge Functions (no keys in the app), with consent asked first and a development-only simulated path
-- Email + password login with Supabase Auth (6-digit email codes for sign-up and password reset); sessions persist in the Keychain on iPhone and localStorage on web
-- Projects, nested folders, and sessions, with move and breadcrumb navigation
-- Note editing, text highlighting, and AI follow-up questions on a note
-- Attach slides, photos, and documents to a session as extra context
-- Full-text search across projects, sessions and notes
-- Soft-delete trash with undo, plus per-file retention policies
-- PDF export and share
-- Per-call AI cost tracking on the server, today's use against a daily limit, spend by provider and operation
-- The same library, notes and recordings on iPhone and in the browser
-- Offline on iPhone: library, notes and transcripts readable, note edits and new recordings saved and synced later, with a per-block conflict rule
-- Moving the earlier version's on-device data to the account (Settings → Earlier version data), safe to repeat and checked on the server
+**Working:**
 
-**Planned:**
+- Recording on the iPhone and the web, with a live transcript, marks, live
+  notes and the study assistant
+- Summaries in the document (10 sliders, subject modules, visuals, Extend and
+  Exam packs), PDF and Word export
+- The library: courses, folders, tabs, search, Favorites, Recently Deleted, and
+  offline use on the iPhone
+- Review: flashcards with spaced repetition, Quiz me, and quizzes (writing,
+  taking, grading, results)
+- Sign in with email or Apple; account deletion; the AI consent screen; legal
+  pages; the sign-up agreement; Export my data; audio auto-delete; accessibility
+  checks
 
-- Quiz generation from notes (`app/(main)/quiz/` is scaffolded and empty)
-- The remote Supabase project (step 1.7 part B)
-- The app shell, library, editor and summary engine from `docs/BUILD-PLAN.md`
+**Still to do before launch:**
+
+- Spaced-review reminders and course settings (step 9.2)
+- Pricing, the free plan and In-App Purchase (step 10.2)
+- The store listing, TestFlight and a beta with classmates (steps 10.3–10.5)
+- Filling in the legal texts' details and a lawyer's review
 
 ## Running it locally
 
