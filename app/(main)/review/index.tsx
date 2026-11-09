@@ -18,6 +18,7 @@ import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { loadReview, type DueLecture, type ReviewCard, type ReviewData } from '../../../src/services/review.service';
 import { markLectureReviewed } from '../../../src/services/lectureReview.service';
 import { LecturesToday } from '../../../src/components/review/LecturesToday';
+import { ReminderOffer } from '../../../src/components/reminders/ReminderOffer';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { notifyLibraryUpdated } from '../../../src/lib/cache';
 import type { QuizItem } from '../../../src/lib/review/session';
@@ -176,6 +177,8 @@ export default function ReviewScreen() {
               </View>
             </>
           )}
+          {/* Step 9.2-3: the reminders offered once, the first time something is due (iPhone). */}
+          {data && <ReminderOffer dueToday={data.dueToday} />}
           {/* Step 9.2: the lectures due today, over Flashcards and Quiz me. */}
           {lecturesCard}
           {/* Step 9.1b: + New quiz and the quizzes made, above the summaries' questions. */}

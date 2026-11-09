@@ -35,7 +35,8 @@ const SECTIONS = [
   ['AI & privacy', '/settings/ai-privacy', ['Use AI on my lectures', 'ElevenLabs', 'Anthropic (Claude)', 'AI USAGE TODAY', 'Transcription', 'Notes & assistant (Claude)', 'About these limits']],
   // Step 10.1b-3: the default first, named for when it deletes.
   ['Storage & sync', '/settings/storage', ['Source files', 'Default file retention', 'Delete 3 days after transcription', 'Delete immediately', 'Delete manually', 'Keep permanently', 'Delete data on this device']],
-  ['Notifications', '/settings/notifications', ['Reminders come with Review']],
+  // Step 9.2-3: reminders come on the iPhone; the web says so (its switch and time: reminders.mjs).
+  ['Notifications', '/settings/notifications', ['Review reminders come on your iPhone']],
   ['Appearance', '/settings/appearance', ['Light or dark, on this device', 'System', 'Light', 'Dark', 'Keyboard shortcuts']],
   ['Your data', '/settings/your-data', ['Recently Deleted']],
   ['Development', '/settings/development', ['Server:', 'Simulate offline', 'Drag debug overlay', 'Drag: plain ScrollView']],

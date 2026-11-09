@@ -18,6 +18,7 @@ import { RecordingStrip } from '../../src/components/recording/RecordingStrip';
 import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
 import { LecturePicker } from '../../src/components/summarize/LecturePicker';
 import { NewQuizPanel } from '../../src/components/quiz/NewQuizPanel';
+import { RemindersHost } from '../../src/components/reminders/RemindersHost';
 import { SummaryBanner } from '../../src/components/summarize/SummaryBanner';
 import { useSummaryBanner } from '../../src/components/summarize/summaryBannerState';
 import { DragDebugOverlay } from '../../src/components/DragDebugOverlay';
@@ -190,6 +191,8 @@ export default function MainLayout() {
           <RecordingHost />
           {/* Stop & summarize (step 7.3): over any screen, during a recording or after it. */}
           <SummarizePanel />
+          {/* Step 9.2-3: the review reminders (iPhone), planned again as things change; a tap opens Review. */}
+          <RemindersHost />
           <LecturePicker />
           <NewQuizPanel />
           {!wide && toast}

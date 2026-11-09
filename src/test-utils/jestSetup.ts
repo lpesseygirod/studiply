@@ -12,6 +12,10 @@ jest.mock('../lib/cache/store', () => jest.requireActual('../lib/cache/store.web
 // on the web. The queue's rules are tested in src/lib/sync/__tests__.
 jest.mock('../lib/sync', () => jest.requireActual('../lib/sync/index.web'));
 
+// Step 9.2-3: no notifications in Jest (expo-notifications needs its native module): services see
+// them as the web build does (none). The reminders' tests mock the notifier with their own fake.
+jest.mock('../services/reminders/notifier', () => jest.requireActual('../services/reminders/notifier.web'));
+
 // AsyncStorage has no native module in Jest: the package's own in-memory mock.
 jest.mock('@react-native-async-storage/async-storage', () =>
   jest.requireActual('@react-native-async-storage/async-storage/jest/async-storage-mock'),

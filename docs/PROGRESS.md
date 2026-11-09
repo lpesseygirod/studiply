@@ -853,6 +853,13 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
     - **Course settings…** in every course menu (`courseSettings` action). No migration.
     - **Tests:** Jest +18 (2,984). Chrome: new `course-settings.mjs`; `item-menus.mjs` and `title-menu.mjs` (the course menu) updated (in my scratchpad).
     - **Builds:** none.
+  - [ ] **9.2-3 — review reminders. Built (9 Nov), not committed, for the advisor's review.** DESIGN "Spaced review of lectures" → Review reminders.
+    - **The plan** (`src/lib/review/reminderPlan.ts`, pure): at most one a day for 30 days at her time, the texts; `lecturePlan.ts`: nothing is due on or after the exam's day (the day-before session doesn't linger after it).
+    - **The notifications:** `src/services/reminders/notifier.ts` (expo-notifications 0.32.17: permission, scheduled date triggers, cancel all and clear shown, the tap, the launch tap; not shown with the app open), `notifier.web.ts` (nothing); `app.json` plugin `expo-notifications`.
+    - **The service** (`src/services/reminders/reminders.service.ts`): her switch, time and "asked" on this iPhone (AsyncStorage, per account); on/off, the time, the plan scheduled again (serialised; changes together debounced), Review's offer, sign-out cancels. `RemindersHost` (app open/foreground, library changes, taps → Review); rating a card asks for a new plan; `AuthProvider` cancels on sign-out and on a refused session.
+    - **Screens:** Settings → Notifications (`ReminderSettings.tsx`: the switch, the time sheet, the iOS-refused line; the laptop's card), the list's "19:00" / "Off"; Review's offer (`ReminderOffer.tsx`), the dialogs (`reminderDialogs.ts`).
+    - **Tests:** Jest +24 (3,008). Chrome: new `reminders.mjs`; `settings.mjs` and `look.mjs` (the Notifications page's text) updated (in my scratchpad).
+    - **Builds:** **EAS development build** needed (a native module and its config plugin; Expo Go isn't a fair test). Lea's checks: Things Lea must do.
 
 ## Phase 10 — App Store and web launch (`phase-10-launch`)
 - [x] **10.1 — Apple's rules inside the app. Committed `10de9c9`** (the approved plan, `docs/reports/plan-10.1.md`; D0–D8 adopted, first option each). DESIGN "Apple's rules (step 10.1)".
@@ -1734,6 +1741,15 @@ Phase 5 started 30 Oct on `phase-5-recording` (5.1 and 5.2, web halves).
   2. **Ship the app with it:** the app no longer dates recordings itself.
   3. **`docs/legal/README.md`'s "Not true yet" line** about the 3-day deletion can go once both are live.
   4. **iPhone (EAS development build):** record a short lecture, check the review screen starts on "Delete in 3 days" and the notes say "Deletes on …" after transcription.
+- **Step 9.2-3 — review reminders on a real iPhone (EAS development build, after the advisor's commit):**
+  1. Record (or have) a lecture from yesterday. Open Review: the card "Get a daily reminder?" shows. Tap **Turn on reminders**: iOS asks; allow. Settings → Notifications: Review reminders on, Time 19:00; the Settings list's row says 19:00.
+  2. Set Time to the next half hour (e.g. 14:30), lock the phone, wait: one notification, "Time to review · <lecture> (1 day since the lecture)". Tap it: Studiply opens on Review (also when the app was closed).
+  3. With the app open at that time: no banner.
+  4. A course's exam date tomorrow (Course settings): the reminder at your time says "<Course> exam tomorrow · N lectures to review before it".
+  5. Mark the lecture reviewed, or turn its Study reminders off: no reminder today (the next one on its next session day).
+  6. Settings → Notifications → off: iOS Settings → Notifications → Studiply shows nothing scheduled to come (wait past the time: nothing). On again: they come back.
+  7. Declined case: in iOS Settings → Studiply → Notifications, turn Allow Notifications off (or, on a fresh install, tap Don't Allow at iOS's question), then turn the switch on: the "Notifications are off for Studiply" dialog with Open iOS Settings; the switch stays off; Settings shows the same line; nothing else breaks. Allow them in iOS Settings, come back: the line is gone; turn the switch on and they are planned.
+  8. Sign out (and, with a test account, Delete account): no reminder comes afterwards.
 - **Step 9.2-1 — spaced review (after the advisor's commit):** push migration `20261029152700_lecture_reviews` to the live project after a dry run (`supabase db push --dry-run`, then `supabase db push`). On the iPhone: a lecture recorded yesterday shows in Review → "Lectures to review today" (Day 1); Mark reviewed offline, then online: the laptop shows it reviewed; turn a lecture's study reminders off in the summarize panel and see it leave the card and the count.
 - **Step 10.1b-5 — VoiceOver on a real iPhone (EAS development build):** with VoiceOver on, swipe through Library, a lecture's document (toolbar and tabs), Record (the mark buttons), Review, Settings (each choice says "selected" / "checked"), the consent screen and sign-up: every button says what it does, nothing is read as just "button" or "image". Also Larger Text on those screens.
 - **Step 10.1b-4 — Export my data, on the iPhone (EAS development build):** Settings → Your data → Export my data: the share sheet opens with the ZIP (Save to Files, then open it in Files); with a large library (over 500 MB, or one long recording kept), the parts come one after another and the app stays responsive. The web build exports by download (checked in Chrome).

@@ -104,7 +104,10 @@ export function lectureState(lectureDay: Day, examDay: Day | null, today: Day, l
   const next = sessions.find((s) => daysBetween(s.day, today) < 0) ?? null;
   const current = past[past.length - 1] ?? null;
   const isLast = !!current && current === sessions[sessions.length - 1];
+  // The exam has come (its day or after): the lectures before it are done with (§1), even the day-before session.
+  const examCame = !!examDay && isDay(examDay) && daysBetween(lectureDay, examDay) > 0 && daysBetween(examDay, today) >= 0;
   const open =
+    !examCame &&
     !!current &&
     daysBetween(since, current.day) >= 0 &&
     !(isLast && daysBetween(current.day, today) >= LAST_SESSION_DAYS) &&

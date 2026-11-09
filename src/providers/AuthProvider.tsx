@@ -14,6 +14,7 @@ import {
   signOut as authSignOut,
 } from '../services/auth.service';
 import { forgetConsent } from '../services/consent.service';
+import { cancelAllReminders } from '../services/reminders/reminders.service';
 import { autoCleanTrash } from '../services/trash.service';
 import type { Profile } from '../types/database';
 
@@ -86,6 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     const userId = userIdRef.current;
+    // Step 9.2-3: no reminder for the student who left (also after Delete account, which signs out).
+    await cancelAllReminders();
     await authSignOut();
     // The offline copy on this iPhone belongs to the student who left.
     if (userId) {
@@ -182,6 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     function signedOut() {
       if (cancelled) return;
+      // Signed out from elsewhere (a refused refresh token): no reminder for her on this iPhone either.
+      void cancelAllReminders();
       // Another account may sign in next; it must be asked again.
       offlineSession.current = null;
       loadedUserId.current = null;

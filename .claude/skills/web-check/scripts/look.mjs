@@ -3,6 +3,7 @@
 // surviving a reload, 44 pt named icon buttons at 390 px, and the web
 // keyboard shortcuts (⌥R, ⌥⇧N, ⌥N, /, ?, Esc; nothing while typing).
 // Screenshots: look-*.png (both appearances, 390 and 1280). Exit 1 on FAIL.
+// Step 9.2-3: Settings → Notifications on the web says reminders come on the iPhone.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -123,7 +124,7 @@ try {
       ['/library', 'COURSES'], [`/project/${data.course.id}`, 'Funcions'], [`/note/${data.lecture.id}`, 'Summary'],
       ['/settings', 'Summaries'], ['/settings/account', 'Edit profile'], ['/settings/summaries', 'Default summary level'],
       ['/settings/recording', 'Default recording mode'], ['/settings/ai-privacy', 'AI USAGE TODAY'],
-      ['/settings/storage', 'Default file retention'], ['/settings/notifications', 'Reminders come with Review'],
+      ['/settings/storage', 'Default file retention'], ['/settings/notifications', 'Review reminders come on your iPhone'],
       ['/settings/appearance', 'Light or dark, on this device'], ['/settings/your-data', 'Recently Deleted'],
       ['/settings/development', 'Simulate offline'], ['/settings/trash', 'Recently Deleted'], ['/search', 'Cancel'], ['/review', 'Nothing to review today'],
       [`/record/post-session?sessionId=${data.lecture.id}&title=Lecture%201`, 'Post-Session'],

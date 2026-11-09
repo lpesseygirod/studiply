@@ -116,6 +116,10 @@ describe('what is due today', () => {
   it('after the exam: no more sessions for the lectures before it', () => {
     expect(due(16, 13, at(14))).toBeNull();
     expect(due(30, null, at(14))).toBeNull();
+    // Step 9.2-3: the day-before session not done doesn't stay due on the exam's day or after (no reminder then).
+    expect(due(13, 7, at(14))).toBe(13);
+    expect(due(14, 7, at(14))).toBeNull();
+    expect(due(16, 7, at(14))).toBeNull();
   });
 
   it('the next session', () => {

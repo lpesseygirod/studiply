@@ -7,6 +7,7 @@ import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { useUserSettings } from '../../../src/hooks/useUserSettings';
+import { useReminderPrefs } from '../../../src/hooks/useReminderPrefs';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
@@ -53,6 +54,7 @@ function SettingsList() {
   const { settings, loading } = useUserSettings();
   const { usage } = useTodayUsage();
   const aiConsent = useAiConsent();
+  const reminders = useReminderPrefs();
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getStorageStats>> | null>(null);
   useEffect(() => {
     if (!profile?.id) return;
@@ -67,6 +69,8 @@ function SettingsList() {
     storage: storageValue(storage),
     appearance: appearanceValue(appearance),
     development: backend.label,
+    // Step 9.2-3 (iphone-07: "19:00"): the reminders' time, or Off; the web has none.
+    ...(reminders.supported && reminders.prefs && { notifications: reminders.prefs.enabled ? reminders.prefs.time : 'Off' }),
   };
 
   // Step 10.1b-4 (iphone-07): Export my data as its own row, after Appearance; the same sheet as in

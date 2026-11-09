@@ -1,51 +1,24 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
-import type { ThemeColors } from '../../../src/constants/colors';
-import { Typography } from '../../../src/constants/typography';
 import { SettingsPage } from '../../../src/components/settings/SettingsPage';
+import { SavedMark } from '../../../src/components/settings/SavedMark';
+import { ReminderSettings } from '../../../src/components/settings/ReminderSettings';
 
-/** Notifications: nothing to set yet; study reminders arrive with Review (Phase 9). */
+/** Notifications (step 9.2-3): the review reminders on the iPhone; on the laptop, where they come. */
 export default function NotificationsSettingsPage() {
-  const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSaved = useCallback(() => {
+    setSaved(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setSaved(false), 1500);
+  }, []);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
   return (
-    <SettingsPage title="Notifications">
-      <View style={styles.card}>
-        <Ionicons name="notifications-outline" size={22} color={c.text.secondary} />
-        <View style={styles.text}>
-          <Text style={styles.title}>Reminders come with Review</Text>
-          <Text style={styles.body}>
-            Study reminders (what to review today, before an exam) arrive in a later update together with the Review tab.
-          </Text>
-        </View>
-      </View>
+    <SettingsPage title="Notifications" right={<SavedMark visible={saved} />}>
+      <ReminderSettings onSaved={onSaved} />
     </SettingsPage>
   );
 }
-
-const makeStyles = (c: ThemeColors) =>
-  StyleSheet.create({
-    card: {
-      flexDirection: 'row',
-      gap: 14,
-      backgroundColor: c.card,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: c.surfaceMuted,
-      padding: 16,
-    },
-    text: { flex: 1, gap: 4 },
-    title: {
-      fontSize: Typography.size.base,
-      fontWeight: Typography.weight.semibold,
-      color: c.text.primary,
-    },
-    body: {
-      fontSize: Typography.size.sm,
-      color: c.text.secondary,
-      lineHeight: 19,
-    },
-  });

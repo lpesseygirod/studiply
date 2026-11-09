@@ -19,6 +19,7 @@ import { deckMarks, dueDeck, dueTodayCount, quizDecks, reviewedTodayCount, withS
 import { nextReview, type Grade, type ReviewState } from '../lib/review/schedule';
 import { dueLectures } from '../lib/review/lectures';
 import { readPlanRows, type DueLecture } from './lectureReview.service';
+import { requestReschedule } from './reminders/reminders.service';
 
 export type { QuizDeck, ReviewCard } from '../lib/review/deck';
 export type { DueLecture } from './lectureReview.service';
@@ -121,6 +122,8 @@ async function sendReview(p: ReviewPayload): Promise<void> {
 /** A rating: the card's next review, written (laptop) or kept here and queued (iPhone). */
 export async function rateCard(card: ReviewCard, grade: Grade, now: Date = new Date()): Promise<ReviewState> {
   const state = nextReview(card.state, grade, now);
+  // Step 9.2-3: the reminders follow the card's next review.
+  requestReschedule();
   const payload: ReviewPayload = { flashcardId: card.id, scheduleId: card.schedule.id, state };
   if (syncEnabled) {
     await saveLocalRow('review_schedule', withState(card.schedule, state, now) as unknown as CacheableRow);
