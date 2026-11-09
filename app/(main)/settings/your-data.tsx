@@ -1,13 +1,23 @@
 import React, { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 import { SettingsRows, type SettingsRowItem } from '../../../src/components/settings/SettingsRows';
+import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
+import { ExportDataButton } from '../../../src/components/settings/ExportData';
+import { makeSettingsStyles } from '../../../src/components/settings/styles';
 import { legacyDataExists } from '../../../src/services/legacyImport';
+import { useThemedStyles } from '../../../src/theme/ThemeProvider';
 
-/** Your data: Recently Deleted, and the earlier version's data while it is still on this iPhone. */
+/**
+ * Your data: Export my data (step 10.1b-4), Recently Deleted, the earlier version's data while it is
+ * still on this iPhone, and Delete account… (D4: the privacy policy and terms send her here for
+ * both; they are also in Account).
+ */
 export default function YourDataSettingsPage() {
   const router = useRouter();
+  const styles = useThemedStyles(makeSettingsStyles);
   // Checked again each time (the old copy may have been removed).
   const [hasEarlier, setHasEarlier] = useState(false);
   useFocusEffect(
@@ -39,7 +49,13 @@ export default function YourDataSettingsPage() {
 
   return (
     <SettingsPage title="Your data">
+      <View style={styles.card}>
+        <ExportDataButton />
+      </View>
       <SettingsRows rows={rows} />
+      <View style={styles.card}>
+        <DeleteAccountButton variant="row" />
+      </View>
     </SettingsPage>
   );
 }

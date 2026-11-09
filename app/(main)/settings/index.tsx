@@ -25,7 +25,8 @@ import { getStorageStats } from '../../../src/services/source-file.service';
 import UserAvatar from '../../../src/components/UserAvatar';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { backend } from '../../../src/components/BackendBadge';
-import { SettingsRows } from '../../../src/components/settings/SettingsRows';
+import { SettingsRows, type SettingsRowItem } from '../../../src/components/settings/SettingsRows';
+import { useExportData } from '../../../src/components/settings/ExportData';
 import { SyncBanner, useTodayUsage } from '../../../src/components/settings/StatusBanners';
 import { useAiConsent } from '../../../src/components/settings/AiConsentCard';
 import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
@@ -68,16 +69,34 @@ function SettingsList() {
     development: backend.label,
   };
 
-  const rows = visibleSections(__DEV__)
+  // Step 10.1b-4 (iphone-07): Export my data as its own row, after Appearance; the same sheet as in
+  // Account and Your data.
+  const exportData = useExportData();
+  const rows: SettingsRowItem[] = visibleSections(__DEV__)
     .filter((s) => s.key !== 'account')
-    .map((s) => ({
-      key: s.key,
-      label: s.label,
-      letter: s.letter,
-      tone: s.tone,
-      value: values[s.key],
-      onPress: () => router.push(sectionHref(s.key)),
-    }));
+    .flatMap((s) => {
+      const row: SettingsRowItem = {
+        key: s.key,
+        label: s.label,
+        letter: s.letter,
+        tone: s.tone,
+        value: values[s.key],
+        onPress: () => router.push(sectionHref(s.key)),
+      };
+      if (s.key !== 'appearance') return [row];
+      return [
+        row,
+        {
+          key: 'export-data',
+          label: 'Export my data',
+          letter: 'E',
+          tone: 'neutral',
+          value: exportData.offline ? 'Needs a connection' : undefined,
+          onPress: exportData.open,
+          dataSet: { exportData: 'list-row' },
+        },
+      ];
+    });
 
   return (
     <View style={styles.container}>
@@ -109,6 +128,7 @@ function SettingsList() {
         <SyncBanner />
 
         <SettingsRows rows={rows} />
+        {exportData.sheet}
 
         <TouchableOpacity
           style={styles.signOut}

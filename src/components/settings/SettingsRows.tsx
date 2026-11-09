@@ -24,6 +24,8 @@ export interface SettingsRowItem {
   icon?: React.ComponentProps<typeof Ionicons>['name'];
   tone?: SectionTone;
   onPress: () => void;
+  /** data-* attributes on the row (for the web checks). */
+  dataSet?: Record<string, string>;
 }
 
 function toneColors(c: ThemeColors, tone: SectionTone): { bg: string; fg: string } {
@@ -59,6 +61,7 @@ export function SettingsRows({ rows }: { rows: SettingsRowItem[] }) {
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityLabel={row.value ? `${row.label}, ${row.value}` : row.label}
+              {...(row.dataSet ? { dataSet: row.dataSet } : {})}
             >
               <View style={[styles.square, { backgroundColor: tone.bg }]}>
                 {row.icon ? (
