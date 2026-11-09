@@ -9,6 +9,7 @@
 // lectures… and Make exam pack… (no longer greyed); a Unit summary and an Exam pack have a document's
 // menu. Every kind's menu is checked against DESIGN (Library → Item menus): course, folder, lecture,
 // document, Unit summary and Exam pack (PDFs and photos: library-menus.mjs). A failed step closes any menu it left open, so it can't fail the next ones.
+// Step 9.2 (Lea): a lecture's menu has Study reminders… after Extend (what it does: review-plan.mjs).
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -84,12 +85,12 @@ const tileMenu = async (title) => {
   await b.sleep(400);
   return menuItems();
 };
-// DESIGN (Library → Item menus). Cut / Copy (3.4), Summarize (7.3), Extend / Merge / Make exam pack (7.9).
-// Everything here is at the top of the course: no Move out.
+// DESIGN (Library → Item menus). Cut / Copy (3.4), Summarize (7.3), Extend / Merge / Make exam pack (7.9),
+// Study reminders… (9.2). Everything here is at the top of the course: no Move out.
 const ITEM_MENU = {
   course: ['Open', 'Rename…', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
   folder: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
-  lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Extend with next lecture…', 'Export PDF', 'Delete'],
+  lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Extend with next lecture…', 'Study reminders…', 'Export PDF', 'Delete'],
   // Copying a document comes later.
   document: ['Open', 'Rename…', 'Move to…', 'Cut', 'Add to Favorites', 'Delete'],
   // Unit summaries and exam packs are documents: a document's menu (advisor, 31 Oct, step 7.9).
@@ -141,12 +142,12 @@ try {
     }
   });
 
-  await step('Greyed out only where DESIGN says: Copy on a lecture and a folder ("Coming soon"); Summarize, Extend, Merge and Make exam pack work', async () => {
+  await step('Greyed out only where DESIGN says: Copy on a lecture and a folder ("Coming soon"); Summarize, Extend, Study reminders, Merge and Make exam pack work', async () => {
     await tileMenu('Lecture 1');
     const lecture = await menuLines();
     const at = (lines, text) => lines.find((l) => l.text === text);
     expect(at(lecture, 'Copy')?.disabled && at(lecture, 'Copy')?.hint === 'Coming soon', JSON.stringify(at(lecture, 'Copy')));
-    for (const t of ['Summarize', 'Extend with next lecture…']) expect(at(lecture, t) && !at(lecture, t).disabled && !at(lecture, t).hint, `${t}: ${JSON.stringify(at(lecture, t))}`);
+    for (const t of ['Summarize', 'Extend with next lecture…', 'Study reminders…']) expect(at(lecture, t) && !at(lecture, t).disabled && !at(lecture, t).hint, `${t}: ${JSON.stringify(at(lecture, t))}`);
     await closeMenu();
     await tileMenu('Funcions');
     const folder = await menuLines();

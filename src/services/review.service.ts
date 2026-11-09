@@ -17,8 +17,11 @@ import { enqueue, registerSyncHandler, syncEnabled } from '../lib/sync';
 import { supabase } from '../lib/supabase';
 import { deckMarks, dueDeck, dueTodayCount, quizDecks, reviewedTodayCount, withState, type CardRow, type CourseRow, type FileRow, type QuizDeck, type ReviewCard, type ScheduleRow, type SummaryRow } from '../lib/review/deck';
 import { nextReview, type Grade, type ReviewState } from '../lib/review/schedule';
+import { dueLectures } from '../lib/review/lectures';
+import { readPlanRows, type DueLecture } from './lectureReview.service';
 
 export type { QuizDeck, ReviewCard } from '../lib/review/deck';
+export type { DueLecture } from './lectureReview.service';
 
 interface Rows {
   schedules: ScheduleRow[];
@@ -66,28 +69,33 @@ export interface ReviewData {
   /** "From your marks: …" for the cards (one lecture's), else ''. */
   cardsMarks: string;
   quiz: QuizDeck[];
+  /** Step 9.2: the lectures to review today (their plan). */
+  lectures: DueLecture[];
+  /** Review today: the cards due today and the lectures. */
   dueToday: number;
   reviewedToday: number;
 }
 
-/** The due cards, the Quiz me decks and the counts. */
+/** The due cards, the lectures to review, the Quiz me decks and the counts. */
 export async function loadReview(now: Date = new Date()): Promise<ReviewData> {
   const rows = await readAll();
+  const lectures = dueLectures(await readPlanRows(), now);
   const cards = dueDeck(rows.schedules, rows.cards, rows.files, rows.courses, now);
   return {
     cards,
     cardsMarks: deckMarks(cards, rows.summaries),
     quiz: quizDecks(rows.summaries, rows.files, rows.courses, cards.map((c) => c.fileId)),
-    dueToday: dueTodayCount(rows.schedules, rows.cards, now),
+    lectures,
+    dueToday: dueTodayCount(rows.schedules, rows.cards, now) + lectures.length,
     reviewedToday: reviewedTodayCount(rows.schedules, now),
   };
 }
 
-/** Review today on the iPhone offline: from its copy (null without one). */
+/** Review today on the iPhone (offline too): from its copy (null without one). */
 export async function cachedDueCount(now: Date = new Date()): Promise<number | null> {
   if (!cacheEnabled) return null;
-  const [schedules, cards] = await Promise.all([readRows<ScheduleRow>('review_schedule'), readRows<CardRow>('flashcards')]);
-  return dueTodayCount(schedules, cards, now);
+  const [schedules, cards, plan] = await Promise.all([readRows<ScheduleRow>('review_schedule'), readRows<CardRow>('flashcards'), readPlanRows()]);
+  return dueTodayCount(schedules, cards, now) + dueLectures(plan, now).length;
 }
 
 interface ReviewPayload {

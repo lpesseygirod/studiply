@@ -15,7 +15,11 @@ import { QuizList } from '../../../src/components/quiz/QuizList';
 import { useUndoToast } from '../../../src/hooks/useUndoToast';
 import { useShellScreen, type DocumentHeader } from '../../../src/components/shell/ShellContext';
 import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
-import { loadReview, type ReviewCard, type ReviewData } from '../../../src/services/review.service';
+import { loadReview, type DueLecture, type ReviewCard, type ReviewData } from '../../../src/services/review.service';
+import { markLectureReviewed } from '../../../src/services/lectureReview.service';
+import { LecturesToday } from '../../../src/components/review/LecturesToday';
+import { showAlert } from '../../../src/components/dialogs/dialogs';
+import { notifyLibraryUpdated } from '../../../src/lib/cache';
 import type { QuizItem } from '../../../src/lib/review/session';
 import { errorMessage } from '../../../src/utils/errors';
 
@@ -27,6 +31,8 @@ type Mode = 'cards' | 'quiz';
  *   Quiz me | Flashcards control (?mode=quiz); the card in a centred column on the gradient.
  * - iPhone (iphone-10): the Review tab: "Review", "N due today", Flashcards | Quiz me, the card.
  * Both read the same data (services/review.service: the iPhone its own copy, offline too).
+ * Step 9.2: "Lectures to review today" over both modes (components/review/LecturesToday); a lecture's
+ * Review opens its own questions (?mode=quiz&lecture=…), and finishing them marks it reviewed.
  */
 export default function ReviewScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -34,7 +40,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const compact = useLayoutMode() === 'compact';
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; lecture?: string }>();
   const mode: Mode = params.mode === 'quiz' ? 'quiz' : 'cards';
   const [data, setData] = useState<ReviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +80,51 @@ export default function ReviewScreen() {
   const due = data ? Math.max(0, data.dueToday - reviewed) : null;
   const setMode = (m: Mode) => router.replace((m === 'quiz' ? '/review?mode=quiz' : '/review') as Href);
 
+  // Step 9.2: the lectures to review today. Review opens a lecture's own Quiz me questions (?lecture=).
+  const decks = data ? (params.lecture && data.quiz.some((d) => d.fileId === params.lecture) ? data.quiz.filter((d) => d.fileId === params.lecture) : data.quiz) : [];
+  const hasQuestions = useCallback((fileId: string) => !!data?.quiz.some((d) => d.fileId === fileId && d.questions.length > 0), [data]);
+  const markReviewed = useCallback(
+    async (lecture: DueLecture, how: 'menu' | 'quiz') => {
+      try {
+        const undo = await markLectureReviewed(lecture);
+        setData((d) => (d ? { ...d, lectures: d.lectures.filter((l) => l.fileId !== lecture.fileId), dueToday: Math.max(0, d.dueToday - 1) } : d));
+        notifyLibraryUpdated();
+        showUndo(how === 'quiz' ? `“${lecture.title}” reviewed` : `Marked “${lecture.title}” reviewed`, () => {
+          undo()
+            .then(() => {
+              notifyLibraryUpdated();
+              load();
+            })
+            .catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
+        });
+      } catch (err) {
+        showAlert('The review wasn’t saved', errorMessage(err, 'Please try again.'));
+      }
+    },
+    [load, showUndo],
+  );
+  // Finishing a lecture's questions reviews it, when it is due today.
+  const onDeckDone = useCallback(
+    (fileId: string) => {
+      const lecture = data?.lectures.find((l) => l.fileId === fileId);
+      if (lecture) void markReviewed(lecture, 'quiz');
+    },
+    [data, markReviewed],
+  );
+  const lecturesCard = data ? (
+    <LecturesToday
+      lectures={data.lectures}
+      hasQuestions={hasQuestions}
+      onReview={(l) =>
+        hasQuestions(l.fileId)
+          ? router.replace(`/review?mode=quiz&lecture=${l.fileId}` as Href)
+          : router.push({ pathname: '/doc/[id]', params: { id: l.fileId, tab: 'summary' } })
+      }
+      onMarkReviewed={(l) => void markReviewed(l, 'menu')}
+      onOpen={(l) => router.push({ pathname: '/doc/[id]', params: { id: l.fileId } })}
+    />
+  ) : null;
+
   const body = !data ? (
     <View style={styles.center}>
       {error ? (
@@ -88,7 +139,7 @@ export default function ReviewScreen() {
       )}
     </View>
   ) : mode === 'quiz' ? (
-    <QuizView key={`quiz-${session}`} decks={data.quiz} compact={compact} onCurrent={onQuestion} />
+    <QuizView key={`quiz-${session}-${params.lecture ?? ''}`} decks={decks} compact={compact} onCurrent={onQuestion} onDeckDone={onDeckDone} />
   ) : (
     <FlashcardsView key={`cards-${session}`} cards={data.cards} marks={data.cardsMarks} compact={compact} reviewedBefore={data.reviewedToday} onCurrent={onCard} onReviewed={onReviewed} />
   );
@@ -125,6 +176,8 @@ export default function ReviewScreen() {
               </View>
             </>
           )}
+          {/* Step 9.2: the lectures due today, over Flashcards and Quiz me. */}
+          {lecturesCard}
           {/* Step 9.1b: + New quiz and the quizzes made, above the summaries' questions. */}
           {mode === 'quiz' && <QuizList showUndo={showUndo} />}
           {body}

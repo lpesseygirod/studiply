@@ -23,6 +23,7 @@ import {
 } from '../lib/cache/localQueries';
 import { isOffline } from '../lib/connectivity';
 import { cachedDueCount } from './review.service';
+import { lecturesDueToday } from './lectureReview.service';
 import { PROJECT_FILES_TITLE } from './session.service';
 import { pendingLibraryFileIds } from './library-upload.service';
 import {
@@ -324,7 +325,10 @@ export async function getCourseContents(courseId: string, folderId: string | nul
 // Review today (Phase 9 fills the schedule)
 // -------------------------------------------------------------------
 
-/** Reviews due by the end of today; null when it can't be known (offline without the iPhone's copy, error). */
+/**
+ * Review today: the cards due by the end of today and the lectures due today (step 9.2, their plan);
+ * null when it can't be known (offline without the iPhone's copy, error).
+ */
 export async function getReviewDueCount(now: Date = new Date()): Promise<number | null> {
   // Step 9.1: the iPhone counts from its own copy (offline too, and after a rating made here).
   const cached = await cachedDueCount(now).catch(() => null);
@@ -333,12 +337,14 @@ export async function getReviewDueCount(now: Date = new Date()): Promise<number 
   const endOfDay = new Date(now);
   endOfDay.setHours(23, 59, 59, 999);
   try {
+    // A card's row in the trash is gone (its trigger), so the rows left are live cards.
     const { count, error } = await supabase
       .from('review_schedule')
       .select('id', { count: 'exact', head: true })
+      .not('flashcard_id', 'is', null)
       .lte('due_at', endOfDay.toISOString());
     if (error) return null;
-    return count ?? 0;
+    return (count ?? 0) + (await lecturesDueToday(now)).length;
   } catch {
     return null;
   }

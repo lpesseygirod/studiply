@@ -21,13 +21,15 @@ export type ItemAction =
   | 'extend'
   | 'merge'
   | 'examPack'
+  | 'reminders'
   | 'export'
   | 'delete';
 
 const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
   course: ['open', 'rename', 'star', 'merge', 'examPack', 'delete'],
   folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete'],
-  lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'export', 'delete'],
+  // Step 9.2 (Lea): Study reminders… turns a lecture's review sessions on or off.
+  lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'reminders', 'export', 'delete'],
   pdf: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   image: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   // Copying a document (its text and versions) comes later.

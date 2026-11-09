@@ -87,14 +87,14 @@ isOneToOne: false
                   ]
                 },"course_settings": {
                   Row: {
-                    "course_id": string,"created_at": string,"exam_date": string | null,"exam_format": string | null,"professor": string | null,"quiz_calculations": number,"quiz_count": number,"quiz_definitions": number,"quiz_detail": number,"quiz_difficulty": number,"quiz_exam_focus": number,"quiz_memory_understanding": number,"quiz_theory_practice": number,"quiz_traps": number,"quiz_weak_spots": number,"slider_depth": number,"slider_exam_focus": number,"slider_examples": number,"slider_extra_resources": number,"slider_follow_marks": number,"slider_language": number,"slider_length": number,"slider_self_test": number,"slider_starting_point": number,"slider_visuals": number,"subject_type": string | null,"summary_language": string | null,"updated_at": string,"user_id": string
+                    "course_id": string,"created_at": string,"exam_date": string | null,"exam_format": string | null,"professor": string | null,"quiz_calculations": number,"quiz_count": number,"quiz_definitions": number,"quiz_detail": number,"quiz_difficulty": number,"quiz_exam_focus": number,"quiz_memory_understanding": number,"quiz_theory_practice": number,"quiz_traps": number,"quiz_weak_spots": number,"slider_depth": number,"slider_exam_focus": number,"slider_examples": number,"slider_extra_resources": number,"slider_follow_marks": number,"slider_language": number,"slider_length": number,"slider_self_test": number,"slider_starting_point": number,"slider_visuals": number,"study_reminders": boolean,"subject_type": string | null,"summary_language": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "course_id": string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "course_id": string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"study_reminders"?: boolean,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "course_id"?: string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "course_id"?: string,"created_at"?: string,"exam_date"?: string | null,"exam_format"?: string | null,"professor"?: string | null,"quiz_calculations"?: number,"quiz_count"?: number,"quiz_definitions"?: number,"quiz_detail"?: number,"quiz_difficulty"?: number,"quiz_exam_focus"?: number,"quiz_memory_understanding"?: number,"quiz_theory_practice"?: number,"quiz_traps"?: number,"quiz_weak_spots"?: number,"slider_depth"?: number,"slider_exam_focus"?: number,"slider_examples"?: number,"slider_extra_resources"?: number,"slider_follow_marks"?: number,"slider_language"?: number,"slider_length"?: number,"slider_self_test"?: number,"slider_starting_point"?: number,"slider_visuals"?: number,"study_reminders"?: boolean,"subject_type"?: string | null,"summary_language"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -251,14 +251,14 @@ isOneToOne: false
                   ]
                 },"lectures": {
                   Row: {
-                    "audio_delete_after": string | null,"audio_deleted_at": string | null,"audio_retention": string,"avg_confidence": number | null,"created_at": string,"duration_ms": number | null,"id": string,"language": string | null,"lecture_number": number | null,"recorded_at": string | null,"status": string,"transcribed_at": string | null,"transcript_quality": string | null,"updated_at": string,"user_id": string
+                    "audio_delete_after": string | null,"audio_deleted_at": string | null,"audio_retention": string,"avg_confidence": number | null,"created_at": string,"duration_ms": number | null,"id": string,"language": string | null,"lecture_number": number | null,"recorded_at": string | null,"status": string,"study_reminders": boolean | null,"transcribed_at": string | null,"transcript_quality": string | null,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "audio_delete_after"?: string | null,"audio_deleted_at"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id": string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcribed_at"?: string | null,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "audio_delete_after"?: string | null,"audio_deleted_at"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id": string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"study_reminders"?: boolean | null,"transcribed_at"?: string | null,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "audio_delete_after"?: string | null,"audio_deleted_at"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id"?: string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"transcribed_at"?: string | null,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
+                    "audio_delete_after"?: string | null,"audio_deleted_at"?: string | null,"audio_retention"?: string,"avg_confidence"?: number | null,"created_at"?: string,"duration_ms"?: number | null,"id"?: string,"language"?: string | null,"lecture_number"?: number | null,"recorded_at"?: string | null,"status"?: string,"study_reminders"?: boolean | null,"transcribed_at"?: string | null,"transcript_quality"?: string | null,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -579,6 +579,9 @@ isOneToOne: false
 "review_card":
 { Args: { "p_due_at": string,"p_ease": number,"p_flashcard_id": string,"p_grade": string,"p_interval_days": number,"p_reps": number,"p_reviewed_at": string }; Returns: boolean
                            },
+"review_lecture":
+{ Args: { "p_file_id": string,"p_id": string,"p_next_due": string,"p_reviewed_at": string }; Returns: boolean
+                           },
 "search_library":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "course_color": string,"course_id": string,"course_name": string,"field": string,"file_kind": string,"folder_id": string,"item_id": string,"kind": string,"matched": string,"rank": number,"t_ms": number,"title": string
@@ -593,6 +596,9 @@ isOneToOne: false
 { Args: { "older_than": string }; Returns: {
               "bucket": string,"path": string
             }[]
+                           },
+"undo_lecture_review":
+{ Args: { "p_file_id": string,"p_previous": string,"p_reviewed_at": string }; Returns: boolean
                            },
 "withdraw_ai_consent":
 { Args: Record<PropertyKey, never>; Returns: number

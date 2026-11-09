@@ -4,13 +4,17 @@
 // links to a folder, Record lecture preselecting the course, Add to / Remove
 // from Favorites with Undo (also from the sidebar's right-click menus and on
 // a lecture's photos), favorites not reordering anything, and the iPhone chips. Favorites (starred_at), an exam pack, a note and a due
-// review are inserted with the service role (nothing in the app can make
-// exam packs or reviews yet). Screenshots: shell-*.png. Exit 1 on any FAIL.
+// flashcard are inserted with the service role. Screenshots: shell-*.png. Exit 1 on any FAIL.
 //
 // Since step 4.3 a lecture opens as a document (/doc/<id>, a finished one on
 // its Summary tab), whose screen doesn't list the lecture's photos: a lecture
 // photo's Favorites are in the Favorites list (Open · Remove from Favorites)
 // and in the course's "Photos & PDFs from lectures" (also on the iPhone).
+//
+// Step 9.2: Review today counts the flashcards due today and the lectures due by their plan (1, 3, 7,
+// 21 days after the lecture), never a lecture review row's due_at. The one due review is now a
+// flashcard (due at once: its review row is made by the database); the lecture row with due_at = now
+// that stood in for it before 9.2 no longer counts (Lecture 1 is made today: no session yet).
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -76,7 +80,11 @@ const { data: pack } = await admin
   .insert({ user_id: user.id, kind: 'exam_pack', title: 'Math exam pack', course_id: data.course.id })
   .select()
   .single();
-await admin.from('review_schedule').insert({ user_id: user.id, file_id: data.lecture.id, due_at: now.toISOString() });
+// One review due today: a flashcard (its review row, due at once, is made by the database; step 9.1).
+{
+  const { error } = await admin.from('flashcards').insert({ user_id: user.id, source: 'assistant', front: 'Funció', back: 'Una relació entre dos conjunts.', kind: 'term', file_id: data.lecture.id, course_id: data.course.id });
+  if (error) throw new Error(`the due flashcard: ${error.message}`);
+}
 // Two photos inside Lecture 1 ("Photo 1", "Photo 2"; the files themselves don't exist).
 const { data: photos } = await admin
   .from('media')

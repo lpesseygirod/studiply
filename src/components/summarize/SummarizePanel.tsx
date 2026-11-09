@@ -27,6 +27,8 @@ import {
   type SummaryTarget,
 } from '../../services/summarize.service';
 import { requestCombine, type CombineAsk, type CombineTarget } from '../../services/summaryCombine.service';
+import { setStudyReminders } from '../../services/lectureReview.service';
+import { SettingSwitch } from '../settings/PreferenceSettings';
 import { PRESETS, SLIDER_KEYS, planSummary, type SliderKey, type Sliders, type SummaryPlan } from '../../../supabase/functions/_shared/summary-plan';
 import { promptText, showAlert } from '../dialogs/dialogs';
 import { AddButton, PresetChip, ResourceCard, ResourceRow, SliderRow } from '../panel/PanelParts';
@@ -53,8 +55,11 @@ import { closeSummarize, useSummarizePanel, type SummarizeRequest } from './summ
  * summarize.service) and opens the Summary tab. After class the buttons are
  * Cancel · Generate summary. No AI is called here (step 7.4 writes the summary).
  */
-/** Stop & generate summary: stops the recording (if any), saves the request, opens the Summary tab. */
-async function stopAndRequest(p: { lectureId: string; recording: boolean; sliders: Sliders; resources: SummarizeResources; plan: SummaryPlan; target?: SummaryTarget; open: () => void }) {
+/**
+ * Stop & generate summary: stops the recording (if any), saves the request and the lecture's study
+ * reminders (step 9.2, Lea: the panel's switch), opens the Summary tab.
+ */
+async function stopAndRequest(p: { lectureId: string; recording: boolean; sliders: Sliders; resources: SummarizeResources; plan: SummaryPlan; target?: SummaryTarget; studyReminders: boolean; open: () => void }) {
   if (p.recording) {
     try {
       await recordingFlow.stop();
@@ -67,6 +72,8 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
   let summaryId: string | null = null;
   try {
     summaryId = await requestSummary(p.lectureId, p.sliders, p.resources, p.plan, p.target);
+    // The lecture's own choice from now on (its course's default until a summary is made).
+    await setStudyReminders(p.lectureId, p.studyReminders).catch(() => {});
     notifyLibraryUpdated();
   } catch (err) {
     showAlert(
@@ -143,6 +150,8 @@ function Panel({ request }: { request: SummarizeRequest }) {
   // Step 7.9: Extend's target: a new Unit summary (default) or added to this lecture's summary.
   const combine = request.combine;
   const [extendTarget, setExtendTarget] = useState<CombineTarget>('unit');
+  // Step 9.2 (Lea): study reminders for this lecture; its own choice, else its course's default (on).
+  const [reminders, setReminders] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -152,6 +161,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
       setInfo(next);
       // The course's defaults (else the spec's) fill everything once; later reloads keep her changes.
       setSliders((s) => s ?? next.defaults);
+      setReminders((r) => r ?? next.studyReminders);
     } catch (err) {
       setLoadError(errorMessage(err, 'Could not load this lecture.'));
     }
@@ -234,6 +244,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
       resources: resources(),
       plan,
       ...(info?.hasSummary && { target }),
+      studyReminders: reminders ?? true,
       open: () => router.navigate({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'summary', at: String(Date.now()) } }),
     });
   };
@@ -241,7 +252,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const saveDefault = async () => {
     if (!info?.courseId || !sliders) return;
     try {
-      await saveCourseDefaults(info.courseId, sliders);
+      await saveCourseDefaults(info.courseId, sliders, combine || reminders === null ? undefined : reminders);
       setSavedNote(info.courseName ? `Saved as ${info.courseName}’s default` : 'Saved as the course’s default');
     } catch (err) {
       showAlert('The defaults weren’t saved', errorMessage(err, 'Please try again.'));
@@ -509,6 +520,25 @@ function Panel({ request }: { request: SummarizeRequest }) {
     </View>
   );
 
+  // Step 9.2 (Lea, 9 Nov): one lecture's summary only, after where it goes (the panel's choices).
+  const remindersRow =
+    !combine && reminders !== null ? (
+      <View style={styles.target} {...{ dataSet: { summarize: 'reminders', checked: String(reminders) } }}>
+        <View style={styles.cardText}>
+          <Text style={styles.cardTitle}>Study reminders for this lecture</Text>
+          <Text style={styles.cardDetail}>In Review today 1, 3, 7 and 21 days after the lecture, and before the exam.</Text>
+        </View>
+        <SettingSwitch
+          value={reminders}
+          onValueChange={(v) => {
+            setSavedNote(null);
+            setReminders(v);
+          }}
+          accessibilityLabel="Study reminders for this lecture"
+        />
+      </View>
+    ) : null;
+
   const body = !info || !sliders ? (
     <View style={styles.loading}>{loadError ? <Text style={styles.error}>{loadError}</Text> : <ActivityIndicator color={c.accent} />}</View>
   ) : wide ? (
@@ -527,6 +557,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
         </View>
       ))}
       {note}
+      {remindersRow}
     </>
   ) : (
     <>
@@ -541,6 +572,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
       <Text style={styles.label}>TUNE YOUR SUMMARY · 10 SLIDERS</Text>
       {SLIDER_KEYS.map(slider)}
       {note}
+      {remindersRow}
       {saveLink}
       {discardButton}
     </>

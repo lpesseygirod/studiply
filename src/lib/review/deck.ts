@@ -115,12 +115,15 @@ export function dueDeck(schedules: ScheduleRow[], cards: CardRow[], files: FileR
     });
 }
 
-/** Reviews due by the end of `now`'s day (the Review today count), for live cards and lecture reminders. */
+/**
+ * Live cards due by the end of `now`'s day: Review today's cards. Lectures are added by their plan
+ * (step 9.2, lectures.ts dueLectures), never by their row's due_at.
+ */
 export function dueTodayCount(schedules: ScheduleRow[], cards: CardRow[], now: Date): number {
   const end = new Date(now);
   end.setHours(23, 59, 59, 999);
   const live = new Set(cards.filter((c) => !c.deleted_at).map((c) => c.id));
-  return schedules.filter((s) => Date.parse(s.due_at) <= end.getTime() && (s.flashcard_id ? live.has(s.flashcard_id) : true)).length;
+  return schedules.filter((s) => s.flashcard_id && live.has(s.flashcard_id) && Date.parse(s.due_at) <= end.getTime()).length;
 }
 
 /** Cards reviewed since `now`'s midnight. */

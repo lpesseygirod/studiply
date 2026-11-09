@@ -121,6 +121,22 @@ describe('the starting values', () => {
     connectivity.isOffline.mockReturnValue(true);
     await expect(saveCourseDefaults('course-1', SLIDER_DEFAULTS)).rejects.toThrow();
   });
+
+  it('step 9.2 (Lea): Save as course default also saves the study reminders switch (Extend, Merge: untouched)', async () => {
+    serverWrite('course_settings', { id: 'cs', course_id: 'course-1', study_reminders: true });
+    await saveCourseDefaults('course-1', SLIDER_DEFAULTS, false);
+    expect(rowsOf('course_settings')[0]).toMatchObject({ study_reminders: false });
+    await saveCourseDefaults('course-1', SLIDER_DEFAULTS);
+    expect(rowsOf('course_settings')[0]).toMatchObject({ study_reminders: false });
+  });
+
+  it('step 9.2 (Lea): the panel’s study reminders: the lecture’s own choice, else its course’s default, else on', async () => {
+    serverWrite('course_settings', { id: 'cs', ...SETTINGS, study_reminders: false });
+    expect((await loadSummarizeInfo(LECTURE)).studyReminders).toBe(false);
+    serverWrite('lectures', { id: LECTURE, recorded_at: null, study_reminders: true });
+    expect((await loadSummarizeInfo(LECTURE)).studyReminders).toBe(true);
+    expect((await loadSummarizeInfo('loose')).studyReminders).toBe(true);
+  });
 });
 
 describe('what the panel shows', () => {

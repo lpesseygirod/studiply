@@ -44,7 +44,20 @@ export const PULL_TABLES: CachedTable[] = [
   'quiz_questions',
   'quiz_attempts',
   'quiz_answers',
+  // Step 9.2: the exam dates and study reminders, so the review plan is known offline.
+  'course_settings',
 ];
+
+/** The column that identifies a table's rows: `id`, except a course's settings (one per course). */
+export function idColumn(tbl: CachedTable): string {
+  return tbl === 'course_settings' ? 'course_id' : 'id';
+}
+
+/** A downloaded row as the cache keeps it: with an `id` (a course's settings: its course_id). */
+export function asCacheRow(tbl: CachedTable, row: Record<string, unknown>): CacheableRow {
+  const key = idColumn(tbl);
+  return (key === 'id' ? row : { ...row, id: row[key] }) as unknown as CacheableRow;
+}
 
 export const PAGE = 1000;
 

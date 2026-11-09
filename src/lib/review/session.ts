@@ -63,4 +63,11 @@ export const startQuiz = (decks: QuizDeck[]): QuizSession => ({ items: decks.fla
 export const currentQuestion = (s: QuizSession): QuizItem | null => s.items[s.at] ?? null;
 export const showAnswer = (s: QuizSession): QuizSession => ({ ...s, shown: true });
 export const nextQuestion = (s: QuizSession): QuizSession => ({ ...s, at: Math.min(s.at + 1, s.items.length), shown: false });
+/** Step 9.2: the lecture whose last question this is (Next question finishes its deck), else null. */
+export function deckEndsHere(s: QuizSession): string | null {
+  const item = currentQuestion(s);
+  if (!item) return null;
+  const next = s.items[s.at + 1];
+  return !next || next.deck.fileId !== item.deck.fileId ? item.deck.fileId : null;
+}
 export const quizProgress = (s: QuizSession) => ({ n: Math.min(s.at + 1, s.items.length), total: s.items.length, done: s.items.length ? s.at / s.items.length : 1 });

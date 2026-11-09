@@ -8,7 +8,7 @@
 import { frontKey, marksOf, marksText, markChipText, newCards, quizQuestions, summaryCards } from '../review/cards';
 import { deckMarks, dueDeck, dueTodayCount, quizDecks, reviewedTodayCount, withState, type CardRow, type ScheduleRow, type SummaryRow } from '../review/deck';
 import { intervalLabel, MIN_EASE, nextReview, START_EASE } from '../review/schedule';
-import { cardProgress, currentCard, flip, nextQuestion, quizProgress, rated, removeCurrent, showAnswer, skip, startCards, startQuiz } from '../review/session';
+import { cardProgress, currentCard, deckEndsHere, flip, nextQuestion, quizProgress, rated, removeCurrent, showAnswer, skip, startCards, startQuiz } from '../review/session';
 import short from '../../test-utils/summary-synthetic-30.json';
 
 const NOW = new Date('2026-11-02T10:00:00Z');
@@ -124,9 +124,9 @@ describe('the due deck and its counts', () => {
     expect(deck[0]).toMatchObject({ kind: 'card', lecture: 'Tema 1', course: 'Psicobiología', state: { reps: 0, ease: 2.5 } });
   });
 
-  it('Review today: due by the end of the day (live cards and lecture reminders); reviewed today', () => {
+  it('Review today’s cards: live cards due by the end of the day (a lecture’s row counts by its plan, step 9.2); reviewed today', () => {
     const local = new Date(NOW);
-    expect(dueTodayCount(schedules, cards, local)).toBe(4);
+    expect(dueTodayCount(schedules, cards, local)).toBe(3);
     expect(reviewedTodayCount(schedules, local)).toBe(1);
   });
 
@@ -190,5 +190,16 @@ describe('a session’s order', () => {
     expect(q).toMatchObject({ at: 1, shown: false });
     q = nextQuestion(nextQuestion(q));
     expect(quizProgress(q)).toEqual({ n: 3, total: 3, done: 1 });
+  });
+
+  it('step 9.2: Next question on a lecture’s last question finishes its deck (that lecture is reviewed)', () => {
+    const deck = (id: string, n: number) => ({ fileId: id, lecture: id, course: null, marks: '', questions: Array.from({ length: n }, (_, i) => ({ question: `${id}${i}`, answer: 'x', mark: null })) });
+    let q = startQuiz([deck('t1', 2), deck('t2', 1)]);
+    expect(deckEndsHere(q)).toBeNull();
+    q = nextQuestion(q);
+    expect(deckEndsHere(q)).toBe('t1');
+    q = nextQuestion(q);
+    expect(deckEndsHere(q)).toBe('t2');
+    expect(deckEndsHere(nextQuestion(q))).toBeNull();
   });
 });

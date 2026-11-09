@@ -6,6 +6,7 @@ import { notifyLibraryUpdated } from '../lib/cache';
 import { getFolder, renameFolder } from '../services/folder.service';
 import { getProject, updateProject } from '../services/project.service';
 import { getSession } from '../services/session.service';
+import { setStudyReminders, studyRemindersOf } from '../services/lectureReview.service';
 import { getLibraryFiles, type LibraryFile } from '../services/source-file.service';
 import { restoreItem, trashFolder, trashProject, trashSession } from '../services/trash.service';
 import { confirmAction } from '../utils/confirm';
@@ -93,6 +94,9 @@ export function useItemMenu({
             text: action === 'merge' ? 'Merge lectures…' : 'Make exam pack…',
             onPress: () => openLecturePicker({ mode: action === 'merge' ? 'merge' : 'exam_pack', ...(item.type === 'course' ? { courseId: item.id, folderId: null } : { courseId: item.courseId, folderId: item.id }) }),
           };
+        // Step 9.2 (Lea): the lecture's study reminders, on or off (its state in the dialog).
+        case 'reminders':
+          return { text: 'Study reminders…', onPress: () => void studyReminders(item) };
         case 'star':
           return starButton(
             starTarget(item),
@@ -160,6 +164,41 @@ export function useItemMenu({
       notifyLibraryUpdated();
     } catch (err) {
       showAlert('Could not rename it', errorMessage(err, err instanceof Error ? err.message : 'Please try again.'));
+    }
+  }
+
+  /** Study reminders…: what they are now, and one button to turn them off (or on); the toast has Undo. */
+  async function studyReminders(item: ShelfItem) {
+    try {
+      const now = await studyRemindersOf(item.id, item.courseId);
+      const change = async (on: boolean) => {
+        await setStudyReminders(item.id, on);
+        notifyLibraryUpdated();
+      };
+      const turn = !now.on;
+      showAlert(
+        now.on ? 'Study reminders are on' : 'Study reminders are off',
+        now.on
+          ? `“${item.title}” comes up in Review today 1, 3, 7 and 21 days after the lecture, and before the exam.`
+          : `“${item.title}” doesn't come up in Review today. Turn them on to review it 1, 3, 7 and 21 days after the lecture, and before the exam.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: turn ? 'Turn on' : 'Turn off',
+            onPress: () => {
+              change(turn)
+                .then(() =>
+                  showUndo(`Study reminders ${turn ? 'on' : 'off'} for “${item.title}”`, () => {
+                    change(!turn).catch((err) => showAlert('Could not undo', errorMessage(err, 'Please try again.')));
+                  }),
+                )
+                .catch((err) => showAlert('The study reminders weren’t changed', errorMessage(err, 'Please try again.')));
+            },
+          },
+        ],
+      );
+    } catch (err) {
+      showAlert('Could not load the study reminders', errorMessage(err, 'Please try again.'));
     }
   }
 

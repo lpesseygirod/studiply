@@ -20,7 +20,9 @@ export const cacheEnabled = true;
 
 /**
  * Step 9.1: flashcards and review_schedule too, so Review works offline; 9.1b: the quizzes (Quiz me's
- * list); 9.1b-3: their questions, attempts and answers, so a quiz is taken offline.
+ * list); 9.1b-3: their questions, attempts and answers, so a quiz is taken offline; 9.2: the
+ * course settings (exam dates, study reminders), so the review plan is known offline. A course's
+ * settings row has no id of its own: it is kept under its course_id (pull.ts idColumn).
  */
 export type CachedTable =
   | 'courses'
@@ -36,7 +38,8 @@ export type CachedTable =
   | 'quizzes'
   | 'quiz_questions'
   | 'quiz_attempts'
-  | 'quiz_answers';
+  | 'quiz_answers'
+  | 'course_settings';
 
 /** The fields every cached row has. */
 export interface CacheableRow {

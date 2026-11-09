@@ -761,6 +761,8 @@ Step 9.1b: create a quiz from my material, on both devices: Review → New quiz 
 Step 9.2: spaced review reminders on day 1, 3, 7 and 21 after each lecture (expo-notifications on iPhone), planned backwards from the course exam date when there is one; "Review today" count in the sidebar and Library; course settings screen (subject type, exam format, exam date, summary language, the 10 slider defaults).
 ```
 
+**As planned (9 Nov, docs/reports/plan-9.2.md):** no subject type in the course settings (Lea: Claude identifies each lecture's subject); built on `phase-10-launch` in three sub-steps (9.2-1 the plan, the count and the lectures card; 9.2-2 course settings; 9.2-3 reminders and Settings → Notifications' switch). Lea added: a "Study reminders for this lecture" switch in the summarize panel (on by default; Save as course default saves it too), and Study reminders… in the lecture's menu.
+
 **Check:** set an exam date two weeks away and see the review plan change. Merge the branch.
 
 ## Phase 10 — App Store and web launch

@@ -85,6 +85,8 @@ async function convertOnDevice(p: ConvertPayload): Promise<void> {
     audio_delete_after: null,
     transcribed_at: null,
     audio_deleted_at: null,
+    // Its course's default until the summarize panel or its menu sets it (step 9.2).
+    study_reminders: null,
     created_at: at,
     updated_at: at,
   };

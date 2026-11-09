@@ -63,6 +63,7 @@ const lectureFile: LectureFileRow = {
     audio_delete_after: null,
     transcribed_at: null,
     audio_deleted_at: null,
+    study_reminders: null,
     created_at: T,
     updated_at: T,
   },

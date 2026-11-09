@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { markChipText } from '../../lib/review/cards';
-import { currentQuestion, nextQuestion, quizProgress, showAnswer, startQuiz, type QuizItem, type QuizSession } from '../../lib/review/session';
+import { currentQuestion, deckEndsHere, nextQuestion, quizProgress, showAnswer, startQuiz, type QuizItem, type QuizSession } from '../../lib/review/session';
 import type { QuizDeck } from '../../services/review.service';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { ReviewProgress } from './ReviewProgress';
@@ -20,7 +20,18 @@ const toneOf = (type: string): MarkTone => (type === 'confused' || type === 'imp
  * (the answer in the card) and Next question. No answer options or hints: those come with 9.1b's
  * quizzes.
  */
-export function QuizView({ decks, compact, onCurrent }: { decks: QuizDeck[]; compact: boolean; onCurrent: (item: QuizItem | null) => void }) {
+export function QuizView({
+  decks,
+  compact,
+  onCurrent,
+  onDeckDone,
+}: {
+  decks: QuizDeck[];
+  compact: boolean;
+  onCurrent: (item: QuizItem | null) => void;
+  /** Step 9.2: a lecture's last question passed (its deck finished: the lecture reviewed, when due). */
+  onDeckDone?: (fileId: string) => void;
+}) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const [session, setSession] = useState<QuizSession>(() => startQuiz(decks));
@@ -72,7 +83,16 @@ export function QuizView({ decks, compact, onCurrent }: { decks: QuizDeck[]; com
               <Text style={styles.secondaryText}>Show answer</Text>
             </Pressable>
           )}
-          <Pressable onPress={() => setSession((s) => nextQuestion(s))} style={({ pressed }) => [styles.primary, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Next question">
+          <Pressable
+            onPress={() => {
+              const finished = deckEndsHere(session);
+              setSession((s) => nextQuestion(s));
+              if (finished) onDeckDone?.(finished);
+            }}
+            style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Next question"
+          >
             <Text style={styles.primaryText}>Next question</Text>
           </Pressable>
         </View>

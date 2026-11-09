@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { onBackOnline } from '../connectivity';
 import { SEGMENT_COLUMNS, withChunkPlaces, type SegmentRow } from '../cloudRows';
-import { cursorColumn, fetchAllSegments, pullTable, PULL_TABLES, transcriptsToFetch } from './pull';
+import { asCacheRow, cursorColumn, fetchAllSegments, idColumn, pullTable, PULL_TABLES, transcriptsToFetch } from './pull';
 import {
   cacheEnabled,
   cacheUser,
@@ -44,19 +44,21 @@ let live = false;
 async function pullOne(userId: string, tbl: CachedTable): Promise<number> {
   const sinceKey = `${userId}:pull:${tbl}`;
   const cursor = cursorColumn(tbl);
+  // Step 9.2: a course's settings are identified by their course_id.
+  const key = idColumn(tbl);
   return pullTable<CacheableRow>({
     cursor,
     fetchChanged: async (since, from, to) => {
       let query = supabase.from(tbl).select('*');
       if (since) query = query.gte(cursor, since);
-      const { data, error } = await query.order(cursor).order('id').range(from, to);
+      const { data, error } = await query.order(cursor).order(key).range(from, to);
       if (error) throw error;
-      return data as CacheableRow[];
+      return (data as Record<string, unknown>[]).map((r) => asCacheRow(tbl, r));
     },
     fetchIds: async (from, to) => {
-      const { data, error } = await supabase.from(tbl).select('id').order('id').range(from, to);
+      const { data, error } = await supabase.from(tbl).select(key).order(key).range(from, to);
       if (error) throw error;
-      return data;
+      return (data as unknown as Record<string, string>[]).map((r) => ({ id: r[key] }));
     },
     cachedIds: () => cachedIds(tbl),
     dirtyIds: () => dirtyIds(tbl),

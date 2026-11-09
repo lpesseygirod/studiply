@@ -18,9 +18,10 @@ describe('itemActions', () => {
   const inFolder = (type: ShelfItem['type']) => itemActions(item({ type, folderId: 'parent' }));
   const atTop = (type: ShelfItem['type']) => itemActions(item({ type, folderId: null }));
 
-  it('the full menu in order (step 3.4); lectures also Summarize, Extend (7.9) and Export PDF', () => {
+  it('the full menu in order (step 3.4); lectures also Summarize, Extend (7.9), Study reminders (9.2) and Export PDF', () => {
     expect(inFolder('folder')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete']);
-    expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'export', 'delete']);
+    expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'reminders', 'export', 'delete']);
+    expect(actionHint('reminders', 'lecture')).toBeNull();
     expect(inFolder('pdf')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete']);
     expect(inFolder('image')).toEqual(inFolder('pdf'));
     // Documents (step 4.3): as a PDF, without Copy for now.

@@ -157,12 +157,27 @@ describe('getCourseContents (the course grid)', () => {
 });
 
 describe('getReviewDueCount', () => {
-  it('counts reviews due by the end of today', async () => {
+  it('counts cards due by the end of today', async () => {
     answer('review_schedule', { count: 3 });
     expect(await getReviewDueCount(new Date('2026-10-25T09:00:00'))).toBe(3);
     const [[, due]] = callsOn('review_schedule', 'lte') as [string, string][];
     expect(new Date(due).getDate()).toBe(25);
     expect(new Date(due).getHours()).toBe(23);
+    expect(callsOn('review_schedule', 'not')).toContainEqual(['flashcard_id', 'is', null]);
+  });
+
+  it('step 9.2: and the lectures due today (their plan: here day 3 of one, the other turned off)', async () => {
+    answer('review_schedule', { count: 2 }, { data: [] });
+    answer('files', {
+      data: [
+        { id: 'l1', title: 'Tema 1', kind: 'lecture', course_id: 'math', deleted_at: null, created_at: '2026-11-06T09:00:00' },
+        { id: 'l2', title: 'Tema 2', kind: 'lecture', course_id: 'math', deleted_at: null, created_at: '2026-11-06T09:00:00' },
+      ],
+    });
+    answer('lectures', { data: [{ id: 'l1', recorded_at: '2026-11-06T09:00:00', study_reminders: null }, { id: 'l2', recorded_at: '2026-11-06T09:00:00', study_reminders: false }] });
+    answer('course_settings', { data: [{ course_id: 'math', exam_date: null, study_reminders: true }] });
+    answer('courses', { data: [math] });
+    expect(await getReviewDueCount(new Date('2026-11-09T09:00:00'))).toBe(3);
   });
 
   it('unknown (null) on an error or offline, which hides the badge', async () => {

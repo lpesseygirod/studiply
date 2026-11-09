@@ -23,6 +23,7 @@ import { marksOf } from './marks.service';
 import { getProject } from './project.service';
 import { getSession, ensureLectureOnServer } from './session.service';
 import { getTranscriptBySession } from './transcript.service';
+import { studyRemindersOf } from './lectureReview.service';
 
 /**
  * Stop & summarize (step 7.3): what the panel shows and what it saves.
@@ -67,6 +68,8 @@ export interface SummarizeInfo {
   links: { id: string; url: string }[];
   /** Step 7.7: the lecture has a summary written into it already (the panel asks where the new one goes). */
   hasSummary: boolean;
+  /** Step 9.2 (Lea): "Study reminders for this lecture": its own switch, else its course's default (on). */
+  studyReminders: boolean;
 }
 
 /**
@@ -95,12 +98,16 @@ export async function courseDefaults(courseId: string | null): Promise<Sliders> 
   }
 }
 
-/** Save as course default: the course's 10 values. Online only (the button says so offline). */
-export async function saveCourseDefaults(courseId: string, s: Sliders): Promise<void> {
+/**
+ * Save as course default: the course's 10 values, and (step 9.2, Lea) whether its lectures get study
+ * reminders. Online only (the button says so offline).
+ */
+export async function saveCourseDefaults(courseId: string, s: Sliders, studyReminders?: boolean): Promise<void> {
   if (isOffline()) throw new NetworkError();
   const { error } = await supabase
     .from('course_settings')
     .update({
+      ...(studyReminders !== undefined && { study_reminders: studyReminders }),
       slider_starting_point: s.startingPoint,
       slider_length: s.length,
       slider_depth: s.depth,
@@ -119,7 +126,7 @@ export async function saveCourseDefaults(courseId: string, s: Sliders): Promise<
 /** Everything the panel shows for a lecture. `durationMs`: the recording's clock while it records. */
 export async function loadSummarizeInfo(lectureId: string, { durationMs }: { durationMs?: number } = {}): Promise<SummarizeInfo> {
   const file = await getDocumentFile(lectureId);
-  const [defaults, course, notes, session, transcript, assistant, media, summaryTab, tabs] = await Promise.all([
+  const [defaults, course, notes, session, transcript, assistant, media, summaryTab, tabs, reminders] = await Promise.all([
     courseDefaults(file.course_id),
     file.course_id ? getProject(file.course_id).catch(() => null) : null,
     openDocument(lectureId, 'notes').catch(() => null),
@@ -129,6 +136,7 @@ export async function loadSummarizeInfo(lectureId: string, { durationMs }: { dur
     mediaOf(lectureId),
     openDocument(lectureId, 'summary').catch(() => null),
     listTabs(lectureId, true).catch(() => []),
+    studyRemindersOf(lectureId, file.course_id).catch(() => null),
   ]);
   const doc = (notes?.content ?? { type: 'doc', content: [] }) as DocJSON;
   const segments = Array.isArray(transcript?.segments) ? (transcript.segments as unknown as { text?: string }[]) : [];
@@ -148,6 +156,7 @@ export async function loadSummarizeInfo(lectureId: string, { durationMs }: { dur
     slides: media.filter((m) => m.kind === 'slides').map((m) => ({ id: m.id, name: m.caption ?? 'Slides', pages: m.page_count })),
     links: media.filter((m) => m.kind === 'link' && m.url).map((m) => ({ id: m.id, url: m.url as string })),
     hasSummary: holdsSummary(summaryTab?.content) || tabs.some((t) => t.kind === 'summary'),
+    studyReminders: reminders?.on ?? true,
   };
 }
 

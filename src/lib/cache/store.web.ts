@@ -22,7 +22,8 @@ export type CachedTable =
   | 'quizzes'
   | 'quiz_questions'
   | 'quiz_attempts'
-  | 'quiz_answers';
+  | 'quiz_answers'
+  | 'course_settings';
 
 export interface CacheableRow {
   id: string;
