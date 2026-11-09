@@ -57,6 +57,21 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['recording dot on the strip', c.recordingStrip.dot, c.recordingStrip.bg, ICON],
     ...stops.map(([name, bg]) => [`button.onGradient on gradient.${name}`, c.button.onGradient, bg, ICON] as [string, string, string, number]),
     ['button.onGradientText on button.onGradient', c.button.onGradientText, c.button.onGradient, TEXT],
+    // Step 10.1b-5: the pairs screens use across two styles (text on a card, row or chip it sits in).
+    ...(['surfaceMuted', 'white'] as const).flatMap((bg) => [
+      [`text.primary on ${bg}`, c.text.primary, c[bg], TEXT] as [string, string, string, number],
+      [`text.secondary on ${bg}`, c.text.secondary, c[bg], TEXT] as [string, string, string, number],
+    ]),
+    ['placeholder text in fields on the card', c.text.placeholder, c.card, TEXT],
+    ['placeholder text on a muted row', c.text.placeholder, c.cardMuted, TEXT],
+    ['accentDark (links, toggles) on a muted row', c.accentDark, c.cardMuted, TEXT],
+    ['accentDark on the note title card', c.accentDark, c.titleCard, TEXT],
+    ['white on error (destructive buttons: Delete account)', c.white, c.error, TEXT],
+    ['error text on the danger card (status.error.bg)', c.error, c.status.error.bg, TEXT],
+    ['status.info.text on card', c.status.info.text, c.card, TEXT],
+    ['an icon in text.secondary on card', c.text.secondary, c.card, ICON],
+    ['the accent icon on a muted row', c.accent, c.cardMuted, ICON],
+    ['the accent icon on its accentLight badge (the Study assistant header)', c.accent, c.accentLight, ICON],
   ];
 }
 

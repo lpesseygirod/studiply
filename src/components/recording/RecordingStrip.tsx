@@ -11,6 +11,7 @@ import { WebcamPanel } from './WebcamPanel';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { clock, useRecorder, useRecordingFlow } from '../../hooks/useRecorder';
 import { useRecordingActions } from './useRecordingActions';
 import { Waveform } from './Waveform';
@@ -128,7 +129,7 @@ export function RecordingStrip() {
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityState={{ expanded: draft?.kind === b.kind }}
+          {...a11yState({ expanded: draft?.kind === b.kind })}
           accessibilityLabel={b.label}
           {...{ dataSet: { markButton: b.kind } }}
         >

@@ -19,6 +19,7 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
 import {
   getExamPacks,
@@ -222,7 +223,7 @@ export default function LibraryScreen() {
                     onPress={() => toggleSection(chip.key)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
+                    {...a11yState({ selected: active })}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]} maxFontSizeMultiplier={1.6}>
                       {chip.label}

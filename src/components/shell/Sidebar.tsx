@@ -7,6 +7,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
 import { useAuth } from '../../hooks/useAuth';
 import { useLibraryUpdates } from '../../lib/cache';
@@ -301,7 +302,7 @@ function Item({
       style={[styles.item, active && styles.itemActive, drop.hover === 'ok' && styles.dropOk]}
       onPress={onPress}
       accessibilityRole="link"
-      accessibilityState={{ selected: !!active }}
+      {...a11yState({ selected: !!active })}
       onLongPress={menu?.onLongPress}
       delayLongPress={menu?.delayLongPress}
     >
@@ -357,7 +358,7 @@ function TreeRow({
       onLongPress={menu.onLongPress}
       delayLongPress={menu.delayLongPress}
       accessibilityRole="link"
-      accessibilityState={{ selected: active }}
+      {...a11yState({ selected: active })}
       testID={active ? 'sidebar-current' : undefined}
     >
       {isFolder ? (

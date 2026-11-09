@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import type { QuizResponse } from '../../../supabase/functions/_shared/quiz-grade';
 import type { TakeQuestion } from '../../lib/quiz/session';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
@@ -72,7 +73,7 @@ export function AnswerArea({
             onPress={() => pick(i)}
             style={({ pressed }) => [styles.option, on && styles.optionOn, good && styles.optionGood, bad && styles.optionBad, pressed && styles.pressed]}
             accessibilityRole="radio"
-            accessibilityState={{ checked: on, disabled: locked }}
+            {...a11yState({ checked: on, disabled: locked })}
             aria-checked={on}
             accessibilityLabel={`${letter(i)}: ${label}`}
             {...{ dataSet: { quizOption: letter(i), on: on ? 'yes' : 'no', verdict: good ? 'right' : bad ? 'wrong' : '' } }}

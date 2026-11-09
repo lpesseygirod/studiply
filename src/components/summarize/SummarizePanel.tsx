@@ -12,6 +12,7 @@ import { notifyLibraryUpdated } from '../../lib/cache';
 import { syncEnabled } from '../../lib/sync';
 import { ConsentDeclinedError, consentGiven } from '../../services/consent.service';
 import { errorMessage } from '../../utils/errors';
+import { a11yState } from '../../utils/a11y';
 import { recorder } from '../../services/recorder';
 import { recordingFlow } from '../../services/recording.service';
 import {
@@ -463,7 +464,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
           onPress={() => setExtendTarget(t.key)}
           style={[styles.target, extendTarget === t.key && styles.targetOn]}
           accessibilityRole="radio"
-          accessibilityState={{ checked: extendTarget === t.key }}
+          {...a11yState({ checked: extendTarget === t.key })}
           {...{ dataSet: { summarize: `extend-${t.key}`, checked: String(extendTarget === t.key) } }}
         >
           <View style={[styles.radio, extendTarget === t.key && styles.radioOn]}>{extendTarget === t.key && <View style={styles.radioDot} />}</View>
@@ -489,7 +490,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
           onPress={() => setTarget(t.key)}
           style={[styles.target, target === t.key && styles.targetOn]}
           accessibilityRole="radio"
-          accessibilityState={{ checked: target === t.key }}
+          {...a11yState({ checked: target === t.key })}
           {...{ dataSet: { summarize: `target-${t.key}`, checked: String(target === t.key) } }}
         >
           <View style={[styles.radio, target === t.key && styles.radioOn]}>{target === t.key && <View style={styles.radioDot} />}</View>

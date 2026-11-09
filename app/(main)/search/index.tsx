@@ -20,6 +20,7 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import { useShellCommand } from '../../../src/components/shell/ShellContext';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { searchLibrary, type SearchHit } from '../../../src/services/search.service';
 import { isNetworkError } from '../../../src/lib/cloudRows';
 import { resultCountLine, searchQuery, snippetAround } from '../../../src/utils/searchText';
@@ -205,7 +206,7 @@ export default function SearchScreen() {
                 onPress={() => setChip(key)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityState={{ selected: active }}
+                {...a11yState({ selected: active })}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]} maxFontSizeMultiplier={1.6}>
                   {label}

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useConnectivity } from '../../lib/connectivity';
 import { chosenLectures, countsLine, planInputFor, quizTitle, suggestedMinutes, type MaterialLecture, type QuizMaterial } from '../../lib/quiz/panel';
@@ -322,7 +323,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
       disabled={disabled}
       style={({ pressed }) => [q.pill, on && q.pillOn, disabled && styles.dim, pressed && styles.pressed]}
       accessibilityRole={role}
-      accessibilityState={{ checked: on, disabled }}
+      {...a11yState({ checked: on, disabled })}
       accessibilityLabel={text}
       {...{ dataSet: { ...data, checked: String(on) } }}
     >
@@ -342,7 +343,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
         disabled={off}
         style={[q.lecture, on && q.lectureOn, off && q.lectureOff]}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: on, disabled: off }}
+        {...a11yState({ checked: on, disabled: off })}
         accessibilityLabel={l.title}
         {...{ dataSet: { newquiz: 'lecture', id: l.id, checked: String(on) } }}
       >
@@ -366,7 +367,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
         disabled={!transcribed.length}
         style={[q.lecture, wholeCourse && q.lectureOn]}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: wholeCourse, disabled: !transcribed.length }}
+        {...a11yState({ checked: wholeCourse, disabled: !transcribed.length })}
         accessibilityLabel="Whole course"
         {...{ dataSet: { newquiz: 'whole-course', checked: String(wholeCourse) } }}
       >
@@ -389,7 +390,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
               disabled={!usable.length}
               style={q.folder}
               accessibilityRole="checkbox"
-              accessibilityState={{ checked: allOn, disabled: !usable.length }}
+              {...a11yState({ checked: allOn, disabled: !usable.length })}
               accessibilityLabel={`Folder ${f.name}`}
               {...{ dataSet: { newquiz: 'folder', id: f.id, checked: String(allOn) } }}
             >
@@ -508,7 +509,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
 
   const toggleType = (t: QuestionType) => choose({ types: choices.types.includes(t) ? choices.types.filter((x) => x !== t) : QUESTION_TYPES.filter((x) => x === t || choices.types.includes(x)) });
   const tick = (text: string, on: boolean, onPress: () => void, key: string) => (
-    <Pressable key={key} onPress={onPress} style={q.tick} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={text} {...{ dataSet: { newquiz: key, checked: String(on) } }}>
+    <Pressable key={key} onPress={onPress} style={q.tick} accessibilityRole="checkbox" {...a11yState({ checked: on })} accessibilityLabel={text} {...{ dataSet: { newquiz: key, checked: String(on) } }}>
       <CheckBox on={on} />
       <Text style={q.choiceText}>{text}</Text>
     </Pressable>

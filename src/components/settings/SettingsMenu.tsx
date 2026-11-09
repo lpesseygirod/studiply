@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { sectionForPath, sectionHref, visibleSections } from '../../utils/settingsSections';
 
 export function SettingsMenu() {
@@ -28,7 +29,9 @@ export function SettingsMenu() {
             style={({ hovered }: { hovered?: boolean }) => [styles.item, active ? styles.itemActive : hovered && styles.itemHover]}
             onPress={() => router.navigate(sectionHref(section.key))}
             accessibilityRole="link"
-            accessibilityState={{ selected: active }}
+            {...a11yState({ selected: active })}
+            // A menu of pages: the open one is the current page (aria-current, which links take).
+            aria-current={active ? 'page' : undefined}
           >
             <Text style={[styles.label, active && styles.labelActive]}>{section.label}</Text>
           </Pressable>

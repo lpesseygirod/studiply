@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { GradientFill } from '../GradientBackground';
@@ -122,8 +123,7 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
                   onPress={() => setAgreed((a) => !a)}
                   style={styles.agree}
                   accessibilityRole="checkbox"
-                  accessibilityState={{ checked: agreed }}
-                  aria-checked={agreed}
+                  {...a11yState({ checked: agreed })}
                   {...{ dataSet: { consent: 'agree', checked: agreed ? 'true' : 'false' } }}
                 >
                   <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={20} color={agreed ? c.accentDark : c.text.secondary} />

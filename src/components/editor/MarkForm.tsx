@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DocColors, type ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 import { MARK_KINDS, type MarkKind } from '../../editor/schema/markChip';
 
@@ -43,7 +44,7 @@ export function MarkForm({
             onPress={() => setKind(k.kind)}
             style={[styles.kind, { backgroundColor: DocColors.markChip[k.kind].bg }, kind === k.kind && styles.kindOn]}
             accessibilityRole="radio"
-            accessibilityState={{ checked: kind === k.kind }}
+            {...a11yState({ checked: kind === k.kind })}
             accessibilityLabel={`Mark: ${k.name}`}
           >
             <Text style={[styles.kindText, { color: DocColors.markChip[k.kind].text }]}>{k.name}</Text>
@@ -58,7 +59,7 @@ export function MarkForm({
             onPress={() => setLevel(n)}
             style={[styles.level, level === n && styles.levelOn]}
             accessibilityRole="radio"
-            accessibilityState={{ checked: level === n }}
+            {...a11yState({ checked: level === n })}
             accessibilityLabel={`Level ${n}`}
           >
             <Text style={[styles.levelText, level === n && styles.levelTextOn]}>{n}</Text>

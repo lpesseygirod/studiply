@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { PAGE_COLORS } from '../../editor/editorCss';
 import StudiplyEditor from '../../editor/StudiplyEditor';
 import { SheetTab } from '../sheet/SheetTab';
@@ -198,7 +199,7 @@ export function VersionHistory({
                     onPress={() => select(v)}
                     style={[styles.row, active && styles.rowActive]}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
+                    {...a11yState({ selected: active })}
                     accessibilityLabel={v.name ? `${v.name}, ${label(v)}` : label(v)}
                   >
                     {v.name ? <Text style={styles.rowName}>{v.name}</Text> : null}

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { DocColors, type ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { MENU_CALLOUT_KINDS, type CalloutKind } from '../../editor/schema/callout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,7 +23,7 @@ export function CalloutKinds({ current, onPick }: { current?: CalloutKind | null
           onPress={() => onPick(k.kind)}
           style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && styles.hover]}
           accessibilityRole="menuitem"
-          accessibilityState={{ checked: current === k.kind }}
+          {...a11yState({ checked: current === k.kind })}
           accessibilityLabel={`Callout: ${k.name}`}
         >
           <View style={styles.check}>{current === k.kind && <MaterialCommunityIcons name="check" size={16} color={c.accentDark} />}</View>

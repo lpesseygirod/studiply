@@ -15,6 +15,7 @@ import { useRecentColours } from '../services/preferences.service';
 import type { ThemeColors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { Typography } from '../constants/typography';
+import { a11yState } from '../utils/a11y';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { PAGE_COLORS } from './editorCss';
 import { LINK_EVENT } from './bridges/format';
@@ -182,7 +183,7 @@ export function FormatToolbar({
         style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && !disabled && styles.toolHover, active && styles.toolActive, disabled && styles.disabled]}
         accessibilityRole="button"
         accessibilityLabel={TOOLS[key].name}
-        accessibilityState={{ selected: active, disabled }}
+        {...a11yState({ selected: active, disabled })}
       >
         <MaterialCommunityIcons name={icon} size={20} color={active ? c.accentDark : c.text.primary} />
       </Pressable>
@@ -245,7 +246,7 @@ export function FormatToolbar({
       onPress={onPress}
       style={({ hovered }: { hovered?: boolean }) => [styles.menuRow, hovered && styles.toolHover]}
       accessibilityRole="menuitem"
-      accessibilityState={{ checked }}
+      {...a11yState({ checked })}
       accessibilityLabel={label}
     >
       <View style={styles.check}>{checked && <MaterialCommunityIcons name="check" size={16} color={c.accentDark} />}</View>
@@ -395,7 +396,7 @@ export function FormatToolbar({
           style={({ hovered }: { hovered?: boolean }) => [styles.tool, hovered && styles.toolHover, expanded && styles.toolActive]}
           accessibilityRole="button"
           accessibilityLabel={expanded ? 'Fewer tools' : 'More tools'}
-          accessibilityState={{ expanded }}
+          {...a11yState({ expanded })}
         >
           <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={22} color={expanded ? c.accentDark : c.text.primary} />
         </Pressable>

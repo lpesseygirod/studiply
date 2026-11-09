@@ -16,6 +16,7 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import { GradientFill } from '../../../src/components/GradientBackground';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { getSession, updateSession } from '../../../src/services/session.service';
 import { bulkApplyRetention, getActiveSourceFiles } from '../../../src/services/source-file.service';
 import { createNote } from '../../../src/services/note.service';
@@ -636,9 +637,7 @@ export default function ReviewScreen() {
               onPress={() => pickRetention(opt.value)}
               activeOpacity={0.7}
               accessibilityRole="radio"
-              // iOS reads accessibilityState; React Native Web only aria-checked.
-              accessibilityState={{ checked: retention === opt.value }}
-              aria-checked={retention === opt.value}
+              {...a11yState({ checked: retention === opt.value })}
               {...{ dataSet: { retention: opt.value, checked: retention === opt.value ? 'true' : 'false' } }}
             >
               <View style={[styles.radioOuter, retention === opt.value && styles.radioOuterActive]}>

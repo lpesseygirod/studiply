@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { DraggableView, GestureDropTarget } from '../../lib/dnd/GestureDrag';
 import type { Dragged, DropTarget } from '../../lib/dnd/rules';
 import { useDragSource, useDropZone, type DropHandlers } from '../../lib/dnd/useHtml5Drag';
@@ -237,7 +238,7 @@ function Entry({
       <>
         <View style={styles.tileIcon}>
           {thumbnail ? (
-            <Image source={{ uri: thumbnail }} style={styles.thumb} resizeMode="cover" />
+            <Image source={{ uri: thumbnail }} style={styles.thumb} resizeMode="cover" accessible={false} />
           ) : (
             <Ionicons name={icon.name} size={44} color={icon.color} />
           )}
@@ -288,7 +289,7 @@ function Entry({
       style={[box, selected && styles.selected, drop.hover === 'ok' && styles.dropOk]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={view === 'grid' ? { selected } : undefined}
+      {...a11yState(view === 'grid' ? { selected } : undefined)}
       testID={testID}
     >
       {content}

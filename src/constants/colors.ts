@@ -42,7 +42,8 @@ const light = {
   text: {
     primary: '#0A0A0A',
     secondary: '#5A5A6A',
-    placeholder: '#9B9BAA',
+    // 4.5:1 on cards and muted rows (step 10.1b-5; was #9B9BAA, 2.6:1).
+    placeholder: '#6A6A7A',
     inverse: '#FFFFFF',
     /** Secondary text placed straight on the gradient (readable on every stop). */
     onGradient: '#3A3A48',
@@ -198,7 +199,8 @@ export const DarkColors: ThemeColors = {
   text: {
     primary: '#F2F1F6',   // on cards
     secondary: '#BDBBCB', // on cards
-    placeholder: '#8F8DA3',
+    // 4.5:1 on cards and muted rows (step 10.1b-5; was #8F8DA3, 4.1:1 on rows).
+    placeholder: '#9997AD',
     inverse: '#1A1A2E',
     onGradient: '#14141F',       // dark text straight on the dimmed gradient
     onGradientStrong: '#14141F',

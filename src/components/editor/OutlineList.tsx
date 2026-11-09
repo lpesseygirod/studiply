@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native'
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 import type { OutlineHeading } from '../../editor/writing/outline';
 
@@ -38,7 +39,7 @@ export function OutlineList({ headings, current, onPick }: { headings: OutlineHe
           style={({ hovered }: { hovered?: boolean }) => [styles.row, { paddingLeft: 10 + Math.max(0, h.level - 1) * 14 }, i === current ? styles.rowOn : hovered && styles.rowHover]}
           accessibilityRole="button"
           aria-selected={i === current}
-          accessibilityState={{ selected: i === current }}
+          {...a11yState({ selected: i === current })}
           accessibilityLabel={h.text}
           {...(web ? { dataSet: { heading: String(i), current: i === current ? '1' : '0' } } : {})}
         >

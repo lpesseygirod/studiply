@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import type { UserSettings } from '../../types/database';
 import type { SaveSetting } from '../../hooks/useUserSettings';
 import { runShellCommand } from '../shell/ShellContext';
@@ -59,8 +60,11 @@ interface SettingsProps extends GroupProps {
   save: SaveSetting;
 }
 
-/** A settings switch in the app's colours. */
-export function SettingSwitch(props: { value: boolean; onValueChange: (v: boolean) => void; accessibilityLabel?: string }) {
+/**
+ * A settings switch in the app's colours. `accessibilityLabel` is required (step 10.1b-5): it is the
+ * row's text, read for the switch itself (react-native-web puts it on the <input role="switch">).
+ */
+export function SettingSwitch(props: { value: boolean; onValueChange: (v: boolean) => void; accessibilityLabel: string }) {
   const { colors: c } = useTheme();
   return (
     <Switch
@@ -95,7 +99,7 @@ export function AppearanceSettings({ title = 'APPEARANCE' }: GroupProps) {
                 onPress={() => setAppearance(value)}
                 activeOpacity={0.8}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: active }}
+                {...a11yState({ checked: active })}
               >
                 <Text style={[styles.pillText, active && styles.pillTextActive]} numberOfLines={1}>
                   {label}
@@ -148,7 +152,7 @@ export function RecordingSettings({ settings, save, title = 'RECORDING' }: Setti
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Default recording mode</Text>
         </View>
-        <View style={styles.pillsRow}>
+        <View style={styles.pillsRow} accessibilityRole="radiogroup" accessibilityLabel="Default recording mode">
           {(['lecture', 'standard', 'discussion'] as const).map(mode => {
             const active = settings.default_recording_mode === mode;
             return (
@@ -157,6 +161,8 @@ export function RecordingSettings({ settings, save, title = 'RECORDING' }: Setti
                 style={[styles.pill, active && styles.pillActive]}
                 onPress={() => save('mode', { default_recording_mode: mode })}
                 activeOpacity={0.8}
+                accessibilityRole="radio"
+                {...a11yState({ checked: active })}
               >
                 <Text style={[styles.pillText, active && styles.pillTextActive]} numberOfLines={1} adjustsFontSizeToFit>
                   {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -174,13 +180,20 @@ export function RecordingSettings({ settings, save, title = 'RECORDING' }: Setti
           <SettingSwitch
             value={settings.lecture_mode_default ?? false}
             onValueChange={v => save('lecture mode', { lecture_mode_default: v })}
+            accessibilityLabel="Start in Lecture Mode"
           />
         </View>
 
         <View style={styles.divider} />
 
         {/* Default language */}
-        <TouchableOpacity style={styles.toggleRow} onPress={() => setShowLangPicker(true)} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => setShowLangPicker(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Default transcription language, ${currentLanguage.label}`}
+        >
           <Text style={styles.rowLabel}>Default transcription language</Text>
           <View style={styles.rowValue}>
             <Text style={styles.rowValueText}>{currentLanguage.label}</Text>
@@ -192,7 +205,7 @@ export function RecordingSettings({ settings, save, title = 'RECORDING' }: Setti
       {/* Language picker */}
       <Modal visible={showLangPicker} transparent animationType="slide" onRequestClose={() => setShowLangPicker(false)}>
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowLangPicker(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowLangPicker(false)} accessibilityRole="button" accessibilityLabel="Close" />
           <View style={[pickerStyles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={pickerStyles.pickerTitle}>Transcription Language</Text>
             <FlatList
@@ -206,6 +219,8 @@ export function RecordingSettings({ settings, save, title = 'RECORDING' }: Setti
                     setShowLangPicker(false);
                   }}
                   activeOpacity={0.75}
+                  accessibilityRole="radio"
+                  {...a11yState({ checked: settings.default_language === item.code })}
                 >
                   <Text style={pickerStyles.pickerRowText}>{item.label}</Text>
                   {settings.default_language === item.code && <Ionicons name="checkmark" size={18} color={c.salmon} />}
@@ -238,7 +253,7 @@ export function SummarySettings({ settings, save, title = 'AI PROCESSING' }: Set
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Default summary level</Text>
         </View>
-        <View style={styles.pillsRow}>
+        <View style={styles.pillsRow} accessibilityRole="radiogroup" accessibilityLabel="Default summary level">
           {SUMMARY_LEVELS.map(({ value, label }) => {
             const active = settings.default_summary_level === value;
             return (
@@ -247,6 +262,8 @@ export function SummarySettings({ settings, save, title = 'AI PROCESSING' }: Set
                 style={[styles.pill, active && styles.pillActive]}
                 onPress={() => save('summary level', { default_summary_level: value })}
                 activeOpacity={0.8}
+                accessibilityRole="radio"
+                {...a11yState({ checked: active })}
               >
                 <Text style={[styles.pillText, active && styles.pillTextActive]} numberOfLines={1} adjustsFontSizeToFit>
                   {label}
@@ -264,6 +281,7 @@ export function SummarySettings({ settings, save, title = 'AI PROCESSING' }: Set
               <SettingSwitch
                 value={(settings[t.key] as boolean | undefined) ?? true}
                 onValueChange={v => save(t.saveLabel, { [t.key]: v } as Partial<UserSettings>)}
+                accessibilityLabel={t.label}
               />
             </View>
           </React.Fragment>
@@ -294,9 +312,7 @@ export function RetentionSettings({ settings, save, title = 'SOURCE FILES' }: Se
                 onPress={() => save('retention', { default_retention_policy: opt.value })}
                 activeOpacity={0.75}
                 accessibilityRole="radio"
-                // iOS reads accessibilityState; React Native Web only aria-checked (step 10.1b-3).
-                accessibilityState={{ checked: active }}
-                aria-checked={active}
+                {...a11yState({ checked: active })}
               >
                 <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
                   {active && <View style={styles.radioInner} />}

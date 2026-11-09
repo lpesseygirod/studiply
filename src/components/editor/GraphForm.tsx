@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { GRAPH_KINDS, MAX_ROWS, MAX_SERIES, MAX_TEXT, MAX_TITLE, planGraph, type FormKind, type GraphData } from '../../editor/graph/data';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
@@ -61,7 +62,7 @@ export function GraphForm({ value, onChange, onDone, onDelete }: { value: GraphD
             accessibilityRole="button"
             // react-native-web 0.21 reads aria-selected, not accessibilityState.
             aria-selected={value.kind === k.kind}
-            accessibilityState={{ selected: value.kind === k.kind }}
+            {...a11yState({ selected: value.kind === k.kind })}
             accessibilityLabel={`Graph type: ${k.name}`}
           >
             <MaterialCommunityIcons name={ICONS[k.kind]} size={20} color={value.kind === k.kind ? c.accentDark : c.text.secondary} />

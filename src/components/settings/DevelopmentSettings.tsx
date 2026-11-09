@@ -58,7 +58,7 @@ export function DevelopmentSettings({ title = 'DEVELOPMENT' }: { title?: string 
       <View style={styles.card}>
         <View style={styles.toggleRow}>
           <Text style={styles.rowLabel}>Simulate offline</Text>
-          <SettingSwitch value={simulatedOffline} onValueChange={setSimulatedOffline} />
+          <SettingSwitch value={simulatedOffline} onValueChange={setSimulatedOffline} accessibilityLabel="Simulate offline" />
         </View>
         <View style={styles.divider} />
         <View style={styles.row}>
@@ -79,7 +79,7 @@ export function DevelopmentSettings({ title = 'DEVELOPMENT' }: { title?: string 
             <View style={styles.divider} />
             <View style={styles.toggleRow}>
               <Text style={styles.rowLabel}>Use sample earlier-version data</Text>
-              <SettingSwitch value={useSample} onValueChange={toggleSample} />
+              <SettingSwitch value={useSample} onValueChange={toggleSample} accessibilityLabel="Use sample earlier-version data" />
             </View>
             <View style={styles.divider} />
             <TouchableOpacity style={styles.toggleRow} onPress={createSample} disabled={creatingSample} activeOpacity={0.75}>

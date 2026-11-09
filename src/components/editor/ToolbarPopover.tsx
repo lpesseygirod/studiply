@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { Anchor } from '../dialogs/dialogs';
 
@@ -70,7 +71,7 @@ export function PopoverRow({
       disabled={disabled}
       style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && !disabled && styles.rowHover, disabled && styles.disabled]}
       accessibilityRole="menuitem"
-      accessibilityState={{ checked, disabled }}
+      {...a11yState({ checked, disabled })}
     >
       <View style={styles.check}>{checked && <MaterialCommunityIcons name="check" size={16} color={c.accentDark} />}</View>
       <Text style={[styles.text, danger && { color: c.error }]}>{label}</Text>

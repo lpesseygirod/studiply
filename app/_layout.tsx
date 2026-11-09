@@ -8,6 +8,7 @@ import '../src/services/sync-handlers';
 import { useAuth } from '../src/hooks/useAuth';
 import SplashScreen from '../src/components/SplashScreen';
 import DialogHost from '../src/components/dialogs/DialogHost';
+import { FocusRing } from '../src/components/FocusRing';
 import { AiConsentHost } from '../src/components/consent/AiConsentHost';
 import { TermsGateHost } from '../src/components/legal/TermsGateHost';
 import { PictureFlattenerHost } from '../src/components/PictureFlattenerHost';
@@ -63,6 +64,8 @@ export default function RootLayout() {
             {/* Step 10.1b-2: an account that never accepted the Terms is asked once, after sign-in. */}
             <TermsGateHost />
           </AuthProvider>
+          {/* Step 10.1b-5: the laptop's visible focus ring for keyboard users. */}
+          <FocusRing />
           <DialogHost />
           {/* Step 10.1: the AI consent screen, asked from anywhere (services/consent.service). */}
           <AiConsentHost />

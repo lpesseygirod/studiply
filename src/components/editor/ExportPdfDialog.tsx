@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { PageSetup, PaperSize } from '../../editor/page/pageSetup';
 import type { DocJSON } from '../../editor/types';
@@ -196,7 +197,7 @@ export function ExportPdfDialog({
       disabled={busy}
       style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && styles.rowHover]}
       accessibilityRole="radio"
-      accessibilityState={{ checked: on }}
+      {...a11yState({ checked: on })}
       aria-checked={on}
       accessibilityLabel={label}
     >
@@ -214,7 +215,7 @@ export function ExportPdfDialog({
       disabled={busy || disabled}
       style={({ hovered }: { hovered?: boolean }) => [styles.row, hovered && !disabled && styles.rowHover, disabled && styles.off]}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: on, disabled }}
+      {...a11yState({ checked: on, disabled })}
       aria-checked={on}
       accessibilityLabel={label}
     >
@@ -249,7 +250,7 @@ export function ExportPdfDialog({
                   disabled={busy}
                   style={[styles.format, format === f && styles.formatOn]}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: format === f }}
+                  {...a11yState({ checked: format === f })}
                   aria-checked={format === f}
                   accessibilityLabel={f === 'pdf' ? 'PDF' : 'Word'}
                 >
@@ -279,7 +280,7 @@ export function ExportPdfDialog({
                       disabled={busy}
                       style={[styles.paper, paper === size && styles.formatOn]}
                       accessibilityRole="radio"
-                      accessibilityState={{ checked: paper === size }}
+                      {...a11yState({ checked: paper === size })}
                       aria-checked={paper === size}
                       accessibilityLabel={size === 'a4' ? 'A4' : 'Letter'}
                     >

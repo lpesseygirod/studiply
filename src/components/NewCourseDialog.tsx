@@ -14,6 +14,7 @@ import {
 
 import { Colors, type ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
+import { a11yState } from '../utils/a11y';
 import { createProject, type ProjectWithCount } from '../services/project.service';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { errorMessage } from '../utils/errors';
@@ -115,7 +116,7 @@ export function NewCourseDialog({
                   onPress={() => setColor(value)}
                   style={[styles.swatchTarget]}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: color === value }}
+                  {...a11yState({ checked: color === value })}
                   accessibilityLabel={COLOR_NAMES[i] ?? `Colour ${i + 1}`}
                   testID={`course-color-${i}`}
                 >

@@ -441,6 +441,8 @@ export default function RecordSetupScreen() {
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={() => setShowProjectPicker(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
           />
           <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.pickerSheetTitle}>Select course</Text>
@@ -502,6 +504,8 @@ export default function RecordSetupScreen() {
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={() => setShowFolderPicker(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
           />
           <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.pickerSheetTitle}>Select folder</Text>
@@ -570,6 +574,8 @@ export default function RecordSetupScreen() {
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={() => setShowLanguagePicker(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
           />
           <View style={[styles.pickerSheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.pickerSheetTitle}>Select Language</Text>

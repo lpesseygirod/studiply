@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/react';
 
 import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
+import { a11yState } from '../utils/a11y';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import { runFormat } from './format';
 import { findState } from './writing/find';
@@ -113,7 +114,7 @@ export function FindBar({
       style={({ hovered }: { hovered?: boolean }) => [styles.toggle, on ? styles.toggleOn : hovered && styles.hover]}
       accessibilityRole="checkbox"
       aria-checked={on}
-      accessibilityState={{ checked: on }}
+      {...a11yState({ checked: on })}
       accessibilityLabel={label}
     >
       <Text style={[styles.toggleText, on && styles.toggleTextOn]}>{short}</Text>

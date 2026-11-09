@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { LICENCE_NOTICES, OPEN_SOURCE_PACKAGES } from '../../legal/licences.generated';
 
@@ -94,7 +95,7 @@ function Toggle({ open, onPress, label, tag }: { open: boolean; onPress: () => v
       onPress={onPress}
       style={styles.toggle}
       accessibilityRole="button"
-      accessibilityState={{ expanded: open }}
+      {...a11yState({ expanded: open })}
       {...{ dataSet: { legal: tag } }}
     >
       <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={16} color={c.accentDark} />

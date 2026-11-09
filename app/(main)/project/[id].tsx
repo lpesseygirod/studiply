@@ -24,6 +24,7 @@ import { useAuth } from '../../../src/hooks/useAuth';
 import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { LightColors, type ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { getProject } from '../../../src/services/project.service';
 import { getSessionsByProject } from '../../../src/services/session.service';
 import { getFolders, createFolder, getFolder, getFolderBreadcrumbs, renameFolder, type Breadcrumb } from '../../../src/services/folder.service';
@@ -810,7 +811,7 @@ export default function ProjectDetailScreen() {
                     style={styles.lecturePhotosHeader}
                     onPress={() => setLibraryPrefs({ lecturePhotosOpen: !libraryPrefs.lecturePhotosOpen })}
                     accessibilityRole="button"
-                    accessibilityState={{ expanded: libraryPrefs.lecturePhotosOpen }}
+                    {...a11yState({ expanded: libraryPrefs.lecturePhotosOpen })}
                   >
                     <Text style={styles.sectionLabel}>PHOTOS & PDFS FROM LECTURES · {projectFiles.length}</Text>
                     <Ionicons
@@ -833,7 +834,7 @@ export default function ProjectDetailScreen() {
                             onMenu={anchor => showFileActions(file, anchor)}
                           >
                             {isPhoto ? (
-                              <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" />
+                              <Image source={{ uri: file.file_path }} style={styles.fileThumb} resizeMode="cover" accessible={false} />
                             ) : (
                               <View style={styles.fileIconWrap}>
                                 <Ionicons name="document-text" size={18} color={c.text.secondary} />
@@ -876,6 +877,7 @@ export default function ProjectDetailScreen() {
           {previewUri && (
             <Image
               source={{ uri: previewUri }}
+              accessibilityLabel="Photo"
               style={styles.previewImage}
               resizeMode="contain"
             />

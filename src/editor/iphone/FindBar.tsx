@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatCommand } from '../format';
 import type { FindState } from '../writing/find';
@@ -32,7 +33,7 @@ export function FindBar({ state, run, replace, onReplace, onClose }: { state: Fi
   const none = !state || state.count === 0;
   const count = !query ? '' : none ? 'None' : `${state!.current + 1} of ${state!.count}`;
   const toggle = (label: string, short: string, on: boolean, set: (v: boolean) => void) => (
-    <Pressable onPress={() => set(!on)} style={[styles.toggle, on && styles.toggleOn]} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={label}>
+    <Pressable onPress={() => set(!on)} style={[styles.toggle, on && styles.toggleOn]} accessibilityRole="checkbox" {...a11yState({ checked: on })} accessibilityLabel={label}>
       <Text style={[styles.toggleText, on && styles.toggleTextOn]}>{short}</Text>
     </Pressable>
   );

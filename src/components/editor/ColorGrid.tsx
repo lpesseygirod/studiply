@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { PALETTE } from '../../editor/colors/palette';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
@@ -48,7 +49,7 @@ export function ColorGrid({
       style={[styles.swatch, { width: size, height: size, backgroundColor: colour }, current === colour && styles.swatchActive]}
       accessibilityRole="button"
       accessibilityLabel={`${kind} ${label}`}
-      accessibilityState={{ selected: current === colour }}
+      {...a11yState({ selected: current === colour })}
     />
   );
 

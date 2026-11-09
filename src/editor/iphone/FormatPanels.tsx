@@ -9,6 +9,7 @@ import { ColorGrid } from '../../components/editor/ColorGrid';
 import { SpectrumPicker } from '../../components/editor/SpectrumPicker';
 import { useRecentColours } from '../../services/preferences.service';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatBridgeInstance, FormatBridgeState } from '../bridges/format';
 import { ALIGNS, TEXT_STYLES, type Align, type FormatCommand, type TextStyleKey } from '../format';
@@ -69,7 +70,7 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
   };
 
   const chip = (key: string, label: string, onPress: () => void, active: boolean, textStyle?: object) => (
-    <Pressable key={key} onPress={onPress} style={[styles.chip, active && styles.chipActive]} accessibilityRole="button" accessibilityState={{ selected: active }}>
+    <Pressable key={key} onPress={onPress} style={[styles.chip, active && styles.chipActive]} accessibilityRole="button" {...a11yState({ selected: active })}>
       <Text style={[styles.chipText, active && styles.chipTextActive, textStyle]}>{label}</Text>
     </Pressable>
   );
@@ -81,7 +82,7 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
       style={[styles.iconButton, styles.iconBox, active && styles.chipActive, disabled && styles.disabled]}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ selected: active, disabled }}
+      {...a11yState({ selected: active, disabled })}
     >
       <MaterialCommunityIcons name={name} size={22} color={active ? c.accentDark : c.text.primary} />
     </Pressable>
@@ -98,7 +99,7 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
               onPress={() => run({ type: 'style', style: t.key })}
               style={[styles.styleRow, i > 0 && styles.divider]}
               accessibilityRole="button"
-              accessibilityState={{ selected: s?.style === t.key }}
+              {...a11yState({ selected: s?.style === t.key })}
             >
               <Text style={[styles.styleText, STYLE_LOOK[t.key]]}>{t.label}</Text>
               {s?.style === t.key && <MaterialCommunityIcons name="check" size={20} color={c.accentDark} />}
@@ -117,7 +118,7 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
                 style={[styles.alignButton, active && styles.chipActive]}
                 accessibilityRole="button"
                 accessibilityLabel={`Align ${a.label.toLowerCase()}`}
-                accessibilityState={{ selected: active }}
+                {...a11yState({ selected: active })}
               >
                 <MaterialCommunityIcons name={ALIGN_ICON[a.key]} size={22} color={active ? c.accentDark : c.text.primary} />
                 <Text style={[styles.alignText, active && styles.chipTextActive]}>{a.label}</Text>
@@ -205,7 +206,7 @@ function ColorPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
               }}
               style={[styles.chip, styles.tab, kind === k && styles.chipActive]}
               accessibilityRole="tab"
-              accessibilityState={{ selected: kind === k }}
+              {...a11yState({ selected: kind === k })}
             >
               <Text style={[styles.chipText, kind === k && styles.chipTextActive]}>{k === 'color' ? 'Text colour' : 'Highlight'}</Text>
             </Pressable>

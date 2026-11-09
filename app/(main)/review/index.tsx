@@ -7,6 +7,7 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../../src/theme/T
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Layout } from '../../../src/constants/layout';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { GradientBackground } from '../../../src/components/GradientBackground';
 import { FlashcardsView } from '../../../src/components/review/FlashcardsView';
 import { QuizView } from '../../../src/components/review/QuizView';
@@ -114,7 +115,7 @@ export default function ReviewScreen() {
                     onPress={() => setMode(m)}
                     style={[styles.mode, mode === m && styles.modeOn]}
                     accessibilityRole="tab"
-                    accessibilityState={{ selected: mode === m }}
+                    {...a11yState({ selected: mode === m })}
                     aria-selected={mode === m}
                     accessibilityLabel={m === 'cards' ? 'Flashcards' : 'Quiz me'}
                   >

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { PAGE_COLORS } from '../../editor/editorCss';
 import {
@@ -95,7 +96,7 @@ export function PageSetupDialog({
       onPress={onPress}
       style={({ hovered }: { hovered?: boolean }) => [styles.tile, hovered && styles.tileHover, current === value && styles.tileOn]}
       accessibilityRole="radio"
-      accessibilityState={{ checked: current === value }}
+      {...a11yState({ checked: current === value })}
       accessibilityLabel={a11y ?? label}
     >
       <View style={styles.tilePicture}>{picture}</View>

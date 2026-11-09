@@ -8,6 +8,7 @@ import { useTheme, useThemedStyles } from '../../src/theme/ThemeProvider';
 import type { ThemeColors } from '../../src/constants/colors';
 import { Layout } from '../../src/constants/layout';
 import { Typography } from '../../src/constants/typography';
+import { a11yState } from '../../src/utils/a11y';
 import { GradientFill } from '../../src/components/GradientBackground';
 import { OfflineBanner } from '../../src/components/OfflineBanner';
 import { AssistantPanel } from '../../src/components/shell/AssistantPanel';
@@ -79,7 +80,7 @@ function RecordTabButton({
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel="Record lecture"
-        accessibilityState={accessibilityState}
+        {...a11yState(accessibilityState)}
         style={({ pressed }) => [styles.recordRing, pressed && styles.recordPressed]}
       >
         <View style={styles.recordCircle}>

@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { FORMULA_STARTERS } from '../../editor/schema/formula';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
@@ -52,7 +53,7 @@ export function FormulaForm({
       accessibilityRole="button"
       // react-native-web 0.21 reads aria-selected, not accessibilityState.
       aria-selected={display === value}
-      accessibilityState={{ selected: display === value }}
+      {...a11yState({ selected: display === value })}
       accessibilityLabel={value ? 'Formula on its own line' : 'Formula in the text'}
     >
       <Text style={[styles.segmentText, display === value && styles.segmentTextOn]}>{label}</Text>

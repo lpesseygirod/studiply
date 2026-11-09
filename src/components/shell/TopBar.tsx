@@ -6,6 +6,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
 import { LogoTile } from '../LogoTile';
 import UserAvatar from '../UserAvatar';
@@ -153,7 +154,7 @@ function ReviewModes() {
       onPress={() => router.replace(href)}
       style={[styles.mode, on && styles.modeOn]}
       accessibilityRole="tab"
-      accessibilityState={{ selected: on }}
+      {...a11yState({ selected: on })}
       aria-selected={on}
       accessibilityLabel={label}
     >

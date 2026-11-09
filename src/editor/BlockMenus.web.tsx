@@ -8,6 +8,7 @@ import { MarkForm } from '../components/editor/MarkForm';
 import { PopoverDivider, PopoverHeading, PopoverRow, ToolbarPopover } from '../components/editor/ToolbarPopover';
 import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
+import { a11yState } from '../utils/a11y';
 import { useThemedStyles } from '../theme/ThemeProvider';
 import { MarkPanel } from '../components/recording/MarkPanel';
 import { formatState, linkedMarkOf, runFormat, type FormatCommand } from './format';
@@ -68,7 +69,7 @@ export function BlockMenus({ editor, onMarkRemoved }: { editor: Editor; onMarkRe
                       onPress={() => run({ type: 'callout', action: 'level', level: n })}
                       style={[styles.level, s.callout?.level === n && styles.levelOn]}
                       accessibilityRole="radio"
-                      accessibilityState={{ checked: s.callout?.level === n }}
+                      {...a11yState({ checked: s.callout?.level === n })}
                       accessibilityLabel={`Level ${n}`}
                     >
                       <Text style={[styles.levelText, s.callout?.level === n && styles.levelTextOn]}>{n}</Text>

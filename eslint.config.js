@@ -1,6 +1,8 @@
 // https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
+// Step 10.1b-5: icon-only buttons and images are named for screen readers (a local rule, no package).
+const a11yLabels = require('./eslint/a11y-labels');
 
 // Alert with buttons, Alert.prompt and ActionSheetIOS do nothing in a
 // browser; screens use src/components/dialogs instead.
@@ -25,5 +27,11 @@ module.exports = defineConfig([
         { object: 'ActionSheetIOS', property: 'showActionSheetWithOptions', message: WEB_SILENT_DIALOGS },
       ],
     },
+  },
+  {
+    files: ['app/**/*.tsx', 'src/**/*.tsx'],
+    ignores: ['**/__tests__/**'],
+    plugins: { studiply: { rules: { 'a11y-labels': a11yLabels } } },
+    rules: { 'studiply/a11y-labels': 'error' },
   },
 ]);

@@ -76,6 +76,8 @@ export default function Avatar({
           onLoad={() => setLoaded(true)}
           onError={() => setPhotoUrl(null)}
           accessibilityIgnoresInvertColors
+          // Decoration: the name is read beside it (or by the button it is in).
+          accessible={false}
         />
       )}
     </View>

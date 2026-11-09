@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useThemedStyles } from '../theme/ThemeProvider';
 import type { ThemeColors } from '../constants/colors';
 import { Typography } from '../constants/typography';
+import { a11yState } from '../utils/a11y';
 import { getProjects } from '../services/project.service';
 import { getFolders } from '../services/folder.service';
 import { getSessionsByProject } from '../services/session.service';
@@ -306,7 +307,7 @@ export default function MoveToModal({
               <TouchableOpacity
                 style={[styles.row, item.kind === 'lecture' && selected?.id === item.data.id && styles.rowSelected]}
                 onPress={() => navigateInto(item)}
-                accessibilityState={item.kind === 'lecture' ? { selected: selected?.id === item.data.id } : undefined}
+                {...a11yState(item.kind === 'lecture' ? { selected: selected?.id === item.data.id } : undefined)}
               >
                 <View style={styles.rowIcon}>
                   <Ionicons

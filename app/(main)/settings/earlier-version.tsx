@@ -8,6 +8,7 @@ import { useTheme, useThemedStyles } from '../../../src/theme/ThemeProvider';
 import { SettingsPage } from '../../../src/components/settings/SettingsPage';
 import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
+import { a11yState } from '../../../src/utils/a11y';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import { confirmAction } from '../../../src/utils/confirm';
 import { errorMessage } from '../../../src/utils/errors';
@@ -191,7 +192,7 @@ export default function EarlierVersionScreen() {
                 onPress={() => toggle(p.id)}
                 disabled={busy || uploaded}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: on, disabled: busy || uploaded }}
+                {...a11yState({ checked: on, disabled: busy || uploaded })}
                 activeOpacity={0.8}
               >
                 <Ionicons

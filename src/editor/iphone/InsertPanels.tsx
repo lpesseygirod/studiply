@@ -5,6 +5,7 @@ import { CustomKeyboardExtension, useBridgeState, type CustomKeyboardComponentPr
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { ColorGrid } from '../../components/editor/ColorGrid';
 import { SpectrumPicker } from '../../components/editor/SpectrumPicker';
 import { showAlert } from '../../components/dialogs/dialogs';
@@ -241,7 +242,7 @@ function TablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
           ))}
         </View>
         <View style={styles.card}>
-          <Pressable onPress={() => run({ type: 'table', action: 'headerRow' })} style={styles.listRow} accessibilityRole="switch" accessibilityState={{ checked: !!s?.headerRow }}>
+          <Pressable onPress={() => run({ type: 'table', action: 'headerRow' })} style={styles.listRow} accessibilityRole="switch" {...a11yState({ checked: !!s?.headerRow })}>
             <Text style={styles.listText}>Header row</Text>
             <MaterialCommunityIcons name={s?.headerRow ? 'toggle-switch' : 'toggle-switch-off-outline'} size={34} color={s?.headerRow ? c.accentDark : c.text.secondary} />
           </Pressable>

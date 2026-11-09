@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
+import { a11yState } from '../../utils/a11y';
 import { LevelSlider } from '../recording/LevelSlider';
 import { makePanelStyles } from './panelStyles';
 
@@ -31,7 +32,7 @@ export function ResourceCard(p: { title: string; detail: string; on: boolean; lo
       disabled={off}
       style={({ hovered }: { hovered?: boolean }) => [styles.card, hovered && !off && styles.cardHover]}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: p.on, disabled: off }}
+      {...a11yState({ checked: p.on, disabled: off })}
       accessibilityLabel={p.title}
       accessibilityHint={p.hint}
       {...dataSet(p.data)}
@@ -53,7 +54,7 @@ export function ResourceRow(p: { title: string; on: boolean; locked?: boolean; d
   const { colors: c } = useTheme();
   if (p.locked) {
     return (
-      <View style={[styles.row, styles.rowNotes]} accessibilityRole="checkbox" accessibilityState={{ checked: true, disabled: true }} accessibilityLabel={p.label ?? `${p.title}, always included`} {...dataSet(p.data)}>
+      <View style={[styles.row, styles.rowNotes]} accessibilityRole="checkbox" {...a11yState({ checked: true, disabled: true })} accessibilityLabel={p.label ?? `${p.title}, always included`} {...dataSet(p.data)}>
         <Text style={styles.rowTitleBold}>{p.title}</Text>
         <Text style={styles.alwaysStrong}>Always included ✓</Text>
       </View>
@@ -65,7 +66,7 @@ export function ResourceRow(p: { title: string; on: boolean; locked?: boolean; d
       disabled={p.disabled}
       style={styles.row}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: p.on, disabled: p.disabled }}
+      {...a11yState({ checked: p.on, disabled: p.disabled })}
       accessibilityLabel={p.label ?? p.title}
       {...dataSet(p.data)}
     >

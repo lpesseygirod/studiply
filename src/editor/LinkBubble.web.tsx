@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useReducer } from 'react';
+import React, { useCallback, useEffect, useReducer, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Editor } from '@tiptap/react';
 
@@ -30,8 +30,19 @@ export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement
     el?.addEventListener('mousedown', (e) => e.preventDefault());
   }, []);
 
+  // Step 10.1b-5: Escape hides the bubble until the cursor moves (as Google Docs).
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editor.isActive('link')) setDismissedAt(editor.state.selection.from);
+    };
+    dom.addEventListener('keydown', onKey);
+    return () => dom.removeEventListener('keydown', onKey);
+  }, [editor]);
+
   const href = editor.getAttributes('link').href as string | undefined;
-  if (!href || !editor.isFocused || !page) return null;
+  if (!href || !editor.isFocused || !page || dismissedAt === editor.state.selection.from) return null;
   const at = editor.view.coordsAtPos(editor.state.selection.from);
   const box = page.getBoundingClientRect();
   // Step 7.7: a link into the app (My notes, the study assistant) opens there, not in a new tab.

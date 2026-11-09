@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PAGE_COLORS } from '../../editor/editorCss';
 import { TOOLS } from '../../editor/toolNames';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { MAX_CELL_INPUT } from '../../lib/sheetDoc';
 
 /**
@@ -114,7 +115,7 @@ export const FormulaBar = forwardRef<
               accessibilityLabel="Bold"
               // react-native-web 0.21 reads aria-pressed, not accessibilityState.
               aria-pressed={bold}
-              accessibilityState={{ selected: bold }}
+              {...a11yState({ selected: bold })}
             >
               <Text style={[styles.boldText, bold && styles.boldTextOn]}>B</Text>
             </Pressable>

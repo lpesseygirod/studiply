@@ -5,6 +5,7 @@ import { useKeyboardAccessory } from './keyboardAccessory';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { FormatCommand, FormatState } from '../format';
 import { PHOTO_WIDTHS } from '../schema/photo';
@@ -150,7 +151,7 @@ export function KeyboardToolbar({
       style={[styles.button, t.width === AA_W && styles.aa, t.active && styles.active, t.disabled && styles.disabled]}
       accessibilityRole="button"
       accessibilityLabel={t.label ?? TOOLS[t.key].name}
-      accessibilityState={{ selected: !!t.active, disabled: !!t.disabled }}
+      {...a11yState({ selected: !!t.active, disabled: !!t.disabled })}
     >
       {t.text ? (
         <Text style={[styles.aaText, t.active && { color: c.accentDark }]}>{t.text}</Text>
@@ -168,7 +169,7 @@ export function KeyboardToolbar({
       style={[styles.captioned, t.active && styles.active, t.disabled && styles.disabled]}
       accessibilityRole="button"
       accessibilityLabel={t.label ?? TOOLS[t.key].name}
-      accessibilityState={{ selected: !!t.active, disabled: !!t.disabled }}
+      {...a11yState({ selected: !!t.active, disabled: !!t.disabled })}
     >
       {t.text ? (
         <Text style={[styles.aaText, t.active && { color: c.accentDark }]}>{t.text}</Text>
@@ -252,7 +253,7 @@ export function KeyboardToolbar({
                     style={[styles.linkChip, s.photo?.width === a.width && styles.chipOn]}
                     accessibilityRole="button"
                     accessibilityLabel={`Photo size ${a.label.toLowerCase()}`}
-                    accessibilityState={{ selected: s.photo?.width === a.width }}
+                    {...a11yState({ selected: s.photo?.width === a.width })}
                   >
                     <Text style={[styles.linkChipText, s.photo?.width === a.width && styles.chipOnText]}>{a.label}</Text>
                   </Pressable>

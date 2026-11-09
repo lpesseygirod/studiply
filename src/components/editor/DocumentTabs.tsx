@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import type { DocTab } from '../../services/document.service';
 import { MAX_TABS, type TabInfo, type TabKind } from '../../services/document-tabs.service';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
@@ -124,7 +125,7 @@ export function DocumentTabs({
           accessibilityRole="tab"
           // react-native-web 0.21 reads aria-selected, not accessibilityState.
           aria-selected={selected}
-          accessibilityState={{ selected }}
+          {...a11yState({ selected })}
           accessibilityLabel={t.title}
           accessibilityHint={t.fixed ? undefined : compact ? 'Long-press for Rename, Move and Delete' : 'Right-click for Rename and Delete; drag to move'}
         >

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useLayoutMode } from '../../hooks/useLayoutMode';
 import { lecturesForPicker, type PickLecture } from '../../services/summaryCombine.service';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
@@ -96,7 +97,7 @@ function Picker({ request }: { request: PickRequest }) {
         disabled={off}
         style={[styles.row, on && styles.rowOn, off && styles.rowOff]}
         accessibilityRole={mode === 'extend' ? 'radio' : 'checkbox'}
-        accessibilityState={{ checked: on, disabled: off }}
+        {...a11yState({ checked: on, disabled: off })}
         {...{ dataSet: { picker: 'lecture', checked: String(on), summary: String(l.hasSummary) } }}
       >
         <View style={[mode === 'extend' ? styles.radio : styles.box, on && styles.markOn]}>{on && <Ionicons name="checkmark" size={14} color={c.accentOn} />}</View>

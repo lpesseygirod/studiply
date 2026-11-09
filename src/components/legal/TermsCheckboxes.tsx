@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
+import { a11yState } from '../../utils/a11y';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { LegalSlug } from '../../legal/types';
 import { UNDER_AGE_MESSAGE } from '../../services/terms.service';
@@ -46,8 +47,7 @@ export function TermsCheckboxes({ terms, age, onTerms, onAge, onOpen, tone = 'gr
       style={styles.box}
       accessibilityRole="checkbox"
       accessibilityLabel={label}
-      accessibilityState={{ checked, disabled }}
-      aria-checked={checked}
+      {...a11yState({ checked, disabled })}
       {...{ dataSet: { terms: tag, checked: checked ? 'true' : 'false' } }}
     >
       <Ionicons name={checked ? 'checkbox' : 'square-outline'} size={22} color={ink} />
