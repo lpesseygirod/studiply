@@ -21,7 +21,8 @@ export const DEFAULT_SETTINGS: Partial<UserSettings> = {
   include_unclear_parts: true,
   include_formulas: true,
   include_definitions: true,
-  default_retention_policy: 'delete_manually',
+  // Step 10.1b-3: the recording is deleted 3 days after transcription unless she chooses otherwise.
+  default_retention_policy: 'delete_3_days',
   default_language: 'en',
 };
 

@@ -1,5 +1,6 @@
 import {
   cutoffFor,
+  dueLectures,
   REMOVE_BATCH,
   removalBatches,
   RETENTION_DAYS,
@@ -28,6 +29,17 @@ describe('purge-trash rules', () => {
     const many = Array.from({ length: REMOVE_BATCH + 1 }, (_, i) => ({ bucket: 'slides', path: `u/f/${i}.pdf` }));
     expect(removalBatches(many).map((b) => b.paths.length)).toEqual([REMOVE_BATCH, 1]);
     expect(removalBatches([])).toEqual([]);
+  });
+
+  it('recordings (step 10.1b-3): each due lecture once, also one whose files are already gone; its null path is not removed', () => {
+    const plan = [
+      { lecture_id: 'l1', bucket: 'audio-chunks', path: 'u/l1/0000.m4a' },
+      { lecture_id: 'l1', bucket: 'audio-chunks', path: 'u/l1/0001.m4a' },
+      { lecture_id: 'l2', bucket: 'audio-chunks', path: null },
+    ];
+    expect(dueLectures(plan)).toEqual(['l1', 'l2']);
+    expect(removalBatches(plan)).toEqual([{ bucket: 'audio-chunks', paths: ['u/l1/0000.m4a', 'u/l1/0001.m4a'] }]);
+    expect(dueLectures([])).toEqual([]);
   });
 
   it('accepts only the exact secret, and never an empty one', () => {

@@ -12,8 +12,13 @@ export function cutoffFor(now: Date): string {
   return new Date(now.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 }
 
+/** The lectures in audio_purge_plan's rows, each once (a lecture with no file left has a null path). */
+export function dueLectures(plan: { lecture_id: string }[]): string[] {
+  return [...new Set(plan.map((r) => r.lecture_id).filter(Boolean))];
+}
+
 /** The plan's objects per bucket, each path once, in batches for the Storage API. */
-export function removalBatches(plan: { bucket: string; path: string }[]): { bucket: string; paths: string[] }[] {
+export function removalBatches(plan: { bucket: string; path: string | null }[]): { bucket: string; paths: string[] }[] {
   const byBucket = new Map<string, Set<string>>();
   for (const { bucket, path } of plan) {
     if (!path) continue;

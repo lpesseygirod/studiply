@@ -161,7 +161,7 @@ export default function PostSessionScreen() {
           size: { width: asset.width, height: asset.height },
           fileSizeBytes: fileSize,
           mimeType: 'image/jpeg',
-          retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
+          retentionPolicy: userSettings?.default_retention_policy ?? 'delete_3_days',
         });
         setSourceFiles(prev => [...prev, newFile]);
       }
@@ -197,7 +197,7 @@ export default function PostSessionScreen() {
               size: { width: asset.width, height: asset.height },
               fileSizeBytes: fileSize,
               mimeType: 'image/jpeg',
-              retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
+              retentionPolicy: userSettings?.default_retention_policy ?? 'delete_3_days',
             });
           })
         );
@@ -232,7 +232,7 @@ export default function PostSessionScreen() {
               fileName: asset.name,
               fileSizeBytes: fileSize,
               mimeType: asset.mimeType ?? 'application/pdf',
-              retentionPolicy: userSettings?.default_retention_policy ?? 'delete_manually',
+              retentionPolicy: userSettings?.default_retention_policy ?? 'delete_3_days',
             });
           })
         );

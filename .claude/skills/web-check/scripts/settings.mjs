@@ -33,7 +33,8 @@ const SECTIONS = [
   ['Summaries', '/settings/summaries', ['Default summary level', 'Minimal', 'Detailed', 'Auto-generate title from content', 'Auto-generate tags', 'Extract formulas', 'Extract definitions', 'Flag unclear sections']],
   ['Recording', '/settings/recording', ['Default recording mode', 'Lecture', 'Discussion', 'Start in Lecture Mode', 'Default transcription language', 'Check that you may record this class']],
   ['AI & privacy', '/settings/ai-privacy', ['Use AI on my lectures', 'ElevenLabs', 'Anthropic (Claude)', 'AI USAGE TODAY', 'Transcription', 'Notes & assistant (Claude)', 'About these limits']],
-  ['Storage & sync', '/settings/storage', ['Source files', 'Default file retention', 'Delete immediately', 'Delete after 3 days', 'Delete manually', 'Keep permanently', 'Delete data on this device']],
+  // Step 10.1b-3: the default first, named for when it deletes.
+  ['Storage & sync', '/settings/storage', ['Source files', 'Default file retention', 'Delete 3 days after transcription', 'Delete immediately', 'Delete manually', 'Keep permanently', 'Delete data on this device']],
   ['Notifications', '/settings/notifications', ['Reminders come with Review']],
   ['Appearance', '/settings/appearance', ['Light or dark, on this device', 'System', 'Light', 'Dark', 'Keyboard shortcuts']],
   ['Your data', '/settings/your-data', ['Recently Deleted']],

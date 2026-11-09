@@ -42,9 +42,10 @@ export const APPEARANCES = [
   { value: 'dark', label: 'Dark' },
 ] as const;
 
+// Step 10.1b-3: the default ("Delete in 3 days": 3 days after the recording is transcribed) first.
 const RETENTION_OPTIONS = [
+  { value: 'delete_3_days', label: 'Delete 3 days after transcription' },
   { value: 'delete_now', label: 'Delete immediately' },
-  { value: 'delete_3_days', label: 'Delete after 3 days' },
   { value: 'delete_manually', label: 'Delete manually' },
   { value: 'keep_permanently', label: 'Keep permanently' },
 ];
@@ -293,7 +294,9 @@ export function RetentionSettings({ settings, save, title = 'SOURCE FILES' }: Se
                 onPress={() => save('retention', { default_retention_policy: opt.value })}
                 activeOpacity={0.75}
                 accessibilityRole="radio"
+                // iOS reads accessibilityState; React Native Web only aria-checked (step 10.1b-3).
                 accessibilityState={{ checked: active }}
+                aria-checked={active}
               >
                 <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
                   {active && <View style={styles.radioInner} />}

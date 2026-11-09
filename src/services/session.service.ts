@@ -208,7 +208,10 @@ async function createSessionOnDevice(params: Parameters<typeof createSession>[0]
     transcript_quality: null,
     avg_confidence: null,
     audio_retention: 'delete_3_days',
+    // Dated by the server, 3 days after transcription (20261029152600).
     audio_delete_after: null,
+    transcribed_at: null,
+    audio_deleted_at: null,
     created_at: at,
     updated_at: at,
   };

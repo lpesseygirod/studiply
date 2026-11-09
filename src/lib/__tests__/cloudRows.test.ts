@@ -61,6 +61,8 @@ const lectureFile: LectureFileRow = {
     avg_confidence: null,
     audio_retention: 'delete_3_days',
     audio_delete_after: null,
+    transcribed_at: null,
+    audio_deleted_at: null,
     created_at: T,
     updated_at: T,
   },

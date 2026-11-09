@@ -165,7 +165,9 @@ select set_eq(
         and (t.tgtype & 2) = 0 and (t.tgtype & 64) = 0   -- AFTER (not BEFORE, not INSTEAD OF)
         and (t.tgtype & 24) <> 0 $$,                     -- on DELETE (8) or UPDATE (16)
   $$ values ('quiz_answers.quiz_answer_touch_attempt'), ('quiz_answers.quiz_answer_review'),
-            ('flashcards.flashcard_schedule'), ('folders.folders_cascade_course') $$,
+            ('flashcards.flashcard_schedule'), ('folders.folders_cascade_course'),
+            -- 20261029152600: on UPDATE OF status only (the cascade deletes, never updates a chunk).
+            ('audio_chunks.audio_chunk_transcribed') $$,
   'every AFTER update/delete trigger was checked against the account cascade');
 
 select * from finish();

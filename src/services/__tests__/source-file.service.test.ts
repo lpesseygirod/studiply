@@ -133,16 +133,14 @@ describe('createSourceFile', () => {
 });
 
 describe('bulkApplyRetention', () => {
-  it('delete_3_days sets a removal date on the lecture and deletes nothing', async () => {
+  it('delete_3_days saves the setting only: the server dates it, 3 days after transcription (step 10.1b-3); deletes nothing', async () => {
     await bulkApplyRetention('l1', 'delete_3_days');
 
-    const patch = callsOn('lectures', 'update')[0][0] as { audio_retention: string; audio_delete_after: string };
-    expect(patch.audio_retention).toBe('delete_3_days');
-    expect(new Date(patch.audio_delete_after).getTime()).toBeGreaterThan(Date.now() + 2.9 * 24 * 3600 * 1000);
+    expect(callsOn('lectures', 'update')).toEqual([[{ audio_retention: 'delete_3_days' }]]);
     expect(removeFiles).not.toHaveBeenCalled();
   });
 
-  it('delete_now removes the audio files and keeps the chunk rows (and their transcript)', async () => {
+  it('delete_now removes the audio files, keeps the chunk rows (and their transcript), marks the audio deleted', async () => {
     answer('audio_chunks', { data: [{ id: 'chunk-0', storage_path: 'user-1/l1/0000.m4a' }] });
 
     await bulkApplyRetention('l1', 'delete_now');
@@ -151,5 +149,7 @@ describe('bulkApplyRetention', () => {
     expect(callsOn('audio_chunks', 'delete')).toHaveLength(0);
     expect(removeFiles).toHaveBeenCalledWith('audio-chunks', ['user-1/l1/0000.m4a']);
     expect(callsOn('media', 'update')).toHaveLength(0);
+    const marked = callsOn('lectures', 'update')[1][0] as { audio_deleted_at: string };
+    expect(Date.parse(marked.audio_deleted_at)).toBeGreaterThan(Date.now() - 60_000);
   });
 });

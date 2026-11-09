@@ -29,6 +29,13 @@ import { useLectureShell } from '../../../src/hooks/useLectureShell';
 import { showAlert } from '../../../src/components/dialogs/dialogs';
 import FlowCloseButton, { leaveRecordingFlow } from '../../../src/components/FlowCloseButton';
 import { confirmAction } from '../../../src/utils/confirm';
+import { useUserSettings } from '../../../src/hooks/useUserSettings';
+import {
+  asAudioRetention,
+  AUDIO_RETENTION_CHOICES,
+  DEFAULT_AUDIO_RETENTION,
+  type AudioRetention,
+} from '../../../src/utils/audioRetention';
 
 // -------------------------------------------------------------------
 // Types
@@ -36,7 +43,7 @@ import { confirmAction } from '../../../src/utils/confirm';
 
 type ReviewState = 'processing' | 'error' | 'review';
 type NoteAction = 'confirm' | 'redo' | 'delete';
-type RetentionPolicy = 'delete_now' | 'delete_3_days' | 'delete_manually' | 'keep_permanently';
+type RetentionPolicy = AudioRetention;
 type ProcessingStage = 'transcribing' | 'generating';
 
 const SUMMARY_LABELS: Record<string, string> = {
@@ -45,12 +52,8 @@ const SUMMARY_LABELS: Record<string, string> = {
   extra: 'DETAILED',
 };
 
-const RETENTION_OPTIONS: { value: RetentionPolicy; label: string; sub: string }[] = [
-  { value: 'delete_now', label: 'Delete now', sub: 'Remove source files immediately' },
-  { value: 'delete_3_days', label: 'Delete in 3 days', sub: 'Keep temporarily, then auto-delete' },
-  { value: 'delete_manually', label: 'Delete manually', sub: "I'll delete them when I'm ready" },
-  { value: 'keep_permanently', label: 'Keep forever', sub: 'Store source files indefinitely' },
-];
+// Step 10.1b-3: "Delete in 3 days" first and chosen at the start (or her Settings default).
+const RETENTION_OPTIONS = AUDIO_RETENTION_CHOICES;
 
 function recordingModeOf(value: string | undefined): Session['recording_mode'] | undefined {
   return value === 'lecture' || value === 'standard' || value === 'discussion' ? value : undefined;
@@ -85,7 +88,19 @@ export default function ReviewScreen() {
   const [transcription, setTranscription] = useState<TranscriptionResult | null>(null);
   const [noteResult, setNoteResult] = useState<NoteResult | null>(null);
   const [noteAction, setNoteAction] = useState<NoteAction>('confirm');
-  const [retention, setRetention] = useState<RetentionPolicy>('delete_manually');
+  // Starts on her default (Settings → Storage & sync), "Delete in 3 days" unless she chose another,
+  // until she picks one here.
+  const { settings: userSettings, loading: settingsLoading } = useUserSettings();
+  const [retention, setRetention] = useState<RetentionPolicy>(DEFAULT_AUDIO_RETENTION);
+  const retentionPicked = useRef(false);
+  useEffect(() => {
+    if (settingsLoading || retentionPicked.current) return;
+    setRetention(asAudioRetention(userSettings.default_retention_policy) ?? DEFAULT_AUDIO_RETENTION);
+  }, [settingsLoading, userSettings.default_retention_policy]);
+  const pickRetention = (value: RetentionPolicy) => {
+    retentionPicked.current = true;
+    setRetention(value);
+  };
   const [confirming, setConfirming] = useState(false);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
 
@@ -612,14 +627,19 @@ export default function ReviewScreen() {
             ))}
           </View>
 
-          {/* Source file retention */}
-          <Text style={[styles.decisionTitle, { marginTop: 24 }]}>Source file retention</Text>
+          {/* The recording (step 10.1b-3: deleted 3 days after transcription by default; photos and PDFs stay) */}
+          <Text style={[styles.decisionTitle, { marginTop: 24 }]}>The recording</Text>
           {RETENTION_OPTIONS.map(opt => (
             <TouchableOpacity
               key={opt.value}
               style={styles.retentionRow}
-              onPress={() => setRetention(opt.value)}
+              onPress={() => pickRetention(opt.value)}
               activeOpacity={0.7}
+              accessibilityRole="radio"
+              // iOS reads accessibilityState; React Native Web only aria-checked.
+              accessibilityState={{ checked: retention === opt.value }}
+              aria-checked={retention === opt.value}
+              {...{ dataSet: { retention: opt.value, checked: retention === opt.value ? 'true' : 'false' } }}
             >
               <View style={[styles.radioOuter, retention === opt.value && styles.radioOuterActive]}>
                 {retention === opt.value && <View style={styles.radioInner} />}

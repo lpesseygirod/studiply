@@ -36,7 +36,8 @@ import { useConnectivity } from '../../../src/lib/connectivity';
 import { BLOCK_LABELS, type NoteBlock } from '../../../src/lib/noteBlocks';
 import { onSyncEvent, syncEnabled } from '../../../src/lib/sync';
 import { getTranscriptBySession } from '../../../src/services/transcript.service';
-import { fileLabel, getActiveSourceFiles } from '../../../src/services/source-file.service';
+import { fileLabel, getActiveSourceFiles, getLectureAudio } from '../../../src/services/source-file.service';
+import { audioStatusLine, type LectureAudio } from '../../../src/utils/audioRetention';
 import { promptRenameFile, promptRenameLecture } from '../../../src/utils/rename';
 import { lectureItem } from '../../../src/utils/libraryItems';
 import { useMoveFlow } from '../../../src/hooks/useMoveFlow';
@@ -89,12 +90,11 @@ function formatDuration(seconds: number | null): string {
 
 function retentionLabel(file: SourceFile): string {
   if (file.is_deleted) return 'Deleted';
-  switch (file.retention_policy) {
-    case 'keep_permanently': return 'Kept permanently';
-    case 'delete_3_days': return 'Deletion in 3 days';
-    case 'delete_now': return 'Scheduled for deletion';
-    default: return 'Manual deletion';
+  // Step 10.1b-3: the recording's real date ("Deletes on 17 Nov 2026"); photos and PDFs are kept.
+  if (file.file_type === 'audio') {
+    return audioStatusLine({ retention: file.retention_policy, deleteAfter: file.scheduled_deletion_at, deletedAt: null });
   }
+  return 'Kept permanently';
 }
 
 function fileTypeIcon(type: SourceFile['file_type']): React.ComponentProps<typeof Ionicons>['name'] {
@@ -135,6 +135,8 @@ export default function NoteDetailScreen() {
   const [note, setNote] = useState<Note | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [sourceFiles, setSourceFiles] = useState<SourceFile[]>([]);
+  // Step 10.1b-3: the recording's setting, its date and whether it was deleted.
+  const [lectureAudio, setLectureAudio] = useState<LectureAudio | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -188,15 +190,17 @@ export default function NoteDetailScreen() {
     try {
       const s = await getSession(id);
       const n = await getNoteBySession(id);
-      const [t, files] = await Promise.all([
+      const [t, files, audio] = await Promise.all([
         getTranscriptBySession(id),
         getActiveSourceFiles(id),
+        getLectureAudio(id).catch(() => null),
       ]);
 
       setSession(s);
       setNote(n);
       setTranscript(t);
       setSourceFiles(files);
+      setLectureAudio(audio);
       setClarifications(parseClarifications(n?.manual_annotations));
       if (n) {
         if (await noteHasUnsyncedEdit(n.id)) setSyncState('pending');
@@ -1209,8 +1213,14 @@ export default function NoteDetailScreen() {
           {/* ── Source Files ─────────────────────────────────── */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Source Files</Text>
+            {/* Step 10.1b-3: the recording was deleted (its setting); the transcript and notes stay. */}
+            {lectureAudio?.deletedAt && (
+              <Text style={styles.sourceFilesEmpty} {...{ dataSet: { lectureAudio: 'deleted' } }}>
+                {`Recording: ${audioStatusLine(lectureAudio)}. The transcript and notes stay.`}
+              </Text>
+            )}
             {sourceFiles.length === 0 ? (
-              <Text style={styles.sourceFilesEmpty}>Source files have been removed.</Text>
+              !lectureAudio?.deletedAt && <Text style={styles.sourceFilesEmpty}>Source files have been removed.</Text>
             ) : (
               sourceFiles.map((file, i) => {
                 const label = fileLabel(file, sourceFiles);
