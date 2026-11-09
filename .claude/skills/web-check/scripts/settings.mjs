@@ -6,6 +6,8 @@
 // with "‹ Your data". iPhone (390 px): the list with a value on the right of
 // each row, a page with "‹ Settings" and back, the profile card opening
 // Account, Sign out. Screenshots: settings-*.png. Exit 1 on any FAIL.
+// Step 10.1: Account has the sign-in methods and Delete account…; AI & privacy the "Use AI on my
+// lectures" card (its row in the iPhone list says Allowed / Off); Recording the recording reminder.
 import { launch, SHOTS } from './cdp.mjs';
 import { makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -27,10 +29,10 @@ const MENU = '[data-testid=settings-menu]';
 
 /** Every setting that was on the old screens, by the section it is in now. */
 const SECTIONS = [
-  ['Account', '/settings/account', ['Edit profile', 'stored in your Studiply account in the cloud', 'Sign out']],
+  ['Account', '/settings/account', ['Edit profile', 'Sign in with Apple', 'Not linked', 'stored in your Studiply account in the cloud', 'Sign out', 'Delete account…']],
   ['Summaries', '/settings/summaries', ['Default summary level', 'Minimal', 'Detailed', 'Auto-generate title from content', 'Auto-generate tags', 'Extract formulas', 'Extract definitions', 'Flag unclear sections']],
-  ['Recording', '/settings/recording', ['Default recording mode', 'Lecture', 'Discussion', 'Start in Lecture Mode', 'Default transcription language']],
-  ['AI & privacy', '/settings/ai-privacy', ['only after you allow it', 'AI USAGE TODAY', 'Transcription', 'Notes & assistant (Claude)', 'About these limits']],
+  ['Recording', '/settings/recording', ['Default recording mode', 'Lecture', 'Discussion', 'Start in Lecture Mode', 'Default transcription language', 'Check that you may record this class']],
+  ['AI & privacy', '/settings/ai-privacy', ['Use AI on my lectures', 'ElevenLabs', 'Anthropic (Claude)', 'AI USAGE TODAY', 'Transcription', 'Notes & assistant (Claude)', 'About these limits']],
   ['Storage & sync', '/settings/storage', ['Source files', 'Default file retention', 'Delete immediately', 'Delete after 3 days', 'Delete manually', 'Keep permanently', 'Delete data on this device']],
   ['Notifications', '/settings/notifications', ['Reminders come with Review']],
   ['Appearance', '/settings/appearance', ['Light or dark, on this device', 'System', 'Light', 'Dark', 'Keyboard shortcuts']],
@@ -70,7 +72,7 @@ try {
     const menu = await b.evaluate(`[...document.querySelectorAll('${MENU} [role=link]')].map((e) => e.innerText.trim())`);
     expect(JSON.stringify(menu) === JSON.stringify(SECTIONS.map(([l]) => l)), `menu: ${menu}`);
     expect(JSON.stringify(await highlighted()) === '["Account"]', `highlighted: ${await highlighted()}`);
-    expect(await b.hasText(user.email, true), 'no email on the profile card');
+    expect(await b.hasText(user.email, false), 'no email on the profile card');
     await b.shot('settings-1280-account');
   });
 
@@ -107,17 +109,22 @@ try {
     expect((await pathname()) === '/settings/your-data', `back at ${await pathname()}`);
   });
 
-  await step('iPhone (390 px): the list with a value on the right of each row', async () => {
+  await step('iPhone (390 px): the list with a value on the right of each row (AI & privacy: Off, step 10.1), Delete account… under Sign out', async () => {
     await b.resize(390, 844);
     await b.nav(`${BASE}/settings`);
     await b.waitText('Account, sign-in and sync', { timeout: 20000 });
     await b.sleep(2500);
-    const rows = await b.evaluate(`[...document.querySelectorAll('[role=button][aria-label]')].map((e) => e.getAttribute('aria-label'))`);
-    for (const want of ['Summaries, Standard', 'Recording, English', 'Storage & sync, No files', 'Appearance, System', 'Development, LOCAL', 'Notifications', 'Your data']) {
+    const rowsNow = () => b.evaluate(`[...document.querySelectorAll('[role=button][aria-label]')].map((e) => e.getAttribute('aria-label'))`);
+    let rows = await rowsNow();
+    for (let i = 0; i < 40 && !rows.includes('AI & privacy, Off'); i++) {
+      await b.sleep(250);
+      rows = await rowsNow();
+    }
+    for (const want of ['Summaries, Standard', 'Recording, English', 'Storage & sync, No files', 'Appearance, System', 'Development, LOCAL', 'Notifications', 'Your data', 'AI & privacy, Off']) {
       expect(rows.includes(want), `no row "${want}" in ${rows}`);
     }
-    expect(rows.some((r) => /^AI & privacy, \d+% used today$/.test(r)), `AI row: ${rows.filter((r) => r.startsWith('AI'))}`);
     expect(await b.hasText('Sign out', true), 'no Sign out');
+    expect(await b.hasText('Delete account…', true), 'no Delete account…');
     await b.shot('settings-390-list');
   });
 

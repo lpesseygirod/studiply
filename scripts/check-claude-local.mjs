@@ -76,7 +76,8 @@ const ONLY_SUMMARY = process.argv.includes('--only=summary');
 const ONLY_GATE = process.argv.includes('--only=gate');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
-const POLICY_VERSION = 'dev-2026-10-elevenlabs';
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+const POLICY_VERSION = '2026-11-store-1';
 /** The models as the functions use them: CLAUDE_MODELS in _shared/claude.ts (the one place they're set). */
 const MODELS = (() => {
   const source = readFileSync('supabase/functions/_shared/claude.ts', 'utf8');

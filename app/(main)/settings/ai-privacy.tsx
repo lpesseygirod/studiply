@@ -1,14 +1,14 @@
 import React from 'react';
 
 import { SettingsPage } from '../../../src/components/settings/SettingsPage';
-import { AiPrivacyNote } from '../../../src/components/settings/AccountSettings';
+import { AiConsentCard } from '../../../src/components/settings/AiConsentCard';
 import { AiUsageSettings } from '../../../src/components/settings/AiUsageSettings';
 
-/** AI & privacy: what goes to an AI service, today's use against the limits, the cost breakdown. */
+/** AI & privacy (iphone-08): "Use AI on my lectures" (step 10.1), today's use against the limits, the cost breakdown. */
 export default function AiPrivacySettingsPage() {
   return (
     <SettingsPage title="AI & privacy">
-      <AiPrivacyNote />
+      <AiConsentCard />
       <AiUsageSettings />
     </SettingsPage>
   );

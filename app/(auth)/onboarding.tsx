@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,14 +30,19 @@ import { ThemedStatusBar, useTheme, useThemedStyles } from '../../src/theme/Them
 import type { ThemeColors } from '../../src/constants/colors';
 import { Typography } from '../../src/constants/typography';
 import Avatar from '../../src/components/Avatar';
+import { AppleSignInButton } from '../../src/components/auth/AppleSignInButton';
+import { AppleSignInCancelled, isAppleSignInAvailable, signInWithApple } from '../../src/services/apple-auth';
 
 // signUp → code (email confirmation) → signed in
 // signIn → signed in, or → code when the email isn't confirmed yet
 // signIn → "Forgot password?" → reset (code + new password) → signed in
 // AuthProvider picks up the new session and the root layout navigates.
-type Mode = 'signUp' | 'signIn' | 'code' | 'reset';
+// Step 10.1: Continue with Apple above the email form ("or with email", desktop-06); on the iPhone a
+// welcome step first (iphone-11): Continue with Apple, Continue with email.
+type Mode = 'welcome' | 'signUp' | 'signIn' | 'code' | 'reset';
 
 const TITLES: Record<Mode, string> = {
+  welcome: '',
   signUp: 'Create your account',
   signIn: 'Welcome back',
   code: 'Check your email',
@@ -45,6 +50,7 @@ const TITLES: Record<Mode, string> = {
 };
 
 const BUTTONS: Record<Mode, string> = {
+  welcome: '',
   signUp: 'Create account',
   signIn: 'Sign in',
   code: 'Confirm',
@@ -60,7 +66,11 @@ export default function OnboardingScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const [mode, setMode] = useState<Mode>('signUp');
+  const [mode, setMode] = useState<Mode>(Platform.OS === 'ios' ? 'welcome' : 'signUp');
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable).catch(() => {});
+  }, []);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,6 +95,7 @@ export default function OnboardingScreen() {
   const canContinue =
     !isLoading &&
     {
+      welcome: false,
       signUp: name.trim().length >= 2 && hasEmail && password.length >= MIN_PASSWORD_LENGTH,
       signIn: hasEmail && password.length > 0,
       code: code.trim().length === 6,
@@ -133,6 +144,18 @@ export default function OnboardingScreen() {
       run(() => resetPassword(email, code, password));
     }
   }, [canContinue, mode, name, email, password, code, run]);
+
+  // Step 10.1: Sign in with Apple (a new account the first time); closing Apple's sheet says nothing.
+  const handleApple = useCallback(() => {
+    run(async () => {
+      try {
+        await signInWithApple();
+      } catch (err) {
+        if (err instanceof AppleSignInCancelled) return;
+        throw err;
+      }
+    });
+  }, [run]);
 
   const handleForgotPassword = useCallback(() => {
     if (!hasEmail) {
@@ -216,8 +239,40 @@ export default function OnboardingScreen() {
               <Text style={styles.appSubtitle}>Automated Study</Text>
             </View>
 
+            {/* ── The iPhone's welcome (iphone-11) ── */}
+            {mode === 'welcome' && (
+              <View style={styles.inputBlock} {...{ dataSet: { auth: 'welcome' } }}>
+                <Text style={styles.welcomeTitle}>Record the lecture.{'\n'}Keep your notes.{'\n'}Get the summary.</Text>
+                <Text style={styles.welcomeText}>Your lectures, on your iPhone and laptop.</Text>
+                {appleAvailable && <AppleSignInButton onPress={handleApple} busy={isLoading} />}
+                <TouchableOpacity
+                  style={styles.emailButton}
+                  onPress={() => switchMode('signUp')}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  {...{ dataSet: { auth: 'email' } }}
+                >
+                  <Text style={styles.emailButtonText}>Continue with email</Text>
+                </TouchableOpacity>
+                {error && <Text style={styles.errorText}>{error}</Text>}
+              </View>
+            )}
+
             {/* ── Input block ── */}
+            {mode !== 'welcome' && (
             <View style={styles.inputBlock}>
+              {/* Step 10.1 (desktop-06): Continue with Apple, then the email form. */}
+              {(mode === 'signUp' || mode === 'signIn') && appleAvailable && (
+                <>
+                  <AppleSignInButton onPress={handleApple} busy={isLoading} />
+                  <View style={styles.orRow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                    <View style={styles.orLine} />
+                    <Text style={styles.orText}>or with email</Text>
+                    <View style={styles.orLine} />
+                  </View>
+                </>
+              )}
               <Text style={styles.inputLabel}>{TITLES[mode]}</Text>
 
               {notice && <Text style={styles.noticeText}>{notice}</Text>}
@@ -384,6 +439,7 @@ export default function OnboardingScreen() {
                 )}
               </View>
             </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -531,6 +587,49 @@ const makeStyles = (c: ThemeColors) =>
   },
   buttonTextDisabled: {
     opacity: 0.5,
+  },
+
+  // ── Step 10.1: Apple ──
+  welcomeTitle: {
+    fontSize: Typography.size['3xl'],
+    fontWeight: Typography.weight.extrabold,
+    color: c.text.onGradientStrong,
+    lineHeight: 40,
+  },
+  welcomeText: {
+    fontSize: Typography.size.base,
+    color: c.text.onGradient,
+    marginBottom: 12,
+  },
+  emailButton: {
+    minHeight: 50,
+    borderRadius: 25,
+    backgroundColor: c.card,
+    borderWidth: 1,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emailButtonText: {
+    fontSize: Typography.size.base,
+    fontWeight: Typography.weight.semibold,
+    color: c.text.primary,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 4,
+  },
+  orLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: c.text.onGradient,
+    opacity: 0.4,
+  },
+  orText: {
+    fontSize: Typography.size.sm,
+    color: c.text.onGradient,
   },
 
   // ── Secondary links ──

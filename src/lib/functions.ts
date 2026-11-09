@@ -1,7 +1,7 @@
 /**
  * functions.ts
  * Calls to the Supabase Edge Functions (transcribe-chunk, summarize,
- * assistant-chat), the only way the app reaches OpenAI or Anthropic. The
+ * assistant-chat, quiz; delete-account), the only way the app reaches ElevenLabs or Anthropic. The
  * keys live on the server; the app sends only the student's own token.
  *
  * Requests match scripts/check-*.mjs: POST, JSON body, `Authorization:
@@ -11,13 +11,20 @@
 
 import { Platform } from 'react-native';
 
+import { isAiPaused } from './consentGate';
 import { isSimulatedOffline, reportFailure, reportReachable } from './connectivity';
 import { supabase, supabaseUrl } from './supabase';
-import { answerFromSse, createSseReader, errorFromResponse, networkError, type SseDone, type SseFrame } from './functionResult';
+import { answerFromSse, createSseReader, errorFromResponse, FunctionError, networkError, type SseDone, type SseFrame } from './functionResult';
 
 export { FunctionError } from './functionResult';
 
-export type FunctionName = 'transcribe-chunk' | 'summarize' | 'assistant-chat' | 'quiz';
+export type FunctionName = 'transcribe-chunk' | 'summarize' | 'assistant-chat' | 'quiz' | 'delete-account';
+
+/** The functions that send her content to an AI service (step 10.1: none while AI is off). */
+export const AI_FUNCTIONS: readonly FunctionName[] = ['transcribe-chunk', 'summarize', 'assistant-chat', 'quiz'];
+
+/** What the app answers itself while AI is off on this device: the same refusal as the server's. */
+export const AI_OFF_MESSAGE = 'Nothing was sent: AI is off. Turn on “Use AI on my lectures” in Settings → AI & privacy.';
 
 type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }) => Promise<Response>;
 
@@ -34,6 +41,8 @@ function streamingFetch(): Fetch {
 
 async function post(name: FunctionName, body: unknown, options: { fetch?: Fetch; signal?: AbortSignal } = {}): Promise<Response> {
   const fetchImpl: Fetch = options.fetch ?? ((url, init) => fetch(url, init));
+  // Step 10.1: switched off on this device (also before the server knows, and for queued jobs).
+  if (AI_FUNCTIONS.includes(name) && (await isAiPaused())) throw new FunctionError(AI_OFF_MESSAGE, 403, 'consent_required');
   const send = async () => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;

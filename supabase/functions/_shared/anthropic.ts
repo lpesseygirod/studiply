@@ -110,6 +110,8 @@ export function answerText(message: Anthropic.Beta.BetaMessage): string {
  * characters. These describe the request's form, never its content; the request itself is never logged.
  */
 export function claudeFailure(err: unknown): { status: number; code: string; type?: string; message?: string } {
+  // Step 10.1: the call that wasn't made because AI was switched off (consent-gate.ts): permanent.
+  if ((err as { code?: string } | null)?.code === 'consent_withdrawn') return { status: 403, code: 'consent_withdrawn' };
   if (err instanceof Anthropic.APIConnectionTimeoutError) return { status: 0, code: 'timeout' };
   if (err instanceof Anthropic.APIConnectionError) return { status: 0, code: 'network_error' };
   if (err instanceof Anthropic.APIError) {

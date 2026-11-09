@@ -6,13 +6,14 @@
 // supabase/functions/.env. Exit code 1 on any FAIL.
 //
 // Since step 5.3 the web records with the recorder service: Start asks for
-// transcription consent (the live transcript), the lecture's My notes opens
-// with the red strip, Stop & summarize saves and opens the after-recording
-// step; the chunk is already transcribed, so Generate notes asks only for
-// Anthropic.
+// consent (the live transcript), the lecture's My notes opens with the red
+// strip, Stop & summarize saves and opens the after-recording step.
+// Step 10.1: Start shows the AI consent screen (desktop-09: "I agree…" ticked,
+// Allow and continue), which gives all three scopes at once, so Generate notes
+// asks nothing more.
 //
 // WEB_CHECK_MOCK=1: expect the simulated pipeline instead (the dev server
-// was started with EXPO_PUBLIC_MOCK_AI=1); no consent dialogs, no cost.
+// was started with EXPO_PUBLIC_MOCK_AI=1); no consent screen, no cost.
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { launch, OUT, SHOTS } from './cdp.mjs';
@@ -47,6 +48,7 @@ const waitFor = async (fn, ms, what) => {
     await b.sleep(500);
   }
 };
+const has = (css) => b.evaluate(`!!document.querySelector(${JSON.stringify(css)})`);
 
 const wav = join(OUT, 'lecture.wav');
 execFileSync('say', ['-o', wav, '--data-format=LEI16@16000', SPEECH]);
@@ -59,15 +61,17 @@ let lectureId;
 try {
   await step('sign in', () => b.signIn(BASE, user.email, user.password));
 
-  await step(MOCK ? 'record about 12 s and stop (simulated, no consent asked)' : 'record about 12 s and stop: transcription consent at Start', async () => {
+  await step(MOCK ? 'record about 12 s and stop (simulated, no consent asked)' : 'record about 12 s and stop: the consent screen at Start', async () => {
     await b.nav(`${BASE}/record`);
     await b.waitText('New Recording');
     await b.fill('input[placeholder^="e.g."]', 'AI flow check');
     await b.click('Start Recording');
     if (!MOCK) {
-      await b.waitText('Send the recording to ElevenLabs?', { timeout: 20000 });
-      await b.shot('ai-10-consent-transcription');
-      await b.click('Allow', { exact: true });
+      await waitFor(() => has('[data-consent="screen"]'), 20000, 'the consent screen');
+      await b.shot('ai-10-consent');
+      await b.clickSelector('[data-consent="agree"]');
+      await b.sleep(300);
+      await b.clickSelector('[data-consent="allow"]');
     }
     await b.waitText('Stop & summarize', { timeout: 20000 });
     await b.sleep(12000);
@@ -80,14 +84,10 @@ try {
     lectureId = data.id;
   });
 
-  await step(MOCK ? 'generate notes (simulated, no consent asked)' : 'generate notes: the Anthropic consent, then real notes', async () => {
+  await step(MOCK ? 'generate notes (simulated, no consent asked)' : 'generate notes: not asked again (one consent for everything), then real notes', async () => {
     await b.click('GENERATE NOTES');
-    if (!MOCK) {
-      await b.waitText('Send the transcript to Anthropic?', { timeout: 90000 });
-      await b.shot('ai-11-consent-assistant');
-      await b.click('Allow', { exact: true });
-    }
     await b.waitText('SUGGESTED TITLE', { timeout: 180000 });
+    expect(!(await has('[data-consent="screen"]')), 'the consent screen asked again');
     await b.shot('ai-12-notes');
   });
 
@@ -126,7 +126,7 @@ try {
     expect(lecture.data?.status === 'ready', `lecture status ${lecture.data?.status}`);
   });
 
-  await step(MOCK ? 'no consent rows, no cost (simulated)' : 'consent rows and the cost log', async () => {
+  await step(MOCK ? 'no consent rows, no cost (simulated)' : 'consent rows (the three, one answer) and the cost log', async () => {
     const [consents, usage] = await Promise.all([
       admin.from('ai_consent').select('scope').eq('user_id', user.id),
       admin.from('ai_usage').select('operation, cost_usd').eq('user_id', user.id),
@@ -136,7 +136,7 @@ try {
     console.log(`    consent: ${scopes.join(', ') || 'none'}; ai_usage: ${ops.join(', ') || 'none'} ($${(usage.data ?? []).reduce((t, u) => t + Number(u.cost_usd), 0).toFixed(4)})`);
     if (MOCK) expect(scopes.length === 0 && ops.length === 0, 'the simulation must not ask or spend');
     else {
-      expect(scopes.join() === 'assistant_summary,transcription', `consent scopes ${scopes}`);
+      expect(scopes.join() === 'assistant_summary,images,transcription', `consent scopes ${scopes}`);
       expect(ops.includes('transcription') && ops.includes('summary') && ops.includes('assistant'), `usage ${ops}`);
     }
   });

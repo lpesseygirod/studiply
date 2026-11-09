@@ -28,6 +28,7 @@ export const FAILED_WORDS: Record<string, string> = {
   unreadable: 'The answer couldn’t be read',
   no_material: 'There was nothing to make questions from',
   stopped: 'Stopped: it was deleted while being written',
+  consent_withdrawn: 'Stopped: AI was turned off in Settings',
   invalid_request: 'Its settings couldn’t be read',
   server_error: 'Something went wrong on the server',
 };

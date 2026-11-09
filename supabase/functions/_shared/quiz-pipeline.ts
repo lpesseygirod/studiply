@@ -127,6 +127,11 @@ export interface QuizRunDeps {
   saveQuestions: (rows: Record<string, unknown>[]) => Promise<void>;
   /** Whether the quiz is still wanted (not deleted meanwhile): read before every call. */
   stillWanted: () => Promise<boolean>;
+  /**
+   * Step 10.1: whether she switched AI off since the run started (Settings → AI & privacy): read with
+   * stillWanted, so the run stops before its next call ('consent_withdrawn').
+   */
+  consentWithdrawn?: () => Promise<boolean>;
   /** Marks the row as alive (its updated_at), after each batch. */
   touch: () => Promise<void>;
   log: (event: string, details: Record<string, unknown>) => void;
@@ -409,9 +414,19 @@ export async function runQuiz(deps: QuizRunDeps): Promise<QuizOutcome> {
     deps.log('quiz_failed', { quizId: deps.quizId, error });
     return { status: 'failed', error };
   };
+  let stopReason: 'stopped' | 'consent_withdrawn' = 'stopped';
   const stopped = async () => {
-    deps.log('quiz_stopped', { quizId: deps.quizId });
-    return fail('stopped');
+    deps.log('quiz_stopped', { quizId: deps.quizId, reason: stopReason });
+    return fail(stopReason);
+  };
+  /** Still wanted (not deleted) and still allowed (AI not switched off): before every call. */
+  const wanted = async () => {
+    if (!(await deps.stillWanted())) return false;
+    if (deps.consentWithdrawn && (await deps.consentWithdrawn())) {
+      stopReason = 'consent_withdrawn';
+      return false;
+    }
+    return true;
   };
   try {
     const m = await deps.material();
@@ -454,7 +469,7 @@ export async function runQuiz(deps: QuizRunDeps): Promise<QuizOutcome> {
 
     /** One call of `kind`, after checking the quiz is still wanted; its answer's text, or null. */
     const ask = async (kind: 'batch' | 'verify' | 'repair', user: string, schema: JsonSchema, maxTokens: number, onCall?: (call: QuizCall) => void): Promise<string | null | 'stop'> => {
-      if (!(await deps.stillWanted())) return 'stop';
+      if (!(await wanted())) return 'stop';
       const call = deps.claude(kind, system, [...prefix, { type: 'text', text: user }], schema, maxTokens);
       onCall?.(call);
       const answer = await attempt({ ...deps, summaryId: deps.quizId }, call, `quiz_${kind}`);
@@ -642,7 +657,7 @@ export async function runQuiz(deps: QuizRunDeps): Promise<QuizOutcome> {
       const nothingWritten = done.every((r) => r.failed.every((f) => f.reasons[0] === 'not written'));
       return fail(rejected ? 'claude_rejected' : refused ? 'refused' : nothingWritten ? 'claude_failed' : 'unreadable');
     }
-    if (!(await deps.stillWanted())) return stopped();
+    if (!(await wanted())) return stopped();
     // Each new multiple-choice question's options in a fixed shuffled order (Claude puts the right one first).
     const shuffled = questions.sort((a, b) => a.slot - b.slot).map((q) => shuffleOptions(q, `${deps.quizId}:${q.slot}`, seededShuffle));
     const placed = seededShuffle([...again, ...shuffled], deps.quizId);

@@ -131,6 +131,8 @@ const light = {
 
   /** A meter's empty track. */
   track: 'rgba(0, 0, 0, 0.08)',
+  /** A switch that is off (Settings): its track, ≥ 3:1 on the card so it reads as a switch (step 10.1). */
+  switchOff: '#8C89A3',
   /** A see-through white chip on tinted boxes. */
   glass: 'rgba(255, 255, 255, 0.6)',
   /** A soft dark circle on the gradient (onboarding initials). */
@@ -262,6 +264,7 @@ export const DarkColors: ThemeColors = {
   photoBackdrop: 'rgba(0, 0, 0, 0.92)',
 
   track: 'rgba(255, 255, 255, 0.14)',
+  switchOff: '#7A7694',
   glass: 'rgba(255, 255, 255, 0.1)',
   scrim: 'rgba(0, 0, 0, 0.15)',
   inputPlaceholder: 'rgba(255, 255, 255, 0.55)',
@@ -376,3 +379,6 @@ export const DocColors = {
 } as const;
 
 export const Colors = LightColors;
+
+/** Sign in with Apple's button (step 10.1): Apple's black and white, the same in both themes (Apple's guidelines). */
+export const AppleButtonColors = { background: '#000000', text: '#FFFFFF' } as const;

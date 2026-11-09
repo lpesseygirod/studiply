@@ -1,19 +1,31 @@
 /**
  * consent.service.ts
- * Asking before anything is sent to an AI service (Apple guideline
- * 5.1.2(i)). The Edge Functions refuse without an ai_consent row of the
- * current policy version; this asks the student once per kind of data and
- * records their answer.
+ * Asking before anything is sent to an AI service (Apple guideline 5.1.2(i); step 10.1). The Edge
+ * Functions refuse without an ai_consent row of the current policy version that isn't withdrawn;
+ * this asks the student with the consent screen (components/consent: desktop-09, iphone-12) and
+ * records the answer.
  *
- * A minimal prompt for development (step 1.7). The real consent screen,
- * with its own policy version, comes in step 10.1; consent given here then
- * stops counting.
+ * - One answer gives all three scopes (transcription → ElevenLabs; assistant_summary and images →
+ *   Anthropic): the screen names them all (the advisor's D4). The rows stay per scope, so each
+ *   function checks only what it sends.
+ * - Settings → AI & privacy (iphone-08): consentStatus (allowed, since when), withdrawConsent (one
+ *   tap, as easy as giving it), giveConsent (after the screen).
+ * - Withdrawing works offline: AI is off on this device at once (lib/consentGate: nothing is sent),
+ *   and the withdrawal reaches the server when online (the iPhone's queue: `consent_withdraw`; the
+ *   laptop: when it is back online). Giving consent needs a connection, and sends a pending
+ *   withdrawal first.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { supabase } from '../lib/supabase';
-import { serviceError } from '../lib/cloudRows';
-import { showAlert } from '../components/dialogs/dialogs';
-import { CONSENT_POLICY_VERSION, type ConsentScope } from '../../supabase/functions/_shared/policy';
+import { NetworkError, serviceError } from '../lib/cloudRows';
+import { isOffline, onBackOnline } from '../lib/connectivity';
+import { isAiPaused, setAiPaused } from '../lib/consentGate';
+import { discardSync, enqueue, pendingSyncFor, registerSyncHandler, syncEnabled } from '../lib/sync';
+import { syncError } from '../lib/sync/errors';
+import { requestAiConsent, type ConsentContext } from '../components/consent/consentRequests';
+import { CONSENT_POLICY_VERSION, CONSENT_SCOPES, type ConsentScope } from '../../supabase/functions/_shared/policy';
 
 /** Thrown when the student chooses "Not now": nothing was sent. */
 export class ConsentDeclinedError extends Error {
@@ -23,73 +35,150 @@ export class ConsentDeclinedError extends Error {
   }
 }
 
-const QUESTIONS: Record<ConsentScope, { title: string; message: string }> = {
-  transcription: {
-    title: 'Send the recording to ElevenLabs?',
-    message: 'To turn your recording into text, Studiply sends its audio to ElevenLabs. You will only be asked once.',
-  },
-  assistant_summary: {
-    title: 'Send the transcript to Anthropic?',
-    message:
-      'To write your notes and answer questions about this lecture, Studiply sends its transcript and notes to Anthropic (Claude). You will only be asked once.',
-  },
-  images: {
-    title: 'Send photos and PDFs to Anthropic?',
-    message:
-      'To include your photos and PDFs in the notes, Studiply sends them to Anthropic (Claude). You will only be asked once.',
-  },
-};
-
 /** Scopes already granted in this app session, so the table is read once. */
 const granted = new Set<ConsentScope>();
 
-async function hasConsent(scope: ConsentScope): Promise<boolean> {
+/** The date the current consent was given, kept for Settings offline. */
+const SINCE_KEY = 'studiply.ai.since';
+const WITHDRAW_KEY = 'consent';
+
+interface ConsentRow {
+  scope: ConsentScope;
+  granted_at: string;
+}
+
+/** Her rows of the current policy version that aren't withdrawn. */
+async function currentRows(): Promise<ConsentRow[]> {
   const { data, error } = await supabase
     .from('ai_consent')
-    .select('id')
-    .eq('scope', scope)
+    .select('scope, granted_at')
     .eq('policy_version', CONSENT_POLICY_VERSION)
-    .is('withdrawn_at', null)
-    .limit(1);
+    .is('withdrawn_at', null);
   if (error) throw serviceError(error, 'Could not check your permissions.');
-  return data.length > 0;
+  return (data ?? []) as ConsentRow[];
 }
 
-function ask(scope: ConsentScope): Promise<boolean> {
-  const { title, message } = QUESTIONS[scope];
-  return new Promise((resolve) => {
-    showAlert(title, message, [
-      { text: 'Not now', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Allow', onPress: () => resolve(true) },
-    ]);
-  });
+// -------------------------------------------------------------------
+// Listeners (the Settings card and the Settings list's "Allowed / Off")
+// -------------------------------------------------------------------
+const listeners = new Set<() => void>();
+export function onConsentChanged(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
 }
+const notify = () => listeners.forEach((fn) => fn());
 
-/** Whether the student already allowed `scope`, without asking (false offline or on error). */
+/** Whether the student already allowed `scope`, without asking (false offline, on error, or while AI is off here). */
 export async function consentGiven(scope: ConsentScope): Promise<boolean> {
+  if (await isAiPaused()) return false;
   if (granted.has(scope)) return true;
-  const yes = await hasConsent(scope).catch(() => false);
-  if (yes) granted.add(scope);
-  return yes;
+  const rows = await currentRows().catch(() => []);
+  rows.forEach((r) => granted.add(r.scope));
+  return granted.has(scope);
 }
 
 // -------------------------------------------------------------------
 // ensureConsent
-// Resolves once the student has consent for every scope (asking for the
-// missing ones, in order); throws ConsentDeclinedError on "Not now".
+// Resolves once the student has consent for every scope asked (showing the consent screen when one
+// is missing; Allow gives all three); throws ConsentDeclinedError on "Not now".
 // -------------------------------------------------------------------
 export async function ensureConsent(...scopes: ConsentScope[]): Promise<void> {
-  for (const scope of scopes) {
-    if (granted.has(scope)) continue;
-    if (!(await hasConsent(scope))) {
-      if (!(await ask(scope))) throw new ConsentDeclinedError(scope);
-      // Only scope and policy_version may be written; the database sets the rest.
-      const { error } = await supabase.from('ai_consent').insert({ scope, policy_version: CONSENT_POLICY_VERSION });
-      if (error) throw serviceError(error, 'Could not save your permission.');
-    }
-    granted.add(scope);
+  const paused = await isAiPaused();
+  if (!paused && scopes.every((s) => granted.has(s))) return;
+  if (!paused) {
+    const rows = await currentRows();
+    rows.forEach((r) => granted.add(r.scope));
+    if (scopes.every((s) => granted.has(s))) return;
+  }
+  // Before a recording ("Before you record"), or any other AI action.
+  const context: ConsentContext = scopes.includes('transcription') ? 'record' : 'ai';
+  if (!(await requestAiConsent(context))) throw new ConsentDeclinedError(scopes[0] ?? 'assistant_summary');
+  await giveConsent();
+}
+
+/**
+ * Gives all three scopes under the current policy version (the consent screen's Allow, or the
+ * Settings switch after it). A withdrawal still waiting to reach the server is sent first.
+ */
+export async function giveConsent(): Promise<void> {
+  if (isOffline()) throw new NetworkError();
+  const pending = await pendingSyncFor(WITHDRAW_KEY);
+  if (pending.length || webWithdrawPending) {
+    await sendWithdrawal();
+    for (const op of pending) await discardSync(op.id);
+    webWithdrawPending = false;
+  }
+  const have = new Set((await currentRows()).map((r) => r.scope));
+  const missing = CONSENT_SCOPES.filter((s) => !have.has(s));
+  if (missing.length) {
+    // Only scope and policy_version may be written; the database sets the rest.
+    const { error } = await supabase.from('ai_consent').insert(missing.map((scope) => ({ scope, policy_version: CONSENT_POLICY_VERSION })));
+    if (error) throw serviceError(error, 'Could not save your permission.');
+  }
+  CONSENT_SCOPES.forEach((s) => granted.add(s));
+  await setAiPaused(false);
+  notify();
+}
+
+/** Settings → AI & privacy: on or off on this account, and since when (offline: the last known date). */
+export async function consentStatus(): Promise<{ allowed: boolean; since: string | null }> {
+  if (await isAiPaused()) return { allowed: false, since: null };
+  try {
+    const rows = await currentRows();
+    const allowed = CONSENT_SCOPES.every((s) => rows.some((r) => r.scope === s));
+    const since = allowed ? rows.map((r) => r.granted_at).sort()[0] : null;
+    await (since ? AsyncStorage.setItem(SINCE_KEY, since) : AsyncStorage.removeItem(SINCE_KEY)).catch(() => {});
+    return { allowed, since };
+  } catch (err) {
+    const since = await AsyncStorage.getItem(SINCE_KEY).catch(() => null);
+    if (since) return { allowed: true, since };
+    throw err;
   }
 }
+
+// -------------------------------------------------------------------
+// withdrawConsent: one tap, also offline
+// -------------------------------------------------------------------
+
+/** Every consent row of hers that isn't withdrawn, withdrawn now (the server's time: withdraw_ai_consent). */
+async function sendWithdrawal(): Promise<void> {
+  const { error } = await supabase.rpc('withdraw_ai_consent');
+  if (error) throw syncError(error, 'Could not save that AI is off.');
+}
+
+/** The laptop has no queue: a withdrawal made offline is sent when it is back online. */
+let webWithdrawPending = false;
+
+export async function withdrawConsent(): Promise<void> {
+  // Off on this device at once: nothing is sent from here on (lib/functions.ts).
+  await setAiPaused(true);
+  forgetConsent();
+  await AsyncStorage.removeItem(SINCE_KEY).catch(() => {});
+  notify();
+  try {
+    if (isOffline()) throw new NetworkError();
+    await sendWithdrawal();
+  } catch {
+    if (syncEnabled) {
+      await enqueue({ kind: 'consent_withdraw', key: WITHDRAW_KEY, payload: {} });
+    } else if (!webWithdrawPending) {
+      webWithdrawPending = true;
+      const stop = onBackOnline(() => {
+        stop();
+        sendWithdrawal()
+          .then(() => (webWithdrawPending = false))
+          .catch(() => {});
+      });
+    }
+  }
+}
+
+registerSyncHandler<Record<string, never>>('consent_withdraw', {
+  run: async () => {
+    await sendWithdrawal();
+  },
+  merge: (_earlier, later) => later,
+});
 
 /** Forgets what was granted in this session (after sign-out, or a 403 from a function). */
 export function forgetConsent(): void {

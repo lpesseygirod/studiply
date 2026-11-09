@@ -64,9 +64,10 @@ export function SettingSwitch(props: { value: boolean; onValueChange: (v: boolea
   return (
     <Switch
       {...props}
-      trackColor={{ false: c.surfaceMuted, true: c.salmon }}
+      // Off: a track that reads as a switch on the card in both themes (step 10.1).
+      trackColor={{ false: c.switchOff, true: c.salmon }}
       thumbColor={c.white}
-      ios_backgroundColor={c.surfaceMuted}
+      ios_backgroundColor={c.switchOff}
     />
   );
 }

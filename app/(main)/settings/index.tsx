@@ -27,6 +27,8 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 import { backend } from '../../../src/components/BackendBadge';
 import { SettingsRows } from '../../../src/components/settings/SettingsRows';
 import { SyncBanner, useTodayUsage } from '../../../src/components/settings/StatusBanners';
+import { useAiConsent } from '../../../src/components/settings/AiConsentCard';
+import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
 
 /**
  * Settings (step 3.6, docs/design iphone-07). iPhone: the profile card
@@ -47,6 +49,7 @@ function SettingsList() {
   const { profile, signOut } = useAuth();
   const { settings, loading } = useUserSettings();
   const { usage } = useTodayUsage();
+  const aiConsent = useAiConsent();
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getStorageStats>> | null>(null);
   useEffect(() => {
     if (!profile?.id) return;
@@ -56,7 +59,8 @@ function SettingsList() {
   const values: Partial<Record<SettingsSectionKey, string>> = {
     summaries: loading ? '' : summaryLevelValue(settings.default_summary_level),
     recording: loading ? '' : languageValue(settings.default_language),
-    'ai-privacy': aiUseValue(usage),
+    // iphone-07: whether AI is allowed (step 10.1); today's use is on the page itself.
+    'ai-privacy': aiConsent.allowed === null ? aiUseValue(usage) : aiConsent.allowed ? 'Allowed' : 'Off',
     storage: storageValue(storage),
     appearance: appearanceValue(appearance),
     development: backend.label,
@@ -112,6 +116,8 @@ function SettingsList() {
         >
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
+        {/* Step 10.1 (iphone-07): Delete account… under Sign out. */}
+        <DeleteAccountButton variant="link" />
 
         <Text style={styles.versionText}>Studiply v0.1.0</Text>
       </ScrollView>

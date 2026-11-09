@@ -9,6 +9,7 @@ import { recorder, requestMicrophone } from './recorder';
 import { createRecordingFlow, type RecordingFlow } from './recording-flow';
 import { createSession, getSession, updateSession } from './session.service';
 import { ConsentDeclinedError, ensureConsent } from './consent.service';
+import { remindBeforeFirstRecording } from './recording-reminder';
 import { isOffline } from '../lib/connectivity';
 import { isMockAiForced } from '../lib/aiMode';
 import { isNetworkError, serviceError } from '../lib/cloudRows';
@@ -39,8 +40,12 @@ async function audioEnd(lectureId: string): Promise<{ seq: number; ms: number } 
 const shared = globalThis as { __studiplyRecordingFlow?: RecordingFlow };
 export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= createRecordingFlow({
   recorder,
-  // The browser's or the iPhone's own question, before a lecture is made.
-  openMicrophone: requestMicrophone,
+  // Step 10.1: the first time, the reminder to check recording is allowed in the class; then the
+  // browser's or the iPhone's own microphone question, before a lecture is made.
+  openMicrophone: async () => {
+    await remindBeforeFirstRecording();
+    await requestMicrophone();
+  },
   allowTranscription: async () => {
     // EXPO_PUBLIC_MOCK_AI (development): nothing is sent, nothing asked (as the rest of the app).
     if (isMockAiForced()) return true;

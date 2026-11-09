@@ -34,6 +34,7 @@ import { IconButton } from '../IconButton';
 import { removeProfilePhoto, setProfilePhoto, updateProfile } from '../../services/profile.service';
 import { deleteAllUserData } from '../../services/auth.service';
 import { showAlert } from '../dialogs/dialogs';
+import { DeleteAccountButton } from './DeleteAccount';
 import { makeSettingsStyles } from './styles';
 
 // ── Profile ──────────────────────────────────────────────────────────────
@@ -250,30 +251,58 @@ export function SignInInfo({ showName = true }: { showName?: boolean }) {
   );
 }
 
-/** What goes to an AI service, and when (the consent card comes in step 10.1). */
-export function AiPrivacyNote() {
+// ── Danger zone ──────────────────────────────────────────────────────────
+
+// ── How she signs in (step 10.1) ─────────────────────────────────────────
+
+/**
+ * Her sign-in methods (desktop-05's rows): the email, and Sign in with Apple Linked / Not linked
+ * (status only in 10.1, the advisor's D6: Supabase links an Apple sign-in with the same verified
+ * email by itself; a Link button comes later).
+ */
+export function SignInMethods() {
+  const settingsStyles = useThemedStyles(makeSettingsStyles);
   const styles = useThemedStyles(makeStyles);
-  const { colors: c } = useTheme();
+  const { session } = useAuth();
+  const identities = session?.user?.identities ?? [];
+  const apple = identities.some((i) => i.provider === 'apple');
+  const email = session?.user?.email ?? '';
+  // Apple's private relay address: shown as Apple shows it.
+  const hidden = /@privaterelay\.appleid\.com$/i.test(email);
   return (
-    <View style={styles.infoCard}>
-      <Ionicons name="shield-checkmark-outline" size={26} color={c.text.secondary} />
-      <View style={styles.infoText}>
-        <Text style={styles.infoHint}>Recordings are sent to ElevenLabs, and notes and photos to Anthropic, only after you allow it.</Text>
+    <View style={settingsStyles.card} {...{ dataSet: { signIn: apple ? 'apple' : 'email' } }}>
+      <View style={styles.methodRow}>
+        <Text style={styles.methodLabel}>Email</Text>
+        <Text style={styles.methodValue} numberOfLines={1}>
+          {hidden ? 'Hidden by Apple' : email || '—'}
+        </Text>
+      </View>
+      <View style={settingsStyles.divider} />
+      <View style={styles.methodRow}>
+        <Text style={styles.methodLabel}>Sign in with Apple</Text>
+        <Text style={styles.methodValue} {...{ dataSet: { appleLinked: apple ? 'yes' : 'no' } }}>
+          {apple ? 'Linked' : 'Not linked'}
+        </Text>
       </View>
     </View>
   );
 }
 
-// ── Danger zone ──────────────────────────────────────────────────────────
+/** "signed in with Apple" / "signed in with email", under her name. */
+export function signedInWith(identities: { provider: string }[] | undefined): string {
+  return (identities ?? []).some((i) => i.provider === 'apple') ? 'signed in with Apple' : 'signed in with email';
+}
 
-/** "Delete data on this device" and/or "Sign out", in a red card. */
+/** "Delete data on this device", "Delete account…" (step 10.1) and/or "Sign out", in a red card. */
 export function DangerZone({
   title = 'DANGER ZONE',
   deleteData = true,
+  deleteAccount = false,
   signOut: showSignOut = true,
 }: {
   title?: string | null;
   deleteData?: boolean;
+  deleteAccount?: boolean;
   signOut?: boolean;
 }) {
   const settingsStyles = useThemedStyles(makeSettingsStyles);
@@ -337,6 +366,8 @@ export function DangerZone({
             <Text style={styles.dangerLabel}>Sign out</Text>
           </TouchableOpacity>
         )}
+        {deleteAccount && (deleteData || showSignOut) && <View style={settingsStyles.divider} />}
+        {deleteAccount && <DeleteAccountButton variant="row" />}
       </View>
     </>
   );
@@ -371,6 +402,11 @@ const makeStyles = (c: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+
+    // Sign-in methods
+    methodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 15 },
+    methodLabel: { fontSize: Typography.size.base, color: c.text.primary },
+    methodValue: { flexShrink: 1, fontSize: Typography.size.base, color: c.text.secondary },
 
     // Danger zone
     dangerCard: {

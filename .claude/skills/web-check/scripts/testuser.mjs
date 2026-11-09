@@ -16,14 +16,22 @@ if (!/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(env.API_URL ?? '')) {
 }
 const opts = { auth: { persistSession: false, autoRefreshToken: false } };
 export const admin = createClient(env.API_URL, env.SERVICE_ROLE_KEY, opts);
+/** Step 10.1: for account.mjs's own clients (signed in as the test user). */
+export const supabaseEnv = { url: env.API_URL, anonKey: env.ANON_KEY };
 
-export async function makeUser() {
+/**
+ * A confirmed user. Step 10.1: the reminder before the first recording ("check that you may record
+ * this class") counts as seen, so the recording checks start as before; `reminder: true` keeps it
+ * (account.mjs checks it).
+ */
+export async function makeUser({ reminder = false } = {}) {
   const email = `ui-${Date.now()}@test.dev`;
   const password = 'password123';
   const { data, error } = await admin.auth.admin.createUser({
     email, password, email_confirm: true, user_metadata: { display_name: 'UI Test' },
   });
   if (error) throw error;
+  if (!reminder) await admin.from('profiles').update({ preferences: { recordingReminderSeen: true } }).eq('id', data.user.id);
   const client = createClient(env.API_URL, env.ANON_KEY, opts);
   await client.auth.signInWithPassword({ email, password });
   return { id: data.user.id, email, password, client };
@@ -39,7 +47,7 @@ export async function seed(client) {
   return { course, science, folder, lecture: file };
 }
 
-/** Removes the user's Storage files, then the user (rows cascade). */
+/** Removes the user's Storage files, then the user (rows cascade). Gone already (account.mjs deleted it): nothing to do. */
 export async function dropUser(id) {
   for (const bucket of ['audio-chunks', 'photos', 'slides']) {
     const paths = [];
@@ -54,5 +62,5 @@ export async function dropUser(id) {
     await walk(id);
     if (paths.length) await admin.storage.from(bucket).remove(paths);
   }
-  await admin.auth.admin.deleteUser(id);
+  await admin.auth.admin.deleteUser(id).catch(() => {});
 }

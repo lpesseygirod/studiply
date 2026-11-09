@@ -23,8 +23,8 @@
 //      unticked, the preset Exam tomorrow (its values on the sliders; Exam focus 10's notice when
 //      too few moments are flagged).
 //   3. + From my library adds Apuntes.pdf; + Upload past exam uploads a PDF into the course (a files
-//      row). 9.1b-2: its format is read at once, after the two permissions (the transcript; photos
-//      and PDFs: a PDF) answered Allow: one format request to the quiz function (answered in the page:
+//      row). 9.1b-2: its format is read at once, after the AI consent screen (step 10.1: once, all
+//      three scopes) answered Allow: one format request to the quiz function (answered in the page:
 //      12 questions, 8 multiple choice with 4 options, 2 true/false, 2 short answers); its line says
 //      "12 questions · multiple choice, true/false, short answer"; Number of questions moves to 2 (its
 //      length) and the preview follows the calculator with the exam's mix. The choices (a total time
@@ -36,8 +36,8 @@
 //      spinner; 10 questions written and the row ready → within the list's 5 s reads "10 questions ·
 //      Ready", Take enabled.
 //   5. Delete with Undo: … → Delete quiz; the row leaves the list; Undo brings it back.
-//   6. Saved, not started: a quiz saved but never started, the permissions withdrawn: Start → "Send
-//      the transcript to Anthropic?" → Not now: nothing sent, the row says "Nothing was sent: Studiply
+//   6. Saved, not started: a quiz saved but never started, the permissions withdrawn: Start → the
+//      consent screen → Not now: nothing sent, the row says "Nothing was sent: Studiply
 //      needs your permission"; Start again, Allow, the function answers 429: "The quiz wasn’t started"
 //      and the row says "Today’s limit is reached; try again tomorrow".
 //   7. Failed and too long: a failed quiz ("Couldn’t be written · Claude couldn’t be reached") → Try
@@ -288,33 +288,37 @@ const tap = async (css) => {
   const p = await b.evaluate(`(() => { const r = ${visible(css)}[0].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
   await b.clickAt(p.x, p.y);
 };
-/** A permission dialog (src/services/consent.service.ts) answered: Allow or Not now. */
-const answer = async (title, button, timeout = 8000) => {
-  await b.waitText(title, { timeout });
+/**
+ * Step 10.1: the AI consent screen (components/consent: desktop-09's card at 1280, iphone-12's full
+ * screen at 390), answered: Allow and continue (the laptop's "I agree…" ticked first) or Not now. One
+ * answer gives all three scopes (transcription, assistant_summary, images).
+ */
+const CONSENT = '[data-consent="screen"]';
+const answerConsent = async (allow, timeout = 8000) => {
+  await waitFor(() => has(CONSENT), 'the consent screen', timeout);
   await b.sleep(250);
-  await b.click(button, { exact: true });
-  await b.sleep(400);
-};
-/** The permission dialogs that come within `ms`, answered (transcript, images); the titles seen. */
-const answerAny = async (answers, ms = 3000) => {
-  const seen = [];
-  const until = Date.now() + ms;
-  while (Date.now() < until) {
-    let hit = false;
-    for (const [title, button] of Object.entries(answers)) {
-      if (await b.hasText(title, true)) {
-        await b.click(button, { exact: true });
-        await b.sleep(400);
-        seen.push(title);
-        hit = true;
-      }
+  if (allow) {
+    if ((await attr(CONSENT, 'data-layout')) === 'card') {
+      await b.clickSelector('[data-consent="agree"]');
+      await b.sleep(250);
     }
-    if (!hit) await b.sleep(200);
+    await b.clickSelector('[data-consent="allow"]');
+  } else {
+    await b.clickSelector('[data-consent="not-now"]');
   }
-  return seen;
+  await waitFor(async () => !(await has(CONSENT)), 'the consent screen closed', 8000);
 };
-const ASK_TRANSCRIPT = 'Send the transcript to Anthropic?';
-const ASK_IMAGES = 'Send photos and PDFs to Anthropic?';
+/** Answered when it comes within `ms`; whether it came. */
+const answerConsentIfAsked = async (allow, ms = 3000) => {
+  for (const until = Date.now() + ms; Date.now() < until; await b.sleep(200)) {
+    if (await has(CONSENT)) {
+      await answerConsent(allow);
+      return true;
+    }
+  }
+  return false;
+};
+const POLICY_VERSION = /CONSENT_POLICY_VERSION\s*=\s*'([^']+)'/.exec(readFileSync(join(repo, 'supabase/functions/_shared/policy.ts'), 'utf8'))?.[1];
 const row = (id) => `[data-quizzes="row"][data-id="${id}"]`;
 const rowDetail = (id) => text(`${row(id)} [data-quizzes="detail"]`);
 const rowSub = (id) => text(`${row(id)} [data-quizzes="sub"]`);
@@ -602,7 +606,7 @@ try {
   });
 
   let pastExam = null;
-  await step('+ From my library adds Apuntes.pdf; + Upload past exam: the two permissions, its format read (one request), its line, Number of questions to its length, the preview with its mix; the choices; Save as course default', async () => {
+  await step('+ From my library adds Apuntes.pdf; + Upload past exam: the consent screen (once), its format read (one request), its line, Number of questions to its length, the preview with its mix; the choices; Save as course default', async () => {
     await tap('[data-newquiz="add-library-resource"]');
     await waitFor(() => has(`[data-newquiz="library-file"][data-id="${apuntes}"]`), 'Apuntes.pdf in the library list');
     await tap(`[data-newquiz="library-file"][data-id="${apuntes}"]`);
@@ -612,9 +616,9 @@ try {
 
     await b.chooseFiles([join(OUT, 'quiz-check', 'Parcial 2024.pdf')], () => tap('[data-newquiz="add-upload-pastExam"]'));
     await waitFor(() => has('[data-newquiz="past-exam"]'), 'the past exam row', 20000);
-    // 9.1b-2: reading its format sends it to Anthropic: the transcript permission, then photos and PDFs (a PDF).
-    await answer(ASK_TRANSCRIPT, 'Allow', 15000);
-    await answer(ASK_IMAGES, 'Allow');
+    // 9.1b-2: reading its format sends it to Anthropic. Step 10.1: the consent screen, once (all three scopes).
+    await answerConsent(true, 15000);
+    expect(!(await answerConsentIfAsked(true, 1500)), 'the consent screen asked twice');
     pastExam = await attr('[data-newquiz="past-exam"]', 'data-id');
     await waitFor(async () => (await text('[data-newquiz="past-exam"]')).includes(FORMAT_LINE), async () => `past exam: ${await text('[data-newquiz="past-exam"]')}`, 10000);
     expect((await text('[data-newquiz="past-exam"]')).includes('Parcial 2024.pdf'), `past exam: ${await text('[data-newquiz="past-exam"]')}`);
@@ -623,7 +627,7 @@ try {
     const { data: row } = await admin.from('files').select('kind, title, course_id, folder_id').eq('id', pastExam).maybeSingle();
     expect(row?.kind === 'pdf' && row.title === 'Parcial 2024.pdf' && row.course_id === data.course.id && row.folder_id === null, `the uploaded file: ${JSON.stringify(row)}`);
     const { data: consent } = await admin.from('ai_consent').select('scope').eq('user_id', user.id);
-    expect((consent ?? []).map((c) => c.scope).sort().join(',') === 'assistant_summary,images', `consent rows: ${JSON.stringify(consent)}`);
+    expect((consent ?? []).map((c) => c.scope).sort().join(',') === 'assistant_summary,images,transcription', `consent rows: ${JSON.stringify(consent)}`);
     // Its length is Number of questions (12 → 2) and the preview follows its mix.
     await waitFor(async () => (await sliderValues()).count === presetWithExam.count, async () => `Number of questions: ${(await sliderValues()).count}`);
     const types = DEFAULT_TYPES.filter((t) => t !== 'true_false');
@@ -661,7 +665,7 @@ try {
     quizId = call.quizId;
     await server.writing(quizId);
     await waitFor(async () => !(await has(PANEL)), 'the panel closed', 15000);
-    expect(!(await b.hasText(ASK_TRANSCRIPT, true)), 'a permission asked again');
+    expect(!(await has(CONSENT)), 'a permission asked again');
     const { data: q } = await admin.from('quizzes').select('*').eq('id', quizId).single();
     expect(q.title === 'Math · whole course' && q.course_id === data.course.id && q.question_count === plan.count && !q.deleted_at, `the row: ${JSON.stringify({ ...q, settings: undefined, plan: undefined })}`);
     const s = q.settings;
@@ -716,13 +720,13 @@ try {
     expect(await has(`${row(notStarted)} [data-quizzes="start"]`), 'no Start');
     const before = (await quizCalls()).length;
     await tap(`${row(notStarted)} [data-quizzes="start"]`);
-    await answer(ASK_TRANSCRIPT, 'Not now');
+    await answerConsent(false);
     await waitFor(async () => (await rowSub(notStarted)) === 'Nothing was sent: Studiply needs your permission', async () => `under the row: ${await rowSub(notStarted)}`);
     expect((await quizCalls()).length === before, `a request after Not now: ${JSON.stringify((await quizCalls()).slice(before))}`);
 
     await b.evaluate(`window.__quizReply = 'daily_limit'`);
     await tap(`${row(notStarted)} [data-quizzes="start"]`);
-    await answer(ASK_TRANSCRIPT, 'Allow');
+    await answerConsent(true);
     await b.waitText('The quiz wasn’t started', { timeout: 10000 });
     await b.click('OK', { exact: true });
     await waitFor(async () => (await rowSub(notStarted)) === 'Today’s limit is reached; try again tomorrow', async () => `under the row: ${await rowSub(notStarted)}`);
@@ -791,14 +795,14 @@ try {
     await previewIs(plan, '390, Lecture 1');
     const before = (await quizCalls()).length;
     await tap('[data-newquiz="create"]');
-    // The permissions were withdrawn in step 6 (the transcript's given again): any asked now is answered.
-    const asked = await answerAny({ [ASK_TRANSCRIPT]: 'Allow', [ASK_IMAGES]: 'Not now' }, 4000);
+    // The permissions were withdrawn in step 6 (given again there): the consent screen, if it comes, is answered.
+    const asked = await answerConsentIfAsked(true, 4000);
     await waitFor(async () => !(await has(PANEL)), 'the sheet closed', 15000);
     await waitFor(async () => (await count('[data-quizzes="row"]')) === rowsBefore + 1, 'the new quiz listed');
     const titles = await b.evaluate(`[...document.querySelectorAll('[data-quizzes="row"]')].map((r) => r.textContent)`);
     expect(titles[0].startsWith('Math · Lecture 1'), `the list's order: ${JSON.stringify(titles)}`);
     expect((await quizCalls()).slice(before).filter((c) => c.quizId && !c.mode).length === 1, `the 390 quiz wasn't started: ${JSON.stringify((await quizCalls()).slice(before))}`);
-    report.push(`RESULT | 390: the quiz started${asked.length ? ` (asked: ${asked.join(' · ')})` : ''}`);
+    report.push(`RESULT | 390: the quiz started${asked ? ' (the consent screen asked)' : ''}`);
     // The states readable at 390: no state line or reason cut (sideways or by a line clamp); the
     // writing row's state whole; a quiz saved but not started always says why (here: never tried).
     const cut = await b.evaluate(`[...document.querySelectorAll('[data-quizzes="row"] [data-quizzes="detail"], [data-quizzes="row"] [data-quizzes="sub"]')]
@@ -816,8 +820,8 @@ try {
 
   let firstAttempt = null;
   await step('laptop (desktop-07): Take; the top bar, Question 1 of 8, From your marks; every type answered (keys, hint, mini player, the AI’s grades played); results 6.3 / 10, 4 to review; her grade → 7.5 / 10', async () => {
-    // The consent the grading asks for (the transcript permission), given as the student would have.
-    await user.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: 'dev-2026-10-elevenlabs' }).then(() => {}, () => {});
+    // The consent the grading needs, given as the consent screen's Allow does (all three scopes, step 10.1).
+    for (const scope of ['transcription', 'assistant_summary', 'images']) await user.client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION }).then(() => {}, () => {});
     allTypes = await readyQuiz('Psico · every type', ALL_TYPES());
     await clean();
     await openTaking(allTypes.id);
@@ -875,9 +879,9 @@ try {
           if (q.type === 'long_answer') await b.chord({ code: 'Enter', key: 'Enter', meta: true, keyCode: 13 });
           else await b.press('Enter');
           // The phase, and any dialog open, when something doesn't come.
-          const state = async () => `phase ${(await current())?.phase ?? '?'}; dialog: ${(await b.hasText(ASK_TRANSCRIPT, true)) ? ASK_TRANSCRIPT : 'none'}; grade requests ${(await gradeCalls()).length - graded}`;
+          const state = async () => `phase ${(await current())?.phase ?? '?'}; dialog: ${(await has(CONSENT)) ? 'the consent screen' : 'none'}; grade requests ${(await gradeCalls()).length - graded}`;
           await waitFor(async () => (await current())?.phase === 'feedback', async () => `Check by ${q.type === 'long_answer' ? '⌘ + Enter' : 'Enter'} (${await state()})`, 8000);
-          await answerAny({ [ASK_TRANSCRIPT]: 'Allow' }, 4000);
+          await answerConsentIfAsked(true, 4000);
           await waitFor(async () => (await gradeCalls()).length > graded, async () => `the grade request (decision 5: right after Check) (${await state()})`, 15000);
           const call = (await gradeCalls()).at(-1);
           expect(call.quizId === allTypes.id && call.attemptId === firstAttempt, `the grade request: ${JSON.stringify(call)}`);

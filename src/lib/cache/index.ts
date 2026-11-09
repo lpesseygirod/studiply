@@ -10,6 +10,7 @@
 
 import { isNetworkError, NetworkError, type FileRow, type LectureFileRow } from '../cloudRows';
 import { getConnection, waitUntilKnown } from '../connectivity';
+import { setAiPauseUser } from '../consentGate';
 import { setPullsEnabled } from './library';
 import { missingFrom } from './localQueries';
 import {
@@ -37,6 +38,8 @@ let sessionLive = false;
 export function setCacheSession(userId: string | null, live: boolean): void {
   const was = sessionLive;
   setCacheUser(userId);
+  // Step 10.1: "AI is off" belongs to this account.
+  setAiPauseUser(userId);
   sessionLive = !!userId && live;
   setPullsEnabled(sessionLive);
   if (sessionLive && !was) liveListeners.forEach((fn) => fn());

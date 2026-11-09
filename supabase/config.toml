@@ -442,6 +442,10 @@ verify_jwt = true
 [functions.summarize]
 verify_jwt = true
 
+# Step 10.1: Settings → Account → Delete account (her own token; the service role only inside).
+[functions.delete-account]
+verify_jwt = true
+
 # Called by the nightly database job (pg_cron), not by the app: no user
 # token. It checks its own x-cron-secret header instead.
 [functions.purge-trash]

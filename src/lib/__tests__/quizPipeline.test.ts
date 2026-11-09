@@ -308,6 +308,17 @@ describe('the run', () => {
     expect(beforeRepair.calls.map((c) => c.kind)).toEqual(['batch']);
   });
 
+  it('step 10.1: AI switched off meanwhile: it stops before the next call, failed “consent_withdrawn”, nothing more sent', async () => {
+    let allowed = 1;
+    const t = setup(material(2), answerAll, { consentWithdrawn: async () => allowed-- <= 0 });
+    expect(await runQuiz(t.deps)).toEqual({ status: 'failed', error: 'consent_withdrawn' });
+    expect(t.calls.map((c) => c.kind)).toEqual(['batch']);
+    expect(t.saved).toEqual([]);
+    // Still allowed: as before.
+    const on = setup(material(2), answerAll, { consentWithdrawn: async () => false });
+    expect((await runQuiz(on.deps)).status).toBe('ready');
+  });
+
   it('the time budget: past VERIFY_BEFORE_MS no verify call (its questions dropped), past REPAIR_BEFORE_MS no repair call', async () => {
     let clock = 0;
     const late = (ms: number) => setup(material(2), (kind, user, n) => {

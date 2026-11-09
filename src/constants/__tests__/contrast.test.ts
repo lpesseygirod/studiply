@@ -44,6 +44,8 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['accent (active tab icon) on card', c.accent, c.card, ICON],
     ['recording (Record button) on its ring', c.recording, c.recordRing, ICON],
     ['favorite star on card', c.favorite, c.card, ICON],
+    ['a switch’s off track on card (Settings, step 10.1)', c.switchOff, c.card, ICON],
+    ['a switch’s thumb on its off track', c.white, c.switchOff, ICON],
     ...Object.entries(c.meter).map(([n, v]) => [`meter.${n} on card`, v, c.card, ICON] as [string, string, string, number]),
     ['recording screen text on its background', c.recordingScreen.text, c.recordingScreen.bg, TEXT],
     ['recording warning text on its banner', c.recordingScreen.warningText, c.recordingScreen.warningBg, TEXT],

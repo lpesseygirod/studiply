@@ -16,9 +16,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.studiply.app",
+      "usesAppleSignIn": true,
       "backgroundColor": "#B8B5E4",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Studiply needs microphone access to record lectures.",
+        "NSMicrophoneUsageDescription": "Studiply uses the microphone only while you record a lecture, so you can replay it and turn it into notes. Recording continues when the screen locks.",
         "UIBackgroundModes": [
           "audio"
         ]
@@ -55,14 +56,14 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Studiply needs microphone access to record lectures."
+          "microphonePermission": "Studiply uses the microphone only while you record a lecture, so you can replay it and turn it into notes. Recording continues when the screen locks."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Studiply needs access to your photos to upload images.",
-          "cameraPermission": "Studiply needs camera access to take photos of whiteboards and slides."
+          "photosPermission": "Choose photos of slides, notes or the whiteboard to add to a lecture or a document.",
+          "cameraPermission": "Take photos of the whiteboard or slides during a lecture; they're added to that lecture's notes."
         }
       ],
       "expo-sqlite",
@@ -70,11 +71,12 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Studiply needs microphone access to record lectures.",
+          "microphonePermission": "Studiply uses the microphone only while you record a lecture, so you can replay it and turn it into notes. Recording continues when the screen locks.",
           "enableBackgroundRecording": true
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

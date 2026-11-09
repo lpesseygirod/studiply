@@ -41,6 +41,7 @@ import { PAST_EXAM_EXPECTED, syntheticPastExam } from './fixtures/synthetic-past
 import { AI_ANSWERS, CODE_ANSWERS, GRADING_FAULTS, gradingMisses } from './fixtures/quiz-answers.ts';
 import { gradeAnswer } from '../supabase/functions/_shared/quiz-grade.ts';
 import { MAX_REASON } from '../supabase/functions/_shared/quiz-grading.ts';
+import { CONSENT_POLICY_VERSION } from '../supabase/functions/_shared/policy.ts';
 import { FixtureShape, fixtureInput, type Fixture } from '../supabase/functions/_shared/summary-fixture.ts';
 import { formProblems, hintGivesAway, normalizePrompt, SPAN_SLACK_MS } from '../supabase/functions/_shared/quiz-checks.ts';
 import { planInputFor, type MaterialLecture } from '../supabase/functions/_shared/quiz-input.ts';
@@ -211,7 +212,7 @@ async function generate(): Promise<number> {
     const signedIn = await user.auth.signInWithPassword({ email, password });
     if (signedIn.error) throw new Error(`Could not sign in: ${signedIn.error.message}`);
     // The transcript permission only: the past exam is text, the lectures' photos aren't ticked.
-    must(await user.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: 'dev-2026-10-elevenlabs' }), 'the consent');
+    must(await user.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: CONSENT_POLICY_VERSION }), 'the consent');
     const first = LECTURES[0].fixture();
     const course = must(await user.from('courses').insert({ name: first.lecture.courseName ?? 'Psicobiología (check)' }).select('id').single(), 'the course');
     const courseId = course.data!.id as string;
@@ -371,7 +372,7 @@ async function gradeWithSonnet(): Promise<number> {
     const user = createClient(env.API_URL, env.ANON_KEY, options);
     const signedIn = await user.auth.signInWithPassword({ email, password });
     if (signedIn.error) throw new Error(`Could not sign in: ${signedIn.error.message}`);
-    must(await user.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: 'dev-2026-10-elevenlabs' }), 'the consent');
+    must(await user.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: CONSENT_POLICY_VERSION }), 'the consent');
     const course = must(await user.from('courses').insert({ name: 'Psicobiología (grading check)' }).select('id').single(), 'the course');
     const settings = { version: SETTINGS_VERSION, sliders: QUIZ_SLIDER_DEFAULTS, choices: DEFAULT_CHOICES, topic: { wholeCourse: true, lectureIds: [] }, resources: { notes: true, summaries: true, lectureMedia: false, fileIds: [] }, pastExamIds: [] };
     const quiz = must(await user.from('quizzes').insert({ course_id: course.data!.id, title: 'Grading check', status: 'ready', language: 'es', settings, plan: {}, question_count: AI_ANSWERS.length }).select('id').single(), 'the quiz');

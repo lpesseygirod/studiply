@@ -8,6 +8,7 @@ import '../src/services/sync-handlers';
 import { useAuth } from '../src/hooks/useAuth';
 import SplashScreen from '../src/components/SplashScreen';
 import DialogHost from '../src/components/dialogs/DialogHost';
+import { AiConsentHost } from '../src/components/consent/AiConsentHost';
 import { PictureFlattenerHost } from '../src/components/PictureFlattenerHost';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 
@@ -58,6 +59,8 @@ export default function RootLayout() {
             <RootNavigator />
           </AuthProvider>
           <DialogHost />
+          {/* Step 10.1: the AI consent screen, asked from anywhere (services/consent.service). */}
+          <AiConsentHost />
           {/* iPhone: pictures that can be transparent are drawn on white before they become JPEGs (toJpeg). */}
           <PictureFlattenerHost />
 

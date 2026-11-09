@@ -253,6 +253,8 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
       const { data } = await db.from('quizzes').select('deleted_at').eq('id', quizId).maybeSingle();
       return !!data && !data.deleted_at;
     },
+    // Step 10.1: AI switched off meanwhile → stop before the next call.
+    consentWithdrawn: async () => !(await hasConsent(db, 'assistant_summary').catch(() => true)),
     touch: async () => {
       await db.from('quizzes').update({ status: 'generating' }).eq('id', quizId).eq('status', 'generating');
     },

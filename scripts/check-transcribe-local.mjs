@@ -47,7 +47,8 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 const FUNCTION_URL = `${url}/functions/v1/transcribe-chunk`;
 const BUCKET = 'audio-chunks';
-const POLICY_VERSION = 'dev-2026-10-elevenlabs';
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+const POLICY_VERSION = '2026-11-store-1';
 const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 const START_MS = 60_000;
 const PAUSE_MS = 4000;

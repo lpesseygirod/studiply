@@ -1,13 +1,13 @@
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useGlobalSearchParams, usePathname, useRouter, type Href } from 'expo-router';
 
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { LightColors, type ThemeColors } from '../../constants/colors';
+import type { ThemeColors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import { Typography } from '../../constants/typography';
 import type { ScreenKind } from '../../hooks/useLayoutMode';
+import { LogoTile } from '../LogoTile';
 import UserAvatar from '../UserAvatar';
 import { recordHref, useShell, type Crumb } from './ShellContext';
 
@@ -51,14 +51,7 @@ export function TopBar({
           />
         )}
         <Pressable style={styles.logoLink} onPress={() => router.navigate('/library')} accessibilityRole="link" accessibilityLabel="Studiply, My library">
-          <LinearGradient
-            colors={[LightColors.gradient.top, LightColors.gradient.bottomMid]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoTile}
-          >
-            <Ionicons name="book" size={15} color={LightColors.white} />
-          </LinearGradient>
+          <LogoTile size={30} />
           <Text style={styles.logoText}>Studiply</Text>
         </Pressable>
       </View>
@@ -214,7 +207,6 @@ const makeStyles = (c: ThemeColors) =>
   // Lines the middle up with the content next to the sidebar.
   brandOverSidebar: { width: Layout.sidebarWidth - 12 - 16 },
   logoLink: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoTile: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   logoText: { fontSize: Typography.size.md, fontWeight: Typography.weight.bold, color: c.text.primary },
 
   middle: { flex: 1, minWidth: 0 },

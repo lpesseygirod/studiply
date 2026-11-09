@@ -4,6 +4,8 @@
 // Stop & summarize → the summarize panel → Stop & generate summary → the
 // Summary tab; the earlier after-recording screen by its address). Prints PASS/FAIL per
 // step; screenshots go to $WEB_CHECK_OUT/shots. Exit code 1 on any FAIL.
+// Step 10.1: the AI consent screen (desktop-09) replaces the "Send the recording to ElevenLabs?"
+// alert; AI & privacy shows the "Use AI on my lectures" card.
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -21,6 +23,14 @@ const step = async (name, fn) => {
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 // The laptop sidebar lists the courses too; clicks on course names skip it.
 const MAIN = { exclude: '[data-testid=sidebar]' };
+
+/** Step 10.1: the consent screen shows within `ms` (it asks before anything is sent). */
+const consentAsked = async (ms) => {
+  for (const until = Date.now() + ms; Date.now() < until; await b.sleep(200)) {
+    if (await b.evaluate(`!!document.querySelector('[data-consent="screen"]')`)) return true;
+  }
+  return false;
+};
 
 const user = await makeUser();
 const data = await seed(user.client);
@@ -137,9 +147,8 @@ try {
     const title = `Web test ${Date.now() % 1000}`;
     await b.fill('input[placeholder^="e.g."]', title);
     await b.click('Start Recording');
-    // A new account is asked once about the live transcript (real AI); "Not now" records anyway and sends nothing.
-    const asked = await b.waitText('Send the recording to ElevenLabs?', { timeout: 5000 }).then(() => true, () => false);
-    if (asked) await b.click('Not now', { exact: true });
+    // A new account sees the consent screen once (real AI); "Not now" records anyway and sends nothing.
+    if (await consentAsked(5000)) await b.clickSelector('[data-consent="not-now"]');
     await b.waitText('Stop & summarize', { timeout: 15000 });
     await b.sleep(2500);
     await b.shot('18-recording');
@@ -162,10 +171,10 @@ try {
     await b.click('GENERATE NOTES');
     // A new account is asked before anything goes to ElevenLabs (real AI). The
     // simulated pipeline (EXPO_PUBLIC_MOCK_AI=1) asks nothing and writes notes.
-    const asked = await b.waitText('Send the recording to ElevenLabs?', { timeout: 15000 }).then(() => true, () => false);
+    const asked = await consentAsked(15000);
     if (asked) {
       await b.shot('20-consent');
-      await b.click('Not now', { exact: true });
+      await b.clickSelector('[data-consent="not-now"]');
       await b.waitText('Nothing was sent', { timeout: 5000 });
       await b.shot('21-not-now');
       const { count: usage } = await admin.from('ai_usage').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
@@ -243,7 +252,9 @@ try {
     await b.waitText('stored in your Studiply account in the cloud', { timeout: 15000 });
     expect(!(await b.hasText('stored on this device')), 'old text still shown');
     await b.click('AI & privacy', { exact: true });
-    await b.waitText('only after you allow it', { timeout: 5000 });
+    // Step 10.1 (iphone-08): the consent card, off for this account (it said Not now above).
+    await b.waitText('Use AI on my lectures', { timeout: 5000 });
+    expect(await b.hasText('Off · nothing is sent to AI services', true), 'the card doesn’t say AI is off');
   });
 
   await step('Record (top bar) starts fresh after leaving the flow', async () => {
@@ -260,5 +271,5 @@ try {
   console.log('console errors:', JSON.stringify(b.errors().slice(0, 10), null, 1));
   await b.close();
   await dropUser(user.id);
-  if (results.some((r) => r[0] === 'FAIL')) process.exitCode = 1;
+  if (results.some((r) => r[0] === 'FAIL') && !process.exitCode) process.exitCode = 1;
 }

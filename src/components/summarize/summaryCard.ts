@@ -11,6 +11,7 @@ export const SUMMARY_ERRORS: Record<string, string> = {
   no_summaries: 'None of these lectures has a summary yet. Summarize them first.',
   no_transcript: 'This lecture has no transcript yet.',
   claude_rejected: 'Claude didn’t accept the request. Nothing was changed.',
+  consent_withdrawn: 'Stopped: AI was turned off in Settings → AI & privacy. Nothing more was sent.',
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

@@ -557,7 +557,12 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "review_card":
+            "account_storage_objects":
+{ Args: { "uid": string }; Returns: {
+              "bucket_id": string,"name": string
+            }[]
+                           },
+"review_card":
 { Args: { "p_due_at": string,"p_ease": number,"p_flashcard_id": string,"p_grade": string,"p_interval_days": number,"p_reps": number,"p_reviewed_at": string }; Returns: boolean
                            },
 "search_library":
@@ -574,6 +579,9 @@ isOneToOne: false
 { Args: { "older_than": string }; Returns: {
               "bucket": string,"path": string
             }[]
+                           },
+"withdraw_ai_consent":
+{ Args: Record<PropertyKey, never>; Returns: number
                            }
           }
           Enums: {

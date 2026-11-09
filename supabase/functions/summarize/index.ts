@@ -36,6 +36,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { answerText, claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
 import { CLAUDE_MODELS, SUMMARIZE_TEST_PROMPT, SUMMARY_OPERATION, validateSummarizeBody } from '../_shared/claude.ts';
 import { hasConsent, ownLecture, signedIn } from '../_shared/guard.ts';
+import { gatedCall } from '../_shared/consent-gate.ts';
 import { PROBE_MAX_TOKENS, PROBE_SCHEMAS, PROBE_SYSTEM, PROBE_USER, isLocalSupabase } from '../_shared/schema-probe.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { lectureLanguage, lectureMedia, lectureTranscript, summaryMaterial, summaryMedia } from '../_shared/lecture-content.ts';
@@ -114,8 +115,19 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
   const withMedia = (request.resources.photos || request.resources.slides) && (await hasConsent(db, 'images'));
   log('summary_started', { lectureId, summaryId, media: withMedia, mode: claimed.mode });
 
+  // Step 10.1: before each call, still allowed? AI switched off meanwhile → the call is never made, the
+  // run ends ('consent_withdrawn' on the row, below).
+  let withdrawn = false;
+  const stillAllowed = () => hasConsent(db, 'assistant_summary').catch(() => false);
   const claudeCall: SummaryRunDeps['claude'] = (_call, system, content, schema, maxTokens) =>
-    claude.beta.messages.stream(claudeParams(MODEL, system, [{ role: 'user', content: content as unknown as Anthropic.Beta.BetaContentBlockParam[] }], { maxTokens, jsonSchema: schema }));
+    gatedCall(
+      stillAllowed,
+      () => claude.beta.messages.stream(claudeParams(MODEL, system, [{ role: 'user', content: content as unknown as Anthropic.Beta.BetaContentBlockParam[] }], { maxTokens, jsonSchema: schema })),
+      () => {
+        withdrawn = true;
+        log('consent_withdrawn', { summaryId });
+      },
+    ) as unknown as ReturnType<SummaryRunDeps['claude']>;
   // Step 7.9: every call's cost is logged (operation summary: it counts for the daily limit), against a real
   // lecture of hers, else null (an Exam pack's or a Unit summary's file, as 6.3 does for a plain document):
   // ai_usage's lecture must be one of her lectures (a foreign key), and a refused row would let the call
@@ -168,7 +180,12 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
         extendWith: (id, context) => summaryRun(id, summaryId, save, context),
       })
     : summaryRun(lectureId, summaryId, save);
-  EdgeRuntime.waitUntil<unknown>(run);
+  // Stopped because AI was switched off: the row says so (the run saved it as a refused call).
+  const settled = run.then(async (outcome) => {
+    if (withdrawn) await save({ status: 'failed', error: 'consent_withdrawn' }).catch(() => {});
+    return outcome;
+  });
+  EdgeRuntime.waitUntil<unknown>(settled);
   return json({ summaryId, status: 'generating' }, 202);
 }
 

@@ -221,3 +221,55 @@ registerSyncHandler<DefaultPageSetupPayload>('default_page_setup', {
   run: ({ userId: id, setup }) => pushDefaultPageSetup(id, setup, syncError),
   merge: (_earlier, later) => later,
 });
+
+// -------------------------------------------------------------------
+// Step 10.1: the reminder before the first recording ("check that you may record this class"), shown
+// once per account: `recordingReminderSeen` in the preferences, kept on this device too.
+// -------------------------------------------------------------------
+
+const reminderKey = (id: string) => `studiply.recordingReminder.${id}`;
+
+async function pushReminderSeen(id: string, fail = serviceError): Promise<void> {
+  const { data, error } = await supabase.from('profiles').select('preferences').eq('id', id).maybeSingle();
+  if (error) throw fail(error, 'Could not save the reminder.');
+  const preferences = (data?.preferences ?? {}) as Record<string, unknown>;
+  if (preferences.recordingReminderSeen === true) return;
+  const { error: writeError } = await supabase
+    .from('profiles')
+    .update({ preferences: { ...preferences, recordingReminderSeen: true } as unknown as NonNullable<Json> })
+    .eq('id', id);
+  if (writeError) throw fail(writeError, 'Could not save the reminder.');
+}
+
+/** Whether this account has seen the reminder (here, or on the account when it can be read). */
+export async function recordingReminderSeen(): Promise<boolean> {
+  const id = await userId();
+  if (!id) return true;
+  if ((await AsyncStorage.getItem(reminderKey(id)).catch(() => null)) === '1') return true;
+  try {
+    const { data, error } = await supabase.from('profiles').select('preferences').eq('id', id).maybeSingle();
+    if (error) throw error;
+    const seen = (data?.preferences as { recordingReminderSeen?: unknown } | null)?.recordingReminderSeen === true;
+    if (seen) await AsyncStorage.setItem(reminderKey(id), '1').catch(() => {});
+    return seen;
+  } catch {
+    return false;
+  }
+}
+
+/** The reminder was shown: kept here at once, then on the account (the iPhone queues it). */
+export async function markRecordingReminderSeen(): Promise<void> {
+  const id = await userId();
+  if (!id) return;
+  await AsyncStorage.setItem(reminderKey(id), '1').catch(() => {});
+  if (syncEnabled) {
+    await enqueue<{ userId: string }>({ kind: 'recording_reminder_seen', key: `${id}:recordingReminder`, payload: { userId: id } });
+    return;
+  }
+  await pushReminderSeen(id).catch(() => {});
+}
+
+registerSyncHandler<{ userId: string }>('recording_reminder_seen', {
+  run: ({ userId: id }) => pushReminderSeen(id, syncError),
+  merge: (_earlier, later) => later,
+});

@@ -5,15 +5,17 @@
  */
 
 /**
- * Consent rows must carry this version. Step 10.1 gives the real consent
- * text a new version, so consent given during development stops counting.
- * Raised on 29 Oct 2026 when the consent text started naming ElevenLabs for
- * audio instead of OpenAI: students are asked again.
+ * Consent rows must carry this version. Step 10.1 (the store's consent screen, desktop-09 / iphone-12)
+ * raised it from 'dev-2026-10-elevenlabs': consent given during development stops counting and every
+ * student is asked again. Raise it whenever what is sent, or to whom, changes.
  */
-export const CONSENT_POLICY_VERSION = 'dev-2026-10-elevenlabs';
+export const CONSENT_POLICY_VERSION = '2026-11-store-1';
 
 /** What ai_consent.scope allows; each function checks the one it needs. */
 export type ConsentScope = 'transcription' | 'assistant_summary' | 'images';
+
+/** Step 10.1: one answer ("Use AI on my lectures") gives all of them. */
+export const CONSENT_SCOPES: readonly ConsentScope[] = ['transcription', 'assistant_summary', 'images'];
 
 /** Daily limits look back this far (a rolling 24 hours, not a calendar day). */
 export const LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;

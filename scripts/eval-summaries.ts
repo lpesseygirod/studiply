@@ -40,6 +40,7 @@ import { syntheticFixture } from './fixtures/synthetic-lecture.mjs';
 import { CHART_EXPECTED, syntheticChartFixture } from './fixtures/synthetic-chart-lecture.ts';
 import { syntheticTema2Fixture } from './fixtures/synthetic-tema2-lecture.ts';
 import { stamp } from '../supabase/functions/_shared/assistant.ts';
+import { CONSENT_POLICY_VERSION } from '../supabase/functions/_shared/policy.ts';
 import type { Addition, ExamPack } from '../supabase/functions/_shared/summary-combine.ts';
 import { existingSummaryText, summaryAnchors } from '../supabase/functions/_shared/summary-extend.ts';
 import { FIXTURE_FILES, FixtureShape, REQUIRED_FIXTURE_FILES, fixtureInput, type Fixture } from '../supabase/functions/_shared/summary-fixture.ts';
@@ -456,7 +457,7 @@ async function withTestUser(run: (t: TestUser) => Promise<void>): Promise<void> 
     const user = createClient(env.API_URL, env.ANON_KEY, options);
     const signedIn = await user.auth.signInWithPassword({ email, password });
     if (signedIn.error) throw new Error(`Could not sign in: ${signedIn.error.message}`);
-    for (const scope of ['assistant_summary', 'images']) must(await user.from('ai_consent').insert({ scope, policy_version: 'dev-2026-10-elevenlabs' }), `the ${scope} consent`);
+    for (const scope of ['assistant_summary', 'images']) must(await user.from('ai_consent').insert({ scope, policy_version: CONSENT_POLICY_VERSION }), `the ${scope} consent`);
     await run({ env, admin, user, userId, token: signedIn.data.session!.access_token, fresh, ids, uploads });
   } finally {
     for (const u of uploads) await admin.storage.from(u.bucket).remove([u.path]);
