@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
 import { openLecturePicker } from '../components/summarize/combineState';
 import { promptText, showActionSheet, showAlert, type Anchor, type DialogButton } from '../components/dialogs/dialogs';
@@ -97,6 +97,9 @@ export function useItemMenu({
         // Step 9.2 (Lea): the lecture's study reminders, on or off (its state in the dialog).
         case 'reminders':
           return { text: 'Study reminders…', onPress: () => void studyReminders(item) };
+        // Step 9.2-2: the course's settings screen.
+        case 'courseSettings':
+          return { text: 'Course settings…', onPress: () => router.push(`/course-settings/${item.id}` as Href) };
         case 'star':
           return starButton(
             starTarget(item),

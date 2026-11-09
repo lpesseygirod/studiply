@@ -88,7 +88,8 @@ const tileMenu = async (title) => {
 // DESIGN (Library → Item menus). Cut / Copy (3.4), Summarize (7.3), Extend / Merge / Make exam pack (7.9),
 // Study reminders… (9.2). Everything here is at the top of the course: no Move out.
 const ITEM_MENU = {
-  course: ['Open', 'Rename…', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
+  // Step 9.2-2: Course settings… before Delete.
+  course: ['Open', 'Rename…', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Course settings…', 'Delete'],
   folder: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Merge lectures…', 'Make exam pack…', 'Delete'],
   lecture: ['Open', 'Rename…', 'Move to…', 'Cut', 'Copy', 'Add to Favorites', 'Summarize', 'Extend with next lecture…', 'Study reminders…', 'Export PDF', 'Delete'],
   // Copying a document comes later.

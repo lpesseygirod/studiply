@@ -10,7 +10,7 @@
  *   iPhone's copy before the server's arrives) count as the later review.
  */
 
-import { lectureState, localDay, sessionLabel, type Day, type Session } from './lecturePlan';
+import { daysBetween, lectureState, localDay, reviewSessions, sessionLabel, type Day, type Session } from './lecturePlan';
 import type { ScheduleRow } from './deck';
 
 /** The hidden lecture of photos and PDFs from before step 3.4 (session.service's PROJECT_FILES_TITLE). */
@@ -113,4 +113,60 @@ export function dueLectures(rows: PlanRows, now: Date, since?: Day): DueLecture[
     });
   }
   return out.sort((a, b) => a.session.day.localeCompare(b.session.day) || a.title.localeCompare(b.title));
+}
+
+// ---------------------------------------------------------------------
+// Step 9.2-2: a course's review plan, as its settings screen previews it
+// ---------------------------------------------------------------------
+
+export interface CoursePlanLecture {
+  fileId: string;
+  title: string;
+  /** The lecture's day. */
+  day: Day;
+  /** Its study reminders (its own switch, else the course's default being shown). */
+  on: boolean;
+  /** Its sessions from today on. */
+  upcoming: Session[];
+}
+
+/**
+ * The course's lectures, newest first (at most `limit`), with their sessions from today on, under the
+ * exam date and the default being edited (the settings screen shows them as they're saved).
+ */
+export function coursePlan(rows: PlanRows, courseId: string, examDay: Day | null, onDefault: boolean, now: Date, limit = 5): CoursePlanLecture[] {
+  const today = localDay(now);
+  const lectureById = new Map(rows.lectures.map((l) => [l.id, l]));
+  return rows.files
+    .filter((f) => f.kind === 'lecture' && !f.deleted_at && f.course_id === courseId && f.title !== PROJECT_FILES_TITLE)
+    .map((f) => {
+      const lecture = lectureById.get(f.id);
+      const day = localDay(lecture?.recorded_at ?? f.created_at);
+      return {
+        fileId: f.id,
+        title: f.title,
+        day,
+        on: remindersOn(lecture, { study_reminders: onDefault }),
+        upcoming: reviewSessions(day, examDay).filter((s) => daysBetween(today, s.day) >= 0),
+      };
+    })
+    .sort((a, b) => b.day.localeCompare(a.day) || a.title.localeCompare(b.title))
+    .slice(0, limit);
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Today", "Tomorrow", "13 Nov" (with the year when it isn't this one: "13 Jan 2027"). */
+export function shortDay(day: Day, now: Date): string {
+  const n = daysBetween(localDay(now), day);
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Tomorrow';
+  const [y, m, d] = day.split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]}${y !== now.getFullYear() ? ` ${y}` : ''}`;
+}
+
+/** A session in the preview: "13 Nov", "13 Nov (day before the exam)", "6 Nov (a week before the exam)". */
+export function sessionDate(s: Session, now: Date): string {
+  const when = shortDay(s.day, now);
+  return s.kind === 'examEve' ? `${when} (day before the exam)` : s.kind === 'examWeek' ? `${when} (a week before the exam)` : when;
 }

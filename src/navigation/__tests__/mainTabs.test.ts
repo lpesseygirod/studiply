@@ -31,5 +31,8 @@ describe('the iPhone tab bar', () => {
     expect(isFullScreenRoute('/record')).toBe(false);
     expect(isFullScreenRoute('/library')).toBe(false);
     expect(isFullScreenRoute('/project/abc')).toBe(false);
+    // Step 9.2-2: a course's settings keep the tab bar, as the course does.
+    expect(HIDDEN_ROUTES).toContain('course-settings/[id]');
+    expect(isFullScreenRoute('/course-settings/abc')).toBe(false);
   });
 });

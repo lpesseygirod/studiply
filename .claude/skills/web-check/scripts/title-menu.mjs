@@ -6,6 +6,7 @@
 //
 // Step 7.9: the menu also has Merge lectures… and Make exam pack… (the lecture picker). A failed step
 // closes any menu it left open, so it can't fail the next ones.
+// Step 9.2-2: a course's menu has Course settings… before Delete (what it opens: course-settings.mjs).
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -26,7 +27,7 @@ const step = async (name, fn) => {
 };
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 
-const COURSE_MENU = 'Rename…|Add to Favorites|Merge lectures…|Make exam pack…|Delete';
+const COURSE_MENU = 'Rename…|Add to Favorites|Merge lectures…|Make exam pack…|Course settings…|Delete';
 const FOLDER_MENU = 'Rename…|Move to…|Add to Favorites|Merge lectures…|Make exam pack…|Delete';
 
 const menuItems = () => b.evaluate(`[...document.querySelectorAll('[role=menuitem]')].map((e) => e.innerText.trim().split('\\n')[0])`);
@@ -93,7 +94,7 @@ try {
     await b.signIn(BASE, user.email, user.password);
   });
 
-  await step('A course title has ⌄ and opens its menu: Rename…, Favorites, Merge lectures…, Make exam pack…, Delete (no Open, no Move to…)', async () => {
+  await step('A course title has ⌄ and opens its menu: Rename…, Favorites, Merge lectures…, Make exam pack…, Course settings…, Delete (no Open, no Move to…)', async () => {
     await open(null, 'Funcions');
     expect(await b.evaluate(`!!document.querySelector('[data-testid=crumb-title] [data-testid=crumb-current]')`), 'no title button');
     expect((await b.evaluate(`document.querySelector('[data-testid=crumb-title]').getAttribute('aria-label')`)) === 'Math, course menu', 'label');

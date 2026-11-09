@@ -35,8 +35,9 @@ describe('itemActions', () => {
     expect(atTop('folder')).not.toContain('moveOut');
   });
 
-  it('a course: no Move to…, Move out, Cut or Copy (courses are the top level)', () => {
-    expect(atTop('course')).toEqual(['open', 'rename', 'star', 'merge', 'examPack', 'delete']);
+  it('a course: no Move to…, Move out, Cut or Copy (courses are the top level); Course settings… (9.2-2) before Delete', () => {
+    expect(atTop('course')).toEqual(['open', 'rename', 'star', 'merge', 'examPack', 'courseSettings', 'delete']);
+    expect(actionHint('courseSettings', 'course')).toBeNull();
   });
 
   it('a Unit summary and an Exam pack have a document’s menu (7.9); they move as files and are named by kind', () => {

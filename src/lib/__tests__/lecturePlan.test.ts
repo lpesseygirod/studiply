@@ -7,7 +7,7 @@
 // reviewed on or after the session, nothing before 9.2), the study reminders switch (Lea, 9 Nov) and
 // the lectures due today from rows (both devices' function).
 import { addDays, daysBetween, lectureState, localDay, reviewSessions, sessionLabel, PLAN_START } from '../review/lecturePlan';
-import { dueLectures, lectureReviewRow, remindersOn, type PlanRows } from '../review/lectures';
+import { coursePlan, dueLectures, lectureReviewRow, remindersOn, sessionDate, shortDay, type PlanRows } from '../review/lectures';
 import type { ScheduleRow } from '../review/deck';
 
 const L = '2026-11-10';
@@ -218,5 +218,59 @@ describe('the lectures due today (the badge, the chip, the header and the card)'
   it('the course’s exam date steers it: an exam on the 14th makes the 13th the eve', () => {
     const due = dueLectures(rows({ settings: [{ course_id: 'k1', exam_date: '2026-11-14', study_reminders: true }] }), NOW, '2026-01-01');
     expect(due.find((d) => d.fileId === 'a')?.label).toBe('Day before the exam');
+  });
+});
+
+describe('step 9.2-2: the course settings’ preview of the plan', () => {
+  const NOW2 = new Date(2026, 10, 10, 9, 0);
+  const file = (id: string, title: string, course = 'k1', more: object = {}) => ({ id, title, kind: 'lecture', course_id: course, deleted_at: null, created_at: '2026-11-01T09:00:00', ...more });
+  const rows: PlanRows = {
+    files: [file('y', 'Tema 5'), file('w', 'Tema 4'), file('off', 'Tema 3'), file('trash', 'Tema 2', 'k1', { deleted_at: '2026-11-05T00:00:00Z' }), file('other', 'Macro 1', 'k2'), file('doc', 'Apuntes', 'k1', { kind: 'document' })],
+    lectures: [
+      { id: 'y', recorded_at: '2026-11-09T10:00:00', study_reminders: null },
+      { id: 'w', recorded_at: '2026-11-03T10:00:00', study_reminders: null },
+      { id: 'off', recorded_at: '2026-11-02T10:00:00', study_reminders: false },
+      { id: 'other', recorded_at: '2026-11-09T10:00:00', study_reminders: null },
+    ],
+    schedules: [],
+    settings: [],
+    courses: [],
+  };
+  const days = (exam: string | null, onDefault = true) => coursePlan(rows, 'k1', exam, onDefault, NOW2).map((l) => [l.fileId, l.on, l.upcoming.map((s) => s.day)]);
+
+  it('the course’s live lectures, newest first, their reviews from today on', () => {
+    expect(days(null)).toEqual([
+      ['y', true, ['2026-11-10', '2026-11-12', '2026-11-16', '2026-11-30']],
+      ['w', true, ['2026-11-10', '2026-11-24']],
+      ['off', false, ['2026-11-23']],
+    ]);
+  });
+
+  it('BUILD-PLAN’s check: an exam two weeks away changes the plan (a week before and the eve; nothing after it)', () => {
+    expect(days('2026-11-24')).toEqual([
+      ['y', true, ['2026-11-10', '2026-11-12', '2026-11-17', '2026-11-23']],
+      ['w', true, ['2026-11-10', '2026-11-17', '2026-11-23']],
+      ['off', false, ['2026-11-17', '2026-11-23']],
+    ]);
+  });
+
+  it('the course’s default off: lectures without their own choice are off; their own choice wins', () => {
+    const plan = coursePlan({ ...rows, lectures: [...rows.lectures.filter((l) => l.id !== 'w'), { id: 'w', recorded_at: '2026-11-03T10:00:00', study_reminders: true }] }, 'k1', null, false, NOW2);
+    expect(plan.map((l) => [l.fileId, l.on])).toEqual([
+      ['y', false],
+      ['w', true],
+      ['off', false],
+    ]);
+  });
+
+  it('at most 5 lectures', () => {
+    const many: PlanRows = { ...rows, files: Array.from({ length: 8 }, (_, i) => file(`l${i}`, `Tema ${i}`, 'k1', { created_at: `2026-11-0${i + 1}T09:00:00` })), lectures: [] };
+    expect(coursePlan(many, 'k1', null, true, NOW2).map((l) => l.fileId)).toEqual(['l7', 'l6', 'l5', 'l4', 'l3']);
+  });
+
+  it('dates as the preview says them', () => {
+    expect(['2026-11-10', '2026-11-11', '2026-11-12', '2027-01-20'].map((d) => shortDay(d, NOW2))).toEqual(['Today', 'Tomorrow', '12 Nov', '20 Jan 2027']);
+    const [, , week, eve] = reviewSessions('2026-11-09', '2026-11-24');
+    expect([sessionDate(week, NOW2), sessionDate(eve, NOW2)]).toEqual(['17 Nov (a week before the exam)', '23 Nov (day before the exam)']);
   });
 });

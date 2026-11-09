@@ -22,11 +22,13 @@ export type ItemAction =
   | 'merge'
   | 'examPack'
   | 'reminders'
+  | 'courseSettings'
   | 'export'
   | 'delete';
 
 const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
-  course: ['open', 'rename', 'star', 'merge', 'examPack', 'delete'],
+  // Step 9.2-2: Course settings… (exam date and format, summary language and defaults).
+  course: ['open', 'rename', 'star', 'merge', 'examPack', 'courseSettings', 'delete'],
   folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete'],
   // Step 9.2 (Lea): Study reminders… turns a lecture's review sessions on or off.
   lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'reminders', 'export', 'delete'],
