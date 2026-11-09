@@ -14,7 +14,9 @@
  *      Supabase secret key (sb_secret_…);
  *   3. the names of the AI key variables, `service_role`, and the OpenAI
  *      and Anthropic API hosts (only the Edge Functions may call them);
- *   4. web only: expo-sqlite / wa-sqlite (the web build must never load SQLite).
+ *   4. web only: expo-sqlite / wa-sqlite (the web build must never load SQLite): what bundling it
+ *      leaves (module and asset paths, wa-sqlite's wasm, its web module's strings) and its files
+ *      in the export, not the package's name (the licences on /legal name it; step 10.1b-1).
  *
  * Prints how many hits each check has per bundle and exits 1 on any hit.
  * Secret values are never printed: a hit shows the file and the first four
@@ -27,7 +29,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
+
+const require = createRequire(import.meta.url);
+const { sqliteHits, isSqliteFile } = require('./lib/sqlite-markers.cjs');
 
 const ROOT = process.cwd();
 
@@ -132,7 +138,10 @@ const checks = [
   ['the host api.openai.com', (text) => count(text, 'api.openai.com'), ['web', 'ios']],
   ['the host api.anthropic.com', (text) => count(text, 'api.anthropic.com'), ['web', 'ios']],
   ['the host api.elevenlabs.io', (text) => count(text, 'api.elevenlabs.io'), ['web', 'ios']],
-  ['expo-sqlite / wa-sqlite (web must not load SQLite)', (text) => count(text, 'expo-sqlite') + count(text, 'wa-sqlite'), ['web']],
+  // What bundling expo-sqlite leaves (paths, wa-sqlite's files, its web module's strings), never the
+  // bare package name: the licences on /legal name it (step 10.1b-1). scripts/lib/sqlite-markers.cjs.
+  ['expo-sqlite / wa-sqlite code (web must not load SQLite)', (text) => sqliteHits(text), ['web']],
+  ['expo-sqlite / wa-sqlite files in the export', (_text, path) => (isSqliteFile(path) ? 1 : 0), ['web'], 'paths'],
 ];
 
 function count(text, needle) {
@@ -162,16 +171,18 @@ try {
       stdio: ['ignore', 'ignore', 'inherit'],
       env: { ...process.env, CI: '1' },
     });
-    const files = filesUnder(out).filter((f) => SEARCHED.test(f));
+    const allFiles = filesUnder(out);
+    const files = allFiles.filter((f) => SEARCHED.test(f));
     const bytes = files.reduce((sum, f) => sum + statSync(f).size, 0);
     console.log(`  ${files.length} files searched (${(bytes / 1024 / 1024).toFixed(1)} MB)`);
 
-    results[platform] = checks.map(([label, test, platforms]) => {
+    results[platform] = checks.map(([label, test, platforms, scope]) => {
       if (!platforms.includes(platform)) return { label, hits: null, where: [] };
       let hits = 0;
       const where = [];
-      for (const file of files) {
-        const n = test(readFileSync(file, 'latin1'));
+      // 'paths': every exported file by its path (a .wasm too), its text unread.
+      for (const file of scope === 'paths' ? allFiles : files) {
+        const n = scope === 'paths' ? test('', relative(out, file)) : test(readFileSync(file, 'latin1'), relative(out, file));
         if (n) {
           hits += n;
           where.push(`${relative(out, file)} (${n})`);
