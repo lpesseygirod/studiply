@@ -27,6 +27,8 @@ The iPhone app stores similar settings on your device.
 - No session recording.
 - No fonts or scripts loaded from third-party servers that would see your IP address.
 
+If you choose Continue with Apple on the web, Apple's sign-in script loads from Apple's servers.
+
 ## How to remove it
 
 Signing out clears your session. You can clear the rest at any time in your browser settings (clear site data for Studiply).

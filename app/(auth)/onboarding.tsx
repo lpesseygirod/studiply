@@ -32,6 +32,12 @@ import { Typography } from '../../src/constants/typography';
 import Avatar from '../../src/components/Avatar';
 import { AppleSignInButton } from '../../src/components/auth/AppleSignInButton';
 import { AppleSignInCancelled, isAppleSignInAvailable, signInWithApple } from '../../src/services/apple-auth';
+import { LegalLinks } from '../../src/components/legal/LegalLinks';
+import { LegalSheet } from '../../src/components/legal/LegalSheet';
+import type { LegalSlug } from '../../src/legal/types';
+
+// Step 10.1b-1: linked under the form (10.1b-2 adds the required checkboxes).
+const SIGN_UP_LEGAL_LINKS: readonly LegalSlug[] = ['terms', 'privacy'];
 
 // signUp → code (email confirmation) → signed in
 // signIn → signed in, or → code when the email isn't confirmed yet
@@ -39,6 +45,7 @@ import { AppleSignInCancelled, isAppleSignInAvailable, signInWithApple } from '.
 // AuthProvider picks up the new session and the root layout navigates.
 // Step 10.1: Continue with Apple above the email form ("or with email", desktop-06); on the iPhone a
 // welcome step first (iphone-11): Continue with Apple, Continue with email.
+// Step 10.1b-1: the Terms and the Privacy Policy linked under each, opened in a LegalSheet.
 type Mode = 'welcome' | 'signUp' | 'signIn' | 'code' | 'reset';
 
 const TITLES: Record<Mode, string> = {
@@ -78,6 +85,7 @@ export default function OnboardingScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [legal, setLegal] = useState<LegalSlug | null>(null);
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -256,6 +264,7 @@ export default function OnboardingScreen() {
                   <Text style={styles.emailButtonText}>Continue with email</Text>
                 </TouchableOpacity>
                 {error && <Text style={styles.errorText}>{error}</Text>}
+                <LegalLinks slugs={SIGN_UP_LEGAL_LINKS} long onOpen={setLegal} />
               </View>
             )}
 
@@ -438,10 +447,13 @@ export default function OnboardingScreen() {
                   </>
                 )}
               </View>
+              {/* Step 10.1b-1: the Terms and the Privacy Policy, in a sheet so the form is kept. */}
+              {(mode === 'signUp' || mode === 'signIn') && <LegalLinks slugs={SIGN_UP_LEGAL_LINKS} long onOpen={setLegal} />}
             </View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
+        <LegalSheet slug={legal} onClose={() => setLegal(null)} />
       </View>
     </DismissKeyboardArea>
   );

@@ -7,6 +7,8 @@ import { useLayoutMode } from '../../../src/hooks/useLayoutMode';
 import { GradientFill } from '../../../src/components/GradientBackground';
 import { SettingsMenu } from '../../../src/components/settings/SettingsMenu';
 import { Layout } from '../../../src/constants/layout';
+import { LegalLinks } from '../../../src/components/legal/LegalLinks';
+import { SETTINGS_LEGAL_LINKS } from '../../../src/legal/pages';
 
 /**
  * Settings (step 3.6). iPhone: the list, each section a page on a stack.
@@ -35,6 +37,8 @@ export default function SettingsLayout() {
       <View style={styles.columns}>
         <View style={styles.menu}>
           <SettingsMenu />
+          {/* Step 10.1b-1: the legal pages, under the menu. */}
+          <LegalLinks slugs={SETTINGS_LEGAL_LINKS} />
         </View>
         <View style={styles.page}>
           <Slot />
@@ -53,6 +57,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
   },
-  menu: { width: Layout.settingsMenuWidth },
+  menu: { width: Layout.settingsMenuWidth, gap: 12 },
   page: { flex: 1, minWidth: 0 },
 });

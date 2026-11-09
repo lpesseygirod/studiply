@@ -27,4 +27,4 @@ Drafts for the web pages and in-app links. Have them reviewed by a lawyer or ges
 - If you add analytics, crash reporting or marketing emails, update the privacy and cookie policies first.
 - Transcription is ElevenLabs (29 Oct 2026): the privacy policy, terms and the consent text name it. "Not used for training" is only true once training is turned off in the ElevenLabs account (Terms and Privacy → Data use) before the first real recording; check whether a DPA is available for the plan.
 - **Not true yet: "audio is deleted 3 days after it has been transcribed" (privacy policy section 7).** New lectures are marked `delete_3_days`, but no deletion date is set, the review screen after a recording starts on "Delete manually" and saves that, and nothing deletes audio when a date passes. Build it before launch (BUILD-PLAN 10.1b).
-- Still to write: the data-breach plan (72-hour notice to the AEPD), BUILD-PLAN 10.1b.
+- The data-breach plan (72-hour notice to the AEPD) is in `data-breach-plan.md` (step 10.1b-1).

@@ -23,6 +23,8 @@ function RootNavigator() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inMainGroup = segments[0] === '(main)';
+    // Step 10.1b-1: the legal pages are readable signed in or signed out.
+    if (segments[0] === '(legal)') return;
 
     if (isOnboarded && inAuthGroup) {
       router.replace('/library');

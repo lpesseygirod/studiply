@@ -93,6 +93,8 @@ const light = {
   // Status
   error: '#C23B3B',
   errorLight: '#FDEAEA',
+  /** Red text straight on the gradient (Delete account… under Sign out, iphone-07): 4.5:1 on every stop. */
+  errorOnGradient: '#7A1414',
   success: '#4CAF82',
 
   /** Banners and boxes: background, text, border. */
@@ -235,6 +237,8 @@ export const DarkColors: ThemeColors = {
 
   error: '#F08A8A',
   errorLight: '#3A1F22',
+  // The dimmed gradient takes dark text: a deep red.
+  errorOnGradient: '#400808',
   success: '#6CD3A3',
 
   status: {

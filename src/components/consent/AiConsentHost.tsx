@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +10,8 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { GradientFill } from '../GradientBackground';
 import { LogoTile } from '../LogoTile';
 import { answerConsentRequest, subscribeConsentRequests, type ConsentRequest } from './consentRequests';
-import { CONSENT_AGREE, CONSENT_INTRO, CONSENT_NO_TRAINING, CONSENT_SERVICES, PRIVACY_POLICY_URL } from './consentTexts';
+import { LegalSheet } from '../legal/LegalSheet';
+import { CONSENT_AGREE, CONSENT_INTRO, CONSENT_NO_TRAINING, CONSENT_SERVICES } from './consentTexts';
 
 /**
  * The AI consent screen (step 10.1; App Review guideline 5.1.2(i)), before anything is sent to an AI
@@ -21,6 +22,8 @@ import { CONSENT_AGREE, CONSENT_INTRO, CONSENT_NO_TRAINING, CONSENT_SERVICES, PR
  * - iPhone (iphone-12): full screen on the gradient, the rows as white cards, Allow and continue and
  *   Not now at the bottom; the button is the explicit act (no checkbox, as the mockup).
  * Escape is Not now on the laptop. Mounted once in app/_layout.tsx.
+ * Step 10.1b-1: "Privacy policy" (beside the checkbox; on the iPhone under the rows) opens the
+ * policy in a LegalSheet over the screen, and closing it comes back to the same choice.
  */
 export function AiConsentHost() {
   const [request, setRequest] = useState<ConsentRequest | null>(null);
@@ -35,6 +38,12 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
   const insets = useSafeAreaInsets();
   const wide = useLayoutMode() === 'wide';
   const [agreed, setAgreed] = useState(false);
+  // Step 10.1b-1: the privacy policy, read over the consent screen (its Escape closes only it).
+  const [reading, setReading] = useState(false);
+  const readingRef = useRef(false);
+  useEffect(() => {
+    readingRef.current = reading;
+  }, [reading]);
   const canAllow = !wide || agreed;
   const title = request.context === 'record' ? 'Before you record' : 'Before Studiply uses AI';
   const answer = (allowed: boolean) => answerConsentRequest(request.id, allowed);
@@ -42,7 +51,7 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || readingRef.current) return;
       e.preventDefault();
       e.stopPropagation();
       answerConsentRequest(request.id, false);
@@ -120,11 +129,9 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
                   <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={20} color={agreed ? c.accentDark : c.text.secondary} />
                   <Text style={styles.agreeText}>{CONSENT_AGREE}</Text>
                 </Pressable>
-                {PRIVACY_POLICY_URL !== null && (
-                  <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_POLICY_URL as string)}>
-                    Privacy policy
-                  </Text>
-                )}
+                <Text style={styles.link} accessibilityRole="link" onPress={() => setReading(true)} {...{ dataSet: { consent: 'privacy' } }}>
+                  Privacy policy
+                </Text>
               </View>
               {allow}
               {notNow}
@@ -141,6 +148,10 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
               <View style={styles.noTrainingPhone}>
                 <Text style={styles.noTrainingText}>{CONSENT_NO_TRAINING}</Text>
               </View>
+              {/* Not in iphone-12: the link the policy needs (step 10.1b-1). */}
+              <Text style={styles.phoneLink} accessibilityRole="link" onPress={() => setReading(true)} {...{ dataSet: { consent: 'privacy' } }}>
+                Privacy policy
+              </Text>
             </ScrollView>
             <View style={styles.phoneButtons}>
               {allow}
@@ -149,6 +160,7 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
           </View>
         )}
       </View>
+      <LegalSheet slug={reading ? 'privacy' : null} onClose={() => setReading(false)} closeLabel={title} />
     </Modal>
   );
 }
@@ -189,4 +201,5 @@ const makeStyles = (c: ThemeColors) =>
     phoneTitle: { fontSize: Typography.size['2xl'], fontWeight: Typography.weight.extrabold, color: c.text.onGradientStrong },
     phoneIntro: { fontSize: Typography.size.base, color: c.text.onGradient, lineHeight: 21 },
     phoneButtons: { gap: 8, paddingTop: 12 },
+    phoneLink: { alignSelf: 'center', paddingVertical: 8, fontSize: Typography.size.sm, fontWeight: Typography.weight.medium, color: c.text.onGradientStrong, textDecorationLine: 'underline' },
   });

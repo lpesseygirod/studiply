@@ -26,9 +26,3 @@ export const CONSENT_SUMMARY_PARTS: readonly { text: string; bold?: boolean }[] 
   { text: 'Anthropic (Claude)', bold: true },
   { text: ' for summaries, answers and quizzes. Not used for training.' },
 ];
-
-/**
- * The privacy policy's address, linked under the agreement. Null until step 10.1b publishes the page
- * (/privacy): no link to a page that doesn't exist yet.
- */
-export const PRIVACY_POLICY_URL: string | null = null;

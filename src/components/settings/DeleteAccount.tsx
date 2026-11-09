@@ -150,7 +150,8 @@ const makeStyles = (c: ThemeColors) =>
     row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
     rowText: { fontSize: Typography.size.base, fontWeight: Typography.weight.medium, color: c.error },
     link: { alignItems: 'center', paddingVertical: 14 },
-    linkText: { fontSize: Typography.size.base, fontWeight: Typography.weight.medium, color: c.error },
+    // On the gradient, not a card (the iPhone's Settings list).
+    linkText: { fontSize: Typography.size.base, fontWeight: Typography.weight.medium, color: c.errorOnGradient },
     dim: { opacity: 0.5 },
     overlay: { flex: 1, backgroundColor: c.overlay, alignItems: 'center', justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end', padding: Platform.OS === 'web' ? 24 : 0 },
     card: {

@@ -29,6 +29,8 @@ import { SettingsRows } from '../../../src/components/settings/SettingsRows';
 import { SyncBanner, useTodayUsage } from '../../../src/components/settings/StatusBanners';
 import { useAiConsent } from '../../../src/components/settings/AiConsentCard';
 import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
+import { LegalLinks } from '../../../src/components/legal/LegalLinks';
+import { SETTINGS_LEGAL_LINKS } from '../../../src/legal/pages';
 
 /**
  * Settings (step 3.6, docs/design iphone-07). iPhone: the profile card
@@ -120,6 +122,8 @@ function SettingsList() {
         <DeleteAccountButton variant="link" />
 
         <Text style={styles.versionText}>Studiply v0.1.0</Text>
+        {/* Step 10.1b-1 (iphone-07's footer): the legal pages. */}
+        <LegalLinks slugs={SETTINGS_LEGAL_LINKS} />
       </ScrollView>
     </View>
   );

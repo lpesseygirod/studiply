@@ -26,6 +26,10 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['accentOn on accentDark', c.accentOn, c.accentDark, TEXT],
     ['error on card', c.error, c.card, TEXT],
     ['error on errorLight', c.error, c.errorLight, TEXT],
+    // Settings → Account's red card (Delete account…, Sign out; step 10.1).
+    ['error on the danger card (status.error.bg)', c.error, c.status.error.bg, TEXT],
+    // Delete account… under Sign out on the iPhone's Settings list: on the gradient (step 10.1b-1).
+    ...stops.map(([name, bg]) => [`errorOnGradient on gradient.${name}`, c.errorOnGradient, bg, TEXT] as [string, string, string, number]),
     ['button.primaryText on button.primary', c.button.primaryText, c.button.primary, TEXT],
     ['text.inverse on button.primary', c.text.inverse, c.button.primary, TEXT],
     ['onRecording on recording', c.onRecording, c.recording, TEXT],
