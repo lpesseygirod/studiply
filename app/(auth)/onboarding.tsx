@@ -34,10 +34,12 @@ import { AppleSignInButton } from '../../src/components/auth/AppleSignInButton';
 import { AppleSignInCancelled, isAppleSignInAvailable, signInWithApple } from '../../src/services/apple-auth';
 import { LegalLinks } from '../../src/components/legal/LegalLinks';
 import { LegalSheet } from '../../src/components/legal/LegalSheet';
+import { TermsCheckboxes } from '../../src/components/legal/TermsCheckboxes';
 import type { LegalSlug } from '../../src/legal/types';
+import { rememberTicked, signUpAcceptance } from '../../src/services/terms.service';
 
-// Step 10.1b-1: linked under the form (10.1b-2 adds the required checkboxes).
-const SIGN_UP_LEGAL_LINKS: readonly LegalSlug[] = ['terms', 'privacy'];
+// Step 10.1b-1: linked under the sign-in form (sign-up has the boxes, 10.1b-2).
+const SIGN_IN_LEGAL_LINKS: readonly LegalSlug[] = ['terms', 'privacy'];
 
 // signUp → code (email confirmation) → signed in
 // signIn → signed in, or → code when the email isn't confirmed yet
@@ -45,7 +47,12 @@ const SIGN_UP_LEGAL_LINKS: readonly LegalSlug[] = ['terms', 'privacy'];
 // AuthProvider picks up the new session and the root layout navigates.
 // Step 10.1: Continue with Apple above the email form ("or with email", desktop-06); on the iPhone a
 // welcome step first (iphone-11): Continue with Apple, Continue with email.
-// Step 10.1b-1: the Terms and the Privacy Policy linked under each, opened in a LegalSheet.
+// Step 10.1b-1: the Terms and the Privacy Policy linked under sign-in, opened in a LegalSheet.
+// Step 10.1b-2: sign-up has two required, unticked boxes (the Terms and the Privacy Policy, both
+// linked; 16 or older): Create account stays greyed until both are ticked, and the acceptance goes
+// with the sign-up (the server saves it with its own time). The iPhone's welcome has them where
+// iphone-11's footer line was; ticked there, they carry to sign-up and count for Continue with
+// Apple. An Apple account that never ticked is asked once after sign-in (TermsGateHost).
 type Mode = 'welcome' | 'signUp' | 'signIn' | 'code' | 'reset';
 
 const TITLES: Record<Mode, string> = {
@@ -86,6 +93,11 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [legal, setLegal] = useState<LegalSlug | null>(null);
+  const [termsTicked, setTermsTicked] = useState(false);
+  const [ageTicked, setAgeTicked] = useState(false);
+  const boxes = (
+    <TermsCheckboxes terms={termsTicked} age={ageTicked} onTerms={setTermsTicked} onAge={setAgeTicked} onOpen={setLegal} disabled={isLoading} />
+  );
 
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
@@ -104,7 +116,7 @@ export default function OnboardingScreen() {
     !isLoading &&
     {
       welcome: false,
-      signUp: name.trim().length >= 2 && hasEmail && password.length >= MIN_PASSWORD_LENGTH,
+      signUp: name.trim().length >= 2 && hasEmail && password.length >= MIN_PASSWORD_LENGTH && termsTicked && ageTicked,
       signIn: hasEmail && password.length > 0,
       code: code.trim().length === 6,
       reset: code.trim().length === 6 && password.length >= MIN_PASSWORD_LENGTH,
@@ -130,7 +142,7 @@ export default function OnboardingScreen() {
 
     if (mode === 'signUp') {
       run(async () => {
-        await signUp(name, email, password);
+        await signUp(name, email, password, signUpAcceptance());
         setMode('code');
         setNotice(`We sent a 6-digit code to ${email.trim()}.`);
       });
@@ -154,7 +166,9 @@ export default function OnboardingScreen() {
   }, [canContinue, mode, name, email, password, code, run]);
 
   // Step 10.1: Sign in with Apple (a new account the first time); closing Apple's sheet says nothing.
+  // Step 10.1b-2: boxes ticked on this screen count as accepting if Apple creates the account.
   const handleApple = useCallback(() => {
+    rememberTicked(termsTicked && ageTicked);
     run(async () => {
       try {
         await signInWithApple();
@@ -163,7 +177,7 @@ export default function OnboardingScreen() {
         throw err;
       }
     });
-  }, [run]);
+  }, [run, termsTicked, ageTicked]);
 
   const handleForgotPassword = useCallback(() => {
     if (!hasEmail) {
@@ -264,7 +278,8 @@ export default function OnboardingScreen() {
                   <Text style={styles.emailButtonText}>Continue with email</Text>
                 </TouchableOpacity>
                 {error && <Text style={styles.errorText}>{error}</Text>}
-                <LegalLinks slugs={SIGN_UP_LEGAL_LINKS} long onOpen={setLegal} />
+                {/* iphone-11's footer line, as the two boxes (step 10.1b-2). */}
+                {boxes}
               </View>
             )}
 
@@ -394,6 +409,9 @@ export default function OnboardingScreen() {
                 />
               )}
 
+              {/* Step 10.1b-2: the two required boxes (desktop-06's form; Create account greyed until both). */}
+              {mode === 'signUp' && boxes}
+
               {/* Error message */}
               {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -403,6 +421,9 @@ export default function OnboardingScreen() {
                 onPress={handleContinue}
                 disabled={!canContinue}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !canContinue }}
+                {...{ dataSet: { auth: 'continue' } }}
               >
                 {isLoading ? (
                   <ActivityIndicator color={c.white} size="small" />
@@ -448,7 +469,7 @@ export default function OnboardingScreen() {
                 )}
               </View>
               {/* Step 10.1b-1: the Terms and the Privacy Policy, in a sheet so the form is kept. */}
-              {(mode === 'signUp' || mode === 'signIn') && <LegalLinks slugs={SIGN_UP_LEGAL_LINKS} long onOpen={setLegal} />}
+              {mode === 'signIn' && <LegalLinks slugs={SIGN_IN_LEGAL_LINKS} long onOpen={setLegal} />}
             </View>
             )}
           </ScrollView>

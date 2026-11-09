@@ -80,7 +80,14 @@ function checkPassword(password: string): void {
 // Creates the account; Supabase emails a 6-digit code. The profile row is
 // created by the database trigger from `display_name`.
 // -------------------------------------------------------------------
-export async function signUp(name: string, email: string, password: string): Promise<void> {
+// Step 10.1b-2: `acceptance` (both boxes ticked: the texts' version, 16 or older) goes in the
+// metadata; the new-user trigger saves it with the server's time.
+export async function signUp(
+  name: string,
+  email: string,
+  password: string,
+  acceptance: { terms_version: string; age_16: true },
+): Promise<void> {
   const displayName = name.trim();
   if (displayName.length < 2) throw new AuthServiceError('Please enter your name.');
   const address = cleanEmail(email);
@@ -89,7 +96,7 @@ export async function signUp(name: string, email: string, password: string): Pro
   const { data, error } = await supabase.auth.signUp({
     email: address,
     password,
-    options: { data: { display_name: displayName } },
+    options: { data: { display_name: displayName, ...acceptance } },
   });
   if (error) throw toServiceError(error);
 

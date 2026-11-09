@@ -12,7 +12,9 @@ select tables_are(
     'note_lines', 'marks', 'media', 'assistant_messages', 'summaries',
     'flashcards', 'review_schedule', 'ai_usage', 'ai_consent',
     -- Step 9.1b
-    'quizzes', 'quiz_sources', 'quiz_questions', 'quiz_attempts', 'quiz_answers'
+    'quizzes', 'quiz_sources', 'quiz_questions', 'quiz_attempts', 'quiz_answers',
+    -- Step 10.1b-2
+    'terms_acceptances'
   ],
   'public has exactly the expected tables'
 );

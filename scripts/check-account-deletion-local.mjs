@@ -53,6 +53,7 @@ const TABLES = [
   'courses', 'course_settings', 'folders', 'files', 'lectures', 'documents', 'document_versions', 'note_lines', 'marks',
   'audio_chunks', 'transcript_segments', 'media', 'summaries', 'assistant_messages', 'flashcards', 'review_schedule',
   'ai_consent', 'ai_usage', 'quizzes', 'quiz_sources', 'quiz_questions', 'quiz_attempts', 'quiz_answers',
+  'terms_acceptances',
 ];
 
 let failures = 0;
@@ -91,6 +92,7 @@ async function account(label) {
   const card = await client.from('flashcards').insert({ front: 'Q', back: 'A', source: 'manual', course_id: course.id }).select('id').single();
   if (card.data) await client.from('review_schedule').insert({ flashcard_id: card.data.id, due_at: new Date().toISOString() });
   for (const scope of ['transcription', 'assistant_summary', 'images']) await client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION });
+  must(await client.from('terms_acceptances').insert({ terms_version: 'delete-check-1', age_confirmed: true, source: 'gate' }), 'a terms acceptance');
   await admin.from('ai_usage').insert({ user_id: id, operation: 'summary', provider: 'anthropic', model: 'claude-opus-5-5', lecture_id: lecture.id });
   const quiz = must(await client.from('quizzes').insert({ course_id: course.id, title: 'Quiz', settings: {}, plan: {}, status: 'ready', question_count: 1 }).select('id').single(), 'a quiz');
   await client.from('quiz_sources').insert({ quiz_id: quiz.id, role: 'lecture', file_id: lecture.id });

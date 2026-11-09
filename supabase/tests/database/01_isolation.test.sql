@@ -6,7 +6,7 @@
 -- zero counts for B are not vacuous.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(129);
+select plan(134);
 
 -- ---------------------------------------------------------------------
 -- Test helpers (in a throwaway schema, rolled back with the test)
@@ -42,7 +42,8 @@ insert into tests.tables values
   ('quiz_sources',        'user_id', 'position = position',         '0',      '0'),
   ('quiz_questions',      'user_id', 'prompt = prompt',             '0',      '0'),
   ('quiz_attempts',       'user_id', 'status = status',             '0',      '0'),
-  ('quiz_answers',        'user_id', 'reason = reason',             '0',      '0');
+  ('quiz_answers',        'user_id', 'reason = reason',             '0',      '0'),
+  ('terms_acceptances',   'user_id', 'source = source',             'denied', 'denied');
 grant select on tests.tables to anon, authenticated;
 
 -- Each helper runs as the current role, so RLS applies. 'denied' means the
@@ -117,6 +118,8 @@ insert into public.quiz_sources (quiz_id, role, file_id) values ('a0000000-0000-
 insert into public.quiz_questions (id, quiz_id, position, type, prompt) values ('a0000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000007', 0, 'true_false', 'Q');
 insert into public.quiz_attempts (id, quiz_id, max_points) values ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000007', 1);
 insert into public.quiz_answers (attempt_id, question_id, verdict, points, graded_by) values ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000008', 'correct', 1, 'code');
+-- Step 10.1b-2: her acceptance of the Terms (insert only; nobody may change or delete one).
+insert into public.terms_acceptances (terms_version, age_confirmed, source) values ('draft-31fd7f93', true, 'gate');
 
 -- ai_usage is written only by Edge Functions (service role), so seed it as the owner role.
 reset role;

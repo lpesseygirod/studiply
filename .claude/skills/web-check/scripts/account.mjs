@@ -22,8 +22,8 @@
 //   5. 390 (iphone-07, iphone-08, iphone-12): the Settings list (AI & privacy "Off", Delete account…
 //      under Sign out), the AI & privacy page, the consent screen full screen; light and dark.
 //   6. Delete account (the account has courses, a lecture, a document, marks, consent rows and files
-//      in audio-chunks, slides and photos): Delete account greyed until DELETE is typed; Delete →
-//      signed out, "Your account was deleted"; nothing of hers left: the auth user, every table's rows
+//      in audio-chunks, slides and photos; since 10.1b-2 her terms acceptance): Delete account greyed
+//      until DELETE is typed; Delete → signed out, "Your account was deleted"; nothing of hers left: the auth user, every table's rows
 //      (each checked by her id) and every Storage object under her id. Called again with her old
 //      token: still { deleted: true } (idempotent).
 //   7. Composites beside the mockups, light and dark: desktop-06, iphone-11, desktop-09, iphone-12,
@@ -308,7 +308,7 @@ try {
     const { data: gone } = await admin.auth.admin.getUserById(user.id);
     expect(!gone?.user, 'the auth user is still there');
     const left = {};
-    for (const table of ['profiles', 'courses', 'course_settings', 'folders', 'files', 'lectures', 'documents', 'marks', 'ai_consent', 'ai_usage', 'audio_chunks', 'media', 'summaries', 'flashcards', 'quizzes']) {
+    for (const table of ['profiles', 'courses', 'course_settings', 'folders', 'files', 'lectures', 'documents', 'marks', 'ai_consent', 'ai_usage', 'audio_chunks', 'media', 'summaries', 'flashcards', 'quizzes', 'terms_acceptances']) {
       const column = table === 'profiles' ? 'id' : 'user_id';
       const { count } = await admin.from(table).select('*', { count: 'exact', head: true }).eq(column, user.id);
       if (count) left[table] = count;

@@ -11,9 +11,10 @@
 //      (LGPL-3.0) with the libheif-js and libheif sources, "Show the licence" → the LGPL text, "Show
 //      all N packages" → the list; the texts version (LEGAL_VERSION).
 //   4. 390 signed out: /privacy (tables as cards), /legal, light and dark.
-//   5. Sign-up (desktop-06; 390): "Terms of Service · Privacy Policy" under the form; Privacy Policy
-//      opens in a sheet over it, its Terms link opens inside the sheet, ‹ goes back, Escape closes;
-//      the typed name is still there. Sign in shows the links too.
+//   5. Sign-up (desktop-06; 390): the Terms of Service and the Privacy Policy linked (since 10.1b-2 in
+//      the first box's line; signup.mjs checks the boxes); Privacy Policy opens in a sheet over it,
+//      its Terms link opens inside the sheet, ‹ goes back, Escape closes; the typed name is still
+//      there. Sign in shows the links too.
 //   6. Signed in, 1280 (desktop-05): "Terms · Privacy · Legal" under the settings menu → /privacy, on
 //      its own (no shell), ‹ Back → /settings/account; /terms by its address, ‹ Back → Settings.
 //   7. Signed in, 390 (iphone-07): the same links at the foot of the Settings list → /legal (the
@@ -264,7 +265,8 @@ try {
     await b.waitText('Create account', { timeout: 30000 });
     await b.fill('input[placeholder="Your name"]', 'Legal Check');
     expect(await visible('[data-legal-link="terms"]') && (await visible('[data-legal-link="privacy"]')), 'no links under the sign-up form');
-    expect((await b.evaluate(`document.querySelector('[data-legal-link="privacy"]')?.innerText`)) === 'Privacy Policy', 'the link is not "Privacy Policy"');
+    // Since 10.1b-2 the link sits in the first box's line with non-breaking spaces (one tap target at 390).
+    expect((await b.evaluate(`document.querySelector('[data-legal-link="privacy"]')?.innerText.replace(/\\s+/g, ' ')`)) === 'Privacy Policy', 'the link is not "Privacy Policy"');
     await shots('signup-1280');
     await tapTop('[data-legal-link="privacy"]');
     await waitFor(async () => (await topPage()) === 'privacy', 'the policy in a sheet');

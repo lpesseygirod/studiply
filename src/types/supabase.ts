@@ -525,6 +525,20 @@ isOneToOne: false
       referencedColumns: ["id","user_id"]
     }
                   ]
+                },"terms_acceptances": {
+                  Row: {
+                    "accepted_at": string,"age_confirmed": boolean,"id": string,"source": string,"terms_version": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accepted_at"?: string,"age_confirmed": boolean,"id"?: string,"source": string,"terms_version": string,"user_id"?: string
+                  }
+                  Update: {
+                    "accepted_at"?: string,"age_confirmed"?: boolean,"id"?: string,"source"?: string,"terms_version"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+
+                  ]
                 },"transcript_segments": {
                   Row: {
                     "chunk_id": string | null,"confidence": number | null,"created_at": string,"end_ms": number,"id": string,"lecture_id": string,"start_ms": number,"text": string,"user_id": string

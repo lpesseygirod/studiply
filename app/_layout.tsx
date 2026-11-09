@@ -9,6 +9,7 @@ import { useAuth } from '../src/hooks/useAuth';
 import SplashScreen from '../src/components/SplashScreen';
 import DialogHost from '../src/components/dialogs/DialogHost';
 import { AiConsentHost } from '../src/components/consent/AiConsentHost';
+import { TermsGateHost } from '../src/components/legal/TermsGateHost';
 import { PictureFlattenerHost } from '../src/components/PictureFlattenerHost';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
 
@@ -59,6 +60,8 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <RootNavigator />
+            {/* Step 10.1b-2: an account that never accepted the Terms is asked once, after sign-in. */}
+            <TermsGateHost />
           </AuthProvider>
           <DialogHost />
           {/* Step 10.1: the AI consent screen, asked from anywhere (services/consent.service). */}
