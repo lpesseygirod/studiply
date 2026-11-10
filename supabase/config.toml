@@ -457,9 +457,10 @@ verify_jwt = false
 [remotes.production]
 project_id = "xmymneartjmdsawlwzyl"
 
+# Lea, 10 Nov 2026: the laptop version for friends lives at studiply.expo.app (Expo hosting).
 [remotes.production.auth]
-site_url = "http://localhost:3000"
-additional_redirect_urls = []
+site_url = "https://studiply.expo.app"
+additional_redirect_urls = ["https://studiply.expo.app/**"]
 
 [remotes.production.auth.email]
 max_frequency = "60s"
