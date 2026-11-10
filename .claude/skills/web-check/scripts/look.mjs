@@ -4,6 +4,7 @@
 // keyboard shortcuts (⌥R, ⌥⇧N, ⌥N, /, ?, Esc; nothing while typing).
 // Screenshots: look-*.png (both appearances, 390 and 1280). Exit 1 on FAIL.
 // Step 9.2-3: Settings → Notifications on the web says reminders come on the iPhone.
+// Lea, 10 Nov: ⌥⇧N outside a course opens "New folder in…" (inside one it starts the folder in place).
 import { launch, SHOTS } from './cdp.mjs';
 import { admin, makeUser, seed, dropUser } from './testuser.mjs';
 
@@ -148,14 +149,23 @@ try {
     expect((await path()).startsWith(`/record?projectId=${data.course.id}`), await path());
   });
 
-  await step('⌥⇧N on a course opens New Folder; elsewhere it says to open a course', async () => {
+  await step('⌥⇧N on a course starts a new folder there; elsewhere it asks where ("New folder in…", Lea 10 Nov)', async () => {
     await open(`/project/${data.course.id}`, 'Funcions');
     await b.chord({ code: 'KeyN', key: 'ˆ', alt: true, shift: true });
-    expect(await b.evaluate(`!!document.querySelector('input[placeholder="Folder name"]')`), 'no New Folder dialog');
+    await b.sleep(500);
+    expect(await b.evaluate(`!!document.querySelector('input[placeholder="Folder name"], [data-testid=inline-name]')`), 'no new folder named in place');
+    expect(!(await b.hasText('New folder in…', true)), 'the picker opened inside a course');
+    await b.press('Escape');
     await open('/library', 'COURSES');
     await b.chord({ code: 'KeyN', key: 'ˆ', alt: true, shift: true });
-    expect(await b.hasText('Open a course to make a folder in it.', true), 'no hint');
-    await b.press('Escape');
+    await b.waitText('New folder in…', { exact: true, timeout: 5000 });
+    expect(!(await b.hasText('Open a course to make a folder in it.', true)), 'the old hint');
+    // Cancel: the picker's own (the last one in the page, over the library).
+    const p = await b.evaluate(`(() => { const el = [...document.querySelectorAll('body *')].filter((e) => e.childElementCount === 0 && e.textContent.trim() === 'Cancel').at(-1); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    expect(p, 'no Cancel in the picker');
+    await b.clickAt(p.x, p.y);
+    await b.sleep(500);
+    expect(!(await b.hasText('New folder in…', true)), 'the picker did not close');
   });
 
   await step('⌥N creates a new document and opens it (step 4.3)', async () => {

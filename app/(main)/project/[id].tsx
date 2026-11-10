@@ -106,8 +106,9 @@ export default function ProjectDetailScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  // `folder`: open at that folder (links from the laptop sidebar and top bar).
-  const { id, folder: folderParam } = useLocalSearchParams<{ id: string; folder?: string }>();
+  // `folder`: open at that folder (links from the laptop sidebar and top bar). `newFolder=1`: start a
+  // new folder there once it has loaded ("New folder in…", Lea 10 Nov).
+  const { id, folder: folderParam, newFolder: newFolderParam } = useLocalSearchParams<{ id: string; folder?: string; newFolder?: string }>();
   const { session: authSession } = useAuth();
   const userId = authSession?.user?.id ?? '';
 
@@ -184,10 +185,19 @@ export default function ProjectDetailScreen() {
   // another project must start from that project's root (or the linked
   // folder), not from the previous project's breadcrumbs and lists.
   const shownRef = useRef<{ id: string; folderId: string | null } | null>(null);
+  // "New folder in…" chose this place: the new folder starts once it has loaded (the effect below).
+  const pendingNewFolder = useRef(false);
   useEffect(() => {
     const target = folderParam ?? null;
     const shown = shownRef.current;
-    if (shown && shown.id === id && shown.folderId === target) return; // already there
+    const wantsNewFolder = newFolderParam === '1';
+    // Once only: a reload or going back doesn't start it again.
+    if (wantsNewFolder) router.setParams({ newFolder: undefined });
+    if (shown && shown.id === id && shown.folderId === target) {
+      if (wantsNewFolder) startNewFolder();
+      return; // already there
+    }
+    pendingNewFolder.current = wantsNewFolder;
     shownRef.current = { id, folderId: target };
     setBreadcrumbs([]);
     setFolders([]);
@@ -205,7 +215,12 @@ export default function ProjectDetailScreen() {
       .then(chain => setBreadcrumbs(chain))
       .catch(() => {})
       .finally(() => fetchData(target));
-  }, [id, folderParam]);
+  }, [id, folderParam, newFolderParam]);
+  useEffect(() => {
+    if (loading || !pendingNewFolder.current) return;
+    pendingNewFolder.current = false;
+    startNewFolder();
+  }, [loading]);
 
   // The link follows the folder the student is in, so the sidebar and
   // top bar can bring them back to it.

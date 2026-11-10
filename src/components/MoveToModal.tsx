@@ -56,6 +56,10 @@ interface MoveToModalProps {
   pick?: 'place' | 'lecture' | 'either';
   /** The verb on the confirm buttons: "Move" (default) or "Save". */
   confirmLabel?: string;
+  /** Both confirm buttons' whole text instead ("Create here": New folder in…, Lea 10 Nov). */
+  confirmText?: string;
+  /** With no courses at all: what to say and a button instead of "No courses yet." (New folder in…: New course). */
+  emptyAction?: { message: string; button: string; onPress: () => void };
   /** IDs to exclude from the list (e.g., the item being moved: a folder hides its subfolders too) */
   excludeProjectIds?: string[];
   excludeFolderIds?: string[];
@@ -65,6 +69,11 @@ interface MoveToModalProps {
   onMove?: (target: MoveTarget) => void;
   onPickLecture?: (lecture: PickedLecture) => void;
   onClose: () => void;
+  /**
+   * Once it has finished closing (Modal's onDismiss). On the web the modal then gives focus back to
+   * what had it before, so what should get focus next (a folder named in place) waits for this.
+   */
+  onDismiss?: () => void;
 }
 
 /** The hidden lecture that holds a course's own uploads (see session.service). */
@@ -87,6 +96,8 @@ export default function MoveToModal({
   userId,
   pick = 'place',
   confirmLabel = 'Move',
+  confirmText,
+  emptyAction,
   excludeProjectIds = [],
   excludeFolderIds = [],
   excludeLectureIds = [],
@@ -94,6 +105,7 @@ export default function MoveToModal({
   onMove,
   onPickLecture,
   onClose,
+  onDismiss,
 }: MoveToModalProps) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -235,6 +247,7 @@ export default function MoveToModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
+      onDismiss={onDismiss}
     >
       <SafeAreaView style={styles.sheet} edges={['top', 'bottom', 'left', 'right']}>
         {/* Header */}
@@ -253,7 +266,7 @@ export default function MoveToModal({
             style={styles.headerSide}
           >
             <Text style={[styles.moveText, styles.headerRight, !canConfirm && styles.moveTextDisabled]}>
-              {confirmLabel}
+              {confirmText ?? confirmLabel}
             </Text>
           </TouchableOpacity>
         </View>
@@ -287,6 +300,19 @@ export default function MoveToModal({
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={c.salmon} />
+          </View>
+        ) : items.length === 0 && currentCrumb.type === 'root' && emptyAction ? (
+          <View style={[styles.center, styles.emptyAction]} {...{ dataSet: { moveTo: 'empty' } }}>
+            <Text style={styles.emptyText}>{emptyAction.message}</Text>
+            <TouchableOpacity
+              style={styles.confirmButton}
+              onPress={emptyAction.onPress}
+              accessibilityRole="button"
+              activeOpacity={0.85}
+              {...{ dataSet: { moveTo: 'empty-action' } }}
+            >
+              <Text style={styles.confirmText}>{emptyAction.button}</Text>
+            </TouchableOpacity>
           </View>
         ) : items.length === 0 ? (
           <View style={styles.center}>
@@ -340,7 +366,7 @@ export default function MoveToModal({
             activeOpacity={0.85}
           >
             <Text style={[styles.confirmText, !canConfirm && styles.confirmTextDisabled]} numberOfLines={2}>
-              {canConfirm ? `${confirmLabel} to ${destination}` : reason}
+              {canConfirm ? (confirmText ?? `${confirmLabel} to ${destination}`) : reason}
             </Text>
           </TouchableOpacity>
         </View>
@@ -458,6 +484,9 @@ const makeStyles = (c: ThemeColors) =>
     fontSize: Typography.size.base,
     color: c.text.secondary,
     textAlign: 'center',
+  },
+  emptyAction: {
+    gap: 16,
   },
   list: {
     paddingTop: 8,

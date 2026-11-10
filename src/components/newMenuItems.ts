@@ -15,12 +15,15 @@ export interface NewMenuItem {
   accessibilityLabel?: string;
 }
 
-/** The items, given what the open screen can do (pure, tested). */
-export function newMenuItems(can: { folder: boolean; upload: boolean }): NewMenuItem[] {
+/**
+ * The items, given what the open screen can do (pure, tested). New folder always works (Lea, 10 Nov):
+ * outside a course it asks where ("New folder in…"); Upload still needs the course or folder open.
+ */
+export function newMenuItems(can: { upload: boolean }): NewMenuItem[] {
   const needsCourse = 'Open a course or folder first';
   return [
     { action: 'course', text: 'New course', icon: 'library-outline' },
-    { action: 'folder', text: 'New folder', icon: 'folder-outline', ...(!can.folder && { disabled: true, hint: needsCourse }) },
+    { action: 'folder', text: 'New folder', icon: 'folder-outline' },
     { action: 'upload', text: 'Upload document', icon: 'cloud-upload-outline', ...(!can.upload && { disabled: true, hint: needsCourse }) },
     { action: 'record', text: 'Record', icon: 'mic-outline', accessibilityLabel: 'Record lecture' },
     { action: 'document', text: 'New document', icon: 'create-outline' },

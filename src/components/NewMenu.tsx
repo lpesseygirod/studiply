@@ -7,6 +7,7 @@ import { NewCourseDialog } from './NewCourseDialog';
 import { showActionSheet, type Anchor, type DialogButton } from './dialogs/dialogs';
 import { hasShellCommand, recordHref, runShellCommand, useShell } from './shell/ShellContext';
 import { newDocumentIn } from '../utils/newDocument';
+import { openNewFolderPicker } from './library/newFolderState';
 
 /**
  * The "+ New" menu (Lea, like Google Drive's New): a small menu next to the
@@ -31,13 +32,15 @@ export function useNewMenu() {
     (anchor?: Anchor) => {
       const run: Record<NewAction, () => void> = {
         course: () => setCourseDialog({ anchor }),
-        folder: () => runShellCommand('newFolder'),
+        // In a course or folder: its new folder, named in place; elsewhere "New folder in…" (Lea, 10 Nov).
+        folder: () => {
+          if (!runShellCommand('newFolder')) openNewFolderPicker();
+        },
         upload: () => runShellCommand('upload'),
         record: () => router.navigate(recordHref(location)),
         document: () => void newDocumentIn(router, { courseId: location?.courseId ?? null, folderId: location?.folderId ?? null }),
       };
       const buttons: DialogButton[] = newMenuItems({
-        folder: hasShellCommand('newFolder'),
         upload: hasShellCommand('upload'),
       }).map((item) => ({
         text: item.text,

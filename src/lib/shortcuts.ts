@@ -61,7 +61,7 @@ export function shortcutFor(e: KeyInput): ShortcutAction | null {
 /** For the shortcuts sheet. */
 export const SHORTCUTS: { keys: string; action: string; soon?: boolean }[] = [
   { keys: '⌥ N', action: 'New document (in the open course or folder)' },
-  { keys: '⌥ ⇧ N', action: 'New folder (in the open course)' },
+  { keys: '⌥ ⇧ N', action: 'New folder (in the open course, or choose where)' },
   { keys: '⌥ R', action: 'Record' },
   { keys: '/', action: 'Search' },
   { keys: '?', action: 'Show these shortcuts' },

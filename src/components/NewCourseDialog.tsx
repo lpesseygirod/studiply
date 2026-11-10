@@ -35,12 +35,15 @@ export function NewCourseDialog({
   anchor,
   onClose,
   onCreated,
+  onDismiss,
 }: {
   visible: boolean;
   userId: string;
   anchor?: Anchor;
   onClose: () => void;
   onCreated: (course: ProjectWithCount) => void;
+  /** Once it has finished closing (focus is back where it was on the web); see MoveToModal's. */
+  onDismiss?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -91,7 +94,7 @@ export function NewCourseDialog({
       : null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={[styles.overlay, !placed && styles.centered]} onPress={onClose} accessibilityLabel="Close">
           <Pressable style={[styles.card, { width }, placed]} onPress={() => {}} testID="new-course-dialog" accessibilityRole="none">

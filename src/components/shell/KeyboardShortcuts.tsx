@@ -7,10 +7,11 @@ import { Typography } from '../../constants/typography';
 import { EDITOR_SHORTCUTS, isEditable, SHORTCUTS, shortcutFor } from '../../lib/shortcuts';
 import { undoLast } from '../../lib/undo';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
-import { isDialogOpen, showAlert } from '../dialogs/dialogs';
+import { isDialogOpen } from '../dialogs/dialogs';
 import { IconButton } from '../IconButton';
 import { recordHref, registerShellCommand, runShellCommand, useShell } from './ShellContext';
 import { newDocumentIn } from '../../utils/newDocument';
+import { openNewFolderPicker } from '../library/newFolderState';
 
 /**
  * The web app's keyboard shortcuts (src/lib/shortcuts.ts) and the sheet
@@ -57,7 +58,8 @@ export function KeyboardShortcuts() {
           router.navigate(recordHref(location));
           break;
         case 'newFolder':
-          if (!runShellCommand('newFolder')) showAlert('New folder', 'Open a course to make a folder in it.');
+          // Outside a course: "New folder in…" (Lea, 10 Nov).
+          if (!runShellCommand('newFolder')) openNewFolderPicker();
           break;
         case 'newDocument':
           void newDocumentIn(router, { courseId: location?.courseId ?? null, folderId: location?.folderId ?? null });
