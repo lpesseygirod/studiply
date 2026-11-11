@@ -11,6 +11,14 @@ Afterwards Studiply writes a summary into the same document, and it never
 overwrites what you wrote yourself. Then you review with flashcards and quizzes
 made from your own material.
 
+**Try the web app:** [studiply.expo.app](https://studiply.expo.app)
+
+<p>
+  <img src="docs/design/desktop-03-summary-in-document.png" width="72%" alt="Laptop: a summary written into the lecture document, with the study assistant on the right">
+  <img src="docs/design/iphone-02-recording.png" width="24%" alt="iPhone: recording a lecture with live notes and marks">
+</p>
+<sub>Screen designs from <code>docs/design/</code>: the laptop document with a summary and the study assistant, and recording on the iPhone.</sub>
+
 **What it does**
 
 - **Recording** on the iPhone (it keeps going with the screen locked) and in the
