@@ -213,6 +213,13 @@ try {
     ]),
     'Could not create the lectures',
   );
+  // Step 10.2-1: the old lecture was paid for; purging it must leave her credits as they are.
+  await must(
+    admin.rpc('spend_credits', { p_user: a, p_base_key: `lecture:${ids.oldLecture}:block:0`, p_units: 4, p_kind: 'spend_lecture', p_lecture: ids.oldLecture }),
+    'Could not spend a credit',
+  );
+  const balanceOf = async (id) => (await must(admin.from('credit_ledger').select('units').eq('user_id', id), 'Could not read credits')).reduce((n, r) => n + r.units, 0);
+  const creditsBefore = await balanceOf(a);
 
   const objects = {
     oldChunk: { bucket: 'audio-chunks', path: `${a}/${ids.inOld}/0000.m4a` },
@@ -302,6 +309,8 @@ try {
     'Could not read files',
   );
   check(gone.length === 0, 'the old lectures are gone (both users, and the one inside the old course)');
+  const paid = await must(admin.from('credit_ledger').select('id').eq('lecture_id', ids.oldLecture), 'Could not read credits');
+  check(paid.length === 1 && (await balanceOf(a)) === creditsBefore, 'the purged lecture\'s credit row stays; her balance is unchanged');
   const kept = await must(
     admin.from('files').select('id').in('id', [ids.recentPdf, ids.liveLecture, ids.movedFile]),
     'Could not read files',

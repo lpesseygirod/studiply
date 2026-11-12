@@ -6,7 +6,7 @@
 -- zero counts for B are not vacuous.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(134);
+select plan(139);
 
 -- ---------------------------------------------------------------------
 -- Test helpers (in a throwaway schema, rolled back with the test)
@@ -43,7 +43,8 @@ insert into tests.tables values
   ('quiz_questions',      'user_id', 'prompt = prompt',             '0',      '0'),
   ('quiz_attempts',       'user_id', 'status = status',             '0',      '0'),
   ('quiz_answers',        'user_id', 'reason = reason',             '0',      '0'),
-  ('terms_acceptances',   'user_id', 'source = source',             'denied', 'denied');
+  ('terms_acceptances',   'user_id', 'source = source',             'denied', 'denied'),
+  ('credit_ledger',       'user_id', 'units = units',               'denied', 'denied');
 grant select on tests.tables to anon, authenticated;
 
 -- Each helper runs as the current role, so RLS applies. 'denied' means the
@@ -121,6 +122,7 @@ insert into public.quiz_answers (attempt_id, question_id, verdict, points, grade
 -- Step 10.1b-2: her acceptance of the Terms (insert only; nobody may change or delete one).
 insert into public.terms_acceptances (terms_version, age_confirmed, source) values ('draft-31fd7f93', true, 'gate');
 
+-- Step 10.2-1: her credit_ledger row is the welcome grant, made when her account was (handle_new_user).
 -- ai_usage is written only by Edge Functions (service role), so seed it as the owner role.
 reset role;
 insert into public.ai_usage (user_id, operation, provider, model) values ('aaaaaaaa-0000-0000-0000-000000000000', 'transcription', 'openai', 'whisper-1');

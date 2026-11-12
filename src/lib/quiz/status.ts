@@ -31,7 +31,11 @@ export const FAILED_WORDS: Record<string, string> = {
   consent_withdrawn: 'Stopped: AI was turned off in Settings',
   invalid_request: 'Its settings couldn’t be read',
   server_error: 'Something went wrong on the server',
+  no_credits: 'No credits left: a quiz uses part of a credit',
 };
+
+/** Step 10.2-1: a quiz the server put back to "not started" (402 no_credits). */
+export const NO_CREDITS_NOTE = FAILED_WORDS.no_credits;
 
 const questions = (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`;
 

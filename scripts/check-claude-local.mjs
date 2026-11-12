@@ -38,7 +38,8 @@
  *
  * Only the checks before Claude (step 7.9), FREE: refusals only, never a call to Anthropic (signed
  * out 401, another user's files 404, no or withdrawn consent 403, $3 used today 429) for every kind of
- * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added:
+ * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added;
+ * step 10.2-1: at 0 credits a summary, an Exam pack and a quiz → 402 no_credits, nothing spent:
  *   npm run check:claude -- --only=gate
  * (The full run ends with these too.)
  *
@@ -76,6 +77,7 @@ const ONLY_SUMMARY = process.argv.includes('--only=summary');
 const ONLY_GATE = process.argv.includes('--only=gate');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
+const QUIZ_URL = `${url}/functions/v1/quiz`;
 // CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
 const POLICY_VERSION = '2026-11-store-1';
 /** The models as the functions use them: CLAUDE_MODELS in _shared/claude.ts (the one place they're set). */
@@ -516,6 +518,78 @@ async function gateSection() {
   check((await usageRows(d.id)).length === 0, 'D: no ai_usage row');
   const { data: still } = await admin.from('summaries').select('status, result').in('id', Object.values(rows));
   check(still?.length === 5 && still.every((r) => r.status === 'pending' && r.result === null), 'every summary request is still pending (none was started)');
+
+  await noCreditsSection();
+}
+
+/**
+ * Step 10.2-1, FREE: no credits left. E has consent and no usage today, and her credits are spent down
+ * to 0; a summary (its lecture has a transcript, so it would pay), an Exam pack and a quiz are each
+ * refused 402 no_credits after their claim, before any call to Anthropic: each row back to pending with
+ * error no_credits, no ledger row written, no ai_usage row.
+ */
+async function noCreditsSection() {
+  console.log('\nNo credits left (free: refusals only)');
+  const e = await makeUser(`e-${run}@claude-check.test`);
+  const ledger = async () => {
+    const { data, error } = await admin.from('credit_ledger').select('units').eq('user_id', e.id);
+    if (error) throw new Error(`Could not read the credits: ${error.message}`);
+    return data;
+  };
+  const start = (await ledger()).reduce((n, r) => n + r.units, 0);
+  check(start === 8, `a new account starts with 2 lectures (8 units; got ${start})`);
+  const zero = await admin.rpc('spend_credits', { p_user: e.id, p_base_key: 'check-claude:zero', p_units: start, p_kind: 'spend_extra', p_label: '(check:claude)' });
+  if (zero.error) throw new Error(`Could not spend E's credits: ${zero.error.message}`);
+  const rowsAtZero = (await ledger()).length;
+
+  const must = (r, what) => {
+    if (r.error) throw new Error(`Could not create ${what}: ${r.error.message}`);
+    return r.data;
+  };
+  const course = must(await e.client.from('courses').insert({ name: 'Credits' }).select('id').single(), 'the course');
+  const lecture = async (title) => {
+    const f = must(await e.client.from('files').insert({ kind: 'lecture', title, course_id: course.id }).select('id').single(), 'a lecture');
+    must(await e.client.from('lectures').insert({ id: f.id }), 'its lecture row');
+    must(await e.client.from('transcript_segments').insert({ lecture_id: f.id, start_ms: 0, end_ms: 4000, text: 'Hola.' }), 'its transcript');
+    return f.id;
+  };
+  const l1 = await lecture('Credits lecture 1');
+  const l2 = await lecture('Credits lecture 2');
+  const pack = must(await e.client.from('files').insert({ kind: 'exam_pack', title: 'Credits pack', course_id: course.id }).select('id').single(), 'an exam pack').id;
+  const summary = (fileId, mode, sources, target) =>
+    e.client
+      .from('summaries')
+      .insert({ file_id: fileId, mode, source_lecture_ids: sources, sliders: SLIDERS, status: 'pending', applied_settings: { resources: { slides: false, photos: false, assistant: true, notes: true }, preview: '(credits)', target, anchors: [] } })
+      .select('id')
+      .single();
+  const rowNew = must(await summary(l1, 'new', [l1], 'new'), 'a summary request').id;
+  const rowPack = must(await summary(pack, 'exam_pack', [l1, l2], 'unit'), 'an Exam pack request').id;
+  const sliders = { difficulty: 5, count: 2, definitions: 5, calculations: 5, theoryPractice: 5, examFocus: 5, weakSpots: 5, traps: 5, memoryUnderstanding: 5, detail: 5 };
+  const settings = {
+    version: 1,
+    sliders,
+    choices: { types: ['multiple_choice'], timeLimit: { kind: 'none' }, language: null, answers: 'afterEach', explanations: true, hints: true, grading: { kind: 'score' }, wrongComeBack: false },
+    topic: { wholeCourse: false, lectureIds: [l1] },
+    resources: { notes: true, summaries: false, lectureMedia: false, fileIds: [] },
+    pastExamIds: [],
+  };
+  const quiz = must(await e.client.from('quizzes').insert({ course_id: course.id, title: 'Credits quiz', settings, plan: {}, status: 'pending', question_count: 10 }).select('id').single(), 'a quiz').id;
+  must(await e.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: POLICY_VERSION }), 'her consent');
+
+  for (const [name, fnUrl, body] of [
+    ['summarize · a summary', SUMMARIZE_URL, { lectureId: l1, summaryId: rowNew }],
+    ['summarize · Exam pack', SUMMARIZE_URL, { lectureId: pack, summaryId: rowPack }],
+    ['quiz · a quiz of 10', QUIZ_URL, { quizId: quiz }],
+  ]) {
+    const r = await call(fnUrl, e.token, body);
+    check(r.status === 402 && r.body?.code === 'no_credits', `at 0 credits: ${name} → 402 no_credits (got ${r.status} ${r.body?.code ?? ''})`);
+  }
+  const { data: rows } = await admin.from('summaries').select('status, error, result').in('id', [rowNew, rowPack]);
+  check(rows?.length === 2 && rows.every((r) => r.status === 'pending' && r.error === 'no_credits' && r.result === null), 'both summary requests are back to pending, error no_credits');
+  const { data: q } = await admin.from('quizzes').select('status, error').eq('id', quiz).single();
+  check(q?.status === 'pending' && q?.error === 'no_credits', `the quiz is back to pending, error no_credits (got ${q?.status} ${q?.error})`);
+  check((await ledger()).length === rowsAtZero, 'nothing was spent (no new ledger row)');
+  check((await usageRows(e.id)).length === 0, 'E: no ai_usage row (nothing reached Anthropic)');
 }
 
 try {
@@ -853,7 +927,9 @@ try {
     .eq('scope', 'assistant_summary')
     .is('withdrawn_at', null)
     .select('id');
-  check(!withdrawn.error && withdrawn.data.length === 1, 'A withdraws assistant and summary consent');
+  // A gave this consent more than once (the earlier steps and the summary step each give it): every row goes.
+  const { count: stillGiven } = await admin.from('ai_consent').select('id', { count: 'exact', head: true }).eq('user_id', a.id).eq('scope', 'assistant_summary').is('withdrawn_at', null);
+  check(!withdrawn.error && withdrawn.data.length >= 1 && stillGiven === 0, `A withdraws assistant and summary consent (${withdrawn.data?.length ?? 0} row(s), none left)`);
   check(isConsentRequired(await chat(a.token, chatBody)), 'after withdrawing: assistant-chat 403 consent_required');
   check(isConsentRequired(await call(SUMMARIZE_URL, a.token, { lectureId })), 'and summarize 403 consent_required');
   }

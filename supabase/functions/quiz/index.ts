@@ -10,6 +10,9 @@
  *   questions removed, 202 at once; then written in the background (_shared/quiz-pipeline.ts), its
  *   status, plan, questions and checks saved for the app to read. 409 already_started, 404
  *   quiz_not_found. Past exams whose format wasn't read yet are read first.
+ *   Step 10.2-1: ¼ / ½ / ¾ of a lecture's credit (≤ 10 / ≤ 25 / more questions), by the row's saved
+ *   question count, the run capped at it; a run that fails gives it back once. None left: 402
+ *   no_credits, the quiz back to pending. Format and grade are free.
  *
  * { mode: 'format', fileId }
  *   A past exam's format, read on Sonnet 5.5 and saved on its file (files.past_exam_format) once:
@@ -30,7 +33,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
 import { CLAUDE_MODELS, QUIZ_OPERATION } from '../_shared/claude.ts';
-import { hasConsent } from '../_shared/guard.ts';
+import { hasConsent, serviceClient } from '../_shared/guard.ts';
+import { maxQuestionsFor, noCredits, quizKey, quizPaidCount, quizUnits, reverseSpend, spendCredits, type SpendResult } from '../_shared/credits.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { fileContent, needsImages, quizRunMaterial } from '../_shared/quiz-content.ts';
 import { FORMAT_MAX_TOKENS, FORMAT_SYSTEM, formatUserText, runQuiz, type QuizCall, type QuizRunDeps } from '../_shared/quiz-pipeline.ts';
@@ -198,7 +202,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     .is('deleted_at', null)
     // The time quoted: it has dots and colons (PostgREST's logic-tree syntax).
     .or(`status.in.(pending,failed),and(status.eq.generating,updated_at.lt."${staleBefore}")`)
-    .select('id, settings, course_id')
+    .select('id, settings, course_id, title, question_count')
     .maybeSingle();
   if (error) throw error;
   if (!claimed) {
@@ -215,6 +219,36 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     await save({ status: 'failed', error: 'invalid_request' });
     return fail(400, 'invalid_request', problem);
   }
+
+  // Step 10.2-1: priced from the row as read here (its saved question count), never from the request,
+  // and the run is capped at that count, so a row changed after paying gets no more questions. Claimed
+  // again after a run the platform stopped (never given back): already paid, capped at what it paid for.
+  // None left: back to pending ("no_credits"), 402.
+  const credits = serviceClient();
+  const paidCount = quizPaidCount(claimed);
+  let spend: SpendResult;
+  try {
+    spend = await spendCredits(credits, { userId, key: quizKey(quizId), units: quizUnits(paidCount), kind: 'spend_extra', refId: quizId, label: String(claimed.title ?? '') || null });
+  } catch (err) {
+    await save({ status: 'failed', error: 'server_error' }).catch(() => {});
+    throw err;
+  }
+  if (spend.outcome === 'insufficient') {
+    log('no_credits', { quizId, questions: paidCount });
+    await save({ status: 'pending', error: 'no_credits' });
+    const refusal = noCredits('quiz');
+    return fail(refusal.status, refusal.code, refusal.error);
+  }
+  const maxQuestions = spend.outcome === 'already' ? Math.min(paidCount, maxQuestionsFor(spend.charged)) : paidCount;
+  log('credit_spent', { quizId, outcome: spend.outcome, units: spend.charged, maxQuestions });
+  /** A run that ends without a quiz gives its credit back, once (reverse_spend); Try again pays again. */
+  const giveBack = async () => {
+    await reverseSpend(credits, userId, quizKey(quizId)).then(
+      (reversed) => reversed && log('credit_reversed', { quizId }),
+      (err) => log('reverse_failed', { quizId, message: String((err as Error)?.message ?? err) }),
+    );
+  };
+
   // A retry starts clean: the questions written before go.
   const { error: clearError } = await db.from('quiz_questions').delete().eq('quiz_id', quizId);
   if (clearError) throw clearError;
@@ -226,6 +260,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
   const call = streamCall(claude, MODEL);
   const deps: QuizRunDeps = {
     quizId,
+    maxQuestions,
     material: async () => {
       // A past exam whose format wasn't read yet (added on another device, or its read failed) is read first.
       if (settings.pastExamIds.length) {
@@ -263,7 +298,18 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     meter,
   };
   log('quiz_started', { quizId, images, lectures: settings.topic.lectureIds.length, resources: settings.resources.fileIds.length, pastExams: settings.pastExamIds.length });
-  EdgeRuntime.waitUntil<unknown>(runQuiz(deps));
+  EdgeRuntime.waitUntil<unknown>(
+    runQuiz(deps).then(
+      async (outcome) => {
+        if (outcome.status !== 'ready') await giveBack();
+        return outcome;
+      },
+      async (err) => {
+        await giveBack();
+        throw err;
+      },
+    ),
+  );
   return json({ quizId, status: 'generating' }, 202);
 }
 

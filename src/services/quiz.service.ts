@@ -28,6 +28,7 @@ import { fromQuizCourseSettings, QUIZ_COLUMNS, QUIZ_SLIDER_DEFAULTS, QUIZ_SLIDER
 import { settingsProblem, type QuizSettings } from '../../supabase/functions/_shared/quiz-settings';
 import { SUMMARY_FORMAT } from '../../supabase/functions/_shared/summary-schema';
 import { CALCULATING_MODULES, type MaterialLecture, type QuizMaterial } from '../lib/quiz/panel';
+import { NO_CREDITS_NOTE } from '../lib/quiz/status';
 import { ConsentDeclinedError, ensureConsent, forgetConsent } from './consent.service';
 
 export type QuizStatus = 'pending' | 'generating' | 'ready' | 'failed';
@@ -77,7 +78,7 @@ const toItem = (r: QuizRow): QuizListItem => ({
   courseId: r.course_id,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
-  note: r.status === 'pending' ? (notStarted.get(r.id) ?? null) : null,
+  note: r.status === 'pending' ? (notStarted.get(r.id) ?? (r.error === 'no_credits' ? NO_CREDITS_NOTE : null)) : null,
 });
 
 /** Every quiz not deleted, newest first. */
@@ -348,6 +349,7 @@ async function quizNeedsImages(id: string): Promise<boolean> {
 export function startProblem(err: unknown): string {
   if (err instanceof ConsentDeclinedError) return 'Nothing was sent: Studiply needs your permission';
   if (err instanceof FunctionError && err.code === 'daily_limit') return 'Today’s limit is reached; try again tomorrow';
+  if (err instanceof FunctionError && err.code === 'no_credits') return NO_CREDITS_NOTE;
   if (err instanceof NetworkError || (err instanceof FunctionError && err.unreachable)) return 'Needs a connection';
   return err instanceof Error && err.message ? err.message : 'It couldn’t be started';
 }

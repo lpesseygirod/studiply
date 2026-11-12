@@ -119,6 +119,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"credit_ledger": {
+                  Row: {
+                    "attempt": number,"base_key": string,"created_at": string,"id": string,"kind": string,"label": string | null,"lecture_id": string | null,"product_id": string | null,"ref_id": string | null,"reverses": string | null,"store_transaction_id": string | null,"units": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempt"?: number,"base_key": string,"created_at"?: string,"id"?: string,"kind": string,"label"?: string | null,"lecture_id"?: string | null,"product_id"?: string | null,"ref_id"?: string | null,"reverses"?: string | null,"store_transaction_id"?: string | null,"units": number,"user_id"?: string
+                  }
+                  Update: {
+                    "attempt"?: number,"base_key"?: string,"created_at"?: string,"id"?: string,"kind"?: string,"label"?: string | null,"lecture_id"?: string | null,"product_id"?: string | null,"ref_id"?: string | null,"reverses"?: string | null,"store_transaction_id"?: string | null,"units"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "credit_ledger_reverses_fkey"
+      columns: ["reverses"]
+isOneToOne: true
+      referencedRelation: "credit_ledger"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"document_versions": {
                   Row: {
                     "content": NonNullable<Json>,"created_at": string,"document_id": string | null,"file_id": string | null,"id": string,"name": string | null,"reason": string,"summary_id": string | null,"user_id": string
@@ -576,6 +596,19 @@ isOneToOne: false
               "bucket_id": string,"name": string
             }[]
                            },
+"grant_credits":
+{ Args: { "p_base_key": string,"p_kind": string,"p_label"?: string,"p_product"?: string,"p_txn"?: string,"p_units": number,"p_user": string }; Returns: {
+              "balance_after": number,"charged": number,"outcome": string
+            }[]
+                           },
+"my_credits":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"reverse_spend":
+{ Args: { "p_base_key": string,"p_user": string }; Returns: {
+              "balance_after": number,"charged": number,"outcome": string
+            }[]
+                           },
 "review_card":
 { Args: { "p_due_at": string,"p_ease": number,"p_flashcard_id": string,"p_grade": string,"p_interval_days": number,"p_reps": number,"p_reviewed_at": string }; Returns: boolean
                            },
@@ -585,6 +618,16 @@ isOneToOne: false
 "search_library":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "course_color": string,"course_id": string,"course_name": string,"field": string,"file_kind": string,"folder_id": string,"item_id": string,"kind": string,"matched": string,"rank": number,"t_ms": number,"title": string
+            }[]
+                           },
+"spend_credits":
+{ Args: { "p_base_key": string,"p_kind": string,"p_label"?: string,"p_lecture"?: string,"p_ref"?: string,"p_units": number,"p_user": string }; Returns: {
+              "balance_after": number,"charged": number,"outcome": string
+            }[]
+                           },
+"spend_summary":
+{ Args: { "p_label"?: string,"p_lecture": string,"p_summary": string,"p_user": string }; Returns: {
+              "balance_after": number,"charged": number,"outcome": string
             }[]
                            },
 "trash_purge":

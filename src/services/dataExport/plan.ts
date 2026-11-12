@@ -53,6 +53,8 @@ export const EXPORT_TABLES = [
   'ai_consent',
   'ai_usage',
   'terms_acceptances',
+  // Step 10.2-1: her credits (every grant, purchase and spend).
+  'credit_ledger',
 ] as const;
 export type ExportTable = (typeof EXPORT_TABLES)[number];
 export type ExportTables = { [K in ExportTable]: Tables<K>[] };

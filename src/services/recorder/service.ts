@@ -21,6 +21,7 @@
  */
 
 import { forget, isDiscarded, markDiscarded } from './discarded';
+import { transcriptRefused } from './handlers';
 import { joinTranscript } from './transcriptJoin';
 import type {
   AudioSource,
@@ -121,7 +122,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
     if (!chunk) return;
     if (!chunk.storagePath) {
       if (!skip?.uploads.has(id)) await deps.uploads.enqueue({ kind: 'upload_chunk', key: meta.lectureId, payload: ref });
-    } else if (meta.transcribe && !chunk.segments && !chunk.transcriptError && !skip?.transcriptions.has(id)) {
+    } else if (meta.transcribe && !chunk.segments && !transcriptRefused(chunk) && !skip?.transcriptions.has(id)) {
       await deps.transcriptions.enqueue({ kind: 'transcribe_chunk', key: meta.lectureId, payload: ref });
     }
   }
@@ -371,7 +372,8 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
         if (active?.meta.lectureId === meta.lectureId || meta.userId !== deps.userId()) continue;
         const chunks = await store.listChunks(meta.lectureId);
         for (const c of chunks) await queueChunk(meta, c.seq, skip);
-        const settled = chunks.every((c) => c.storagePath && (!meta.transcribe || c.segments || c.transcriptError));
+        // A chunk waiting for credits isn't settled: kept until it is transcribed.
+        const settled = chunks.every((c) => c.storagePath && (!meta.transcribe || c.segments || transcriptRefused(c)));
         if (meta.status === 'stopped' && settled && now() - Date.parse(meta.updatedAt) > KEEP_FINISHED_MS) {
           await store.removeRecording(meta.lectureId);
         }

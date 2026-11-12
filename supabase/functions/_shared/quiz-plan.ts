@@ -189,6 +189,8 @@ export interface QuizPlanInput {
   /** Questions answered wrong or partly before, not right since (for these lectures). */
   pendingWrong: number;
   wrongComeBack: boolean;
+  /** Step 10.2-1: at most this many questions (the count the quiz was paid for; the server's run only). */
+  maxCount?: number;
 }
 
 export interface QuizSlot {
@@ -334,8 +336,9 @@ export function planQuiz(input: QuizPlanInput): QuizPlan {
   }
 
   // How many: the ones that come back first, then the new ones.
-  const requested = 5 * s.count;
-  const again = input.wrongComeBack && input.pendingWrong > 0 ? Math.min(input.pendingWrong, Math.max(2, Math.ceil((requested * 3) / 10))) : 0;
+  if (input.maxCount !== undefined && (!Number.isInteger(input.maxCount) || input.maxCount < 1)) throw new RangeError('maxCount must be a whole number, 1 or more');
+  const requested = Math.min(5 * s.count, input.maxCount ?? Infinity);
+  const again = input.wrongComeBack && input.pendingWrong > 0 ? Math.min(input.pendingWrong, requested, Math.max(2, Math.ceil((requested * 3) / 10))) : 0;
   let fresh = requested - again;
   let notice: string | null = null;
 

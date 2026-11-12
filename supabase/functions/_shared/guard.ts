@@ -4,8 +4,9 @@
  * signed in, the student's own lecture, consent, and how much they used today.
  *
  * `db` acts as the student, so RLS applies to every read. Only `logUsage`
- * uses the service role, because students can read ai_usage but never write
- * it (deleting rows must not reset a limit).
+ * and the credit spends (step 10.2-1, _shared/credits.ts) use the service
+ * role, because students can read ai_usage and credit_ledger but never write
+ * them (deleting rows must not reset a limit or a balance).
  */
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -108,9 +109,13 @@ export interface UsageRow {
   cost_usd: number;
 }
 
-/** Logs one AI call's cost. The only write that uses the service role. */
+/** A service-role client: only for ai_usage and the credit spends (students can't write either). */
+export function serviceClient(): SupabaseClient {
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
+}
+
+/** Logs one AI call's cost. */
 export async function logUsage(row: UsageRow): Promise<void> {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
-  const { error } = await admin.from('ai_usage').insert(row);
+  const { error } = await serviceClient().from('ai_usage').insert(row);
   if (error) throw error;
 }

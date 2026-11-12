@@ -118,6 +118,8 @@ export interface QuizRunMaterial {
 
 export interface QuizRunDeps {
   quizId: string;
+  /** Step 10.2-1: the questions this quiz was paid for; the plan never asks more. */
+  maxQuestions?: number;
   material: () => Promise<QuizRunMaterial>;
   claude: (call: 'batch' | 'verify' | 'repair', system: string, content: Content, schema: JsonSchema, maxTokens: number) => QuizCall;
   logCost: SummaryRunDeps['logCost'];
@@ -432,7 +434,7 @@ export async function runQuiz(deps: QuizRunDeps): Promise<QuizOutcome> {
     const m = await deps.material();
     if (!m.lectures.length) return fail('no_material');
     const pastExam = mergeFormats(m.pastExams.map((p) => p.format).filter((f): f is PastExamFormatRead => !!f) as PastExamFormat[]);
-    const plan = planQuiz(planInputFor(m.facts, m.settings, pastExam));
+    const plan = planQuiz({ ...planInputFor(m.facts, m.settings, pastExam), maxCount: deps.maxQuestions });
     const language = quizLanguage(m);
     const optionCounts = m.pastExams.map((p) => p.format?.optionsPerQuestion ?? 0).filter((n) => n >= 2 && n <= 6);
     const options = optionCounts.length ? optionCounts[0] : DEFAULT_OPTIONS;

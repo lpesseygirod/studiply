@@ -50,6 +50,22 @@ export function uploadChunkHandler(deps: {
   };
 }
 
+/**
+ * Step 10.2-1: a chunk refused because she has no lecture credits left (402 no_credits) is waiting,
+ * not refused: the recorder's sweep (app start, back in front, sign-in) sends it again.
+ */
+export const WAITING_FOR_CREDITS = 'no_credits';
+
+export const waitsForCredits = (chunk: { transcriptError: string | null }) => chunk.transcriptError === WAITING_FOR_CREDITS;
+
+/** A transcription refused for good (not one waiting for credits). */
+export const transcriptRefused = (chunk: { transcriptError: string | null }) => !!chunk.transcriptError && !waitsForCredits(chunk);
+
+function isNoCredits(err: unknown): boolean {
+  const { status, code } = (err ?? {}) as { status?: unknown; code?: unknown };
+  return code === 'no_credits' || status === 402;
+}
+
 export function transcribeChunkHandler(deps: {
   store: RecordingStore;
   transcribe: (p: { lectureId: string; seq: number; storagePath: string; startMs: number; durationMs: number }) => Promise<Segment[]>;
@@ -59,7 +75,7 @@ export function transcribeChunkHandler(deps: {
       // Discarded (Cancel recording): never sent.
       if (isDiscarded(ref)) return;
       const chunk = await deps.store.getChunk(ref.lectureId, ref.seq);
-      if (!chunk || chunk.segments || chunk.transcriptError) return;
+      if (!chunk || chunk.segments || transcriptRefused(chunk)) return;
       // Queued only once uploaded; if not (yet), tried again later like a lost connection.
       if (!chunk.storagePath) throw new SyncHttpError('Waits for the upload.', 503);
       try {
@@ -75,14 +91,15 @@ export function transcribeChunkHandler(deps: {
           await landed(ref);
           return;
         }
-        await deps.store.updateChunk(ref.lectureId, ref.seq, { segments });
+        await deps.store.updateChunk(ref.lectureId, ref.seq, { segments, transcriptError: null });
       } catch (err) {
         // Tried again (the lane never gives up on these): a lost connection, an expired
         // session, the Keychain while the phone is locked, an unexplained error.
         if (classify(err) !== 'fail') throw err;
         // Refused (no consent, a file the service can't read): noted, and the next
         // chunks go on; the transcription after Stop tries this one again.
-        await deps.store.updateChunk(ref.lectureId, ref.seq, { transcriptError: describeError(err) });
+        // No credits left: waiting, sent again by the next sweep (the recording goes on).
+        await deps.store.updateChunk(ref.lectureId, ref.seq, { transcriptError: isNoCredits(err) ? WAITING_FOR_CREDITS : describeError(err) });
       }
     },
   };

@@ -12,6 +12,8 @@ export const SUMMARY_ERRORS: Record<string, string> = {
   no_transcript: 'This lecture has no transcript yet.',
   claude_rejected: 'Claude didn’t accept the request. Nothing was changed.',
   consent_withdrawn: 'Stopped: AI was turned off in Settings → AI & privacy. Nothing more was sent.',
+  // Step 10.2-1: the server put the row back to pending (nothing was spent or sent).
+  no_credits: 'Not started: no lecture credits left. Your recording and notes are safe.',
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -62,6 +64,7 @@ export function summaryCardText(s: LectureSummary): { label: string; text: strin
   const preview = s.settings?.preview ? `${s.settings.preview}. ` : '';
   switch (s.status) {
     case 'pending':
+      if (s.error === 'no_credits') return { label: 'Summary settings saved', text: `${preview}${SUMMARY_ERRORS.no_credits}`, action: 'start' };
       return { label: 'Summary settings saved', text: `${preview}Not started yet: it needs your permission or the internet, or today's limit was reached.`, action: 'start' };
     case 'generating':
     case 'checking':

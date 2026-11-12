@@ -17,6 +17,9 @@
  *   once, then the pipeline (_shared/summary-pipeline.ts: align, classify,
  *   calculate, generate, check) in the background, its status and result
  *   saved on the row. 409 already_started, 404 summary_not_found.
+ *   Step 10.2-1: credits, decided from the row and the ledger: a lecture's first summary is included,
+ *   again ½ a lecture, Extend / Merge / Exam pack ½; a run that fails gives them back once. None
+ *   left: 402 no_credits, the row back to pending. The notes are included in the lecture's credit.
  *
  * { lectureId } (no task)
  *   Step 1.6 skeleton: a fixed test prompt, answering { text, ... }.
@@ -35,7 +38,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { answerText, claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
 import { CLAUDE_MODELS, SUMMARIZE_TEST_PROMPT, SUMMARY_OPERATION, validateSummarizeBody } from '../_shared/claude.ts';
-import { hasConsent, ownLecture, signedIn } from '../_shared/guard.ts';
+import { hasConsent, ownLecture, serviceClient, signedIn } from '../_shared/guard.ts';
+import { COMBINE_UNITS, LECTURE_UNITS, combineKey, lectureKey, noCredits, reverseSpend, spendCredits, spendSummary, summaryKey, type SpendResult } from '../_shared/credits.ts';
 import { gatedCall } from '../_shared/consent-gate.ts';
 import { PROBE_MAX_TOKENS, PROBE_SCHEMAS, PROBE_SYSTEM, PROBE_USER, isLocalSupabase } from '../_shared/schema-probe.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
@@ -162,6 +166,42 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
     await save({ status: 'failed', error: 'invalid_request' });
     return fail(400, 'invalid_request', 'The summary settings are not readable.');
   }
+
+  // Step 10.2-1: the price, decided here from the saved row (its mode) and the ledger (first or again),
+  // never from the request. A lecture without a transcript spends nothing: its run fails no_transcript.
+  // None left: the row goes back to pending ("no_credits") and the answer is 402.
+  const credits = serviceClient();
+  let spentKey: string | null = null;
+  try {
+    let spend: SpendResult | null = null;
+    if (combine) {
+      spentKey = combineKey(summaryId);
+      spend = await spendCredits(credits, { userId, key: spentKey, units: COMBINE_UNITS, kind: 'spend_extra', lectureId, refId: summaryId });
+    } else if (await hasTranscript(db, lectureId)) {
+      spentKey = summaryKey(summaryId);
+      spend = await spendSummary(credits, { userId, lectureId, summaryId });
+    }
+    if (spend?.outcome === 'insufficient') {
+      log('no_credits', { lectureId, summaryId, mode: claimed.mode });
+      await save({ status: 'pending', error: 'no_credits' });
+      const refusal = noCredits('summary');
+      return fail(refusal.status, refusal.code, refusal.error);
+    }
+    if (spend) log('credit_spent', { summaryId, outcome: spend.outcome, units: spend.charged });
+  } catch (err) {
+    // Not started: the row can be asked for again.
+    await save({ status: 'pending' }).catch(() => {});
+    throw err;
+  }
+  /** A run that ends without a summary gives its credit back, once (reverse_spend). */
+  const giveBack = async () => {
+    if (!spentKey) return;
+    await reverseSpend(credits, userId, spentKey).then(
+      (reversed) => reversed && log('credit_reversed', { summaryId }),
+      (err) => log('reverse_failed', { summaryId, message: String((err as Error)?.message ?? err) }),
+    );
+  };
+
   const run = combine
     ? runCombine({
         summaryId,
@@ -181,10 +221,17 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
       })
     : summaryRun(lectureId, summaryId, save);
   // Stopped because AI was switched off: the row says so (the run saved it as a refused call).
-  const settled = run.then(async (outcome) => {
-    if (withdrawn) await save({ status: 'failed', error: 'consent_withdrawn' }).catch(() => {});
-    return outcome;
-  });
+  const settled = run.then(
+    async (outcome) => {
+      if (withdrawn) await save({ status: 'failed', error: 'consent_withdrawn' }).catch(() => {});
+      if (outcome.status !== 'done') await giveBack();
+      return outcome;
+    },
+    async (err) => {
+      await giveBack();
+      throw err;
+    },
+  );
   EdgeRuntime.waitUntil<unknown>(settled);
   return json({ summaryId, status: 'generating' }, 202);
 }
@@ -227,6 +274,13 @@ async function probeSchemas(req: Request): Promise<Response> {
   return json({ results, costLog: meter }, 200);
 }
 
+/** Whether the lecture has any transcript (step 10.2-1: a summary without one spends nothing). */
+async function hasTranscript(db: SupabaseClient, lectureId: string): Promise<boolean> {
+  const { data, error } = await db.from('transcript_segments').select('id').eq('lecture_id', lectureId).limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 /** A lecture's newest finished summary of the new engine (step 7.9), or null. */
 async function latestDoneSummary(db: SupabaseClient, lectureId: string): Promise<{ summaryId: string; result: StoredSummary } | null> {
   const { data } = await db.from('summaries').select('id, result').eq('file_id', lectureId).eq('status', 'done').order('created_at', { ascending: false }).limit(10);
@@ -267,6 +321,14 @@ Deno.serve(async (req) => {
     if (notes) {
       const prepared = await prepareNotes(db, notes);
       if (!prepared.ok) return prepared.response;
+      // Step 10.2-1: the old notes are included in the lecture's credit (decided 12 Nov); a lecture
+      // never paid for pays it first. None left: 402.
+      const spend = await spendCredits(serviceClient(), { userId, key: lectureKey(lectureId, 0), units: LECTURE_UNITS, kind: 'spend_lecture', lectureId });
+      if (spend.outcome === 'insufficient') {
+        log('no_credits', { lectureId, task: 'notes' });
+        const refusal = noCredits('notes');
+        return fail(refusal.status, refusal.code, refusal.error);
+      }
       ({ system, content, transcript } = prepared);
       options = { maxTokens: NOTES_MAX_TOKENS[notes.summaryLevel], jsonSchema: NOTE_SCHEMA };
       log('notes_prepared', { lectureId, level: notes.summaryLevel, photos: prepared.photos, pdfs: prepared.pdfs, bytes: prepared.bytes });

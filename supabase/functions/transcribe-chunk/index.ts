@@ -8,7 +8,8 @@
  *
  * In order: signed in → valid request → own lecture → transcription consent
  * → under the daily limit → (already done? answer from the database, no
- * second charge) → download → transcribe → log cost in ai_usage → save
+ * second charge) → the lecture's credit (step 10.2-1: 402 no_credits when
+ * none is left) → download → transcribe → log cost in ai_usage → save
  * segments.
  *
  * TRANSCRIBE_PROVIDER picks who transcribes: unset or `elevenlabs` is
@@ -23,7 +24,8 @@
  */
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { hasConsent, logUsage, ownLecture, signedIn, usedToday } from '../_shared/guard.ts';
+import { hasConsent, logUsage, ownLecture, serviceClient, signedIn, usedToday } from '../_shared/guard.ts';
+import { LECTURE_UNITS, blockOf, lectureKey, noCredits, spendCredits } from '../_shared/credits.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { deleteScribeTranscript, transcribeScribe } from '../_shared/elevenlabs.ts';
 import { transcribe } from '../_shared/openai.ts';
@@ -108,6 +110,18 @@ Deno.serve(async (req) => {
       log('cached', { lectureId, seq });
       return json({ chunkId: existing.id, durationMs: existing.duration_ms, segments: await storedSegments(db, existing.id) });
     }
+
+    // 6b. Step 10.2-1: the lecture's credit, once per started 2 hours (a chunk retried or later in the
+    // same block finds it paid). None left: 402, the chunk stays uploaded, sent again later by the app.
+    // A transcription that then fails keeps its credit (decided 12 Nov: rare; an admin grant gives it back).
+    const block = blockOf(startMs);
+    const spend = await spendCredits(serviceClient(), { userId, key: lectureKey(lectureId, block), units: LECTURE_UNITS, kind: 'spend_lecture', lectureId });
+    if (spend.outcome === 'insufficient') {
+      log('no_credits', { lectureId, seq, block });
+      const refusal = noCredits('transcription');
+      return fail(refusal.status, refusal.code, refusal.error);
+    }
+    if (spend.outcome === 'spent') log('credit_spent', { lectureId, block, units: spend.charged });
 
     // 7. Download as the user (Storage policies apply)
     const { data: audio, error: downloadError } = await db.storage.from(BUCKET).download(storagePath);
