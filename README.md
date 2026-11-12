@@ -65,9 +65,10 @@ builds the web and iOS bundles and checks that no key is inside.
 All data lives in Supabase: the schema and its owner-only RLS policies are in
 `supabase/migrations/`, private files (audio chunks, photos, slides) in
 Storage buckets whose paths start with the owner's user id. **The app holds no
-AI key.** Whisper and Claude are called by Edge Functions with keys kept on
-the server; the app sends only the student's own login token, and the
-functions check consent and a daily limit before anything leaves the server.
+AI key.** ElevenLabs (transcription) and Claude are called by Edge Functions
+with keys kept on the server; the app sends only the student's own login token,
+and the functions check consent, the student's credits and a daily fair-use
+limit before anything leaves the server.
 `expo-sqlite` stays on iPhone only, for the earlier version's data (read and
 uploaded by step 1.9, `src/services/legacyImport`) and the offline cache
 (step 1.8); the web build never loads it.
@@ -87,29 +88,31 @@ and keeps working without a connection:
 
 ## Architecture: how audio becomes notes
 
-    record/active.tsx          expo-av records 20-minute chunks; after Stop
-            │                  they are uploaded (source-file.service →
-            │                  cloud-storage.service, with progress and retries;
-            │                  on iPhone through the sync queue, so offline
+    src/services/recorder      30-second chunks with a 0.5 s overlap, kept on the
+            │                  device first and uploaded while the class goes on
+            │                  (on the iPhone through the sync queue, so offline
             │                  recordings upload later)
             ▼
-    Storage audio-chunks       {userId}/{lectureId}/{seq}.m4a, plus an
-                               audio_chunks row each
-            │
+    Storage audio-chunks       {userId}/{lectureId}/{seq}, plus an audio_chunks
+            │                  row each
             ▼
-    ai.service.ts              asks consent once per kind of data (consent.service)
-      ├── transcribeAudio()    → Edge Function transcribe-chunk, per chunk
-      │                          → Whisper → transcript_segments
-      ├── generateNotes()      → Edge Function summarize (task notes): reads
-      │                          the transcript, photos and PDFs itself → Claude
-      │                          (structured JSON note)
-      └── clarifyContent()     → Edge Function assistant-chat (mode clarify)
-            │                    Each function logs its cost in ai_usage.
+    transcribe-chunk           per chunk, during class → ElevenLabs Scribe v2
+            │                  → transcript_segments (the live transcript); the
+            │                  lecture's credit is spent once, here
             ▼
-    note.service.ts            the confirmed note, in summaries.result
-            │
+    assistant-chat             the study assistant during class, from what has
+            │                  been said so far (Claude Sonnet)
             ▼
-    note/[id].tsx              read, edit, highlight, clarify, export to PDF
+    summarize                  after Stop & summarize: transcript, notes, marks,
+            │                  photos and slides → Claude Sonnet → a structured
+            │                  summary written into the lecture's Summary tab
+            ▼
+    quiz                       quizzes from lectures, slides and past exams
+                               (Claude Opus writes, Sonnet grades)
+
+Every function logs its cost in `ai_usage`. A build without expo-audio's native
+module still records with the earlier flow (`record/active.tsx` with expo-av,
+then `ai.service.ts`), which uses the same Edge Functions.
 
 Screens in `app/` call services in `src/services/`; services talk to Supabase
 through `src/lib/supabase.ts` (tables) and `src/lib/functions.ts` (Edge
@@ -137,15 +140,22 @@ In development, heading for the App Store and a web launch (Phase 10 of
   offline use on the iPhone
 - Review: flashcards with spaced repetition, Quiz me, and quizzes (writing,
   taking, grading, results)
+- Spaced review of lectures (1, 3, 7 and 21 days, and before the exam), course
+  settings, and review reminders on the iPhone
 - Sign in with email or Apple; account deletion; the AI consent screen; legal
   pages; the sign-up agreement; Export my data; audio auto-delete; accessibility
   checks
+- A web beta at [studiply.expo.app](https://studiply.expo.app), on the live server
+
+**In progress:** credits (step 10.2). Students pay in advance in lecture
+credits; the server keeps the balance and the app shows it in Settings → Credits.
+Built, not yet on the live server.
 
 **Still to do before launch:**
 
-- Spaced-review reminders and course settings (step 9.2)
-- Pricing, the free plan and In-App Purchase (step 10.2)
-- The store listing, TestFlight and a beta with classmates (steps 10.3–10.5)
+- Buying credits with In-App Purchase (steps 10.2-3 and 10.2-4)
+- Help & support in the app
+- The store listing, TestFlight and a beta with classmates on the iPhone (steps 10.3–10.5)
 - Filling in the legal texts' details and a lawyer's review
 
 ## Running it locally
