@@ -92,3 +92,7 @@ docs/reports/
 # Real lectures as test fixtures (step 7.1) and the summaries written from them (7.4): never in git
 tests/fixtures/
 tests/output/
+
+# assistant instructions and project skills: kept locally, not published
+CLAUDE.md
+.claude/
