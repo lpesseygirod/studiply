@@ -72,10 +72,12 @@ async function post(name: FunctionName, body: unknown, options: { fetch?: Fetch;
     const err = errorFromResponse(res.status, await res.text().catch(() => ''));
     // Step 10.2-2: no credits left: her balance is read again (Settings, the lines, the strip).
     if (err.code === 'no_credits') creditsMayHaveChanged();
+    // Step 10.2-1b: the extras allowance used up: read now, so the assistant waits at once.
+    if (err.code === 'extras_limit') creditsMayHaveChanged(true);
     throw err;
   }
   // A transcription, summary or quiz may have spent credits.
-  if (name === 'transcribe-chunk' || name === 'summarize' || name === 'quiz') creditsMayHaveChanged();
+  if (name === 'transcribe-chunk' || name === 'summarize' || name === 'quiz' || name === 'assistant-chat') creditsMayHaveChanged();
   return res;
 }
 

@@ -306,7 +306,8 @@ Deno.serve(async (req) => {
     // Step 7.9: the schema probe (local only), before the usual checks (it has no lecture).
     const peek = (await req.clone().json().catch(() => null)) as { probe?: unknown } | null;
     if (peek?.probe === 'schemas') return await probeSchemas(req);
-    const ready = await readyForClaude(req, validateBody, log);
+    // Step 10.2-1b: a summary (or combine) and the old notes are paid in credits; the skeleton's test prompt is an extra.
+    const ready = await readyForClaude(req, validateBody, log, (v) => (v.summaryId || v.notes ? 'paid' : 'extra'));
     if (!ready.ok) return ready.response;
     const { claude, db, userId } = ready;
     lectureId = ready.value.lectureId;

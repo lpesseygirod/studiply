@@ -18,6 +18,7 @@ import { refreshCredits } from '../../services/credits.service';
 import { getTodayUsage } from '../../services/credit-check.service';
 import { BUY_ON_IPHONE, BUY_SOON, balanceLine, balanceSpoken, historyLine } from '../../lib/credits/format';
 import { makeSettingsStyles } from './styles';
+import { extrasLine } from '../../lib/credits/extras';
 
 /** What extras use (plan-10.2 §3, with Sonnet prices). */
 const EXTRAS: readonly [string, string][] = [
@@ -41,7 +42,7 @@ export function CreditsSettings() {
   useEffect(() => {
     void refreshCredits({ force: true });
     getTodayUsage()
-      .then((u) => setLimitReached(!u.simulated && (u.transcriptionReached || u.claudeReached)))
+      .then((u) => setLimitReached(!u.simulated && (u.transcriptionReached || u.claudeReached || u.extrasReached)))
       .catch(() => {});
   }, []);
 
@@ -89,7 +90,8 @@ export function CreditsSettings() {
           </React.Fragment>
         ))}
         <View style={settingsStyles.divider} />
-        <Text style={[styles.small, styles.free]}>Free: grading your answers, flashcards, reading a past exam, Clarify and Ask Claude.</Text>
+        {/* Step 10.2-1b: they cost no credits but use the assistant & extras allowance. */}
+        <Text style={[styles.small, styles.free]}>No credits: grading your answers, flashcards, reading a past exam, Clarify and Ask Claude. They use your assistant allowance.</Text>
       </View>
 
       <Text style={settingsStyles.sectionHeader} accessibilityRole="header">
@@ -114,6 +116,12 @@ export function CreditsSettings() {
           })
         )}
       </View>
+      {/* Step 10.2-1b: the assistant & extras allowance, never in dollars. */}
+      {!!extrasLine(credits.extras) && (
+        <Text style={styles.covers} {...{ dataSet: { credits: 'extras-left' } }}>
+          {extrasLine(credits.extras)}
+        </Text>
+      )}
       <Text style={styles.footnote}>
         The last 20 changes.{'\n'}Fair use: up to 6 hours of recording transcribed, and a daily allowance for the assistant and summaries, in any 24 hours.
         {limitReached ? ' Today’s limit is reached; it frees up over the next 24 hours.' : ''}

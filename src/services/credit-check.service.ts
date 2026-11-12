@@ -13,7 +13,7 @@
 import { supabase } from '../lib/supabase';
 import { serviceError } from '../lib/cloudRows';
 import { isMockAiForced } from '../lib/aiMode';
-import { DAILY_CLAUDE_LIMIT_USD } from '../../supabase/functions/_shared/claude';
+import { DAILY_CLAUDE_LIMIT_USD, DAILY_EXTRAS_LIMIT_USD, EXTRAS_OPERATIONS, PAID_OPERATIONS } from '../../supabase/functions/_shared/claude';
 import { DAILY_LIMIT_SECONDS, LIMIT_WINDOW_MS } from '../../supabase/functions/_shared/policy';
 
 const PAGE = 1000;
@@ -22,11 +22,15 @@ export interface TodayUsage {
   /** Audio transcribed in the last 24 hours, and the limit, in seconds. */
   transcriptionSeconds: number;
   transcriptionLimitSeconds: number;
-  /** Claude (notes, assistant, clarifications) in the last 24 hours, and the limit, in USD. */
+  /** Claude paid in credits (summaries, writing quizzes) in the last 24 hours, and the limit, in USD. */
   claudeUsd: number;
   claudeLimitUsd: number;
+  /** Step 10.2-1b: the extras (the assistant, grading, a past exam's format), and their own daily limit. */
+  extrasUsd: number;
+  extrasLimitUsd: number;
   transcriptionReached: boolean;
   claudeReached: boolean;
+  extrasReached: boolean;
   /** Development with EXPO_PUBLIC_MOCK_AI=1: nothing is sent or counted. */
   simulated: boolean;
 }
@@ -35,17 +39,22 @@ export interface TodayUsage {
 export function sumToday(rows: { operation: string; audio_seconds: number | string | null; cost_usd: number | string | null }[]) {
   let transcriptionSeconds = 0;
   let claudeUsd = 0;
+  let extrasUsd = 0;
   for (const row of rows) {
     if (row.operation === 'transcription') transcriptionSeconds += Number(row.audio_seconds ?? 0);
-    if (row.operation === 'assistant' || row.operation === 'summary') claudeUsd += Number(row.cost_usd ?? 0);
+    if ((PAID_OPERATIONS as readonly string[]).includes(row.operation)) claudeUsd += Number(row.cost_usd ?? 0);
+    if ((EXTRAS_OPERATIONS as readonly string[]).includes(row.operation)) extrasUsd += Number(row.cost_usd ?? 0);
   }
   return {
     transcriptionSeconds,
     transcriptionLimitSeconds: DAILY_LIMIT_SECONDS,
     claudeUsd,
     claudeLimitUsd: DAILY_CLAUDE_LIMIT_USD,
+    extrasUsd,
+    extrasLimitUsd: DAILY_EXTRAS_LIMIT_USD,
     transcriptionReached: transcriptionSeconds >= DAILY_LIMIT_SECONDS,
     claudeReached: claudeUsd >= DAILY_CLAUDE_LIMIT_USD,
+    extrasReached: extrasUsd >= DAILY_EXTRAS_LIMIT_USD,
   };
 }
 
@@ -79,4 +88,9 @@ export function formatTranscription(usage: Pick<TodayUsage, 'transcriptionSecond
 /** "$0.40 of $3", for banners. */
 export function formatClaude(usage: Pick<TodayUsage, 'claudeUsd' | 'claudeLimitUsd'>): string {
   return `$${usage.claudeUsd.toFixed(2)} of $${usage.claudeLimitUsd}`;
+}
+
+/** "$0.20 of $1": the extras' daily guard (Development only). */
+export function formatExtras(usage: Pick<TodayUsage, 'extrasUsd' | 'extrasLimitUsd'>): string {
+  return `$${usage.extrasUsd.toFixed(2)} of $${usage.extrasLimitUsd}`;
 }

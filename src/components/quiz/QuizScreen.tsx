@@ -62,6 +62,9 @@ function gradingNoteFor(state: GradingState | null): string | null {
       return 'needs your permission to send them to Claude';
     case 'limit':
       return 'today’s AI limit is reached';
+    // Step 10.2-1b: grading uses the assistant allowance; her own grade always works.
+    case 'extras':
+      return 'graded when your assistant allowance frees up; you can grade them yourself';
     case 'failed':
       return 'grading didn’t work';
     case 'done':

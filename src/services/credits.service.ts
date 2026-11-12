@@ -116,8 +116,8 @@ export function refreshCredits(options: { force?: boolean } = {}): Promise<void>
 }
 
 // A 402 or a started summary or quiz: read again (the throttle keeps it cheap).
-onCreditsMayHaveChanged(() => {
-  void refreshCredits();
+onCreditsMayHaveChanged((force) => {
+  void refreshCredits({ force });
 });
 
 /** For tests: back to signed out, nothing cached in memory. */

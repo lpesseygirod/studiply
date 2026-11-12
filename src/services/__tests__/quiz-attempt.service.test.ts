@@ -166,6 +166,9 @@ describe('the laptop (written at once)', () => {
     expect(consent.forgetConsent).toHaveBeenCalled();
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'daily_limit'));
     expect(await gradeAttempt(QUIZ, 'att-1')).toBe('limit');
+    // Step 10.2-1b: the assistant & extras allowance used up.
+    functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'extras_limit'));
+    expect(await gradeAttempt(QUIZ, 'att-1')).toBe('extras');
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 0, 'network', true));
     expect(await gradeAttempt(QUIZ, 'att-1')).toBe('offline');
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 502, 'grading_failed'));
@@ -244,6 +247,9 @@ describe('the iPhone (kept here, queued in order)', () => {
     await grade.run({ quizId: QUIZ, attemptId: 'att-1' });
     expect(library.requestPull).toHaveBeenCalledWith(true);
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'daily_limit'));
+    await expect(grade.run({ quizId: QUIZ, attemptId: 'att-1' })).rejects.toBeInstanceOf(sync.PermanentSyncError);
+    // The extras allowance used up: left pending, not tried again and again.
+    functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'extras_limit'));
     await expect(grade.run({ quizId: QUIZ, attemptId: 'att-1' })).rejects.toBeInstanceOf(sync.PermanentSyncError);
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 0, 'network', true));
     const err = await grade.run({ quizId: QUIZ, attemptId: 'att-1' }).catch((e: Error) => e);

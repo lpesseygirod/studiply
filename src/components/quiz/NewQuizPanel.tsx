@@ -36,6 +36,8 @@ import { makePanelStyles } from '../panel/panelStyles';
 import { closeNewQuiz, useNewQuizPanel, type NewQuizRequest } from './newQuizState';
 import { kindLabel, QUIZ_PRESET_ORDER, QUIZ_SLIDER_LABELS, TYPE_CHIPS } from './quizLabels';
 import { CostLine } from '../credits/CreditLine';
+import { FunctionError } from '../../lib/functions';
+import { PAST_EXAM_EXTRAS_USED } from '../../lib/credits/extras';
 import { quizUnits } from '../../../supabase/functions/_shared/credits';
 
 /**
@@ -205,7 +207,13 @@ function Panel({ request }: { request: NewQuizRequest }) {
         setSliders((s) => (s ? { ...s, count: countValueFor(format.questionCount) } : s));
       }
     } catch (err) {
-      const note = err instanceof ConsentDeclinedError ? 'Not read: Studiply needs your permission' : errorMessage(err, 'Couldn’t read its format');
+      const note =
+        err instanceof ConsentDeclinedError
+          ? 'Not read: Studiply needs your permission'
+          : // Step 10.2-1b: reading a past exam is an extra (the assistant & extras allowance).
+            err instanceof FunctionError && err.code === 'extras_limit'
+            ? PAST_EXAM_EXTRAS_USED
+            : errorMessage(err, 'Couldn’t read its format');
       setFormats((f) => ({ ...f, [id]: { state: 'failed', note } }));
     }
   };

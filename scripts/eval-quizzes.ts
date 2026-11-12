@@ -425,7 +425,8 @@ async function gradeWithSonnet(): Promise<number> {
     check(detectLanguage(graded.map((g) => g.reason).join(' '), 'es') === 'es', 'the reasons are in Spanish');
     const sum = rows.reduce((n: number, r: { points: number }) => n + Number(r.points), 0);
     check(Math.abs(Number(score?.points) - sum) < 1e-6, `the attempt's score follows the grades (${score?.points} points, ${score?.score} / 10)`);
-    check(usage.length === 1 && usage[0].operation === 'quiz' && usage[0].model === 'claude-sonnet-5-5', `one Sonnet call logged as quiz (${usage.map((u) => `${u.operation}/${u.model}`).join(', ')})`);
+    // Step 10.2-1b: grading is an extra, logged apart from writing a quiz.
+    check(usage.length === 1 && usage[0].operation === 'quiz_grade' && usage[0].model === 'claude-sonnet-5-5', `one Sonnet call logged as quiz_grade (${usage.map((u) => `${u.operation}/${u.model}`).join(', ')})`);
     check(costUsd <= GRADE_CAP_USD, `under the cap ($${costUsd.toFixed(4)} ≤ $${GRADE_CAP_USD})`);
 
     const saved = { at: new Date().toISOString(), seconds, costUsd, usage, graded, score, response: body };

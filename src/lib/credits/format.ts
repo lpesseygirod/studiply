@@ -25,18 +25,23 @@ export interface Credits {
   /** She has the beta grant (the beta friends' notice). */
   beta: boolean;
   history: CreditRow[];
+  /** Step 10.2-1b: what's left of the assistant & extras allowance (0–1), or null (an older server). */
+  extras: { left: number; resetsAt: string | null } | null;
 }
 
 const WHATS: readonly string[] = ['lecture', 'summary', 'combine', 'quiz'];
 
 /** my_credits()'s answer, checked; null when it isn't one. Missing new fields (an older server) read as none. */
 export function parseCredits(json: unknown): Credits | null {
-  const j = json as { units?: unknown; beta?: unknown; history?: unknown } | null;
+  const j = json as { units?: unknown; beta?: unknown; history?: unknown; extras?: unknown } | null;
   if (!j || typeof j !== 'object' || !Number.isFinite(Number(j.units))) return null;
   const history = Array.isArray(j.history) ? j.history : [];
+  const e = j.extras as { left?: unknown; resets_at?: unknown } | null | undefined;
+  const left = Number(e?.left);
   return {
     units: Math.trunc(Number(j.units)),
     beta: j.beta === true,
+    extras: e && typeof e === 'object' && Number.isFinite(left) ? { left: Math.min(1, Math.max(0, left)), resetsAt: typeof e.resets_at === 'string' ? e.resets_at : null } : null,
     history: history
       .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object' && typeof (r as { id?: unknown }).id === 'string')
       .map((r) => ({

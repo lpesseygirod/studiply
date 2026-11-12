@@ -32,7 +32,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
-import { CLAUDE_MODELS, QUIZ_OPERATION } from '../_shared/claude.ts';
+import { CLAUDE_MODELS, QUIZ_FORMAT_OPERATION, QUIZ_GRADE_OPERATION, QUIZ_OPERATION } from '../_shared/claude.ts';
 import { hasConsent, serviceClient } from '../_shared/guard.ts';
 import { maxQuestionsFor, noCredits, quizKey, quizPaidCount, quizUnits, reverseSpend, spendCredits, type SpendResult } from '../_shared/credits.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
@@ -107,10 +107,10 @@ async function gradeNow(db: SupabaseClient, claude: Anthropic, userId: string, q
   } catch (err) {
     log('grade_failed', { quizId, attemptId, ...claudeFailure(err) });
     const partial = stream.currentMessage as unknown as Anthropic.Beta.BetaMessage | undefined;
-    if (partial) await logClaudeCost(QUIZ_OPERATION, userId, firstLecture, GRADE_MODEL, partial).catch(() => {});
+    if (partial) await logClaudeCost(QUIZ_GRADE_OPERATION, userId, firstLecture, GRADE_MODEL, partial).catch(() => {});
     return fail(502, 'grading_failed', 'The answers couldn’t be graded. They will be tried again.');
   }
-  await logClaudeCost(QUIZ_OPERATION, userId, firstLecture, GRADE_MODEL, message).catch((err) => log('usage_log_failed', { quizId, message: String((err as Error)?.message ?? err) }));
+  await logClaudeCost(QUIZ_GRADE_OPERATION, userId, firstLecture, GRADE_MODEL, message).catch((err) => log('usage_log_failed', { quizId, message: String((err as Error)?.message ?? err) }));
   const text = message.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
   const grades = message.stop_reason === 'refusal' ? null : parseGrades(text);
   if (!grades) {
@@ -163,11 +163,11 @@ async function readFormat(
   } catch (err) {
     log('format_failed', { fileId: file.id, ...claudeFailure(err) });
     const partial = stream.currentMessage as unknown as Anthropic.Beta.BetaMessage | undefined;
-    if (partial) await logClaudeCost(QUIZ_OPERATION, userId, null, FORMAT_MODEL, partial).catch(() => {});
+    if (partial) await logClaudeCost(QUIZ_FORMAT_OPERATION, userId, null, FORMAT_MODEL, partial).catch(() => {});
     return { error: 'unreadable' };
   }
   if (meter) meter.calls += 1;
-  await logClaudeCost(QUIZ_OPERATION, userId, null, FORMAT_MODEL, message)
+  await logClaudeCost(QUIZ_FORMAT_OPERATION, userId, null, FORMAT_MODEL, message)
     .then(() => meter && (meter.logged += 1))
     .catch((err) => log('usage_log_failed', { fileId: file.id, message: String((err as Error)?.message ?? err) }));
   const text = message.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
@@ -317,7 +317,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
   try {
-    const ready = await readyForClaude(req, validateBody, log);
+    // Step 10.2-1b: writing a quiz is paid in credits; grading and a past exam's format are extras.
+    const ready = await readyForClaude(req, validateBody, log, (v) => (v.mode === 'generate' ? 'paid' : 'extra'));
     if (!ready.ok) return ready.response;
     const { claude, db, userId, value } = ready;
     if (value.mode === 'format') return await formatNow(db, claude, userId, value.fileId!);

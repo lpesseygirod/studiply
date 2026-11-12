@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ConsentDeclinedError } from '../services/consent.service';
+import { EXTRAS_NOT_SENT, extrasRefusal } from '../lib/credits/extras';
 import { recorder } from '../services/recorder';
 import {
   QUICK_PROMPTS,
@@ -52,6 +53,8 @@ async function localKnownUpTo(lectureId: string): Promise<number> {
 
 function failureText(err: unknown): string {
   if (err instanceof ConsentDeclinedError) return 'Nothing was sent: the assistant needs your permission. Ask again to allow it.';
+  // Step 10.2-1b: the allowance used up: why is said once, in the line above the composer.
+  if (extrasRefusal(err)) return EXTRAS_NOT_SENT;
   return err instanceof Error && err.message ? err.message : 'The assistant could not answer. Please try again.';
 }
 

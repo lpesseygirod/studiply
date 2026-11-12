@@ -17,6 +17,7 @@ import {
 } from '../../services/assistant-actions.service';
 import { saveFlashcards, savedText } from '../../services/flashcards.service';
 import { errorMessage } from '../../utils/errors';
+import { extrasRefusal } from '../../lib/credits/extras';
 import type { ShowUndo } from '../../utils/star';
 import { showActionSheet, showAlert } from '../dialogs/dialogs';
 import { DragSheet } from '../DragSheet';
@@ -73,7 +74,8 @@ export function useAskClaude({
         cur && cur.action === action ? { ...cur, ...(r.kind === 'cards' ? { status: 'cards', cards: r.cards } : { status: 'suggestion', text: r.text }) } : cur,
       );
     } catch (err) {
-      setAsk((cur) => (cur ? { ...cur, status: 'error', error: errorMessage(err, 'Claude could not answer. Nothing was changed.') } : cur));
+      // Step 10.2-1b: the assistant & extras allowance used up says so.
+      setAsk((cur) => (cur ? { ...cur, status: 'error', error: extrasRefusal(err) ?? errorMessage(err, 'Claude could not answer. Nothing was changed.') } : cur));
     }
   };
 

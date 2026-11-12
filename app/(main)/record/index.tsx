@@ -273,7 +273,7 @@ export default function RecordSetupScreen() {
       ? usage.transcriptionReached
         ? "You've used today's transcription. You can still record; transcribe it once the limit frees up (it counts the last 24 hours)."
         : usage.claudeReached
-          ? "Today's limit for notes and the assistant is reached. You can still record and transcribe."
+          ? "Today's limit for summaries and quizzes is reached. You can still record and transcribe."
           : null
       : null;
 

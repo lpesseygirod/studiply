@@ -19,6 +19,7 @@ import {
   type CreditRow,
 } from '../credits/format';
 import { summaryQuote } from '../credits/quote';
+import { EXTRAS_USED_UP, PAST_EXAM_EXTRAS_USED, extrasLine, extrasPercent, extrasRefusal, extrasUsedUp } from '../credits/extras';
 import { CREDITS_AGAIN, SUMMARY_ERRORS, summaryCardText } from '../../components/summarize/summaryCard';
 import type { LectureSummary } from '../../services/summarize.service';
 
@@ -114,9 +115,42 @@ describe('the history in her words', () => {
       units: 8,
       beta: false,
       history: [{ id: 'a', units: 8, kind: 'grant_free', label: null, lecture_id: null, ref_id: null, created_at: 'x', what: null, block: null }],
+      extras: null,
     });
+    // Step 10.2-1b (20261029153000): what's left of the extras allowance, clamped to 0–1.
+    expect(parseCredits({ units: 8, history: [], extras: { left: 0.62, resets_at: '2026-12-01T10:00:00Z' } })?.extras).toEqual({ left: 0.62, resetsAt: '2026-12-01T10:00:00Z' });
+    expect(parseCredits({ units: 8, history: [], extras: { left: 1.4, resets_at: null } })?.extras).toEqual({ left: 1, resetsAt: null });
+    expect(parseCredits({ units: 8, history: [], extras: { left: 'x' } })?.extras).toBeNull();
     expect(parseCredits({ units: 48, beta: true, history: [{ id: 'b', units: -4, kind: 'spend_lecture', what: 'lecture', block: 1, label: 'T' }] })?.history[0]).toMatchObject({ what: 'lecture', block: 1 });
     expect(parseCredits({ units: 4, history: [{ id: 'c', units: 1, kind: 'x', what: 'nonsense' }] })?.history[0].what).toBeNull();
+  });
+});
+
+describe('step 10.2-1b: the assistant & extras allowance, never in dollars', () => {
+  it('a percentage rounded down to 5 %, "Less than 5%" near the end, nothing when used up', () => {
+    expect([1, 0.62, 0.05, 0.049, 0.001, 0, -1].map(extrasPercent)).toEqual(['100%', '60%', '5%', 'Less than 5%', 'Less than 5%', null, null]);
+  });
+
+  it('the Credits page line', () => {
+    expect(extrasLine(null)).toBeNull();
+    expect(extrasLine({ left: 0.62 })).toBe('Assistant & extras: 60% left (it grows with each lecture you record)');
+    expect(extrasLine({ left: 0 })).toBe(EXTRAS_USED_UP);
+    expect(EXTRAS_USED_UP).toBe('You’ve used the assistant for now. It grows with each lecture you record and frees up over 30 days.');
+  });
+
+  it('a refusal for that reason has her words (Ask Claude, flashcards); any other error keeps its own', () => {
+    expect(extrasRefusal({ code: 'extras_limit', message: 'x' })).toBe(EXTRAS_USED_UP);
+    expect(extrasRefusal({ code: 'daily_limit' })).toBeNull();
+    expect(extrasRefusal(new Error('x'))).toBeNull();
+    expect(extrasRefusal(null)).toBeNull();
+    expect(PAST_EXAM_EXTRAS_USED).toBe('Reading this exam uses your assistant allowance, which is used up for now.');
+  });
+
+  it('used up only when known and none left (an older server: never)', () => {
+    expect(extrasUsedUp(null)).toBe(false);
+    expect(extrasUsedUp(undefined)).toBe(false);
+    expect(extrasUsedUp({ left: 0.01 })).toBe(false);
+    expect(extrasUsedUp({ left: 0 })).toBe(true);
   });
 });
 

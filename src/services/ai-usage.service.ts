@@ -121,6 +121,10 @@ const OPERATION_LABELS: Record<string, string> = {
   assistant: 'Assistant & Clarifications',
   ocr: 'Photo Analysis',
   image_analysis: 'Photo Analysis',
+  quiz: 'Quizzes',
+  // Step 10.2-1b: the quiz function's extras, logged apart from writing a quiz.
+  quiz_grade: 'Quiz grading',
+  quiz_format: 'Past exam format',
 };
 
 export async function getSpendingByOperation(userId: string): Promise<

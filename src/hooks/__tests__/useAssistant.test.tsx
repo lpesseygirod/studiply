@@ -113,6 +113,14 @@ describe('useAssistant', () => {
     expect(chat.turns[1]).toMatchObject({ question: 'What did she just say?', status: 'streaming' });
   });
 
+  it('step 10.2-1b: refused because the allowance is used up: only “Nothing was sent.” under it (why is said above the composer)', async () => {
+    await act(async () => chat.ask('¿Y la neurona?', null));
+    await act(async () => {
+      pending[0].reject(Object.assign(new Error('You’ve used the assistant for now. It grows with each lecture you record and frees up over 30 days.'), { status: 429, code: 'extras_limit' }));
+    });
+    expect(chat.turns.at(-1)).toMatchObject({ status: 'error', answer: '', error: 'Nothing was sent.' });
+  });
+
   it('while this lecture records here: the recording’s time goes along, and the live transcript counts for “Knows up to”', async () => {
     mockRecorder.lectureId = 'lecture-1';
     mockRecorder.status = 'recording';

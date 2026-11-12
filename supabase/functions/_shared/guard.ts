@@ -99,7 +99,7 @@ export async function usedToday(
 export interface UsageRow {
   user_id: string;
   lecture_id: string | null;
-  operation: 'transcription' | 'assistant' | 'summary' | 'quiz';
+  operation: 'transcription' | 'assistant' | 'summary' | 'quiz' | 'quiz_grade' | 'quiz_format';
   /** 'elevenlabs' needs the ai_usage.provider check widened by a migration first (docs/PROGRESS.md). */
   provider: 'openai' | 'anthropic' | 'elevenlabs';
   model: string;

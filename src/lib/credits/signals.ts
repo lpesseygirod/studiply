@@ -4,13 +4,14 @@
  * was started), without the caller knowing the credits store (lib/functions.ts stays free of it).
  */
 
-const listeners = new Set<() => void>();
+const listeners = new Set<(force: boolean) => void>();
 
-export function creditsMayHaveChanged(): void {
-  listeners.forEach((fn) => fn());
+/** `force`: read now, past the 30 s between reads (a refusal: the screens must follow at once). */
+export function creditsMayHaveChanged(force = false): void {
+  listeners.forEach((fn) => fn(force));
 }
 
-export function onCreditsMayHaveChanged(fn: () => void): () => void {
+export function onCreditsMayHaveChanged(fn: (force: boolean) => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }

@@ -66,16 +66,33 @@ export function claudeRequest<M>(model: string, system: string, messages: M[], o
   };
 }
 
-/** Placeholder until plans and server-enforced limits arrive in step 10.2. */
-export const DAILY_CLAUDE_LIMIT_USD = 3;
 /**
- * The ai_usage operations that count for that limit. Every summarize call (a summary, Extend, Merge, an
- * Exam pack, the schema probe) logs as `summary`; the study assistant's as `assistant`; the quiz
- * function's (step 9.1b-2: writing a quiz, reading a past exam's format) as `quiz`.
+ * The daily guard (a rolling 24 hours) of what credits pay for: summaries (a summary, Extend, Merge, an
+ * Exam pack, the old notes, the schema probe: all logged as `summary`) and writing a quiz (`quiz`).
  */
-export const CLAUDE_LIMIT_OPERATIONS = ['assistant', 'summary', 'quiz'] as const;
-export const SUMMARY_OPERATION = 'summary' satisfies (typeof CLAUDE_LIMIT_OPERATIONS)[number];
-export const QUIZ_OPERATION = 'quiz' satisfies (typeof CLAUDE_LIMIT_OPERATIONS)[number];
+export const DAILY_CLAUDE_LIMIT_USD = 3;
+export const PAID_OPERATIONS = ['summary', 'quiz'] as const;
+/**
+ * Step 10.2-1b (Lea, 12 Nov): the extras, which cost no credits: the study assistant in every mode
+ * (`assistant`), grading a quiz's answers (`quiz_grade`) and reading a past exam's format
+ * (`quiz_format`). Their own daily guard, and a 30-day allowance (extras_allowance(), 20261029153000).
+ */
+export const DAILY_EXTRAS_LIMIT_USD = 1;
+export const EXTRAS_OPERATIONS = ['assistant', 'quiz_grade', 'quiz_format'] as const;
+/** Every Claude operation (reports). */
+export const CLAUDE_LIMIT_OPERATIONS = [...PAID_OPERATIONS, ...EXTRAS_OPERATIONS] as const;
+export const SUMMARY_OPERATION = 'summary' satisfies (typeof PAID_OPERATIONS)[number];
+export const QUIZ_OPERATION = 'quiz' satisfies (typeof PAID_OPERATIONS)[number];
+export const QUIZ_GRADE_OPERATION = 'quiz_grade' satisfies (typeof EXTRAS_OPERATIONS)[number];
+export const QUIZ_FORMAT_OPERATION = 'quiz_format' satisfies (typeof EXTRAS_OPERATIONS)[number];
+
+/** What a request to Claude is: paid in credits, or an extra (step 10.2-1b). */
+export type ClaudeUse = 'paid' | 'extra';
+
+/** The 30-day allowance used up (429 extras_limit); the app shows these words as they are. */
+export const EXTRAS_LIMIT_MESSAGE = 'You’ve used the assistant for now. It grows with each lecture you record and frees up over 30 days.';
+/** The extras' daily guard (429 daily_limit, as before). */
+export const EXTRAS_DAILY_MESSAGE = 'You’ve used the assistant a lot today. It frees up over the next 24 hours.';
 
 // The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
 export const SUMMARIZE_TEST_PROMPT =

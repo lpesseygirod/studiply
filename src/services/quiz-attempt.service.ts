@@ -290,7 +290,8 @@ export async function changeGrade(answer: AnswerRow, verdict: Verdict): Promise<
   return row;
 }
 
-export type GradingState = 'done' | 'grading' | 'offline' | 'needs_permission' | 'limit' | 'failed';
+/** Step 10.2-1b: `extras` — grading uses the assistant & extras allowance, used up for now. */
+export type GradingState = 'done' | 'grading' | 'offline' | 'needs_permission' | 'limit' | 'extras' | 'failed';
 
 /** Whether an attempt has answers waiting for Sonnet. */
 export const waitingForAi = (questions: TakeQuestion[], answers: Map<string, AnswerRow>) =>
@@ -329,6 +330,7 @@ async function callGrade(quizId: string, attemptId: string): Promise<GradingStat
       return 'needs_permission';
     }
     if (err instanceof FunctionError && err.code === 'daily_limit') return 'limit';
+    if (err instanceof FunctionError && err.code === 'extras_limit') return 'extras';
     if (err instanceof FunctionError && err.unreachable) return 'offline';
     return 'failed';
   }
@@ -361,8 +363,9 @@ registerSyncHandler<AnswerRow>('quiz_answer', {
 registerSyncHandler<{ quizId: string; attemptId: string }>('quiz_grade', {
   run: async ({ quizId, attemptId }) => {
     const state = await callGrade(quizId, attemptId);
-    // No permission or today's limit: left pending (the results offer Grade now); offline: tried again.
-    if (state === 'needs_permission' || state === 'limit') throw new PermanentSyncError(`grading: ${state}`);
+    // No permission, today's limit or the extras allowance used up: left pending (the results offer Grade
+    // now, and her own grade); offline: tried again.
+    if (state === 'needs_permission' || state === 'limit' || state === 'extras') throw new PermanentSyncError(`grading: ${state}`);
     if (state === 'offline' || state === 'failed') throw new Error(`grading: ${state}`);
     // The grades come with the next download.
     await requestPull(true);

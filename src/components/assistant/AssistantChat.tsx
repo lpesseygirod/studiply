@@ -23,6 +23,8 @@ import { cardsFromAnswer, type Card } from '../../services/assistant-actions.ser
 import { saveFlashcards, savedText } from '../../services/flashcards.service';
 import { errorMessage } from '../../utils/errors';
 import { assistantFocus, onAssistantFocus } from '../../lib/appLinks';
+import { useCredits } from '../../hooks/useCredits';
+import { EXTRAS_NOT_SENT, EXTRAS_USED_UP, extrasRefusal, extrasUsedUp } from '../../lib/credits/extras';
 
 /** How long a short notice ("comes in the next step", "Copied") stays. */
 const NOTICE_MS = 3000;
@@ -120,7 +122,10 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     scroll.current?.scrollToEnd({ animated: false });
   };
 
-  const canAsk = !!chat.lectureId && !chat.busy && !offline;
+  // Step 10.2-1b: the assistant & extras allowance used up: nothing is sent (the server would refuse);
+  // the draft stays. The credits store is read again after any refusal.
+  const usedUp = extrasUsedUp(useCredits().credits?.extras);
+  const canAsk = !!chat.lectureId && !chat.busy && !offline && !usedUp;
   const canSend = canAsk && chat.draft.trim().length > 0;
   const send = () => {
     if (!canSend) return;
@@ -158,7 +163,8 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
       setCards((cur) => (cur?.turnId === turn.id ? { ...cur, list } : cur));
     } catch (err) {
       setCards(null);
-      setNotice({ where: turn.id, text: errorMessage(err, 'Claude could not make flashcards. Please try again.') });
+      // At the limit why is said once, in the line above the composer.
+      setNotice({ where: turn.id, text: extrasRefusal(err) ? EXTRAS_NOT_SENT : errorMessage(err, 'Claude could not make flashcards. Please try again.') });
     }
   };
   const saveCards = async (turn: ChatTurn) => {
@@ -254,7 +260,7 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
             ? pill('Added ✓', () => {}, 'add-to-notes', true)
             : pill('Add to notes', () => void addToNotes(turn), 'add-to-notes')}
           {/* Flashcards need Claude (online) and the saved answer. */}
-          {pill('Flashcards', () => void proposeCards(turn), 'flashcards', offline || !turn.answerId || cards?.turnId === turn.id)}
+          {pill('Flashcards', () => void proposeCards(turn), 'flashcards', offline || usedUp || !turn.answerId || cards?.turnId === turn.id)}
         </View>
       )}
       {cards?.turnId === turn.id &&
@@ -307,6 +313,11 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
       {offline && (
         <Text style={styles.offline} {...{ dataSet: { assistant: 'offline' } }}>
           {OFFLINE_NOTE}
+        </Text>
+      )}
+      {!offline && usedUp && (
+        <Text style={styles.offline} accessibilityLiveRegion="polite" {...{ dataSet: { assistant: 'extras-used' } }}>
+          {EXTRAS_USED_UP}
         </Text>
       )}
       <ScrollView

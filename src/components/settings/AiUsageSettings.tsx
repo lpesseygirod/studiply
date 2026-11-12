@@ -14,7 +14,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { getSpendingByOperation, getSpendingByProvider } from '../../services/ai-usage.service';
-import { formatClaude, formatTranscription, getTodayUsage, type TodayUsage } from '../../services/credit-check.service';
+import { formatClaude, formatExtras, formatTranscription, getTodayUsage, type TodayUsage } from '../../services/credit-check.service';
 import { makeSettingsStyles } from './styles';
 
 type ProviderStats = {
@@ -94,7 +94,7 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
           />
 
           <UsageCard
-            title="Notes & assistant (Claude)"
+            title="Summaries & quizzes (Claude)"
             icon="sparkles-outline"
             borderColor={c.accent}
             bgColor={c.accentLight}
@@ -106,6 +106,17 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
                 ? `All time: ${providerStats.anthropic.callCount} request${providerStats.anthropic.callCount !== 1 ? 's' : ''} • ${Math.round((providerStats.anthropic.totalTokensIn + providerStats.anthropic.totalTokensOut) / 1000)}K tokens`
                 : undefined
             }
+          />
+
+          {/* Step 10.2-1b: the extras' own daily guard (the 30-day allowance is on Settings → Credits). */}
+          <UsageCard
+            title="Assistant & extras (Claude)"
+            icon="chatbubble-ellipses-outline"
+            borderColor={c.accent}
+            bgColor={c.accentLight}
+            usedLabel={today ? formatExtras(today) : '—'}
+            fraction={today ? today.extrasUsd / today.extrasLimitUsd : 0}
+            reached={today?.extrasReached ?? false}
           />
 
           {/* Cost breakdown */}

@@ -596,6 +596,9 @@ isOneToOne: false
               "bucket_id": string,"name": string
             }[]
                            },
+"extras_allowance":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
 "grant_credits":
 { Args: { "p_base_key": string,"p_kind": string,"p_label"?: string,"p_product"?: string,"p_txn"?: string,"p_units": number,"p_user": string }; Returns: {
               "balance_after": number,"charged": number,"outcome": string

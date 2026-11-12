@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
   let meta: Meta | undefined;
   let finish: ((fields: AnswerFields) => Promise<void>) | undefined;
   try {
-    ready = await readyForClaude(req, validateBody, log);
+    // Step 10.2-1b: every mode of the assistant is an extra (the 30-day allowance, the $1 daily guard).
+    ready = await readyForClaude(req, validateBody, log, () => 'extra');
     if (!ready.ok) return ready.response;
     const { db, value } = ready;
     if (value.selection || value.flashcards) return await action(ready);
