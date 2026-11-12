@@ -96,3 +96,6 @@ tests/output/
 # assistant instructions and project skills: kept locally, not published
 CLAUDE.md
 .claude/
+
+# The build work log: kept locally for the builder, not published (Lea, 12 Nov)
+docs/PROGRESS.md
