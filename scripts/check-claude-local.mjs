@@ -5,7 +5,7 @@
  * Calls the real local Edge Functions, which call Anthropic (four short
  * answers, two short study notes, one clarification, three study-assistant
  * questions and three step-6.3 actions at low effort, about $0.12–0.25 per
- * run: the assistant on Sonnet 5.5, notes and summaries on Opus 5.5; the
+ * run: the assistant, notes and summaries on Sonnet 5.5 (summaries since Lea, 12 Nov); the
  * models are read from CLAUDE_MODELS in supabase/functions/_shared/claude.ts):
  *   1. checks the Anthropic key is in no tracked file;
  *   2. creates two throwaway users, A and B, and a lecture for A;
@@ -30,7 +30,7 @@
  *      the row is followed to done, and the result is checked (shape, every
  *      note line and mark used, takeaways, Spanish, the photo, the exam
  *      signal, each call logged once) and saved to tests/output/ (git-ignored);
- *      about $0.17–0.20 on Opus 5.5;
+ *      about $0.17–0.20 on Opus 5.5, so about half on Sonnet 5.5 (not measured yet);
  *   4. deletes both users and their rows, even when a check fails.
  *
  * Only the summary (step 7.4), without paying for the earlier steps again:
@@ -280,10 +280,11 @@ const pmText = (t) => ({ type: 'text', text: t });
 
 /**
  * Step 7.4: the summary of the synthetic lecture, end to end through the real summarize function and
- * Anthropic (about $0.17–0.20 on Opus 5.5). Saves the result in tests/output/ (git-ignored).
+ * Anthropic (about $0.17–0.20 on Opus 5.5; about half on Sonnet 5.5, the summary model since Lea, 12 Nov).
+ * Saves the result in tests/output/ (git-ignored).
  */
 async function summarySection(a, b) {
-  console.log('\nThe summary (step 7.4): a synthetic 30-min lecture in Spanish, Opus 5.5');
+  console.log('\nThe summary (step 7.4): a synthetic 30-min lecture in Spanish, Sonnet 5.5');
   // With --only=summary nothing was allowed yet (the earlier steps give the same consent; a second row is harmless).
   for (const scope of ['assistant_summary', 'images']) await a.client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION });
 

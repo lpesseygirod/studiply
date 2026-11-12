@@ -19,7 +19,8 @@ const MODES: RecordingMode[] = ['lecture', 'standard', 'discussion'];
 /**
  * Thinking is always on for Claude Opus 5.5 and counts toward max_tokens,
  * so each level gets more room than the old app's 1500 / 3000 / 6000
- * (which were for a model without thinking).
+ * (which were for a model without thinking). Kept as they are now that
+ * summarize runs on Sonnet 5.5 (Lea, 12 Nov): only the model changed.
  */
 export const NOTES_MAX_TOKENS: Record<SummaryLevel, number> = {
   minimal: 4000,

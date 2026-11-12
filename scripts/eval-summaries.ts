@@ -11,7 +11,7 @@
  *   npm run eval:summaries -- --generate [--fixture <name>]
  *                                                  PAID: each fixture (or one) seeded into LOCAL Supabase as a
  *                                                  throwaway user, summarized by the local summarize function
- *                                                  (Claude, Opus 5.5), saved to tests/output/<name>/, then checked
+ *                                                  (Claude, Sonnet 5.5 since Lea, 12 Nov), saved to tests/output/<name>/, then checked
  *   npm run eval:summaries -- --probe-schemas      ALMOST FREE (step 7.9): each structured-output schema the server
  *                                                  uses, sent once by the local summarize function with a one-line
  *                                                  text and max_tokens 16: accepted / rejected with the API's message

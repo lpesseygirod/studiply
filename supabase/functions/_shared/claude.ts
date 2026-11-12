@@ -8,12 +8,14 @@
  * The one place each function's Claude model is set (server-side; the app
  * never chooses). claude-opus-5-5 is Anthropic's recommended default (Oct
  * 2026). assistant-chat uses claude-sonnet-5-5 (Lea, 30 Oct 2026, step 6.1:
- * half the price, quicker in class); summaries stay on Opus. Every model here
- * must be in PRICES below.
+ * half the price, quicker in class). Summaries moved to claude-sonnet-5-5 too
+ * (Lea, 12 Nov: every summarize call, so the summary, writing it again, Extend,
+ * Merge, Exam pack, a long lecture's parts and the earlier notes; half the price,
+ * for cheaper credit packs, step 10.2). Every model here must be in PRICES below.
  */
 export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; quizFormat: string; quizGrade: string } = {
   assistant: 'claude-sonnet-5-5',
-  summary: 'claude-opus-5-5',
+  summary: 'claude-sonnet-5-5',
   // Step 9.1b (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format and grades answers.
   quiz: 'claude-opus-5-5',
   quizFormat: 'claude-sonnet-5-5',
@@ -23,7 +25,8 @@ export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; 
 /**
  * Effort sets how much the model thinks (Opus 5.5 always thinks; its default
  * is medium). Low for both models: valid for Sonnet 5.5 too (checked against
- * the Claude API reference, 30 Oct 2026), and quick enough in class.
+ * the Claude API reference, 30 Oct 2026), and quick enough in class. Summaries
+ * keep it on Sonnet (Lea, 12 Nov): the same request, only the model changes.
  */
 export const CLAUDE_EFFORT = 'low' as const;
 

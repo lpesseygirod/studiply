@@ -49,7 +49,7 @@ builds the web and iOS bundles and checks that no key is inside.
 - **expo-router** — file-based routing with typed routes
 - **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
 - **ElevenLabs Scribe v2** — speech-to-text with word times, called only by the `transcribe-chunk` Edge Function (the default since 29 Oct 2026; `TRANSCRIBE_PROVIDER=openai` still selects OpenAI's `whisper-1` until it shuts down on 26 Feb 2027, but only with consent text naming OpenAI)
-- **Anthropic Claude** — the study assistant and clarifications on `claude-sonnet-5-5` (`assistant-chat`), notes and summaries on `claude-opus-5-5` (`summarize`), called only by those Edge Functions; set in `CLAUDE_MODELS` (`supabase/functions/_shared/claude.ts`)
+- **Anthropic Claude** — the study assistant and clarifications on `claude-sonnet-5-5` (`assistant-chat`), notes and summaries on `claude-sonnet-5-5` too (`summarize`; Lea, 12 Nov), quizzes on `claude-opus-5-5` (`quiz`), called only by those Edge Functions; set in `CLAUDE_MODELS` (`supabase/functions/_shared/claude.ts`)
 - **expo-audio / expo-print** — recording and playback on the iPhone (since step 5.1–5.4's iPhone half; expo-av stays only for builds without expo-audio and the web's player), and PDF export
 
 ### The backend (since step 1.7)

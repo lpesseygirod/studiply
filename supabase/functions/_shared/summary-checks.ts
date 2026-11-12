@@ -34,8 +34,11 @@ import { ListsAnswer, SectionAnswer, StoredSummaryShape, VerifyAnswer, blockGuid
 
 export const MAX_PART_CALLS = 3;
 export const PART_MAX_TOKENS = { section: 4_000, lists: 3_000, verify: 2_000 } as const;
-/** Rough costs on Opus 5.5 (the plan's), for the evaluation's estimates. */
-export const PART_COST_USD = { section: 0.045, lists: 0.03, verify: 0.06 } as const;
+/**
+ * Rough costs of one part written again, for the evaluation's estimates: the plan's Opus 5.5 figures
+ * halved for Sonnet 5.5 (half the price per token; summaries on Sonnet since Lea, 12 Nov).
+ */
+export const PART_COST_USD = { section: 0.023, lists: 0.015, verify: 0.03 } as const;
 /** A block shorter than this isn't judged for its language (too few words to tell). */
 const LANGUAGE_MIN_WORDS = 12;
 
