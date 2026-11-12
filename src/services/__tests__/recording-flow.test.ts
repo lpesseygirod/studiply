@@ -57,6 +57,7 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
       state = { lectureId: null, status: 'idle', microphoneLost: false };
     },
     recover: async () => world.interrupted,
+    resendWaiting: async () => 0,
     recordings: async () => [...world.interrupted, ...world.stopped],
     playback: async () => [],
     continueRecording: async (id) => {

@@ -233,6 +233,11 @@ export interface RecorderService {
    */
   recover(): Promise<RecordingMeta[]>;
   /**
+   * Step 10.2-2: chunks waiting for credits (402 no_credits) queued again for transcription, in every
+   * recording of hers, the one being recorded too. Returns how many.
+   */
+  resendWaiting(): Promise<number>;
+  /**
    * Live notes (step 5.4): a recording's audio as this device has it, for playing a moment while it
    * still records: each chunk's own audio (until uploaded) or its Storage path, and the chunk being
    * recorded from its saved pieces (a file cut short, which plays).

@@ -36,6 +36,8 @@ export const FAILED_WORDS: Record<string, string> = {
 
 /** Step 10.2-1: a quiz the server put back to "not started" (402 no_credits). */
 export const NO_CREDITS_NOTE = FAILED_WORDS.no_credits;
+/** Step 10.2-2: …and she has credits again (it never starts by itself: Start). */
+export const CREDITS_AGAIN_QUIZ = 'You have credits again: start it now';
 
 const questions = (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`;
 

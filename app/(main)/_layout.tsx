@@ -19,6 +19,7 @@ import { SummarizePanel } from '../../src/components/summarize/SummarizePanel';
 import { LecturePicker } from '../../src/components/summarize/LecturePicker';
 import { NewQuizPanel } from '../../src/components/quiz/NewQuizPanel';
 import { RemindersHost } from '../../src/components/reminders/RemindersHost';
+import { CreditsHost } from '../../src/components/credits/CreditsHost';
 import { NewFolderHost } from '../../src/components/library/NewFolderHost';
 import { SummaryBanner } from '../../src/components/summarize/SummaryBanner';
 import { useSummaryBanner } from '../../src/components/summarize/summaryBannerState';
@@ -194,6 +195,8 @@ export default function MainLayout() {
           <SummarizePanel />
           {/* Step 9.2-3: the review reminders (iPhone), planned again as things change; a tap opens Review. */}
           <RemindersHost />
+          {/* Step 10.2-2: her credits, read again as she comes back; waiting recordings sent once she has some. */}
+          <CreditsHost />
           <LecturePicker />
           {/* New folder outside a course (Lea, 10 Nov): "New folder in…". */}
           <NewFolderHost />

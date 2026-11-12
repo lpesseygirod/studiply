@@ -7,7 +7,8 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { useConnectivity } from '../../lib/connectivity';
 import { latestAttempts, scoreLine, type AttemptRow } from '../../lib/quiz/session';
-import { quizRowState } from '../../lib/quiz/status';
+import { CREDITS_AGAIN_QUIZ, NO_CREDITS_NOTE, quizRowState } from '../../lib/quiz/status';
+import { useCreditUnits } from '../../hooks/useCredits';
 import { attemptsByQuiz } from '../../services/quiz-attempt.service';
 import { deleteQuiz, listQuizzes, onQuizzesChanged, quizNow, startQuiz, type QuizListItem } from '../../services/quiz.service';
 import { ConsentDeclinedError } from '../../services/consent.service';
@@ -156,7 +157,9 @@ function Row({
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const more = useRef<View>(null);
-  const state = quizRowState(quiz);
+  // Step 10.2-2: not started for want of credits, and she has some again: it says so (it never starts by itself).
+  const creditUnits = useCreditUnits();
+  const state = quizRowState(quiz.status === 'pending' && quiz.note === NO_CREDITS_NOTE && creditUnits !== null && creditUnits > 0 ? { ...quiz, note: CREDITS_AGAIN_QUIZ } : quiz);
   const label = state.action === 'start' ? 'Start' : 'Try again';
   const { resume, last } = latestAttempts(attempts);
   const lastLine = state.ready && last ? `Last: ${scoreLine(last, last)}` : null;

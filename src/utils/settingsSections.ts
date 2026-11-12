@@ -8,6 +8,7 @@
 
 export type SettingsSectionKey =
   | 'account'
+  | 'credits'
   | 'summaries'
   | 'recording'
   | 'ai-privacy'
@@ -32,6 +33,8 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'account', label: 'Account', letter: 'A', tone: 'accent' },
+  // Step 10.2-2 (no mockup): right after Account; the iPhone list's first row.
+  { key: 'credits', label: 'Credits', letter: 'C', tone: 'success' },
   { key: 'summaries', label: 'Summaries', letter: 'S', tone: 'accent' },
   { key: 'recording', label: 'Recording', letter: 'R', tone: 'recording' },
   { key: 'ai-privacy', label: 'AI & privacy', letter: 'A', tone: 'success' },

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
+import { useCreditUnits } from '../../hooks/useCredits';
+import { BUY_ON_IPHONE } from '../../lib/credits/format';
 import { EarlierNotesCard } from '../editor/EarlierNotesCard';
 import { showAlert } from '../dialogs/dialogs';
 import { useLibraryUpdates } from '../../lib/cache/library';
@@ -27,6 +29,7 @@ export function SummaryTabCard({ lectureId, title, status, recording }: { lectur
   const router = useRouter();
   const [state, setState] = useState<{ summary: LectureSummary | null; chunks: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const creditUnits = useCreditUnits();
 
   const load = useCallback(async () => {
     const [summary, chunks] = await Promise.all([latestSummary(lectureId).catch(() => null), recordedInChunks(lectureId)]);
@@ -50,7 +53,7 @@ export function SummaryTabCard({ lectureId, title, status, recording }: { lectur
 
   const s = state.summary;
   if (s) {
-    const card = summaryCardText(s);
+    const card = summaryCardText(s, { units: creditUnits, buy: Platform.OS === 'ios' ? undefined : BUY_ON_IPHONE });
     const act = async () => {
       if (busy) return;
       if (card.action === 'settings') return summarize();

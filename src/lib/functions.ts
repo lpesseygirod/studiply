@@ -12,6 +12,7 @@
 import { Platform } from 'react-native';
 
 import { isAiPaused } from './consentGate';
+import { creditsMayHaveChanged } from './credits/signals';
 import { isSimulatedOffline, reportFailure, reportReachable } from './connectivity';
 import { supabase, supabaseUrl } from './supabase';
 import { answerFromSse, createSseReader, errorFromResponse, FunctionError, networkError, type SseDone, type SseFrame } from './functionResult';
@@ -67,7 +68,14 @@ async function post(name: FunctionName, body: unknown, options: { fetch?: Fetch;
 
   let res = await send();
   if (res.status === 401 && !(await supabase.auth.refreshSession()).error) res = await send();
-  if (!res.ok) throw errorFromResponse(res.status, await res.text().catch(() => ''));
+  if (!res.ok) {
+    const err = errorFromResponse(res.status, await res.text().catch(() => ''));
+    // Step 10.2-2: no credits left: her balance is read again (Settings, the lines, the strip).
+    if (err.code === 'no_credits') creditsMayHaveChanged();
+    throw err;
+  }
+  // A transcription, summary or quiz may have spent credits.
+  if (name === 'transcribe-chunk' || name === 'summarize' || name === 'quiz') creditsMayHaveChanged();
   return res;
 }
 

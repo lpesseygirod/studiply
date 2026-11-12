@@ -60,11 +60,23 @@ export function bannerText(r: Pick<NonNullable<LectureSummary['result']>, 'cover
 export const COMING_LATER = 'Coming in a later update';
 
 /** The Summary tab card's words for a summary, by status (step 7.4; "ready" shows for a moment, while 7.7 writes it into the document). */
-export function summaryCardText(s: LectureSummary): { label: string; text: string; action?: 'start' | 'retry' | 'settings' } {
+/** Step 10.2-2: what the card knows of her credits: her balance (null: unknown), and the laptop's buy line. */
+export interface CardCredits {
+  units?: number | null;
+  buy?: string;
+}
+
+/** Not started for want of credits: why (the laptop says where to buy), or that she has some again (it never starts by itself, Lea 12 Nov). */
+export const CREDITS_AGAIN = 'You have credits again: summarize it now.';
+
+export function summaryCardText(s: LectureSummary, credits: CardCredits = {}): { label: string; text: string; action?: 'start' | 'retry' | 'settings' } {
   const preview = s.settings?.preview ? `${s.settings.preview}. ` : '';
   switch (s.status) {
     case 'pending':
-      if (s.error === 'no_credits') return { label: 'Summary settings saved', text: `${preview}${SUMMARY_ERRORS.no_credits}`, action: 'start' };
+      if (s.error === 'no_credits') {
+        if (credits.units != null && credits.units > 0) return { label: 'Summary settings saved', text: `${preview}${CREDITS_AGAIN}`, action: 'start' };
+        return { label: 'Summary settings saved', text: `${preview}${SUMMARY_ERRORS.no_credits}${credits.buy ? ` ${credits.buy}.` : ''}`, action: 'start' };
+      }
       return { label: 'Summary settings saved', text: `${preview}Not started yet: it needs your permission or the internet, or today's limit was reached.`, action: 'start' };
     case 'generating':
     case 'checking':

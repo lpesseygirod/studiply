@@ -18,6 +18,8 @@ import { closeWebcam, PHOTO_OFFLINE_NOTE, photoBoardUsable, useWebcam } from './
 import { startBoardPhoto } from './photoBoard';
 import { WebcamPanel } from './WebcamPanel';
 import { DragSheet } from '../DragSheet';
+import { useCreditUnits } from '../../hooks/useCredits';
+import { WAITING_FOR_CREDITS_SENTENCE } from '../../lib/credits/format';
 
 /**
  * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
@@ -51,6 +53,7 @@ export function RecordingPhoneHeader({
   // After Stop (or Finish) until the parts are sent: no ❚❚ and no running clock (it reads 0:00 once stopped).
   const saving = !!flow.saving || (live.status !== 'recording' && live.status !== 'paused');
   const paused = !saving && live.status === 'paused';
+  const creditUnits = useCreditUnits();
   return (
     <View style={styles.header}>
       <View style={styles.headerRow}>
@@ -97,6 +100,12 @@ export function RecordingPhoneHeader({
       <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
+      {/* Step 10.2-2: no credits left: the recording goes on, its transcript waits. */}
+      {creditUnits !== null && creditUnits <= 0 && !saving && (
+        <Text style={styles.credits} {...{ dataSet: { recording: 'credits' } }}>
+          {WAITING_FOR_CREDITS_SENTENCE}
+        </Text>
+      )}
       {live.microphoneLost && !saving ? (
         <View style={styles.lost}>
           <Text style={styles.lostText}>Microphone disconnected</Text>
@@ -264,6 +273,7 @@ const makeStyles = (c: ThemeColors) =>
     chipText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, fontVariant: ['tabular-nums'] },
     crumbs: { marginLeft: 6, fontSize: Typography.size.xs, color: c.text.onGradient },
     title: { marginLeft: 6, fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },
+    credits: { marginLeft: 6, fontSize: Typography.size.xs, color: c.text.onGradient },
     lost: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 6 },
     lostText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.onGradientStrong },
     resume: { minHeight: 36, paddingHorizontal: 16, borderRadius: 18, justifyContent: 'center', backgroundColor: c.black },

@@ -39,6 +39,10 @@ import { DISCARD_LABEL } from '../recording/discardText';
 import { useDiscardRecording } from '../recording/useDiscardRecording';
 import { PRESET_ORDER, SLIDER_LABELS, countsLine, plural, previewLine, timesText } from './sliderLabels';
 import { closeSummarize, useSummarizePanel, type SummarizeRequest } from './summarizePanelState';
+import { CostLine } from '../credits/CreditLine';
+import { quoteLectureSummary } from '../../services/credits.service';
+import type { SummaryQuote } from '../../lib/credits/quote';
+import { COMBINE_UNITS, LECTURE_UNITS } from '../../../supabase/functions/_shared/credits';
 
 /**
  * Stop & summarize (step 7.3; DESIGN.md "Stop & summarize", docs/design
@@ -152,6 +156,18 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const [extendTarget, setExtendTarget] = useState<CombineTarget>('unit');
   // Step 9.2 (Lea): study reminders for this lecture; its own choice, else its course's default (on).
   const [reminders, setReminders] = useState<boolean | null>(null);
+  // Step 10.2-2: a lecture's summary: included (the first) or ½ (again), as the server decides.
+  const [quote, setQuote] = useState<SummaryQuote | null>(null);
+  useEffect(() => {
+    if (combine) return;
+    let live = true;
+    quoteLectureSummary(lectureId)
+      .then((q) => live && setQuote(q))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [lectureId, combine]);
 
   const load = useCallback(async () => {
     try {
@@ -395,10 +411,22 @@ function Panel({ request }: { request: SummarizeRequest }) {
     );
   };
 
-  const preview = plan && info && (
+  // Step 10.2-2: what it costs, by the server's rules (the server still decides). Recording now, the
+  // lecture's credit is its transcription's, so only "again" can cost here.
+  const cost = combine ? COMBINE_UNITS : quote ? (recording && quote.unpaidLecture ? quote.units - LECTURE_UNITS : quote.units) : null;
+  const costLine = plan && info ? <CostLine cost={cost} unpaidLecture={!recording && !combine && !!quote?.unpaidLecture} style={styles.preview} testId="summarize-cost" /> : null;
+  const previewOnly = plan && info && (
     <Text style={styles.preview} {...{ dataSet: { summarize: 'preview' } }}>
       {previewLine(plan, info.transcriptWords)}
     </Text>
+  );
+  // The laptop's footer: the preview, the cost under it. The iPhone's sheet keeps the preview just above
+  // Keep recording · Generate (iphone-05), so the cost goes above the preview there.
+  const preview = previewOnly && (
+    <>
+      {previewOnly}
+      {costLine}
+    </>
   );
 
   const saveLink = (
@@ -617,7 +645,8 @@ function Panel({ request }: { request: SummarizeRequest }) {
             </View>
           ) : (
             <View style={[styles.bottom, { paddingBottom: insets.bottom + 12 }]}>
-              {preview}
+              {costLine}
+              {previewOnly}
               {buttons}
             </View>
           )}

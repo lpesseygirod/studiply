@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LowCreditsLine } from '../../../src/components/credits/CreditLine';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Audio } from 'expo-av';
 
@@ -304,6 +305,8 @@ export default function RecordSetupScreen() {
       >
         {/* ── Header ──────────────────────────────────────────── */}
         <Text style={styles.screenSubtitle}>New Recording</Text>
+        {/* Step 10.2-2: 1 lecture or less left (or none: she can still record). */}
+        <LowCreditsLine where="record" />
 
         {/* ── Credit warnings ────────────────────────────────── */}
         {limitWarning && (

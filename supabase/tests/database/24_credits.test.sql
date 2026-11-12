@@ -9,7 +9,7 @@
 --   and history. Deleting the account deletes her rows; purging a lecture leaves them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(52);
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('dddddddd-0000-0000-0000-000000000241', 'credits-a@test.dev', '{"display_name": "A", "terms_version": "draft-31fd7f93", "age_16": true}'),
@@ -175,6 +175,19 @@ select is(
   (select count(*)::int from jsonb_array_elements(public.my_credits() -> 'history') h where (h ->> 'units')::int = 0),
   0, 'her history leaves out the 0-unit rows (carry-over, included summaries)');
 select is((select count(distinct user_id)::int from public.credit_ledger), 1, 'she sees only her own rows');
+-- Step 10.2-2 (20261029152900_my_credits_detail): what each row was for.
+select is((public.my_credits() ->> 'beta')::boolean, true, 'my_credits: she has the beta grant');
+select is(
+  (select count(*)::int from jsonb_array_elements(public.my_credits() -> 'history') h
+    where h ->> 'what' = 'lecture' and (h ->> 'block')::int = 0 and h ->> 'label' = 'Tema 2'),
+  1, 'a lecture''s spend: what lecture, block 0, labelled with its title');
+select is(
+  (select array_agg(h ->> 'what' order by h ->> 'what') from jsonb_array_elements(public.my_credits() -> 'history') h where h ->> 'kind' = 'reverse'),
+  array['quiz', 'summary'], 'a returned credit says what it was for (the row it undoes)');
+select is(
+  (select count(*)::int from jsonb_array_elements(public.my_credits() -> 'history') h
+    where not (h ? 'id' and h ? 'units' and h ? 'kind' and h ? 'label' and h ? 'lecture_id' and h ? 'ref_id' and h ? 'created_at')),
+  0, 'every row still has what my_credits returned before');
 reset role;
 
 -- ---------------------------------------------------------------------

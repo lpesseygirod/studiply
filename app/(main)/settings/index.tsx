@@ -13,7 +13,6 @@ import type { ThemeColors } from '../../../src/constants/colors';
 import { Typography } from '../../../src/constants/typography';
 import { confirmSignOut } from '../../../src/utils/signOut';
 import {
-  aiUseValue,
   appearanceValue,
   languageValue,
   sectionHref,
@@ -28,7 +27,9 @@ import { GradientFill } from '../../../src/components/GradientBackground';
 import { backend } from '../../../src/components/BackendBadge';
 import { SettingsRows, type SettingsRowItem } from '../../../src/components/settings/SettingsRows';
 import { useExportData } from '../../../src/components/settings/ExportData';
-import { SyncBanner, useTodayUsage } from '../../../src/components/settings/StatusBanners';
+import { SyncBanner } from '../../../src/components/settings/StatusBanners';
+import { useCreditUnits } from '../../../src/hooks/useCredits';
+import { creditsValue } from '../../../src/lib/credits/format';
 import { useAiConsent } from '../../../src/components/settings/AiConsentCard';
 import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
 import { LegalLinks } from '../../../src/components/legal/LegalLinks';
@@ -52,7 +53,7 @@ function SettingsList() {
   const router = useRouter();
   const { profile, signOut } = useAuth();
   const { settings, loading } = useUserSettings();
-  const { usage } = useTodayUsage();
+  const creditUnits = useCreditUnits();
   const aiConsent = useAiConsent();
   const reminders = useReminderPrefs();
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getStorageStats>> | null>(null);
@@ -62,10 +63,12 @@ function SettingsList() {
   }, [profile?.id]);
 
   const values: Partial<Record<SettingsSectionKey, string>> = {
+    // Step 10.2-2: "12 left", "6¾ left", "None left".
+    credits: creditsValue(creditUnits),
     summaries: loading ? '' : summaryLevelValue(settings.default_summary_level),
     recording: loading ? '' : languageValue(settings.default_language),
-    // iphone-07: whether AI is allowed (step 10.1); today's use is on the page itself.
-    'ai-privacy': aiConsent.allowed === null ? aiUseValue(usage) : aiConsent.allowed ? 'Allowed' : 'Off',
+    // iphone-07: whether AI is allowed (step 10.1). Today's use moved to Development (step 10.2-2).
+    'ai-privacy': aiConsent.allowed === null ? '' : aiConsent.allowed ? 'Allowed' : 'Off',
     storage: storageValue(storage),
     appearance: appearanceValue(appearance),
     development: backend.label,

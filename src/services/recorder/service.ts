@@ -21,7 +21,7 @@
  */
 
 import { forget, isDiscarded, markDiscarded } from './discarded';
-import { transcriptRefused } from './handlers';
+import { transcriptRefused, waitsForCredits } from './handlers';
 import { joinTranscript } from './transcriptJoin';
 import type {
   AudioSource,
@@ -380,6 +380,24 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       }
       emit();
       return found;
+    },
+
+    async resendWaiting() {
+      await deps.ready?.();
+      if (!deps.userId()) return 0;
+      const skip = { uploads: new Set<string>(), transcriptions: await queued('transcribe_chunk', deps.transcriptions) };
+      let queuedAgain = 0;
+      // Every recording of hers, the one being recorded too (recover() leaves that one alone).
+      for (const meta of await store.listRecordings()) {
+        if (meta.userId !== deps.userId() || !meta.transcribe) continue;
+        for (const c of await store.listChunks(meta.lectureId)) {
+          if (!c.storagePath || c.segments || !waitsForCredits(c)) continue;
+          await queueChunk(meta, c.seq, skip);
+          queuedAgain += 1;
+        }
+      }
+      if (queuedAgain) emit();
+      return queuedAgain;
     },
 
     async playback(lectureId) {

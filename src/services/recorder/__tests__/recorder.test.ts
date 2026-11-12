@@ -307,6 +307,30 @@ describe('the recorder service', () => {
     expect(snap.chunks.map((c) => c.transcriptError)).toEqual([null, null, null]);
   });
 
+  it('step 10.2-2: resendWaiting sends the waiting chunks of the recording in progress too, never refused ones', async () => {
+    const r = rig();
+    r.server.noCredits = true;
+    r.server.refuse.add(0);
+    const { service, transcriptions } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    const mic = r.source();
+    for (let n = 0; n < 3; n++) {
+      mic.tick(2);
+      mic.cut();
+    }
+    await idle();
+    expect(r.store.chunks.map((c) => c.transcriptError)).toEqual([expect.stringMatching(/consent/), 'no_credits', 'no_credits']);
+    // Still recording: recover() leaves this one alone; resendWaiting doesn't.
+    r.server.noCredits = false;
+    expect(await service.resendWaiting()).toBe(2);
+    await transcriptions.flush({ now: true });
+    await idle();
+    expect(r.server.transcribed).toEqual([1, 2]);
+    expect(service.state().status).toBe('recording');
+    expect(await service.resendWaiting()).toBe(0);
+    await service.stop();
+  });
+
   it('a chunk waiting for credits is not a refused one', () => {
     expect(waitsForCredits({ transcriptError: 'no_credits' })).toBe(true);
     expect(transcriptRefused({ transcriptError: 'no_credits' })).toBe(false);

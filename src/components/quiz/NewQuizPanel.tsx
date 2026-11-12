@@ -35,6 +35,8 @@ import { AddButton, CheckBox, PresetChip, ResourceCard, ResourceRow, SliderRow }
 import { makePanelStyles } from '../panel/panelStyles';
 import { closeNewQuiz, useNewQuizPanel, type NewQuizRequest } from './newQuizState';
 import { kindLabel, QUIZ_PRESET_ORDER, QUIZ_SLIDER_LABELS, TYPE_CHIPS } from './quizLabels';
+import { CostLine } from '../credits/CreditLine';
+import { quizUnits } from '../../../supabase/functions/_shared/credits';
 
 /**
  * New quiz (step 9.1b-1; BUILD-PLAN "Create a quiz"), opened from Review → Quiz me. The summarize
@@ -585,6 +587,8 @@ function Panel({ request }: { request: NewQuizRequest }) {
           {plan.notice}
         </Text>
       )}
+      {/* Step 10.2-2: ¼ / ½ / ¾ of a credit by its size, as the server prices it. */}
+      <CostLine cost={quizUnits(plan.count)} style={styles.preview} testId="newquiz-cost" />
     </View>
   );
   const why = !plan && material && (problem ?? (choices.types.length ? null : 'Pick at least one question type.'));

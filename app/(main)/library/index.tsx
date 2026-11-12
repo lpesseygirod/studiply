@@ -37,6 +37,8 @@ import { menuTriggerProps } from '../../../src/components/dialogs/dialogs';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
 import { courseShelfItem, itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
+import { BetaCreditsNotice } from '../../../src/components/credits/BetaCreditsNotice';
+import { LowCreditsLine } from '../../../src/components/credits/CreditLine';
 
 const H_PADDING = 18;
 // The chips are ~33 pt tall (docs/design); their touch area reaches 44.
@@ -245,6 +247,10 @@ export default function LibraryScreen() {
             </ScrollView>
           </>
         )}
+
+        {/* ── Credits (step 10.2-2): the beta friends' thanks, once; a quiet line when 1 lecture or less is left ── */}
+        {!section && <BetaCreditsNotice />}
+        {!section && <LowCreditsLine where="library" />}
 
         {/* ── Earlier version (step 1.9) ─────────────────────────── */}
         {earlier && (
