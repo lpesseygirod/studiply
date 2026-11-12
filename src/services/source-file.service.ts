@@ -568,48 +568,6 @@ export async function markDeleted(fileId: string): Promise<void> {
 }
 
 // -------------------------------------------------------------------
-// bulkApplyRetention
-// Sets what happens to a lecture's audio.
-// delete_now  → the audio files are removed now (transcript stays) and the
-//               lecture marked "audio deleted".
-// delete_3_days → the server dates it: 3 days after the lecture is transcribed
-//               (20261029152600), and the nightly job deletes it then.
-// delete_manually / keep_permanently → just the policy (the server clears any date).
-// Audio only: photos and PDFs are never removed by retention, and neither is
-// a file saved to the library (lecture_id null); only the student deletes them.
-// -------------------------------------------------------------------
-export async function bulkApplyRetention(
-  sessionId: string,
-  policy: 'delete_now' | 'delete_3_days' | 'delete_manually' | 'keep_permanently',
-): Promise<void> {
-  const { error } = await supabase.from('lectures').update({ audio_retention: policy }).eq('id', sessionId);
-  if (error) throw serviceError(error, 'Could not save the audio setting.');
-
-  if (policy !== 'delete_now') return;
-
-  const { data: chunks, error: listError } = await supabase
-    .from('audio_chunks')
-    .select('id, storage_path')
-    .eq('lecture_id', sessionId)
-    .not('storage_path', 'is', null);
-  if (listError) throw serviceError(listError, 'Could not delete the audio.');
-
-  if (chunks.length > 0) {
-    const { error: clearError } = await supabase
-      .from('audio_chunks')
-      .update({ storage_path: null })
-      .eq('lecture_id', sessionId);
-    if (clearError) throw serviceError(clearError, 'Could not delete the audio.');
-    await removeFiles(
-      Buckets.audioChunks,
-      chunks.map((c) => c.storage_path as string),
-    ).catch(() => {});
-  }
-  // The lecture shows "Deleted on …" (as after the nightly job).
-  await supabase.from('lectures').update({ audio_deleted_at: new Date().toISOString() }).eq('id', sessionId).is('audio_deleted_at', null);
-}
-
-// -------------------------------------------------------------------
 // The iPhone's upload queue for recordings, photos and PDFs
 // -------------------------------------------------------------------
 

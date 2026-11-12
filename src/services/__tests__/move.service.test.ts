@@ -1,7 +1,6 @@
 // Moving library items, photos and PDFs (src/services/move.service.ts), the
-// rules a move and its Undo follow, and the two guarantees around deleting:
-// a photo moved to another lecture never goes with its old lecture, and
-// retention never removes photos, PDFs or library files.
+// rules a move and its Undo follow, and the guarantee around deleting: a
+// photo moved to another lecture never goes with its old lecture.
 
 import { NetworkError } from '../../lib/cloudRows';
 import { reportFailure, reportReachable, resetConnectivityForTests } from '../../lib/connectivity';
@@ -9,7 +8,6 @@ import { answer, answerStorage, callsOn, chains, resetSupabaseMock, storageCalls
 import type { SourceFile } from '../../types/database';
 import { removeFiles } from '../cloud-storage.service';
 import { canMoveTo, MoveError, moveItem, moveMediaToLecture, moveMediaToLibrary, saveMediaToLibrary, type LibraryItem, type Place } from '../move.service';
-import { bulkApplyRetention } from '../source-file.service';
 import { permanentlyDelete } from '../trash.service';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/supabaseMock').module);
@@ -192,23 +190,6 @@ describe("deleting a lecture never takes a photo moved away from it", () => {
     expect(removed).toEqual(expect.arrayContaining(['user-1/lecture-a/0000.m4a', 'user-1/lecture-a/own.jpg']));
     expect(removed).not.toContain('user-1/lecture-a/m1.png');
     expect(storageCalls.filter(([, method]) => method === 'list')).toEqual([]);
-  });
-});
-
-describe('retention never removes photos, PDFs or library files', () => {
-  it('"Delete now" removes only the lecture\'s audio chunks', async () => {
-    answer('audio_chunks', { data: [{ id: 'c0', storage_path: 'user-1/lecture-a/0000.m4a' }] });
-    await bulkApplyRetention('lecture-a', 'delete_now');
-    expect(removeFiles).toHaveBeenCalledTimes(1);
-    expect(removeFiles).toHaveBeenCalledWith('audio-chunks', ['user-1/lecture-a/0000.m4a']);
-    // Never even looks at media (lecture photos/PDFs, or a copy saved to the library).
-    expect(chains.some((c) => c.table === 'media' || c.table === 'files')).toBe(false);
-  });
-
-  it('"Delete after 3 days" removes nothing now', async () => {
-    await bulkApplyRetention('lecture-a', 'delete_3_days');
-    expect(removeFiles).not.toHaveBeenCalled();
-    expect(callsOn('lectures', 'update')[0][0]).toMatchObject({ audio_retention: 'delete_3_days' });
   });
 });
 

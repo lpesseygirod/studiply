@@ -5,7 +5,7 @@
  * so Jest can test it (src/lib/__tests__/legacy-notes.test.ts).
  *
  * The prompts are the ones the app sent to Claude itself before 1.7 (from
- * src/services/ai.service.ts), with one change: the note's JSON shape is now
+ * its earlier ai.service.ts), with one change: the note's JSON shape is now
  * enforced with structured outputs (NOTE_SCHEMA) instead of asked for in
  * words. Phase 7's summary engine replaces all of this.
  */

@@ -6,9 +6,8 @@ import { PAGE_COLORS } from '../../editor/editorCss';
 
 /**
  * The Summary tab of a lecture whose notes were made before documents
- * (step 4.3): a preview and Open notes, which opens them in the notes view
- * (Clarify, Edit, Export PDF) until step 4.9 converts them into this tab.
- * Also says when a lecture has no summary yet. On the white page.
+ * (step 4.3): a preview, until they are converted into this tab. Also says
+ * when a lecture has no summary yet, with an action if there is one. On the white page.
  */
 export function EarlierNotesCard({
   label,

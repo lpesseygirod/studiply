@@ -8,7 +8,7 @@
 import type { Href } from 'expo-router';
 
 import type { SearchHit } from '../lib/cache/localSearch';
-import { formatHitTime, matches } from './searchText';
+import { formatHitTime } from './searchText';
 import { courseAt, fileKind, typeLabel } from './shelf';
 
 export type SearchChip = 'all' | 'notes' | 'transcripts' | 'titles';
@@ -66,13 +66,13 @@ export function isTitleHit(hit: SearchHit): boolean {
 }
 
 /**
- * Where a result opens. A lecture opens its notes with the word marked
- * (`find`), a transcript hit scrolled to its time (`at`, ms); a course or
- * folder opens there; PDFs, photos and the kinds without a screen of their
- * own open their course at their folder (as their tiles do from Library).
+ * Where a result opens. A lecture opens as its document: the Summary tab for
+ * its title, notes and terms, the Transcript tab for a transcript hit (the
+ * word isn't marked there yet); a course or folder opens there; PDFs, photos
+ * and the kinds without a screen of their own open their course at their
+ * folder (as their tiles do from Library).
  */
-export function hitTarget(hit: SearchHit, query: string): Href {
-  const find = query.trim();
+export function hitTarget(hit: SearchHit): Href {
   switch (hit.kind) {
     case 'course':
       return `/project/${hit.itemId}`;
@@ -80,53 +80,12 @@ export function hitTarget(hit: SearchHit, query: string): Href {
       return courseAt(hit.courseId, hit.itemId);
     case 'file':
       return hit.fileKind === 'lecture'
-        ? { pathname: '/note/[id]', params: { id: hit.itemId, find } }
+        ? { pathname: '/doc/[id]', params: { id: hit.itemId, tab: 'summary' } }
         : courseAt(hit.courseId, hit.folderId);
     case 'note':
     case 'term':
-      return { pathname: '/note/[id]', params: { id: hit.itemId, find } };
+      return { pathname: '/doc/[id]', params: { id: hit.itemId, tab: 'summary' } };
     case 'transcript':
-      return {
-        pathname: '/note/[id]',
-        params: { id: hit.itemId, find, ...(hit.tMs !== null && { at: String(hit.tMs) }) },
-      };
+      return { pathname: '/doc/[id]', params: { id: hit.itemId, tab: 'transcript' } };
   }
-}
-
-// ── A note opened from Search ───────────────────────────────────────────
-
-export type NoteFindSection = 'summary' | 'concepts' | 'formulas' | 'definitions' | 'transcript';
-
-export interface NoteFindParts {
-  summary: string | null;
-  concepts: { term?: string; explanation?: string }[];
-  formulas: { name?: string; expression?: string; description?: string }[];
-  definitions: { term?: string; definition?: string }[];
-  /** The transcript's lines; start in seconds (Transcript.segments). */
-  segments: { start: number; text: string }[];
-}
-
-export interface NoteFindTarget {
-  section: NoteFindSection;
-  /** The transcript line to show (transcript only). */
-  segment: number | null;
-}
-
-/**
- * Where a note opened from Search scrolls to: a transcript hit's own line
- * (`atMs`), else the first part of the note with the word, top to bottom.
- */
-export function findInNote(parts: NoteFindParts, find: string, atMs: number | null): NoteFindTarget | null {
-  const has = (...texts: (string | null | undefined)[]) => matches(texts.filter(Boolean).join(' '), find);
-  const lines = parts.segments.map((s, i) => ({ i, ms: s.start * 1000, hit: has(s.text) })).filter((l) => l.hit);
-  if (atMs !== null && lines.length > 0) {
-    // The hit's line (times are rounded), else the next one with the word.
-    const line = lines.find((l) => Math.abs(l.ms - atMs) < 1000) ?? lines.find((l) => l.ms >= atMs) ?? lines[0];
-    return { section: 'transcript', segment: line.i };
-  }
-  if (has(parts.summary)) return { section: 'summary', segment: null };
-  if (parts.concepts.some((k) => has(k.term, k.explanation))) return { section: 'concepts', segment: null };
-  if (parts.formulas.some((f) => has(f.name, f.expression, f.description))) return { section: 'formulas', segment: null };
-  if (parts.definitions.some((d) => has(d.term, d.definition))) return { section: 'definitions', segment: null };
-  return lines.length > 0 ? { section: 'transcript', segment: lines[0].i } : null;
 }

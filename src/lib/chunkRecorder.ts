@@ -1,8 +1,6 @@
 /**
- * Recording in chunks (step 5.1; the recorder service, src/services/recorder,
- * uses it since 5.2). The web's is chunkRecorder.web.ts (MediaRecorder). The
- * iPhone's waits for expo-audio, which needs Lea's OK (a new dependency);
- * until then starting here says so.
+ * The types of recording in chunks. The web's recorder is chunkRecorder.web.ts
+ * (MediaRecorder); the iPhone's is nativeChunkRecorder.ts (expo-audio).
  */
 
 export interface RecordedChunk {
@@ -48,35 +46,4 @@ export interface ChunkRecorderOptions {
   /** For tests. */
   now?: () => number;
   MediaRecorderImpl?: unknown;
-}
-
-export class ChunkRecorder {
-  constructor(private readonly options: ChunkRecorderOptions) {}
-
-  static preferredType(): string | undefined {
-    return undefined;
-  }
-
-  get recording(): boolean {
-    return false;
-  }
-
-  get paused(): boolean {
-    return false;
-  }
-
-  start(_stream: MediaStream): void {
-    void this.options;
-    throw new Error('Recording in chunks on the iPhone waits for expo-audio (Lea’s OK).');
-  }
-
-  async pause(): Promise<void> {}
-
-  resume(_stream?: MediaStream): void {}
-
-  elapsedMs(): number {
-    return 0;
-  }
-
-  async stop(): Promise<void> {}
 }

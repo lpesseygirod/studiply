@@ -20,11 +20,7 @@ describe('the iPhone tab bar', () => {
     expect(element.props.href).toBe('/library');
   });
 
-  it('hides the bar on documents and the recording flow, not on its setup', () => {
-    expect(isFullScreenRoute('/note/abc')).toBe(true);
-    expect(isFullScreenRoute('/record/active')).toBe(true);
-    expect(isFullScreenRoute('/record/post-session')).toBe(true);
-    expect(isFullScreenRoute('/record/review')).toBe(true);
+  it('hides the bar on documents (a recording opens in its document), not on Record’s setup', () => {
     expect(isFullScreenRoute('/doc/abc')).toBe(true);
     // Step 9.1b-3: a quiz being taken; the Review tab itself keeps the bar.
     expect(isFullScreenRoute('/review/quiz/abc')).toBe(true);

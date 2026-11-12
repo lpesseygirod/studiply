@@ -58,7 +58,7 @@ builds the web and iOS bundles and checks that no key is inside.
 - **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
 - **ElevenLabs Scribe v2** — speech-to-text with word times, called only by the `transcribe-chunk` Edge Function (the default since 29 Oct 2026; `TRANSCRIBE_PROVIDER=openai` still selects OpenAI's `whisper-1` until it shuts down on 26 Feb 2027, but only with consent text naming OpenAI)
 - **Anthropic Claude** — the study assistant and clarifications on `claude-sonnet-5-5` (`assistant-chat`), notes and summaries on `claude-sonnet-5-5` too (`summarize`; Lea, 12 Nov), quizzes on `claude-opus-5-5` (`quiz`), called only by those Edge Functions; set in `CLAUDE_MODELS` (`supabase/functions/_shared/claude.ts`)
-- **expo-audio / expo-print** — recording and playback on the iPhone (expo-av stays only for builds without expo-audio and the web's player), and PDF export
+- **expo-audio / expo-print** — recording and playback on the iPhone (expo-av stays for the web's player and the iPhone's player in a build without expo-audio), and PDF export
 
 ### The backend
 
@@ -111,8 +111,7 @@ and keeps working without a connection:
                                (Claude Opus writes, Sonnet grades)
 
 Every function logs its cost in `ai_usage`. A build without expo-audio's native
-module still records with the earlier flow (`record/active.tsx` with expo-av,
-then `ai.service.ts`), which uses the same Edge Functions.
+module (Expo Go) can't record: Record says so.
 
 Screens in `app/` call services in `src/services/`; services talk to Supabase
 through `src/lib/supabase.ts` (tables) and `src/lib/functions.ts` (Edge
@@ -121,9 +120,9 @@ screens use. No screen queries the database. Alerts, menus and prompts go
 through `src/components/dialogs` so they also work in a browser.
 
 **Without network AI in development, the app still runs end-to-end.** Set
-`EXPO_PUBLIC_MOCK_AI=1` (or leave `supabase functions serve` off) and
-`ai.service.ts` uses a simulated transcript and note: nothing is sent and
-nothing is counted. Store builds never simulate.
+`EXPO_PUBLIC_MOCK_AI=1` (or leave `supabase functions serve` off) and the
+recorder, the assistant and summaries simulate their answers: nothing is sent
+and nothing is counted. Store builds never simulate.
 
 ## Status
 
@@ -242,8 +241,7 @@ Since test D the pages sit on the app's gradient (the editor is transparent; a l
 Recording in chunks: `src/lib/chunkRecorder.web.ts` rotates the browser's MediaRecorder every 30 s on one microphone stream, so each chunk is a standalone WebM / Opus file.
 - **Two modes:** restart (stop and start in one task) or overlap (the next chunk starts `overlapMs` before the previous one stops).
 - **Order:** chunks are handed over in their order.
-- **The iPhone's:** `nativeChunkRecorder.ts` (expo-audio, below); the spike's `chunkRecorder.ts` stays a stub (the spike screen is the web's).
-- **The dev screen:** `/dev/recording-spike` (development only) uploads each chunk through `createSourceFile` and `transcribe-chunk` and shows the live transcript.
+- **The iPhone's:** `nativeChunkRecorder.ts` (expo-audio, below); `chunkRecorder.ts` holds the types both share.
 - **The check:** `spike.mjs` measures the joins with a synthetic signal.
 
 The recorder service, `src/services/recorder/`, records with 30-second chunks overlapping by 500 ms. **`service.ts` is the same on every platform**:
@@ -300,7 +298,7 @@ The recorder service, `src/services/recorder/`, records with 30-second chunks ov
   - `useRecordingFlow()` gives the saving and interrupted states.
 - **The setup's folder picker:** `utils/folderTree.ts`.
 
-**The iPhone** goes through the same flow and screens. `record/active` (expo-av) is kept only as the fallback for a build without expo-audio's native module.
+**The iPhone** goes through the same flow and screens.
 
 **Playback** (`lib/audioPlayer.ts`) uses expo-audio's player on the iPhone: expo-av's audio mode would switch the session away from recording and stop the recorder. The player leaves the session to `lib/audioSession.ts` (the recording mode while recording; iOS then plays through the earpiece unless headphones are in). The web's player is `audioPlayer.web.ts`.
 

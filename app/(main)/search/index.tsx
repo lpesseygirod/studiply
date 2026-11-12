@@ -96,7 +96,7 @@ export default function SearchScreen() {
 
   const open = (hit: SearchHit) => {
     Keyboard.dismiss();
-    router.push(hitTarget(hit, searched));
+    router.push(hitTarget(hit));
   };
 
   const shown = hitsForChip(hits, chip);

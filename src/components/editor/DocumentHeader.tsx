@@ -25,6 +25,7 @@ export function DocumentHeader({
   inset = false,
   onGradient = false,
   showTitle = true,
+  detail,
 }: {
   title: string;
   meta: string;
@@ -41,6 +42,8 @@ export function DocumentHeader({
   onGradient?: boolean;
   /** False on the phone's recording screen (Lea, 30 Oct): its header above shows the title, so it isn't shown twice. */
   showTitle?: boolean;
+  /** A line under the meta line (a lecture's Transcript tab: when its recording is deleted). */
+  detail?: string;
 }) {
   const { colors } = useTheme();
   const [draft, setDraft] = useState(title);
@@ -96,6 +99,11 @@ export function DocumentHeader({
         />
       )}
       {meta ? <Text style={[styles.meta, !showTitle && styles.metaAlone, onGradient && { color: colors.text.onGradient }]}>{meta}</Text> : null}
+      {detail ? (
+        <Text style={[styles.meta, onGradient && { color: colors.text.onGradient }]} {...{ dataSet: { docDetail: 'true' } }}>
+          {detail}
+        </Text>
+      ) : null}
     </View>
   );
 }

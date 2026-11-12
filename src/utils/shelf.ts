@@ -203,7 +203,7 @@ export function openTarget(item: ShelfItem): Href {
 
 /**
  * Since step 7.3 every lecture opens as a document: on its Summary tab once processed, else on My notes.
- * Its Summary tab then says what's next (the summarize panel; "Process now" for a lecture in the earlier format).
+ * Its Summary tab then says what's next (the summarize panel; a lecture recorded the earlier way just has no summary).
  */
 function lectureTarget(id: string, status: Session['status'] | undefined): Href {
   return { pathname: '/doc/[id]', params: { id, tab: status === 'completed' ? 'summary' : 'notes' } };

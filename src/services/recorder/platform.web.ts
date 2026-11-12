@@ -13,7 +13,7 @@
  * recordings and stays in this browser.
  */
 
-import { ChunkRecorder } from '../../lib/chunkRecorder';
+import { ChunkRecorder } from '../../lib/chunkRecorder.web';
 import type { QueueStore, SyncOp } from '../../lib/sync/queue';
 import { sendRecordingChunk } from '../source-file.service';
 import { buildRecorder } from './build';

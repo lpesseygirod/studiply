@@ -71,6 +71,8 @@ import { getNoteBySession } from '../../../src/services/note.service';
 import { convertEarlierNoteOf } from '../../../src/services/legacyNotes';
 import { getProject } from '../../../src/services/project.service';
 import { getSession, renameSession } from '../../../src/services/session.service';
+import { getLectureAudio } from '../../../src/services/source-file.service';
+import { audioStatusLine, type LectureAudio } from '../../../src/utils/audioRetention';
 import { getUserSettings } from '../../../src/services/settings.service';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { markOpened } from '../../../src/services/shelf.service';
@@ -255,6 +257,24 @@ export default function DocumentScreen() {
   const lectureStatus = session?.status;
   const kind = file?.kind;
   const hasNote = !!note;
+
+  // A lecture's Transcript tab says when its recording is deleted ("Deletes on 17 Nov 2026"): read again
+  // when the tab opens or the lecture's status changes (the date is set once it's transcribed).
+  const [lectureAudio, setLectureAudio] = useState<LectureAudio | null>(null);
+  useEffect(() => {
+    if (!id || kind !== 'lecture' || tab !== 'transcript') return;
+    let current = true;
+    getLectureAudio(id)
+      .then((a) => current && setLectureAudio(a))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [id, kind, tab, lectureStatus]);
+  const audioLine =
+    isLecture && tab === 'transcript' && lectureAudio
+      ? `Recording: ${audioStatusLine(lectureAudio)}.${lectureAudio.deletedAt ? ' The transcript and notes stay.' : ''}`
+      : undefined;
 
   // Step 7.7: the lecture's newest summary, read again while it's being written; once done, written into
   // its document (the Summary tab, a "New summary" tab, or merged around her edits: services/summaryDoc).
@@ -631,6 +651,7 @@ export default function DocumentScreen() {
         onGradient={!onCard && (nativeEditor ? !!phoneView?.pages : margin.pages)}
         // The phone's recording screen shows the title in its header above (once).
         showTitle={!recordingScreen}
+        detail={audioLine}
       />
     ) : null;
 
@@ -671,12 +692,10 @@ export default function DocumentScreen() {
       {tabState === 'earlier' && note && (
         <EarlierNotesCard
           label="Notes in the earlier format"
-          text={`${(note.summary ?? '').slice(0, 320)}${(note.summary ?? '').length > 320 ? '…' : ''}\n\nThese notes become this tab the next time it opens and they can be saved. Until then they open in the notes view, with Clarify, Edit and Export PDF.`}
-          action="Open notes"
-          onAction={() => router.push({ pathname: '/note/[id]', params: { id: file!.id } })}
+          text={`${(note.summary ?? '').slice(0, 320)}${(note.summary ?? '').length > 320 ? '…' : ''}\n\nThese notes become this tab the next time it opens and they can be saved.`}
         />
       )}
-      {tabState === 'none' && (tab === 'summary' || isCombined) && file && <SummaryTabCard lectureId={file.id} title={file.title} status={lectureStatus} recording={recordingHere} />}
+      {tabState === 'none' && (tab === 'summary' || isCombined) && file && <SummaryTabCard lectureId={file.id} recording={recordingHere} />}
       {tabState === 'none' && tab === 'transcript' && <EarlierNotesCard label="No transcript yet" text="The transcript appears here once the recording is transcribed." />}
     </ScrollView>
   );

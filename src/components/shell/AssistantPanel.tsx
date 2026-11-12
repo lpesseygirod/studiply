@@ -25,9 +25,8 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
   const { colors: c } = useTheme();
   const target = useAssistantTarget();
   const pathname = usePathname();
-  // The document screen says what it shows; the older lecture screen (/note/<id>, opened from Search) is a lecture's.
-  const noteLecture = /^\/note\/([^/?#]+)/.exec(pathname)?.[1] ?? null;
-  const lectureId = noteLecture ?? (target?.isLecture && pathname.startsWith('/doc/') ? target.documentId : null);
+  // The document screen says what it shows.
+  const lectureId = target?.isLecture && pathname.startsWith('/doc/') ? target.documentId : null;
   const chat = useAssistant(lectureId);
   // Opening the assistant never stops a recording (step 5.3): it says so, or that it is paused.
   const { status } = useRecorderState();

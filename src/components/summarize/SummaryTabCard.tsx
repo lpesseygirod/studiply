@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { useRouter } from 'expo-router';
 
 import { useCreditUnits } from '../../hooks/useCredits';
 import { BUY_ON_IPHONE } from '../../lib/credits/format';
@@ -9,7 +8,6 @@ import { showAlert } from '../dialogs/dialogs';
 import { useLibraryUpdates } from '../../lib/cache/library';
 import { ConsentDeclinedError } from '../../services/consent.service';
 import { latestSummary, recordedInChunks, retrySummary, startSummary, type LectureSummary } from '../../services/summarize.service';
-import type { Session } from '../../types/database';
 import { errorMessage } from '../../utils/errors';
 import { summaryCardText } from './summaryCard';
 import { openSummarize } from './summarizePanelState';
@@ -22,11 +20,9 @@ const POLL_MS = 5000;
  * - a summary of the summarize panel, by status: saved but not started ("Summarize now"), being written
  *   (read again every few seconds), ready (its counts and takeaways), or failed (why, and Try again);
  * - else "Summarize this lecture", which opens the panel;
- * - a lecture recorded the earlier way (no chunks transcribed while it recorded) keeps "Process now",
- *   the earlier after-recording step.
+ * - a lecture recorded the earlier way (no chunks transcribed while it recorded) just says it has no summary.
  */
-export function SummaryTabCard({ lectureId, title, status, recording }: { lectureId: string; title: string; status: Session['status'] | undefined; recording: boolean }) {
-  const router = useRouter();
+export function SummaryTabCard({ lectureId, recording }: { lectureId: string; recording: boolean }) {
   const [state, setState] = useState<{ summary: LectureSummary | null; chunks: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const creditUnits = useCreditUnits();
@@ -86,12 +82,5 @@ export function SummaryTabCard({ lectureId, title, status, recording }: { lectur
       </View>
     );
   }
-  return (
-    <EarlierNotesCard
-      label="No summary yet"
-      text={status === 'completed' ? 'This lecture has no summary.' : "This lecture hasn't been summarized yet."}
-      action={status === 'completed' ? undefined : 'Process now'}
-      onAction={() => router.push({ pathname: '/record/post-session', params: { sessionId: lectureId, title } })}
-    />
-  );
+  return <EarlierNotesCard label="No summary yet" text="This lecture has no summary." />;
 }

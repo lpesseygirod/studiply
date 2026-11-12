@@ -1,8 +1,8 @@
 # Device checks for the iPhone recorder (step 5.1–5.4, iPhone half)
 
 The iPhone records with expo-audio, which has native code: Expo Go and a development
-build made before expo-audio was added can't run it (they keep the old `record/active`
-screen). Build first:
+build made before expo-audio was added can't run it (Record says recording needs the
+Studiply app). Build first:
 
     eas build --profile development-simulator --platform ios
     eas build --profile development --platform ios

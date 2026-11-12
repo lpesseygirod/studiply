@@ -82,7 +82,6 @@ reportMissing('Core library files', [
 
 reportMissing('Service files', [
   'src/services/auth.service.ts',
-  'src/services/ai.service.ts',
   'src/services/ai-usage.service.ts',
   'src/services/credit-check.service.ts',
   'src/services/export.service.ts',
@@ -124,12 +123,9 @@ reportMissing('Screens', [
   'app/(main)/search/index.tsx',
   'app/(main)/record/_layout.tsx',
   'app/(main)/record/index.tsx',
-  'app/(main)/record/active.tsx',
-  'app/(main)/record/post-session.tsx',
-  'app/(main)/record/review.tsx',
   'app/(main)/library/index.tsx',
   'app/(main)/project/[id].tsx',
-  'app/(main)/note/[id].tsx',
+  'app/(main)/doc/[id].tsx',
   'app/(main)/settings/_layout.tsx',
   'app/(main)/settings/index.tsx',
   'app/(main)/settings/general.tsx',

@@ -8,8 +8,7 @@
  * ./build).
  *
  * A build without expo-audio's native module (one made before it was added)
- * isn't `supported`: the setup then keeps the earlier recording screen
- * (`record/active`, expo-av) as before.
+ * isn't `supported`: Record's setup then says recording needs the Studiply app.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
