@@ -1,7 +1,7 @@
 import type { MarkKind } from '../editor/schema/markChip';
 
 /**
- * The mark panel's words (step 5.5): each mark's question and the labels at
+ * The mark panel's words: each mark's question and the labels at
  * the slider's ends (DESIGN "While recording"), and the one-line hint of
  * what the level does in the summary (SUMMARY-SPEC "What each mark does":
  * low 1–3, mid 4–7, high 8–10, at the Follow my marks slider's default 7,

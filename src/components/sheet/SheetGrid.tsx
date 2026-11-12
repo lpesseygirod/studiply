@@ -18,7 +18,7 @@ import { cellKey, columnName, type Lines } from '../../lib/sheets';
 import { SHEET_COLS, SHEET_ROWS } from '../../lib/sheetDoc';
 import { boxOf, type Align, type Box, type CellAt, type Selection } from './sheetDisplay';
 
-/** Cell sizes: the laptop's, and a finger's on the iPhone. Every column has the same width (no column widths in 4.7e). */
+/** Cell sizes: the laptop's, and a finger's on the iPhone. Every column has the same width (no column widths yet). */
 export const GRID_SIZES = {
   wide: { cellW: 100, cellH: 26, headW: 46, headH: 24, font: Typography.size.sm },
   compact: { cellW: 88, cellH: 36, headW: 38, headH: 26, font: Typography.size.base },
@@ -84,7 +84,7 @@ interface SheetGridProps {
 const LONG_PRESS_MS = 450;
 
 /**
- * A spreadsheet tab's grid (step 4.7e), the same component on the laptop
+ * A spreadsheet tab's grid, the same component on the laptop
  * and the iPhone: column letters A–Z across the top and row numbers 1–1,000
  * down the left, both staying in view while the cells scroll. Rows are
  * virtualised (only those on screen are drawn), and a row is drawn again
@@ -94,7 +94,7 @@ const LONG_PRESS_MS = 450;
  * Presses are reported by cell (the grid works out which from where the
  * pointer is): on the laptop down, move (a drag) and up; on a touch screen
  * a tap (up), while a drag scrolls. A press on the selection's corner (the
- * fill handle, step 4.7e 2a) says so; `onPointer` answering true on "down"
+ * fill handle) says so; `onPointer` answering true on "down"
  * keeps the focus where it is (a formula being typed, while pointing).
  * `mark` outlines cells with a dashed line: the reference being pointed at,
  * or where a fill will go.

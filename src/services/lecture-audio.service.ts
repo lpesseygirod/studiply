@@ -4,7 +4,7 @@ import { Buckets, getSignedUrl } from './cloud-storage.service';
 import { isAudioFile, type PlaybackSource } from './recorder/types';
 
 /**
- * A lecture's recording for the mini player (step 4.6): its 30-second chunks
+ * A lecture's recording for the mini player: its 30-second chunks
  * in order, each with where it starts, how long it is and a short-lived
  * link. Audio removed by the lecture's keep-or-delete setting has no file
  * left (its chunk rows lose their path), so the player can say so.
@@ -33,7 +33,7 @@ export async function getLecturePlayback(lectureId: string): Promise<LecturePlay
 }
 
 /**
- * While the lecture records (step 5.4): its audio as this device has it (recorder.playback):
+ * While the lecture records: its audio as this device has it (recorder.playback):
  * a chunk not uploaded yet (and on the web the chunk being recorded) plays from the device's own
  * copy (the browser's Blob, the iPhone's file), an uploaded one from Storage. `release` frees
  * the browser copies' links when they're done with.
@@ -56,7 +56,7 @@ export async function getLivePlayback(list: PlaybackSource[]): Promise<LecturePl
 
 /**
  * Where to go on after chunk `index` ends: where it ends in the recording. The web's chunks
- * overlap by 500 ms (step 5.1), so the next one starts that far in instead of repeating it.
+ * overlap by 500 ms, so the next one starts that far in instead of repeating it.
  */
 export const endOf = (chunks: { startMs: number; durationMs: number }[], index: number) => chunks[index].startMs + chunks[index].durationMs;
 

@@ -1,6 +1,6 @@
 /**
  * signals.ts
- * Step 10.2-2: "her credits may have changed" (a function answered 402 no_credits, a summary or quiz
+ * "Her credits may have changed" (a function answered 402 no_credits, a summary or quiz
  * was started), without the caller knowing the credits store (lib/functions.ts stays free of it).
  */
 

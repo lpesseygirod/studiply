@@ -1,6 +1,6 @@
 /**
  * review.service.ts
- * The review screen's data (step 9.1): the due flashcards and the Quiz me decks, a rating, a card
+ * The review screen's data: the due flashcards and the Quiz me decks, a rating, a card
  * deleted, the counts.
  *
  * - The laptop reads Supabase and writes a rating at once (review_card: the later review wins).
@@ -70,7 +70,7 @@ export interface ReviewData {
   /** "From your marks: …" for the cards (one lecture's), else ''. */
   cardsMarks: string;
   quiz: QuizDeck[];
-  /** Step 9.2: the lectures to review today (their plan). */
+  /** The lectures to review today (their plan). */
   lectures: DueLecture[];
   /** Review today: the cards due today and the lectures. */
   dueToday: number;
@@ -122,7 +122,7 @@ async function sendReview(p: ReviewPayload): Promise<void> {
 /** A rating: the card's next review, written (laptop) or kept here and queued (iPhone). */
 export async function rateCard(card: ReviewCard, grade: Grade, now: Date = new Date()): Promise<ReviewState> {
   const state = nextReview(card.state, grade, now);
-  // Step 9.2-3: the reminders follow the card's next review.
+  // The reminders follow the card's next review.
   requestReschedule();
   const payload: ReviewPayload = { flashcardId: card.id, scheduleId: card.schedule.id, state };
   if (syncEnabled) {

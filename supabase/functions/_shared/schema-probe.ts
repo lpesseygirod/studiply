@@ -1,6 +1,6 @@
 /**
  * schema-probe.ts
- * Step 7.9: every structured-output schema the summary engine sends, for a cheap probe before a paid
+ * Every structured-output schema the summary engine sends, for a cheap probe before a paid
  * run (`npm run eval:summaries -- --probe-schemas`). The local summarize function sends each one with a
  * one-line text and max_tokens 16: a schema the API can't compile is rejected at once (HTTP 400, "The
  * compiled grammar is too large…", nothing billed); an accepted one costs a fraction of a cent. Local
@@ -37,7 +37,7 @@ export const PROBE_SCHEMAS: { name: string; schema: JsonSchema }[] = [
   { name: 'lists rewrite (7.5)', schema: LISTS_SCHEMA },
   { name: 'verify (7.5)', schema: VERIFY_SCHEMA },
   { name: 'exam pack (7.9)', schema: EXAM_PACK_SCHEMA },
-  // Step 9.1b-2: the quiz function's (its verify call sends VERIFY_SCHEMA, above).
+  // The quiz function's (its verify call sends VERIFY_SCHEMA, above).
   { name: 'quiz questions (9.1b-2)', schema: QUIZ_SCHEMA },
   { name: 'past exam format (9.1b-2)', schema: FORMAT_SCHEMA },
   { name: 'quiz grades (9.1b-3)', schema: GRADE_SCHEMA },

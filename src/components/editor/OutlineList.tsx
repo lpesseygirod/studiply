@@ -10,7 +10,7 @@ import type { OutlineHeading } from '../../editor/writing/outline';
 const web = Platform.OS === 'web';
 
 /**
- * A document's outline (step 4.7): its headings indented by level, the
+ * A document's outline: its headings indented by level, the
  * section the cursor is in in the accent (it follows as the student
  * writes, and stays in view); pressing one jumps there. The laptop shows
  * it beside the page (or over it in a narrow window), the iPhone in a

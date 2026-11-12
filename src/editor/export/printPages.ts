@@ -11,10 +11,10 @@ import { LightColors } from '../../constants/colors';
 import type { DocJSON } from '../types';
 
 /**
- * The PDF export (step 4.8a), on both devices: the laptop runs it in its own
+ * The PDF export, on both devices: the laptop runs it in its own
  * page, the iPhone in a WebView of the editor bundle (PdfRenderer).
  *
- * The pages are the page view's (4.5b): each tab is put in a hidden editor
+ * The pages are the page view's: each tab is put in a hidden editor
  * with the document's page setup, Pages on, at 100 % and no gap between
  * pages, and the page view lays it out with pageLayout.ts's rules (widows
  * and orphans, headings with the next line, page breaks, photos and
@@ -25,7 +25,7 @@ import type { DocJSON } from '../types';
  * callouts, chips and photos are the editor's own drawing, so they print as
  * they look. The numbers go through the whole file.
  *
- * Step 8.3: a summary's PDF (export/summaryPrint.ts makes its tabs) has a running header from page 2
+ * A summary's PDF (export/summaryPrint.ts makes its tabs) has a running header from page 2
  * and a "Studiply · Page 2 of 4" footer instead of the number (`running`). Every PDF carries the
  * KaTeX faces its formulas use as data (they printed in fallback fonts when only linked).
  */
@@ -50,7 +50,7 @@ export interface PrintOptions {
    */
   target: 'browser' | 'ios';
   /**
-   * Step 8.3, a summary's PDF (SUMMARY-SPEC): a running header from page 2 (the course left, the
+   * A summary's PDF (SUMMARY-SPEC): a running header from page 2 (the course left, the
    * lecture's title right) and a footer on every page ("Studiply" left, "Page 2 of 4" right), in
    * place of the page number.
    */
@@ -144,7 +144,7 @@ function numberHtml(n: number, place: Exclude<PageNumbers, 'off'>, sheet: SheetG
 
 /**
  * A summary's running header (from page 2) and footer (every page), each in the middle of its margin,
- * lined up with the text's edges (step 8.3).
+ * lined up with the text's edges.
  */
 function runningHtml(k: number, total: number, running: RunningHead, sheet: SheetGeometry): string {
   const across = `left: ${sheet.marginLeft}px; right: ${sheet.marginRight}px`;
@@ -322,7 +322,7 @@ export async function buildPrint(tabs: PrintTab[], options: PrintOptions, title:
     pages.push(...blocksByPage(laid.blocks, laid.pages, sheet.height));
     laid.fonts.forEach((f) => fonts.add(f));
   }
-  // Step 8.3 (SUMMARY-SPEC: fonts embedded, works offline): the formulas' KaTeX faces go in as data, last, so the print never waits for a link.
+  // SUMMARY-SPEC (fonts embedded, works offline): the formulas' KaTeX faces go in as data, last, so the print never waits for a link.
   const faces = await katexFontFaces(fonts);
   const html = printDocument(pages, { ...options, setup }, title, `${pageStyles()}${faces ? `<style>${faces}</style>` : ''}`);
   return { html, pages: pages.length, ...paperPoints(setup) };

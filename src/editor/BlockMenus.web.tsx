@@ -17,11 +17,11 @@ import { MARK_CHIP_EVENT } from './schema/markChip';
 import type { StudiplyEditorProps } from './types';
 
 /**
- * The laptop's menus for Studiply's blocks (step 4.6): a click on a
+ * The laptop's menus for Studiply's blocks: a click on a
  * callout's label opens its menu (change to another kind, its level for
  * "You were confused here", Remove callout: the text stays); a click on a
  * mark chip opens its kind and level, and Remove. A mark made while
- * recording (step 5.5) opens its mark panel: level, note, Done, Remove mark
+ * recording opens its mark panel: level, note, Done, Remove mark
  * (the screen offers Undo).
  */
 export function BlockMenus({ editor, onMarkRemoved }: { editor: Editor; onMarkRemoved?: StudiplyEditorProps['onMarkRemoved'] }) {
@@ -85,7 +85,7 @@ export function BlockMenus({ editor, onMarkRemoved }: { editor: Editor; onMarkRe
       </ToolbarPopover>
       <ToolbarPopover anchor={menu?.kind === 'mark' && s.markChip ? menu.anchor : null} onClose={close} width={linked ? 380 : 300} label="Mark">
         {linked ? (
-          // A mark made while recording (step 5.5): its panel, to change the level or note, or remove it.
+          // A mark made while recording: its panel, to change the level or note, or remove it.
           <View style={styles.form}>
             <MarkPanel
               editing

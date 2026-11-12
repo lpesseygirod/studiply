@@ -1,4 +1,4 @@
-// Step 9.1b-2: what a quiz's row says while it is written (src/lib/quiz/status.ts): writing, ready
+// What a quiz's row says while it is written (src/lib/quiz/status.ts): writing, ready
 // (with fewer when some couldn't be checked), saved but not started (and why), failed in plain words,
 // and "It took too long" for one left "generating" (display only: Try again claims it on the server).
 import { FAILED_WORDS, quizRowState } from '../quiz/status';

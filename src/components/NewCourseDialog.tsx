@@ -24,7 +24,7 @@ const COLOR_NAMES = ['Salmon', 'Lavender', 'Mint', 'Sky blue', 'Yellow', 'Grey']
 const WIDTH = 340;
 
 /**
- * New course (step 3.2, Lea): a small dialog, not a full-width sheet. On
+ * New course (Lea): a small dialog, not a full-width sheet. On
  * the laptop it opens next to the button that asked for it (`anchor`), on
  * the iPhone in the middle of the screen. Name, colour, Create / Cancel;
  * Enter creates, Esc or a click outside cancels.

@@ -8,12 +8,12 @@ import { cleanLevel } from './callout';
 import { TIMESTAMP_CHIP, chipMs } from './timestampChip';
 
 /**
- * Mark chips (step 4.6; DESIGN, SUMMARY-SPEC): "Important 8/10",
+ * Mark chips (DESIGN, SUMMARY-SPEC): "Important 8/10",
  * "Confused 7/10", "Exam 9/10" in the text. An inline chip; a click or tap
  * on it asks the device for its menu (the kind, the level 1–10, remove), as
  * callouts and the table bar do. Shared by both editors.
  *
- * Step 5.5: a mark made while recording is a *linked* chip: `markId` (its
+ * A mark made while recording is a *linked* chip: `markId` (its
  * row in `marks`), `ms` (the recording time it was made at) and an optional
  * `note`. A lecture's My notes is what its marks are: after each save the
  * rows follow the linked chips (services/marks.service), so a chip deleted
@@ -35,7 +35,7 @@ export const MARK_KINDS: { kind: MarkKind; name: string }[] = [
 ];
 export const isMarkKind = (v: unknown): v is MarkKind => MARK_KINDS.some((k) => k.kind === v);
 
-/** A mark's note: at most this many characters (step 5.5). */
+/** A mark's note: at most this many characters. */
 export const MARK_NOTE_MAX = 500;
 export function cleanNote(v: unknown): string | null {
   if (typeof v !== 'string') return null;
@@ -44,7 +44,7 @@ export function cleanNote(v: unknown): string | null {
 }
 const cleanMs = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : null);
 
-/** A mark made while recording (step 5.5). */
+/** A mark made while recording. */
 export interface LinkedMark {
   markId: string;
   kind: MarkKind;
@@ -71,7 +71,7 @@ export interface MarkChipInfo {
   kind: MarkKind;
   level: number | null;
   pos: number;
-  /** A linked chip's mark (step 5.5); null for a chip put in by hand (Insert → Mark). */
+  /** A linked chip's mark; null for a chip put in by hand (Insert → Mark). */
   markId: string | null;
   ms: number | null;
   note: string | null;
@@ -121,7 +121,7 @@ declare module '@tiptap/core' {
       /** The selected chip's kind, level or note. */
       updateMarkChip: (options: { kind?: MarkKind; level?: number | null; note?: string | null }) => ReturnType;
       deleteMarkChip: () => ReturnType;
-      /** A mark made while recording (step 5.5); `at`: back where it was. */
+      /** A mark made while recording; `at`: back where it was. */
       placeMark: (mark: LinkedMark, at?: MarkPlace) => ReturnType;
     };
   }
@@ -137,7 +137,7 @@ function linkedChip(schema: Schema, mark: LinkedMark): PMNode {
   });
 }
 
-/** A line's stamp: the timestamp chip and a space (as live notes put it, step 5.4). */
+/** A line's stamp: the timestamp chip and a space (as live notes put it). */
 const stampOf = (schema: Schema, ms: number) => [schema.nodes[TIMESTAMP_CHIP].create({ ms: chipMs(ms) }), schema.text(' ')];
 
 /** Puts the chip at `pos` (an inline position): after a space if the line has text, after a stamp if it's empty. */

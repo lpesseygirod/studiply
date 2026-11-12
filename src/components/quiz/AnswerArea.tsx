@@ -32,7 +32,7 @@ export const blankText = (text: string) => {
 };
 
 /**
- * The answer area of a quiz question (step 9.1b-3; desktop-07): A–D rows for multiple choice (and
+ * The answer area of a quiz question (desktop-07): A–D rows for multiple choice (and
  * True / False), a one-line field (short answer, numeric with its unit), a multi-line one with a word
  * count (long answer), ① ② fields (fill in the blank), each left item's choice among the right ones
  * shown shuffled (match pairs), ↑ ↓ rows shown shuffled (put in order). `locked` after Check: her

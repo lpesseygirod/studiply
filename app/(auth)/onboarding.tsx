@@ -38,17 +38,17 @@ import { TermsCheckboxes } from '../../src/components/legal/TermsCheckboxes';
 import type { LegalSlug } from '../../src/legal/types';
 import { rememberTicked, signUpAcceptance } from '../../src/services/terms.service';
 
-// Step 10.1b-1: linked under the sign-in form (sign-up has the boxes, 10.1b-2).
+// Linked under the sign-in form (sign-up has the boxes).
 const SIGN_IN_LEGAL_LINKS: readonly LegalSlug[] = ['terms', 'privacy'];
 
 // signUp → code (email confirmation) → signed in
 // signIn → signed in, or → code when the email isn't confirmed yet
 // signIn → "Forgot password?" → reset (code + new password) → signed in
 // AuthProvider picks up the new session and the root layout navigates.
-// Step 10.1: Continue with Apple above the email form ("or with email", desktop-06); on the iPhone a
+// Continue with Apple above the email form ("or with email", desktop-06); on the iPhone a
 // welcome step first (iphone-11): Continue with Apple, Continue with email.
-// Step 10.1b-1: the Terms and the Privacy Policy linked under sign-in, opened in a LegalSheet.
-// Step 10.1b-2: sign-up has two required, unticked boxes (the Terms and the Privacy Policy, both
+// The Terms and the Privacy Policy linked under sign-in, opened in a LegalSheet.
+// Sign-up has two required, unticked boxes (the Terms and the Privacy Policy, both
 // linked; 16 or older): Create account stays greyed until both are ticked, and the acceptance goes
 // with the sign-up (the server saves it with its own time). The iPhone's welcome has them where
 // iphone-11's footer line was; ticked there, they carry to sign-up and count for Continue with
@@ -165,8 +165,8 @@ export default function OnboardingScreen() {
     }
   }, [canContinue, mode, name, email, password, code, run]);
 
-  // Step 10.1: Sign in with Apple (a new account the first time); closing Apple's sheet says nothing.
-  // Step 10.1b-2: boxes ticked on this screen count as accepting if Apple creates the account.
+  // Sign in with Apple (a new account the first time); closing Apple's sheet says nothing.
+  // Boxes ticked on this screen count as accepting if Apple creates the account.
   const handleApple = useCallback(() => {
     rememberTicked(termsTicked && ageTicked);
     run(async () => {
@@ -278,7 +278,7 @@ export default function OnboardingScreen() {
                   <Text style={styles.emailButtonText}>Continue with email</Text>
                 </TouchableOpacity>
                 {error && <Text style={styles.errorText}>{error}</Text>}
-                {/* iphone-11's footer line, as the two boxes (step 10.1b-2). */}
+                {/* iphone-11's footer line, as the two boxes. */}
                 {boxes}
               </View>
             )}
@@ -286,7 +286,7 @@ export default function OnboardingScreen() {
             {/* ── Input block ── */}
             {mode !== 'welcome' && (
             <View style={styles.inputBlock}>
-              {/* Step 10.1 (desktop-06): Continue with Apple, then the email form. */}
+              {/* desktop-06: Continue with Apple, then the email form. */}
               {(mode === 'signUp' || mode === 'signIn') && appleAvailable && (
                 <>
                   <AppleSignInButton onPress={handleApple} busy={isLoading} />
@@ -409,7 +409,7 @@ export default function OnboardingScreen() {
                 />
               )}
 
-              {/* Step 10.1b-2: the two required boxes (desktop-06's form; Create account greyed until both). */}
+              {/* The two required boxes (desktop-06's form; Create account greyed until both). */}
               {mode === 'signUp' && boxes}
 
               {/* Error message */}
@@ -468,7 +468,7 @@ export default function OnboardingScreen() {
                   </>
                 )}
               </View>
-              {/* Step 10.1b-1: the Terms and the Privacy Policy, in a sheet so the form is kept. */}
+              {/* The Terms and the Privacy Policy, in a sheet so the form is kept. */}
               {mode === 'signIn' && <LegalLinks slugs={SIGN_IN_LEGAL_LINKS} long onOpen={setLegal} />}
             </View>
             )}
@@ -622,7 +622,7 @@ const makeStyles = (c: ThemeColors) =>
     opacity: 0.5,
   },
 
-  // ── Step 10.1: Apple ──
+  // ── Apple ──
   welcomeTitle: {
     fontSize: Typography.size['3xl'],
     fontWeight: Typography.weight.extrabold,

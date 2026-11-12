@@ -1,6 +1,6 @@
 /**
- * The schema's attribute defaults that aren't null, per node or mark type
- * (step 4.5). A block written without them (pasted before 4.5, made by the
+ * The schema's attribute defaults that aren't null, per node or mark type.
+ * A block written without them (pasted before they existed, made by the
  * AI, an older app) is the same block as the editor's copy that has them:
  * `sameBlock` leaves them out, so a copy open on another device doesn't take
  * every such block for "typed here" (and, say, bring back a deleted table).

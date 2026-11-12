@@ -36,7 +36,7 @@ describe('shortcutFor', () => {
   });
 });
 
-describe('⌘Z / Ctrl+Z (step 3.3)', () => {
+describe('⌘Z / Ctrl+Z', () => {
   it('undoes the last move, delete or favourite', () => {
     expect(shortcutFor(key({ metaKey: true, code: 'KeyZ', key: 'z' }))).toBe('undo');
     expect(shortcutFor(key({ ctrlKey: true, code: 'KeyZ', key: 'z' }))).toBe('undo');
@@ -63,7 +63,7 @@ describe('isEditable', () => {
   });
 });
 
-describe('cut, copy and the menu key (step 3.4)', () => {
+describe('cut, copy and the menu key', () => {
   it('⌘X / ⌘C (or Ctrl), by key position; never with ⇧ or ⌥, in a field or with a dialog open', () => {
     expect(shortcutFor(key({ metaKey: true, code: 'KeyX' }))).toBe('cut');
     expect(shortcutFor(key({ ctrlKey: true, code: 'KeyC' }))).toBe('copy');

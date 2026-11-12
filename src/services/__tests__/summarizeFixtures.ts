@@ -1,4 +1,4 @@
-// Step 7.3: the My notes fixture of the summarize tests (src/test-utils/summarizeFixtures)
+// The My notes fixture of the summarize tests (src/test-utils/summarizeFixtures)
 // reads as they expect: two lines with text, their times, one Important 8 mark.
 
 import { noteLinesOf } from '../../editor/noteLines';

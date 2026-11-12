@@ -74,7 +74,7 @@ export function parseSse(text: string): SseFrame[] {
 }
 
 /**
- * Reads an event stream as it arrives (step 6.2): `push` each piece of
+ * Reads an event stream as it arrives: `push` each piece of
  * text; whole frames come out in order, and a frame cut between two pieces
  * waits for the rest. `end` gives what was left without a blank line after it.
  */

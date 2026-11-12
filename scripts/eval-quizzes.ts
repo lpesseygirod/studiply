@@ -1,5 +1,5 @@
 /**
- * eval-quizzes.ts — the quiz checks (step 9.1b-2) on saved quizzes and on planted faults, run by Deno
+ * eval-quizzes.ts — the quiz checks on saved quizzes and on planted faults, run by Deno
  * so it uses the very files the quiz function uses (supabase/functions/_shared):
  *
  *   npm run eval:quizzes                       every saved quiz (tests/output/quiz-<fixture>/latest.json) checked
@@ -13,10 +13,10 @@
  *                                              (Exam focus 8) written by the local quiz function (the past exam's
  *                                              format read on Sonnet, the questions on Opus); saved to
  *                                              tests/output/quiz-synthetic-pair/, then checked
- *   npm run eval:quizzes -- --grading          step 9.1b-3, free: ~40 synthetic answers graded in code
+ *   npm run eval:quizzes -- --grading          free: ~40 synthetic answers graded in code
  *                                              (scripts/fixtures/quiz-answers.ts) as expected, and each
  *                                              planted grading fault caught by them
- *   npm run eval:quizzes -- --grade            step 9.1b-3, PAID (≈ $0.03, cap $0.10): 8 written Spanish
+ *   npm run eval:quizzes -- --grade            PAID (≈ $0.03, cap $0.10): 8 written Spanish
  *                                              answers graded by Sonnet through the LOCAL quiz function
  *                                              (grade mode); each verdict among the right ones, reasons one
  *                                              line in Spanish, her own grade untouched; saved to
@@ -425,7 +425,7 @@ async function gradeWithSonnet(): Promise<number> {
     check(detectLanguage(graded.map((g) => g.reason).join(' '), 'es') === 'es', 'the reasons are in Spanish');
     const sum = rows.reduce((n: number, r: { points: number }) => n + Number(r.points), 0);
     check(Math.abs(Number(score?.points) - sum) < 1e-6, `the attempt's score follows the grades (${score?.points} points, ${score?.score} / 10)`);
-    // Step 10.2-1b: grading is an extra, logged apart from writing a quiz.
+    // Grading is an extra, logged apart from writing a quiz.
     check(usage.length === 1 && usage[0].operation === 'quiz_grade' && usage[0].model === 'claude-sonnet-5-5', `one Sonnet call logged as quiz_grade (${usage.map((u) => `${u.operation}/${u.model}`).join(', ')})`);
     check(costUsd <= GRADE_CAP_USD, `under the cap ($${costUsd.toFixed(4)} ≤ $${GRADE_CAP_USD})`);
 

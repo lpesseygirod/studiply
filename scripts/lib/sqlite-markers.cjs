@@ -1,7 +1,7 @@
 /**
  * sqlite-markers.cjs
- * check-bundle.mjs's rule "the web build must never load SQLite" (step 1.7), as markers that only
- * bundling expo-sqlite leaves, never its bare name: since step 10.1b-1 the open-source licences on
+ * check-bundle.mjs's rule "the web build must never load SQLite", as markers that only
+ * bundling expo-sqlite leaves, never its bare name: since the legal pages the open-source licences on
  * /legal name every package (expo-sqlite among them), so a name in text proves nothing either way.
  *
  * A real web import of expo-sqlite bundles build/ExpoSQLite.web.js and web/SQLiteModule.ts,

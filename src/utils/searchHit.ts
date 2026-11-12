@@ -1,6 +1,6 @@
 /**
  * searchHit.ts
- * What a Search result shows and opens (step 3.5, docs/design iphone-09),
+ * What a Search result shows and opens (docs/design iphone-09),
  * pure so it is tested: the chips, each hit's badge ("Transcript 18:22"),
  * and the screen it opens.
  */

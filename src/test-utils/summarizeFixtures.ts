@@ -1,4 +1,4 @@
-/** My notes for the summarize tests (step 7.3): two stamped lines with text (one with an Important 8 chip) and an empty line. */
+/** My notes for the summarize tests: two stamped lines with text (one with an Important 8 chip) and an empty line. */
 export const MY_NOTES = {
   type: 'doc',
   content: [

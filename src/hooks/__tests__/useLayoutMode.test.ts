@@ -20,7 +20,7 @@ describe('screenKindFor', () => {
     }
   });
 
-  it('Review (step 9.1, desktop-07/08): a screen of its own, no sidebar', () => {
+  it('Review (desktop-07/08): a screen of its own, no sidebar', () => {
     expect(screenKindFor('/review')).toBe('review');
     expect(screenKindFor('/review/quiz/abc')).toBe('review');
   });

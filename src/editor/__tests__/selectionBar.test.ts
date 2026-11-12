@@ -3,8 +3,8 @@
  */
 // The selection bar (after test B): for selected words only (not an empty
 // cursor, cells, a photo or a formula); its Comment and Link reach the
-// device (an event on the laptop, the format state on the iPhone). After
-// 4.6: Callout ▸, Mark ▸ and Time ▸ after Link, the same way.
+// device (an event on the laptop, the format state on the iPhone). Added
+// later: Callout ▸, Mark ▸ and Time ▸ after Link, the same way.
 import { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { CellSelection } from '@tiptap/pm/tables';
@@ -91,7 +91,7 @@ describe('selection bar', () => {
     const button = (label: string) => bar().querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
     const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
-    it('Comment, B, I, Highlight, Link, then Callout ▸, Mark ▸ and Time ▸ with a picture and a word, then ✦ Ask Claude ▸ (6.3)', () => {
+    it('Comment, B, I, Highlight, Link, then Callout ▸, Mark ▸ and Time ▸ with a picture and a word, then ✦ Ask Claude ▸', () => {
       mount([p('La conducta humana')]);
       editor.commands.setTextSelection({ from: 4, to: 12 });
       expect(bar().style.display).toBe('flex');
@@ -140,7 +140,7 @@ describe('selection bar', () => {
       expect(seen).toEqual(['callout', 'mark', 'time']);
     });
 
-    it('✦ Ask Claude (6.3): the selection is kept as the suggestion’s range, highlighted; the laptop gets an event at the button, the iPhone the press and the text', () => {
+    it('✦ Ask Claude: the selection is kept as the suggestion’s range, highlighted; the laptop gets an event at the button, the iPhone the press and the text', () => {
       mount([p('La conducta humana')]);
       editor.commands.setTextSelection({ from: 4, to: 12 });
       const anchors: unknown[] = [];

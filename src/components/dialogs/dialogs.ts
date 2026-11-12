@@ -43,7 +43,7 @@ export interface Anchor {
 }
 
 /**
- * Keyboard in a menu (step 3.4): the item to move to from `current` for
+ * Keyboard in a menu: the item to move to from `current` for
  * ↑ / ↓ (wrapping) and Home / End, skipping greyed-out items; null for any
  * other key, or when nothing can be chosen.
  */

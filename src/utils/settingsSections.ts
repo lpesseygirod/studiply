@@ -1,6 +1,6 @@
 /**
  * settingsSections.ts
- * The Settings sections (step 3.6, docs/design desktop-05 and iphone-07),
+ * The Settings sections (docs/design desktop-05 and iphone-07),
  * the same on both devices: the laptop's menu, the iPhone's list and one
  * route each. Pure, so the order, the routes and the short values on the
  * right of each iPhone row are tested.
@@ -33,7 +33,7 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { key: 'account', label: 'Account', letter: 'A', tone: 'accent' },
-  // Step 10.2-2 (no mockup): right after Account; the iPhone list's first row.
+  // Credits (no mockup): right after Account; the iPhone list's first row.
   { key: 'credits', label: 'Credits', letter: 'C', tone: 'success' },
   { key: 'summaries', label: 'Summaries', letter: 'S', tone: 'accent' },
   { key: 'recording', label: 'Recording', letter: 'R', tone: 'recording' },

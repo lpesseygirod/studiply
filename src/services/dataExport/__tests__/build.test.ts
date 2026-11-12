@@ -1,4 +1,4 @@
-// Step 10.1b-4: one part of "Export my data" as a ZIP; Cancel; offline; reading only as her.
+// One part of "Export my data" as a ZIP; Cancel; offline; reading only as her.
 import JSZip from 'jszip';
 
 import { answer, callsOn, resetSupabaseMock, storageCalls } from '../../../test-utils/supabaseMock';

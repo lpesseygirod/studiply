@@ -13,7 +13,7 @@ import { nameButton } from './barHint';
  *
  *   In line · Wrap left · Wrap right · Break text | Left Centre Right | S M L Full | Delete
  *
- * In words with a small picture (the simplicity pass before 4.6); every
+ * In words with a small picture (the simplicity pass); every
  * button says its name on hover or a long press (barHint.ts). Where the bar
  * can't fit (a phone), the layouts and alignments become one "Layout…"
  * button that asks the device for its menu (the laptop's right-click menu,

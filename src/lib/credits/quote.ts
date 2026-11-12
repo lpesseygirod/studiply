@@ -1,6 +1,6 @@
 /**
  * quote.ts
- * Step 10.2-2: what a lecture's summary will cost, decided as the server's spend_summary does
+ * What a lecture's summary will cost, decided as the server's spend_summary does
  * (20261029152800_credits.sql), from her own ledger rows for that lecture (RLS; a reverse carries the
  * lecture of the row it undoes). Only for the panel's line: the server still decides.
  */

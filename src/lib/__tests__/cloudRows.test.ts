@@ -95,7 +95,7 @@ describe('folderFromRow', () => {
   });
 });
 
-describe('stars (step 2.2)', () => {
+describe('stars', () => {
   it('courses, folders and lectures keep starred_at', () => {
     expect(courseToProject({ ...course, starred_at: T }).starred_at).toBe(T);
     expect(lectureToSession({ ...lectureFile, starred_at: T }).starred_at).toBe(T);

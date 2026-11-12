@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 5.2: the recorder service with a stand-in microphone, the in-memory
+// The recorder service with a stand-in microphone, the in-memory
 // store and the real queue (createSyncQueue on memory stores). Chunk order,
 // the upload queue offline and back online, transcription that waits for its
 // upload or is refused, and recovery after a crash. Nothing is sent anywhere.
@@ -88,7 +88,7 @@ function rig() {
     transcribed: [] as number[],
     refuse: new Set<number>(),
     transcriptionDown: false,
-    /** Step 10.2-1: no lecture credits left (402 no_credits). */
+    /** No lecture credits left (402 no_credits). */
     noCredits: false,
     /** Cancel recording: an upload or a transcription held on its way until released. */
     uploadGate: null as Promise<void> | null,
@@ -307,7 +307,7 @@ describe('the recorder service', () => {
     expect(snap.chunks.map((c) => c.transcriptError)).toEqual([null, null, null]);
   });
 
-  it('step 10.2-2: resendWaiting sends the waiting chunks of the recording in progress too, never refused ones', async () => {
+  it('resendWaiting sends the waiting chunks of the recording in progress too, never refused ones', async () => {
     const r = rig();
     r.server.noCredits = true;
     r.server.refuse.add(0);
@@ -492,7 +492,7 @@ describe('the recorder service', () => {
     expect((await r.store.getRecording(L))?.status).toBe('stopped');
   });
 
-  it('step 5.4: playback while recording: each chunk’s own audio or its Storage path, and the chunk being recorded from its pieces', async () => {
+  it('playback while recording: each chunk’s own audio or its Storage path, and the chunk being recorded from its pieces', async () => {
     const r = rig();
     r.server.online = false;
     const { service } = r.make();
@@ -536,7 +536,7 @@ describe('the recorder service', () => {
     await service.stop();
   });
 
-  it('step 5.7: recording again into a lecture recorded elsewhere goes on after the audio Studiply already has', async () => {
+  it('recording again into a lecture recorded elsewhere goes on after the audio Studiply already has', async () => {
     const r = rig();
     const { service } = r.make();
     await service.start({ lectureId: L, transcribe: false, after: { seq: 4, ms: 121_000 } });

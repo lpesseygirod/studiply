@@ -177,7 +177,7 @@ export function byStarred(a: ShelfItem, b: ShelfItem): number {
 /**
  * The screen an item opens. A document opens in the editor; a lecture opens
  * as a document, on its Summary tab once processed and on My notes before
- * that (step 7.3). PDFs, images and the kinds without a screen of
+ * that. PDFs, images and the kinds without a screen of
  * their own yet open their course at their folder.
  */
 export function openTarget(item: ShelfItem): Href {
@@ -192,7 +192,7 @@ export function openTarget(item: ShelfItem): Href {
     case 'lecture_pdf':
       return lectureTarget(item.lectureId ?? '', item.status);
     case 'document':
-    // Step 7.9: a Unit summary and an Exam pack are documents.
+    // A Unit summary and an Exam pack are documents.
     case 'unit_summary':
     case 'exam_pack':
       return `/doc/${item.id}`;
@@ -202,7 +202,7 @@ export function openTarget(item: ShelfItem): Href {
 }
 
 /**
- * Since step 7.3 every lecture opens as a document: on its Summary tab once processed, else on My notes.
+ * Every lecture opens as a document: on its Summary tab once processed, else on My notes.
  * Its Summary tab then says what's next (the summarize panel; a lecture recorded the earlier way just has no summary).
  */
 function lectureTarget(id: string, status: Session['status'] | undefined): Href {

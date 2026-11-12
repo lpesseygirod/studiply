@@ -5,8 +5,8 @@ import { lastChipTap, selectedChipMs, TimestampChip, type ChipTap } from '../sch
 /**
  * The chip on the iPhone, through TenTap's bridge: native asks the WebView
  * to insert a chip, and the WebView reports the chip the selection is on
- * (tapping a chip selects it) and the last tap on a chip with a count (step
- * 5.4: so the chip already selected plays again) in the bridge state.
+ * (tapping a chip selects it) and the last tap on a chip with a count (so
+ * the chip already selected plays again) in the bridge state.
  */
 
 export type TimestampChipState = { selectedChipMs: number | null; chipTap: ChipTap | null };

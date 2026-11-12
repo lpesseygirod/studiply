@@ -46,7 +46,7 @@ beforeEach(() => {
   jest.mocked(removeFiles).mockClear();
 });
 
-describe('canMoveTo (also for Phase 2 drop targets)', () => {
+describe('canMoveTo (also for drop targets)', () => {
   it('a folder never goes into itself or anything below it', () => {
     expect(canMoveTo(folder, to('math', 'funcions'), folders)).toBe('into-itself');
     expect(canMoveTo(folder, to('math', 'limits'), folders)).toBe('into-itself');

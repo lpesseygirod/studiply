@@ -1,4 +1,4 @@
-// Documents saved from the laptop (step 4.3): every save is merged block by
+// Documents saved from the laptop: every save is merged block by
 // block with the server's document, also when another device writes in
 // between, and what loses a conflict is kept as a version, once.
 

@@ -38,7 +38,7 @@ let sessionLive = false;
 export function setCacheSession(userId: string | null, live: boolean): void {
   const was = sessionLive;
   setCacheUser(userId);
-  // Step 10.1: "AI is off" belongs to this account.
+  // "AI is off" belongs to this account.
   setAiPauseUser(userId);
   sessionLive = !!userId && live;
   setPullsEnabled(sessionLive);

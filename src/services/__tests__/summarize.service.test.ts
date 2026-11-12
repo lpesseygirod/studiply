@@ -1,4 +1,4 @@
-// Step 7.3: the summarize panel's data and writes (summarize.service), with
+// The summarize panel's data and writes (summarize.service), with
 // the server as a fake with real rows: the course's defaults (else the
 // spec's), Save as course default, the counts from My notes, the request as a
 // pending `summaries` row (laptop at once, iPhone saved and queued), and the
@@ -122,7 +122,7 @@ describe('the starting values', () => {
     await expect(saveCourseDefaults('course-1', SLIDER_DEFAULTS)).rejects.toThrow();
   });
 
-  it('step 9.2 (Lea): Save as course default also saves the study reminders switch (Extend, Merge: untouched)', async () => {
+  it('Save as course default also saves the study reminders switch (Lea; Extend, Merge: untouched)', async () => {
     serverWrite('course_settings', { id: 'cs', course_id: 'course-1', study_reminders: true });
     await saveCourseDefaults('course-1', SLIDER_DEFAULTS, false);
     expect(rowsOf('course_settings')[0]).toMatchObject({ study_reminders: false });
@@ -130,7 +130,7 @@ describe('the starting values', () => {
     expect(rowsOf('course_settings')[0]).toMatchObject({ study_reminders: false });
   });
 
-  it('step 9.2 (Lea): the panel’s study reminders: the lecture’s own choice, else its course’s default, else on', async () => {
+  it('the panel’s study reminders (Lea): the lecture’s own choice, else its course’s default, else on', async () => {
     serverWrite('course_settings', { id: 'cs', ...SETTINGS, study_reminders: false });
     expect((await loadSummarizeInfo(LECTURE)).studyReminders).toBe(false);
     serverWrite('lectures', { id: LECTURE, recorded_at: null, study_reminders: true });
@@ -209,7 +209,7 @@ describe('earlier notes (legacy-note-v1) and requests live in one table, never m
     expect(isSummaryRequest(request as unknown as SummaryRow)).toBe(true);
     expect(isSummaryRequest(legacy as unknown as SummaryRow)).toBe(false);
     expect(isSummaryRequest({ ...request, sliders: { summaryLevel: 'standard' } } as unknown as SummaryRow)).toBe(false);
-    // Step 7.9: Extend, Merge and Exam pack requests are requests too; other modes are not.
+    // Extend, Merge and Exam pack requests are requests too; other modes are not.
     expect(isSummaryRequest({ ...request, mode: 'extend' } as unknown as SummaryRow)).toBe(true);
     expect(isSummaryRequest({ ...request, mode: 'exam_pack' } as unknown as SummaryRow)).toBe(true);
     expect(isSummaryRequest({ ...request, mode: 'quiz' } as unknown as SummaryRow)).toBe(false);
@@ -228,7 +228,7 @@ describe('earlier notes (legacy-note-v1) and requests live in one table, never m
   });
 });
 
-describe('step 7.4: the summary started, read back by status', () => {
+describe('the summary started, read back by status', () => {
   const functions = jest.requireMock('../../lib/functions') as { callFunction: jest.Mock; FunctionError: new (m: string, s: number, c: string) => Error };
   const consent = jest.requireMock('../consent.service') as { ensureConsent: jest.Mock; forgetConsent: jest.Mock };
   beforeEach(() => {

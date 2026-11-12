@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (steps 1.6, 1.7, 6.1, 6.3).
+ * check-claude-local.mjs — end-to-end check of assistant-chat and summarize.
  *
  * Calls the real local Edge Functions, which call Anthropic (four short
  * answers, two short study notes, one clarification, three study-assistant
- * questions and three step-6.3 actions at low effort, about $0.12–0.25 per
+ * questions and three Ask Claude actions at low effort, about $0.12–0.25 per
  * run: the assistant, notes and summaries on Sonnet 5.5 (summaries since Lea, 12 Nov); the
  * models are read from CLAUDE_MODELS in supabase/functions/_shared/claude.ts):
  *   1. checks the Anthropic key is in no tracked file;
@@ -13,16 +13,16 @@
  *      assistant-chat really streams, that each answer's cost is logged
  *      once (also when the student disconnects mid-answer), summarize,
  *      that B can't use A's lecture, the study notes (with a photo, which
- *      needs images consent) and clarify (step 1.7), the study assistant
- *      (step 6.1: a 30-min Spanish lecture with notes, a mark and an
+ *      needs images consent) and clarify, the study assistant
+ *      (a 30-min Spanish lecture with notes, a mark and an
  *      instruction said in class; "Explain the last 10 min" only talks about
  *      that window and cites times inside it, "What did she just say?", a
  *      question the lecture doesn't answer, and both rows saved with their
- *      window), Ask Claude and Flashcards (step 6.3: Explain simpler on a
+ *      window), Ask Claude and Flashcards (Explain simpler on a
  *      plain document, in Spanish, the formula kept; Make flashcard; cards
  *      from a saved answer; each logged once; B can't use A's document), the
  *      daily limit, and withdrawing consent;
- *      the summary (step 7.4) of a synthetic 30-min Spanish lecture: notes
+ *      the summary of a synthetic 30-min Spanish lecture: notes
  *      with formatting, marks of all three kinds at low and high levels, a
  *      board photo, a question to the assistant, an exam phrase and a concept
  *      explained three times, a sentence asking Claude to obey it; the
@@ -33,14 +33,14 @@
  *      about $0.17–0.20 on Opus 5.5, so about half on Sonnet 5.5 (not measured yet);
  *   4. deletes both users and their rows, even when a check fails.
  *
- * Only the summary (step 7.4), without paying for the earlier steps again:
+ * Only the summary, without paying for the earlier steps again:
  *   npm run check:claude -- --only=summary
  *
- * Only the checks before Claude (step 7.9), FREE: refusals only, never a call to Anthropic (signed
+ * Only the checks before Claude, FREE: refusals only, never a call to Anthropic (signed
  * out 401, another user's files 404, no or withdrawn consent 403, $3 used today 429) for every kind of
  * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added;
- * step 10.2-1: at 0 credits a summary, an Exam pack and a quiz → 402 no_credits, nothing spent;
- * step 10.2-1b: the extras' cap (429 extras_limit) and their own $1 daily guard, never on a summary:
+ * at 0 credits a summary, an Exam pack and a quiz → 402 no_credits, nothing spent;
+ * the extras' cap (429 extras_limit) and their own $1 daily guard, never on a summary:
  *   npm run check:claude -- --only=gate
  * (The full run ends with these too.)
  *
@@ -72,14 +72,14 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
   process.exit(1);
 }
 
-/** `--only=summary`: the step-7.4 summary alone (it creates what it needs). */
+/** `--only=summary`: the summary alone (it creates what it needs). */
 const ONLY_SUMMARY = process.argv.includes('--only=summary');
-/** `--only=gate`: the checks before Claude alone, FREE (refusals only; step 7.9). */
+/** `--only=gate`: the checks before Claude alone, FREE (refusals only). */
 const ONLY_GATE = process.argv.includes('--only=gate');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
 const QUIZ_URL = `${url}/functions/v1/quiz`;
-// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts.
 const POLICY_VERSION = '2026-11-store-1';
 /** The models as the functions use them: CLAUDE_MODELS in _shared/claude.ts (the one place they're set). */
 const MODELS = (() => {
@@ -89,7 +89,7 @@ const MODELS = (() => {
 })();
 if (!MODELS.assistant || !MODELS.summary) throw new Error('Could not read CLAUDE_MODELS from supabase/functions/_shared/claude.ts.');
 const DAILY_LIMIT_USD = 3;
-/** Step 10.2-1b: the extras' own daily guard (claude.ts DAILY_EXTRAS_LIMIT_USD). */
+/** The extras' own daily guard (claude.ts DAILY_EXTRAS_LIMIT_USD). */
 const DAILY_EXTRAS_USD = 1;
 const FUNCTIONS_ENV = 'supabase/functions/.env';
 const COUNT_PROMPT = 'Count from 1 to 30, one number per line, nothing else.';
@@ -100,7 +100,7 @@ const LECTURE_TEXT = [
   'If the price is above equilibrium there is a surplus, and the price tends to fall.',
 ];
 
-/** Step 6.1's lecture: 30 min in Spanish, photosynthesis until 20:00, then cellular respiration. */
+/** The study assistant's lecture: 30 min in Spanish, photosynthesis until 20:00, then cellular respiration. */
 const TOPIC_A = [
   'La fotosíntesis ocurre en el cloroplasto de las células vegetales.',
   'La clorofila absorbe la luz del sol.',
@@ -238,7 +238,7 @@ const gitIgnored = (file) => {
   }
 };
 
-/** Step 7.4's synthetic lecture: 30 min of Psicobiología in Spanish (60 segments of 30 s). */
+/** The summary's synthetic lecture: 30 min of Psicobiología in Spanish (60 segments of 30 s). */
 const PSICO = {
   intro: [
     'La Psicobiología estudia la conducta como un proceso biológico.',
@@ -284,7 +284,7 @@ const sameJson = (a, b) => {
 const pmText = (t) => ({ type: 'text', text: t });
 
 /**
- * Step 7.4: the summary of the synthetic lecture, end to end through the real summarize function and
+ * The summary of the synthetic lecture, end to end through the real summarize function and
  * Anthropic (about $0.17–0.20 on Opus 5.5; about half on Sonnet 5.5, the summary model since Lea, 12 Nov).
  * Saves the result in tests/output/ (git-ignored).
  */
@@ -347,7 +347,7 @@ async function summarySection(a, b) {
   const { data: photo, error: photoError } = await a.client.from('media').insert({ lecture_id: lec, kind: 'photo', storage_path: photoPath, mime_type: 'image/jpeg', t_ms: 12 * MIN + 40_000 }).select('id').single();
   if (photoError) throw new Error(`Could not add the photo: ${photoError.message}`);
 
-  // The summarize panel's pending row (step 7.3), the spec's default sliders, photos and questions ticked.
+  // The summarize panel's pending row, the spec's default sliders, photos and questions ticked.
   const SLIDERS = { startingPoint: 2, length: 5, depth: 6, examples: 5, visuals: 4, examFocus: 5, selfTest: 5, language: 4, extraResources: 6, followMarks: 7 };
   const { data: req, error: reqError } = await a.client
     .from('summaries')
@@ -494,8 +494,8 @@ async function gateSection() {
     for (const r of results) check(r.status === status && (!code || r.body?.code === code), `${label}: ${r.name} → ${status}${code ? ` ${code}` : ''} (got ${r.status} ${r.body?.code ?? ''})`);
   };
 
-  // $3 today BEFORE any consent (a check that let a request through would still meet another). Step
-  // 10.2-1b: what credits pay for and the extras have their own daily guards ($3 / $1): both are seeded,
+  // $3 today BEFORE any consent (a check that let a request through would still meet another).
+  // What credits pay for and the extras have their own daily guards ($3 / $1): both are seeded,
   // so every request here is refused, the assistant's too.
   const seeded = await admin.from('ai_usage').insert([
     { user_id: c.id, operation: 'summary', provider: 'anthropic', model: MODELS.summary, cost_usd: DAILY_LIMIT_USD },
@@ -532,7 +532,7 @@ async function gateSection() {
 }
 
 /**
- * Step 10.2-1b, FREE: the extras' fair-use cap. Both users have consent and 0 credits, so a summary is
+ * The extras' fair-use cap, FREE. Both users have consent and 0 credits, so a summary is
  * refused 402 no_credits (proving the extras' limits never block what credits pay for) and nothing
  * reaches Anthropic.
  *  - F, a new account (allowance $0.50), with $0.50 of assistant use seeded: the assistant (a question,
@@ -612,7 +612,7 @@ async function extrasSection() {
 }
 
 /**
- * Step 10.2-1, FREE: no credits left. E has consent and no usage today, and her credits are spent down
+ * No credits left, FREE. E has consent and no usage today, and her credits are spent down
  * to 0; a summary (its lecture has a transcript, so it would pay), an Exam pack and a quiz are each
  * refused 402 no_credits after their claim, before any call to Anthropic: each row back to pending with
  * error no_credits, no ledger row written, no ai_usage row.
@@ -699,7 +699,7 @@ try {
   } else {
   const a = await makeUser(emails[0]);
   const b = await makeUser(emails[1]);
-  // Step 10.2-1b: A uses the assistant a lot below; a new account's extras allowance is $0.50, so A
+  // A uses the assistant a lot below; a new account's extras allowance is $0.50, so A
   // gets 10 recorded lectures' worth ($3.50) first, through the server's own functions.
   {
     const { error: grantError } = await admin.rpc('grant_credits', { p_user: a.id, p_kind: 'grant_admin', p_base_key: 'check-claude-extras', p_units: 40, p_label: 'check' });
@@ -721,7 +721,7 @@ try {
   if (lectureError) throw new Error(`Could not create the lecture: ${lectureError.message}`);
   const chatBody = { lectureId, message: COUNT_PROMPT };
 
-  // The earlier steps (1.6–6.3); skipped with --only=summary.
+  // The earlier steps; skipped with --only=summary.
   if (!ONLY_SUMMARY) {
   console.log('\nRequest checks');
   for (const [name, fnUrl] of [['assistant-chat', CHAT_URL], ['summarize', SUMMARIZE_URL]]) {

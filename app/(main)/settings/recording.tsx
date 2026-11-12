@@ -11,7 +11,7 @@ import { SavedMark } from '../../../src/components/settings/SavedMark';
 import { RecordingSettings } from '../../../src/components/settings/PreferenceSettings';
 import { RECORDING_REMINDER_TEXT, RECORDING_REMINDER_TITLE } from '../../../src/services/recording-reminder';
 
-/** Recording: default mode, Lecture Mode, transcription language; the reminder to check recording is allowed (step 10.1). */
+/** Recording: default mode, Lecture Mode, transcription language; the reminder to check recording is allowed. */
 export default function RecordingSettingsPage() {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();

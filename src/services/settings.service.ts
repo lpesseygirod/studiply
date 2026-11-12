@@ -2,8 +2,8 @@
  * settings.service.ts
  * The student's recording and notes defaults.
  *
- * The step 1.2 schema has no table for the old app's settings (Phase 7
- * replaces most of them with per-course sliders), so they are kept per
+ * The Supabase schema has no table for the old app's settings (the summary
+ * engine replaces most of them with per-course sliders), so they are kept per
  * device: AsyncStorage on iPhone, localStorage in the browser. Only the
  * default language is in the cloud (profiles.default_language), because it
  * also decides the lecture language on every device.

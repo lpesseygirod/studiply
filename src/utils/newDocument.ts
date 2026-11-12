@@ -5,7 +5,7 @@ import { createDocument } from '../services/document.service';
 import { errorMessage } from './errors';
 
 /**
- * New document (step 4.3) from the New menu, the empty-space menu or ⌥N:
+ * New document from the New menu, the empty-space menu or ⌥N:
  * "Untitled document" in the open course or folder (My library elsewhere),
  * opened with its title selected. Works offline on the iPhone.
  */

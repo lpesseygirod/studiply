@@ -7,7 +7,7 @@ import { onNotificationTap, takeLaunchTap } from '../../services/reminders/notif
 import { remindersSupported, requestReschedule } from '../../services/reminders/reminders.service';
 
 /**
- * Step 9.2-3, mounted once while signed in (the main layout): the review reminders planned again when
+ * Mounted once while signed in (the main layout): the review reminders planned again when
  * the app opens or comes back and whenever the library changes (lectures, reviews, an exam date, a
  * lecture's or a course's study reminders), and a tapped reminder opens Review (also when it opened
  * the app). Nothing on the web.

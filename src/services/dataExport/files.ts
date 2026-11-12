@@ -1,6 +1,6 @@
 /**
  * files.ts
- * Small helpers for "Export my data" (step 10.1b-4): safe file and folder names, CSV, times.
+ * Small helpers for "Export my data": safe file and folder names, CSV, times.
  */
 
 /** A name that works as a file or folder name on every system (no / \ : * ? " < > |, ≤ 80 characters). */

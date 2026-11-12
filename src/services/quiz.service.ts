@@ -1,12 +1,12 @@
 /**
  * quiz.service.ts
- * Create a quiz (step 9.1b): the New quiz panel's data, Save as course default, the quiz saved,
- * the Quiz me tab's list, Delete with Undo; step 9.1b-2: the quiz written by the quiz function.
+ * Create a quiz: the New quiz panel's data, Save as course default, the quiz saved,
+ * the Quiz me tab's list, Delete with Undo; the quiz written by the quiz function.
  *
  * - Making a quiz needs a connection (BUILD-PLAN), so the panel reads Supabase and Create writes there
  *   on both devices: a `quizzes` row (pending, its settings and the calculator's plan) and its
  *   `quiz_sources`.
- * - Step 9.1b-2: then `startQuiz` asks the permissions (the transcript always; photos and PDFs when the
+ * - Then `startQuiz` asks the permissions (the transcript always; photos and PDFs when the
  *   quiz has them: declining that one makes the quiz without them) and starts the quiz function, which
  *   answers at once and writes the quiz in the background; the list follows the row (`quizNow`, every
  *   5 s while it is writing). Start and Try again are the same call: the server claims a pending or
@@ -269,7 +269,7 @@ export interface CreateQuiz {
 
 /**
  * Saves the quiz: a pending `quizzes` row (its settings and plan) and its sources. No AI is called:
- * the quiz is written in 9.1b-2. Every file must be on the server already (an upload from the iPhone
+ * the quiz is written later (startQuiz). Every file must be on the server already (an upload from the iPhone
  * may still be on its way).
  */
 export async function createQuiz(ask: CreateQuiz): Promise<string> {
@@ -314,7 +314,7 @@ export async function createQuiz(ask: CreateQuiz): Promise<string> {
 }
 
 // -------------------------------------------------------------------
-// Writing the quiz (step 9.1b-2)
+// Writing the quiz
 // -------------------------------------------------------------------
 
 /** One quiz's row as it is now (the list reads it every 5 s while the quiz is being written); kept in the iPhone's copy. */

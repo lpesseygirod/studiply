@@ -1,4 +1,4 @@
-// Recent colours follow the student across devices (step 4.5): each device
+// Recent colours follow the student across devices: each device
 // keeps a copy, and the account's list is the union by time, so two devices
 // never wipe out each other's colours.
 import AsyncStorage from '@react-native-async-storage/async-storage';

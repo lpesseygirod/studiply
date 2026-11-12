@@ -1,6 +1,6 @@
 /**
  * summary-schema.ts
- * The summary's shape as the API contract (step 7.4; SUMMARY-SPEC "How to
+ * The summary's shape as the API contract (SUMMARY-SPEC "How to
  * generate it"): the JSON Schemas Claude answers in (structured outputs,
  * `output_config.format`). The answers are checked with zod in
  * summary-zod.ts (Lea OK'd zod, 31 Oct), whose shapes a Jest test keeps in
@@ -17,7 +17,7 @@
  * header's facts, the derived settings, the coverage counts, and each
  * "From your notes" block's text (copied from the student's notes by id).
  *
- * Without imports, so the app (7.7) and Jest use the same file.
+ * Without imports, so the app and Jest use the same file.
  */
 
 export const SUMMARY_FORMAT = 'studiply-summary-v1';
@@ -88,7 +88,7 @@ export type BlockType = (typeof BLOCK_TYPES)[number];
 /** A section's block as Claude writes it: its type, and its fields as a JSON object in a string. */
 export const PACKED_BLOCK: JsonSchema = obj({ type: oneOf(BLOCK_TYPES), data: str });
 
-/** A section as Claude writes it (in the summary, and alone when one section is written again, step 7.5). */
+/** A section as Claude writes it (in the summary, and alone when one section is written again). */
 export const SECTION_SCHEMA: JsonSchema = obj({
   heading: str,
   timestamp: str,
@@ -118,11 +118,11 @@ export const SUMMARY_SCHEMA: JsonSchema = obj({
   unclear: arr(obj({ timestamp: str, note: str })),
 });
 
-/** Step 7.5, the lists written again (a high mark's takeaway, self-test question or flashcard was missing). */
+/** The lists written again (a high mark's takeaway, self-test question or flashcard was missing). */
 export const LISTS_SCHEMA: JsonSchema = obj({ takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
 
 /**
- * Step 7.6, one part of a long lecture (its topics' sections and what belongs to their span); the
+ * One part of a long lecture (its topics' sections and what belongs to their span); the
  * whole-summary lists (title, takeaways, self-test, flashcards) come from the wrap-up call.
  */
 export const PART_SCHEMA: JsonSchema = obj({
@@ -135,17 +135,17 @@ export const PART_SCHEMA: JsonSchema = obj({
   unclear: (SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).unclear,
 });
 
-/** Step 7.6, the wrap-up call after the parts are merged: the whole lecture's title and lists. */
+/** The wrap-up call after the parts are merged: the whole lecture's title and lists. */
 export const WRAPUP_SCHEMA: JsonSchema = obj({ title: str, takeaways: TAKEAWAYS, selfTest: SELF_TEST, flashcards: FLASHCARDS });
 
 /**
- * Step 7.9, Extend and Merge (the approved plan): the lecture being added is written by the generate
+ * Extend and Merge (the approved plan): the lecture being added is written by the generate
  * call with the existing summary in its prompt, and its answer has two more lists:
  * - alreadyCovered: what the lecture says again about a part already there (`anchor`: that block's id,
  *   `quote`: its words the note is about, `note`: what was said this time, `t`: when);
  * - corrections: what the professor corrected (`anchor`: the block corrected, `said`: the correction).
  * Both in ONE string field, `extend`, holding their JSON (checked with zod after, summary-zod.ts
- * ExtendLists), as the blocks' `data` since 7.4: the summary schema is near the API's limit for a
+ * ExtendLists), as the blocks' `data` are: the summary schema is near the API's limit for a
  * compiled grammar, and the two lists as real arrays of objects went over it (the paid run of 31 Oct:
  * "The compiled grammar is too large"). One more string adds next to nothing.
  */
@@ -156,7 +156,7 @@ export function extendSchema(base: JsonSchema): JsonSchema {
   return obj({ ...(base.properties as Record<string, JsonSchema>), [EXTEND_FIELD]: str });
 }
 
-/** Step 7.9, Exam pack: a course or unit compressed to what the exam needs, by topic. */
+/** Exam pack: a course or unit compressed to what the exam needs, by topic. */
 export const EXAM_PACK_SCHEMA: JsonSchema = obj({
   title: str,
   topics: arr(
@@ -174,14 +174,14 @@ export const EXAM_PACK_SCHEMA: JsonSchema = obj({
 export const VERDICTS = ['found', 'corrected', 'added'] as const;
 
 /**
- * Step 7.5, the faithfulness check's call: for each number, date or formula code couldn't find in the
+ * The faithfulness check's call: for each number, date or formula code couldn't find in the
  * lecture, whether it is there after all, wrong (with the right words), or added (not from the lecture).
  */
 export const VERIFY_SCHEMA: JsonSchema = obj({ items: arr(obj({ id: str, verdict: oneOf(VERDICTS), replacement: str })) });
 
 /**
  * What the classify call answers (call 1): the subject and modules, the topics, and the two signals
- * the summary calculator takes as inputs (7.2, decision E): the professor's exam phrases and the
+ * the summary calculator takes as inputs (decision E): the professor's exam phrases and the
  * concepts explained 3 or more times, each with its times.
  */
 export const CLASSIFY_SCHEMA: JsonSchema = obj({

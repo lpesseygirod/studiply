@@ -1,4 +1,4 @@
-// Step 10.2-2: the one store of her credits (credits.service.ts): read with my_credits(), kept per
+// The one store of her credits (credits.service.ts): read with my_credits(), kept per
 // account on the iPhone, forgotten at sign-out, read again after a 402 (throttled), and a rise from 0
 // told to CreditsHost (which sends the waiting recordings).
 

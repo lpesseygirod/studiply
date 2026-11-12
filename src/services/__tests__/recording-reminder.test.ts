@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 10.1: the reminder before the first recording ("check that you may record this class"), once
+// The reminder before the first recording ("check that you may record this class"), once
 // per account: shown, then remembered (here and on the account), never again; recording waits for "Got it".
 import { RECORDING_REMINDER_TITLE, remindBeforeFirstRecording } from '../recording-reminder';
 

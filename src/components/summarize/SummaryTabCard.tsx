@@ -16,7 +16,7 @@ import { openSummarize } from './summarizePanelState';
 const POLL_MS = 5000;
 
 /**
- * A lecture's Summary tab before the summary is written into it (steps 7.3–7.4):
+ * A lecture's Summary tab before the summary is written into it:
  * - a summary of the summarize panel, by status: saved but not started ("Summarize now"), being written
  *   (read again every few seconds), ready (its counts and takeaways), or failed (why, and Try again);
  * - else "Summarize this lecture", which opens the panel;

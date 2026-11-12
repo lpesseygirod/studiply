@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.4: the Summary tab card's words by status: saved but not started, being written, ready (its
+// The Summary tab card's words by status: saved but not started, being written, ready (its
 // counts and takeaways), failed (why, and what to do).
 import { bannerText, checksLine, summaryCardText } from '../summaryCard';
 import type { LectureSummary } from '../../../services/summarize.service';
@@ -40,7 +40,7 @@ describe('the Summary tab card', () => {
     );
   });
 
-  describe('the checks line (step 7.5)', () => {
+  describe('the checks line', () => {
     const report = (over: Partial<CheckReport> = {}): CheckReport => ({
       version: 1,
       schema: { pass: true, errors: [] },
@@ -53,7 +53,7 @@ describe('the Summary tab card', () => {
       ...over,
     });
 
-    it('a summary made before 7.5 has none', () => expect(checksLine(undefined)).toBe(''));
+    it('a summary made before the checks has none', () => expect(checksLine(undefined)).toBe(''));
     it('all passed', () => expect(checksLine(report())).toBe('All checks passed.'));
     it('all passed, with details moved under Added context', () => {
       expect(checksLine(report({ faithfulness: { pass: true, checked: 12, found: 10, unverified: [], corrected: 1, labelled: 2 } }))).toBe(
@@ -82,19 +82,19 @@ describe('the Summary tab card', () => {
     ['refused', 'Claude can’t summarize this lecture.', 'retry'],
     ['part_failed', 'A part of this long lecture couldn’t be written. Nothing was changed.', 'retry'],
     ['unreadable', 'Something went wrong. Nothing was changed.', 'retry'],
-    // Step 7.9: Extend, Merge and Exam pack.
+    // Extend, Merge and Exam pack.
     ['no_base_summary', 'The lecture you extend has no summary yet. Summarize it first.', 'retry'],
     ['no_summaries', 'None of these lectures has a summary yet. Summarize them first.', 'retry'],
   ])('failed (%s): why, and what to do', (error, text, action) => {
     expect(summaryCardText(summary({ status: 'failed', error }))).toEqual({ label: 'The summary wasn’t written', text, action });
   });
 
-  it('an Extend / Merge / Exam pack finished (step 7.9): being written into its document', () => {
+  it('an Extend / Merge / Exam pack finished: being written into its document', () => {
     const result = { format: 'studiply-combined-v1' } as unknown as Parameters<typeof summaryCardText>[0]['result'];
     expect(summaryCardText(summary({ status: 'done', result }))).toEqual({ label: 'Ready', text: 'Writing it into this document…' });
   });
 
-  it('the green banner’s line (step 7.7, desktop-03): her notes and marks, the audio, what else it was built from', () => {
+  it('the green banner’s line (desktop-03): her notes and marks, the audio, what else it was built from', () => {
     const header = { course: '', title: '', number: 1, date: '', professor: '', durationMin: 34, builtFrom: ['notes', 'audio', 'slides', 'photos', 'assistant'] };
     expect(bannerText({ coverage: { noteLines: 14, noteLinesUsed: 14, marks: 6, marksUsed: 6 }, header })).toBe(
       'Built from your notes (all 14 lines, 6 marks) + 34 min of audio · slides · board photos · your questions to the assistant',
@@ -104,7 +104,7 @@ describe('the Summary tab card', () => {
     );
   });
 
-  it('failed, over 3 hours (step 7.6): why, and no button (nothing on the card helps)', () => {
+  it('failed, over 3 hours: why, and no button (nothing on the card helps)', () => {
     expect(summaryCardText(summary({ status: 'failed', error: 'long_lecture' }))).toEqual({ label: 'The summary wasn’t written', text: 'Lectures over 3 hours can’t be summarized yet.' });
   });
 });

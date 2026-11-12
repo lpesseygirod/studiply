@@ -10,7 +10,7 @@ import { newBlockId } from './blockMeta';
 import { chipMs, TIMESTAMP_CHIP } from './timestampChip';
 
 /**
- * Photos in documents (step 4.5), in place of TenTap's plain image: still
+ * Photos in documents, in place of TenTap's plain image: still
  * the `image` node (pasted pictures stay pictures), with
  * - `src` `media:<id>` for a photo added in Studiply (see media/photoSource),
  *   or a pasted picture's own address;
@@ -55,13 +55,13 @@ declare module '@tiptap/core' {
       setPhotoLayout: (layout: { wrap?: PhotoWrap; align?: PhotoAlign }) => ReturnType;
     };
     inlinePhoto: {
-      /** A board photo taken while recording (step 5.6): a thumbnail on a line of its own with its time. */
+      /** A board photo taken while recording: a thumbnail on a line of its own with its time. */
       placePhotoLine: (src: string, ms: number) => ReturnType;
     };
   }
 }
 
-/** What a photo says until its picture is found (the PDF export, 4.8a, waits for it to go). */
+/** What a photo says until its picture is found (the PDF export waits for it to go). */
 export const PHOTO_LOADING = 'Loading photo…';
 
 const NOTES: Record<'loading' | 'offline' | 'missing' | 'broken', string> = {
@@ -390,7 +390,7 @@ export const InlinePhoto = Node.create({
   },
 });
 
-/** A board photo in My notes (step 5.6): a thumbnail, in % of the page (bigger from its menu). */
+/** A board photo in My notes: a thumbnail, in % of the page (bigger from its menu). */
 export const BOARD_PHOTO_WIDTH = 35;
 
 /** A board photo's line (as placePhotoLine makes it): a paragraph starting with its time chip, with a photo in it. */

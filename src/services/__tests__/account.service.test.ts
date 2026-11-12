@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 10.1: Delete account (account.service). Online only; the delete-account function called with her
+// Delete account (account.service). Online only; the delete-account function called with her
 // confirmation only (never an id); with Sign in with Apple, Apple asked once more for the revocation
 // code (cancelled: deleted anyway); a refusal thrown with its message.
 import { confirmsDeletion, deleteAccount } from '../account.service';

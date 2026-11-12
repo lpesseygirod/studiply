@@ -1,5 +1,5 @@
 /**
- * html5.web.ts — the laptop's drag and drop (step 3.1, Option B): the
+ * html5.web.ts — the laptop's drag and drop (Option B): the
  * browser's own drag on the DOM nodes behind React Native Web views. It
  * shows the native drag image, scrolls while dragging, and receives files
  * dragged from the computer (Finder), which a gesture-based drag can't.

@@ -1,5 +1,5 @@
 /**
- * The recorder service's parts (step 5.2). The service (./service) is the
+ * The recorder service's parts. The service (./service) is the
  * same on every platform; the microphone, the local store, the queues and the
  * lock are each platform's own (./platform.web, ./platform).
  */
@@ -31,7 +31,7 @@ export interface RecordingMeta {
   updatedAt: string;
   /**
    * Cancel recording (Lea, 6 Nov): how this recording began (a new lecture; a plain document that became
-   * one; a lecture recorded again, step 5.7) and where it starts on the lecture's timeline.
+   * one; a lecture recorded again) and where it starts on the lecture's timeline.
    */
   origin?: RecordingOrigin;
   from?: { seq: number; ms: number };
@@ -204,7 +204,7 @@ export interface RecorderService {
   /** False on the iPhone until expo-audio. */
   readonly supported: boolean;
   /**
-   * `after`: where the lecture's audio already ends on Studiply (step 5.7, recording again into a lecture
+   * `after`: where the lecture's audio already ends on Studiply (recording again into a lecture
    * recorded elsewhere or earlier): the new chunks are numbered and timed after it, as after this device's own.
    */
   start(params: {
@@ -233,12 +233,12 @@ export interface RecorderService {
    */
   recover(): Promise<RecordingMeta[]>;
   /**
-   * Step 10.2-2: chunks waiting for credits (402 no_credits) queued again for transcription, in every
+   * Chunks waiting for credits (402 no_credits) queued again for transcription, in every
    * recording of hers, the one being recorded too. Returns how many.
    */
   resendWaiting(): Promise<number>;
   /**
-   * Live notes (step 5.4): a recording's audio as this device has it, for playing a moment while it
+   * Live notes: a recording's audio as this device has it, for playing a moment while it
    * still records: each chunk's own audio (until uploaded) or its Storage path, and the chunk being
    * recorded from its saved pieces (a file cut short, which plays).
    */

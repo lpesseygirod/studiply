@@ -1,5 +1,5 @@
 // The app's own row types, which the services return and the screens use.
-// Since step 1.7 they are mapped from the Supabase schema in
+// They are mapped from the Supabase schema in
 // src/lib/cloudRows.ts; the database's own types are src/types/supabase.ts.
 
 export type Json =
@@ -19,7 +19,7 @@ export interface Profile {
   username: string;
   display_name: string | null;
   initials: string;
-  /** Path of the profile photo in the private `photos` bucket (step 1.4). */
+  /** Path of the profile photo in the private `photos` bucket. */
   avatar_path: string | null;
   created_at: string;
   updated_at: string;

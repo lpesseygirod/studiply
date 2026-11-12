@@ -1,6 +1,6 @@
 /**
  * clipboard.ts
- * Cut and Copy for library items (step 3.4, Lea): one item at a time until
+ * Cut and Copy for library items (Lea): one item at a time until
  * multi-select. Paste moves a cut item (the clipboard then empties) or
  * copies a copied PDF or photo (it stays, to paste again). Kept in memory
  * only: it is this app's clipboard, not the system's.

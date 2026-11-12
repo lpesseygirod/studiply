@@ -1,5 +1,5 @@
 /**
- * The recorder on the iPhone (steps 5.1–5.4, iPhone half): expo-audio in
+ * The recorder on the iPhone: expo-audio in
  * 30-second chunks overlapping by 500 ms (lib/nativeChunkRecorder), on with
  * the screen locked (the background audio mode, app.json); each finished
  * chunk moved to the app's documents, then uploaded and transcribed through

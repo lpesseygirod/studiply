@@ -1,9 +1,9 @@
 /**
  * library-upload.service.ts
- * Photos and PDFs uploaded into a course or folder as library files
- * (step 3.4): a `files` row (kind image or pdf) with its own media row
+ * Photos and PDFs uploaded into a course or folder as library files:
+ * a `files` row (kind image or pdf) with its own media row
  * (file_id set, lecture_id null) and its Storage object at
- * {userId}/{fileId}/{mediaId}.{ext}. Before 3.4 uploads went into the
+ * {userId}/{fileId}/{mediaId}.{ext}. Before library files, uploads went into the
  * course's hidden "Project Files" lecture.
  *
  * Photos are re-encoded as JPEG (the photos bucket takes JPEG only); PDFs

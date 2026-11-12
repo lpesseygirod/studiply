@@ -1,4 +1,4 @@
-// check-account-deletion-local.mjs — step 10.1: Delete account leaves nothing behind (BUILD-PLAN 10.1's
+// check-account-deletion-local.mjs — Delete account leaves nothing behind (the build plan's
 // check, done by code). LOCAL ONLY, FREE (no AI service is called).
 //
 // Needs `supabase start` (the migrations applied, 20261029152300_store_rules included) and
@@ -94,7 +94,7 @@ async function account(label) {
   for (const scope of ['transcription', 'assistant_summary', 'images']) await client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION });
   must(await client.from('terms_acceptances').insert({ terms_version: 'delete-check-1', age_confirmed: true, source: 'gate' }), 'a terms acceptance');
   await admin.from('ai_usage').insert({ user_id: id, operation: 'summary', provider: 'anthropic', model: 'claude-opus-5-5', lecture_id: lecture.id });
-  // Step 10.2-1: her welcome credits came with the account; a spend too (through the server's function).
+  // Her welcome credits came with the account; a spend too (through the server's function).
   must(await admin.rpc('spend_credits', { p_user: id, p_base_key: `lecture:${lecture.id}:block:0`, p_units: 4, p_kind: 'spend_lecture', p_lecture: lecture.id }), 'a credit spend');
   const quiz = must(await client.from('quizzes').insert({ course_id: course.id, title: 'Quiz', settings: {}, plan: {}, status: 'ready', question_count: 1 }).select('id').single(), 'a quiz');
   await client.from('quiz_sources').insert({ quiz_id: quiz.id, role: 'lecture', file_id: lecture.id });

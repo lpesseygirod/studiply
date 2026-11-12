@@ -9,7 +9,7 @@ import { errorMessage } from '../../utils/errors';
 import type { Moment } from './markPanelState';
 
 /**
- * Board photos (step 5.6), shared by both devices: a photo taken while
+ * Board photos, shared by both devices: a photo taken while
  * recording is a `media` row of the lecture with its time (doc-photo.service)
  * and a thumbnail on a stamped line of My notes (moment-placement). The
  * iPhone takes it with its camera (./photoBoard), the laptop with its webcam
@@ -24,7 +24,7 @@ export async function saveBoardPhoto(m: Moment, picked: PickedFile): Promise<boo
     await placeAtMoment(m.lectureId, { kind: 'photo', mediaId, ms: m.ms });
     return true;
   } catch (err) {
-    // addDocPhoto's messages are written for the student (as the 4.5 photo button shows them); the connection's as usual.
+    // addDocPhoto's messages are written for the student (as the editor's photo button shows them); the connection's as usual.
     showAlert('The photo wasn’t saved', isNetworkError(err) ? errorMessage(err, '') : err instanceof Error ? err.message : 'Please try again.');
     return false;
   }

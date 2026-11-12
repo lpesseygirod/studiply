@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-3: taking a quiz (quiz-attempt.service.ts). The laptop writes Supabase at once; the iPhone
+// Taking a quiz (quiz-attempt.service.ts). The laptop writes Supabase at once; the iPhone
 // keeps each write and queues it (quiz_attempt, quiz_answer: one per question, the latest wins;
 // quiz_grade after them). Answers graded in code on save; unanswered questions written wrong at Finish
 // (Lea's decision 1); her grade keeps the first one it changed; Sonnet asked only with the permission.
@@ -166,7 +166,7 @@ describe('the laptop (written at once)', () => {
     expect(consent.forgetConsent).toHaveBeenCalled();
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'daily_limit'));
     expect(await gradeAttempt(QUIZ, 'att-1')).toBe('limit');
-    // Step 10.2-1b: the assistant & extras allowance used up.
+    // The assistant & extras allowance used up.
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 429, 'extras_limit'));
     expect(await gradeAttempt(QUIZ, 'att-1')).toBe('extras');
     functions.callFunction.mockRejectedValueOnce(new functions.FunctionError('x', 0, 'network', true));

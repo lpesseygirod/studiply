@@ -5,8 +5,8 @@ import { Typography } from '../../constants/typography';
 import { PAGE_COLORS } from '../../editor/editorCss';
 
 /**
- * The Summary tab of a lecture whose notes were made before documents
- * (step 4.3): a preview, until they are converted into this tab. Also says
+ * The Summary tab of a lecture whose notes were made before documents:
+ * a preview, until they are converted into this tab. Also says
  * when a lecture has no summary yet, with an action if there is one. On the white page.
  */
 export function EarlierNotesCard({

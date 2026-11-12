@@ -1,6 +1,6 @@
 /**
  * LicencesSection.tsx
- * "Open-source licences" on /legal (step 10.1b-1), from src/legal/licences.generated.ts (package
+ * "Open-source licences" on /legal, from src/legal/licences.generated.ts (package
  * metadata, npm run build:legal). First the licences whose text must be shown (libheif-js and
  * libheif, LGPL-3.0), with where their source is and the full text behind "Show the licence";
  * then every package with its version, licence and copyright, behind "Show all N packages".

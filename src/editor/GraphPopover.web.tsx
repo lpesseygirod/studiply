@@ -24,7 +24,7 @@ function placeForm(box: GraphBox): Anchor {
 }
 
 /**
- * The laptop's graph form (step 4.7d): a click on a graph, or Insert ▾ →
+ * The laptop's graph form: a click on a graph, or Insert ▾ →
  * Graph, opens it right under the graph (beside the page when the window has
  * no room below it). Each change redraws the graph in
  * the page at once; Done, a click outside or Escape close it and put the

@@ -1,4 +1,4 @@
-// Step 10.1b-5: the local ESLint rule studiply/a11y-labels (eslint/a11y-labels.js) flags icon-only
+// The local ESLint rule studiply/a11y-labels (eslint/a11y-labels.js) flags icon-only
 // buttons and images without a name, and lets named, texted or hidden ones through.
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { RuleTester } = require('eslint') as typeof import('eslint');

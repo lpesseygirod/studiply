@@ -4,8 +4,8 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 
 /**
- * The look of the settings panels (docs/design desktop-02 and iphone-05): Stop & summarize (step 7.3)
- * and New quiz (step 9.1b). Laptop: a centred card; iPhone (and the web below 1024 px): a full-screen
+ * The look of the settings panels (docs/design desktop-02 and iphone-05): Stop & summarize
+ * and New quiz. Laptop: a centred card; iPhone (and the web below 1024 px): a full-screen
  * sheet with the buttons fixed at the bottom. Moved here unchanged from SummarizePanel.tsx.
  */
 export const makePanelStyles = (c: ThemeColors) =>

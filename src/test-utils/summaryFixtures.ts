@@ -1,5 +1,5 @@
 /**
- * Step 7.4's test material: a summary as Claude answers it (every block type once, the spec's shape)
+ * Test material for summaries: a summary as Claude answers it (every block type once, the spec's shape)
  * and a small Spanish lecture to summarize (notes with formatting, the three kinds of mark, a photo
  * and a question to the assistant).
  */

@@ -1,7 +1,7 @@
 import { expoAudio } from './expoAudio';
 
 /**
- * The iPhone's audio session, set in one place (step 5.1–5.4, iPhone half).
+ * The iPhone's audio session, set in one place.
  * expo-audio's mode is all or nothing: a mode without `allowsRecording` stops
  * every recorder. So while a lecture records (or is paused), only the
  * recording mode is ever set, and playing a chip leaves it alone; otherwise a

@@ -1,5 +1,5 @@
 /**
- * Which document the study assistant is about (step 6.2). The document
+ * Which document the study assistant is about. The document
  * screen says what it shows; the laptop's assistant panel (in the shell
  * layout) reads it. Only a lecture can be asked about: assistant-chat
  * answers from a lecture's transcript.

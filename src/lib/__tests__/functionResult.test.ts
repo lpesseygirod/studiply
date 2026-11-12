@@ -74,7 +74,7 @@ describe('mock AI', () => {
   });
 });
 
-describe('createSseReader (step 6.2: the answer streams in)', () => {
+describe('createSseReader (the answer streams in)', () => {
   const stream =
     sseEvent('meta', { answerId: 'a-1', window: { startMs: 0, endMs: 60_000 }, knownUpToMs: 60_000 }) +
     sseEvent('delta', { text: 'La mito' }) +

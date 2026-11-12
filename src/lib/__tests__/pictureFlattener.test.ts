@@ -1,4 +1,4 @@
-// The queue between toJpeg and the iPhone's flattening WebView (step 4.8b).
+// The queue between toJpeg and the iPhone's flattening WebView.
 import { flattenOnWhiteNative, hasFlattenJobs, nextFlattenJob, registerFlattener } from '../pictureFlattener';
 
 afterEach(() => jest.useRealTimers());

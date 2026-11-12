@@ -20,7 +20,7 @@ import {
 } from './document.service';
 
 /**
- * Tabs in every document (step 4.7b). Each tab is a documents row: its id
+ * Tabs in every document. Each tab is a documents row: its id
  * (`tab`) is `notes`, `summary`, `transcript` or `t-<uuid>` for an added one,
  * with a title, a position among the movable tabs, a soft delete and a kind
  * (summary, sheet). Content, versions, page setup and the queue already work
@@ -116,8 +116,8 @@ export function positionBetween(before: number | null, after: number | null): nu
 }
 
 /**
- * The next free "Tab N" name, "Sheet N" for a spreadsheet (counted among the sheets, step 4.7e), or
- * "New summary", "New summary 2"… for a summary she didn't add to the Summary tab (step 7.7, 4.7b).
+ * The next free "Tab N" name, "Sheet N" for a spreadsheet (counted among the sheets), or
+ * "New summary", "New summary 2"… for a summary she didn't add to the Summary tab.
  */
 export function nextTabTitle(tabs: (Pick<TabInfo, 'title'> & { kind?: TabKind | null })[], kind: TabKind | null = null): string {
   const taken = new Set(tabs.map((t) => t.title.toLowerCase()));
@@ -156,12 +156,12 @@ export async function listTabs(fileId: string, isLecture: boolean): Promise<TabI
 }
 
 // -------------------------------------------------------------------
-// Step 5.7: a document turned into a lecture. Its first tab (`notes`)
+// A document turned into a lecture. Its first tab (`notes`)
 // becomes My notes, untouched: the same row, content and versions. Two
 // cases first (Lea's advisor, 30 Oct):
 //  - renamed ("Week 3"): it takes the name My notes; the old name is in the
 //    name of a version of the text saved first, so nothing is hidden;
-//  - deleted earlier (4.7b keeps it, deleted, while other tabs remain): My
+//  - deleted earlier (the tabs keep it, deleted, while other tabs remain): My
 //    notes starts empty; the deleted text is saved first as a version named
 //    "Before recording".
 // -------------------------------------------------------------------
@@ -309,7 +309,7 @@ async function createTabRow(payload: CreateTabPayload, fail: ErrorOf): Promise<D
 // -------------------------------------------------------------------
 
 export interface TabMeta {
-  /** null: the default name (step 5.7: the first tab of a document turned into a lecture is My notes). */
+  /** null: the default name (the first tab of a document turned into a lecture is My notes). */
   title?: string | null;
   position?: number;
   deleted_at?: string | null;

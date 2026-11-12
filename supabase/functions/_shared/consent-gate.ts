@@ -1,6 +1,6 @@
 /**
  * consent-gate.ts
- * Step 10.1: a run that makes several Claude calls (a summary: classify, generate, the long parts,
+ * A run that makes several Claude calls (a summary: classify, generate, the long parts,
  * the checks…) asks again before each one whether the student still allows AI. If she switched it off
  * in Settings → AI & privacy meanwhile, the call never starts: nothing more is sent. Without imports,
  * so Jest tests it.

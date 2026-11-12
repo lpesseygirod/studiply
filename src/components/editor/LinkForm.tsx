@@ -7,7 +7,7 @@ import { cleanUrl } from '../../editor/format/links';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * The laptop's link dialog (step 4.5; the toolbar's Link button, ⌘K, Edit in
+ * The laptop's link dialog (the toolbar's Link button, ⌘K, Edit in
  * the link bubble): the text when nothing is selected, the address, Apply
  * and Remove. The address is checked as it is typed (cleanUrl).
  */

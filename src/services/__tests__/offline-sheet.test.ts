@@ -1,5 +1,5 @@
 // A spreadsheet tab edited offline on the iPhone, sent when the connection is
-// back (step 4.7e, checkpoint 3): the cells merge one by one with what the
+// back (checkpoint 3): the cells merge one by one with what the
 // laptop wrote meanwhile. Different cells: both kept. The same cell: the
 // newer change wins and the other is in version history. Two offline saves
 // go as one edit. The handlers and the queue's merge are the real ones; the

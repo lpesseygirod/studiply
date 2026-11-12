@@ -1,6 +1,6 @@
 /**
  * credits.service.ts
- * Step 10.2-2 (docs/reports/plan-10.2-2.md §7): the one place the app reads her credits, from the
+ * The one place the app reads her credits (docs/reports/plan-10.2-2.md §7), from the
  * server's my_credits() (her balance, the last 20 rows, the beta grant). One store for every screen;
  * refreshed at sign-in, when the app or tab comes back (CreditsHost), when Settings → Credits opens,
  * after a 402 no_credits and after a summary or quiz is started (lib/credits/signals). The iPhone keeps

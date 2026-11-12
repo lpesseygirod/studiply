@@ -10,7 +10,7 @@ import { LINK_EVENT } from './bridges/format';
 import { runFormat } from './format';
 
 /**
- * The laptop's link bubble (step 4.5): with the cursor on a link, a small
+ * The laptop's link bubble: with the cursor on a link, a small
  * bar under it shows the address with Open (a new tab) · Edit · Remove.
  * Drawn over the page (`page`: the page's DOM element), following scrolling.
  */
@@ -30,7 +30,7 @@ export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement
     el?.addEventListener('mousedown', (e) => e.preventDefault());
   }, []);
 
-  // Step 10.1b-5: Escape hides the bubble until the cursor moves (as Google Docs).
+  // Escape hides the bubble until the cursor moves (as Google Docs).
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
   useEffect(() => {
     const dom = editor.view.dom;
@@ -45,7 +45,7 @@ export function LinkBubble({ editor, page }: { editor: Editor; page: HTMLElement
   if (!href || !editor.isFocused || !page || dismissedAt === editor.state.selection.from) return null;
   const at = editor.view.coordsAtPos(editor.state.selection.from);
   const box = page.getBoundingClientRect();
-  // Step 7.7: a link into the app (My notes, the study assistant) opens there, not in a new tab.
+  // A link into the app (My notes, the study assistant) opens there, not in a new tab.
   const appLink = parseAppLink(href);
 
   return (

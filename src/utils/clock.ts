@@ -1,4 +1,4 @@
-/** The recording time (step 5.3): "34:12", or "1:02:05" past an hour. */
+/** The recording time: "34:12", or "1:02:05" past an hour. */
 export function clock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);

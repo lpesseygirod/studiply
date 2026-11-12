@@ -1,5 +1,5 @@
 /**
- * What a summary gives the review screen (step 9.1): its flashcards, its key terms and its
+ * What a summary gives the review screen: its flashcards, its key terms and its
  * self-test as cards, and its self-test as Quiz me questions with the mark that asked for each.
  * Pure: the cards are saved with the summary (services/summaryDoc), the questions read on both
  * devices (offline too, from the cached summary).

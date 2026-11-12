@@ -2,7 +2,7 @@
  * AiUsageSettings.tsx
  * Today's AI use against the daily limits, the all-time cost breakdown and
  * the note about the limits. Moved unchanged from the old Manage Account
- * screen (step 3.6).
+ * screen.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -108,7 +108,7 @@ export function AiUsageSettings({ title = 'AI USAGE TODAY' }: { title?: string |
             }
           />
 
-          {/* Step 10.2-1b: the extras' own daily guard (the 30-day allowance is on Settings → Credits). */}
+          {/* The extras' own daily guard (the 30-day allowance is on Settings → Credits). */}
           <UsageCard
             title="Assistant & extras (Claude)"
             icon="chatbubble-ellipses-outline"

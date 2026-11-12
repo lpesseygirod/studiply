@@ -9,7 +9,7 @@ import { MENU_CALLOUT_KINDS, type CalloutKind } from '../../editor/schema/callou
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 /**
- * The seven callouts (step 4.6) as a menu: each drawn as it looks in the
+ * The seven callouts as a menu: each drawn as it looks in the
  * document (its fill and border), with its name; the current one checked.
  */
 export function CalloutKinds({ current, onPick }: { current?: CalloutKind | null; onPick: (kind: CalloutKind) => void }) {

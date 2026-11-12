@@ -9,7 +9,7 @@ import { PALETTE } from '../../editor/colors/palette';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * The colour picker's grid (step 4.5, as Word's): "Automatic" or "None",
+ * The colour picker's grid (as Word's): "Automatic" or "None",
  * the 10 base colours with their 5 shades below, Recent colours, and More
  * colours… (the spectrum). The same on the laptop (in the toolbar's
  * popovers) and the iPhone (in the colour panel), for text colour,

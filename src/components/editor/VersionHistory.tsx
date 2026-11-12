@@ -41,7 +41,7 @@ function dayLabel(iso: string, now = new Date()): string {
 }
 
 /**
- * A document tab's version history (step 4.3): the versions grouped by day,
+ * A document tab's version history: the versions grouped by day,
  * newest first, each with its kind ("Edited", "AI summary", "Before
  * restore", "Copy kept after a conflict") or the name the student gave it;
  * a read-only preview; Restore this version; Name this version (named
@@ -60,9 +60,9 @@ export function VersionHistory({
   visible: boolean;
   fileId: string;
   tab: DocTab;
-  /** The tab's name, said in the title when the document has more than one tab (step 4.7b). */
+  /** The tab's name, said in the title when the document has more than one tab. */
   tabName?: string;
-  /** A spreadsheet tab (step 4.7e): the preview is its grid, read only. */
+  /** A spreadsheet tab: the preview is its grid, read only. */
   sheet?: boolean;
   onClose: () => void;
   /** Brings the version's text back into the open document. */

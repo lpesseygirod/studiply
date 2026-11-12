@@ -15,7 +15,7 @@ import {
 import { Buckets, removeFiles, type Bucket } from './cloud-storage.service';
 
 /**
- * Trash is `deleted_at` on courses, folders and files (step 1.2 schema).
+ * Trash is `deleted_at` on courses, folders and files.
  *
  * Supabase has no multi-statement transactions from the app, so each action
  * is a few writes in a safe order: trashing marks children before the
@@ -29,7 +29,7 @@ import { Buckets, removeFiles, type Bucket } from './cloud-storage.service';
  * lecture or folder also restores its trashed folders and course above it.
  * Permanent deletes also remove the lectures' files from Storage. Every
  * change is announced (notifyLibraryUpdated) so the Library and the laptop
- * sidebar follow at once. The nightly server job (step 3.5, purge-trash)
+ * sidebar follow at once. The nightly server job (purge-trash)
  * removes what has been in the trash for 30 days; autoCleanTrash at sign-in
  * is its backup.
  */
@@ -383,7 +383,7 @@ async function storagePathsOf(fileIds: string[]): Promise<StoragePaths> {
 
 /**
  * Best effort: the rows are already gone, so a failure here only leaves
- * unreachable files behind (removed with the account in step 10.1).
+ * unreachable files behind (removed with the account when it is deleted).
  */
 async function removeStorage(paths: StoragePaths): Promise<void> {
   for (const [bucket, list] of paths) {

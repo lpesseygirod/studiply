@@ -6,9 +6,9 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { Card } from '../../services/assistant-actions.service';
 
 /**
- * Proposed flashcards (step 6.3: from an assistant answer, or Make flashcard
+ * Proposed flashcards (from an assistant answer, or Make flashcard
  * on a selection): each card's front and back, then Save cards · Discard.
- * Not editable here (card editing comes with Review, Phase 9).
+ * Not editable here (card editing comes with Review).
  */
 export function CardsList({ cards, saving, onSave, onDiscard }: { cards: Card[]; saving: boolean; onSave: () => void; onDiscard: () => void }) {
   const styles = useThemedStyles(makeStyles);

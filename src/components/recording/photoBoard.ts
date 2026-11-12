@@ -5,7 +5,7 @@ import { requestCameraPermission, requestMediaLibraryPermission } from '../../ut
 import { saveBoardPhoto } from './boardPhoto';
 import { recordingMoment, type Moment } from './markPanelState';
 
-/** Stop & summarize's + Photos (step 7.3): photos from the library, several, each saved at `m` in order. */
+/** Stop & summarize's + Photos: photos from the library, several, each saved at `m` in order. */
 export async function choosePhotos(m: Moment): Promise<void> {
   if (!(await requestMediaLibraryPermission())) return;
   let assets: ImagePicker.ImagePickerAsset[];
@@ -30,7 +30,7 @@ export async function choosePhotos(m: Moment): Promise<void> {
 }
 
 /**
- * The iPhone's Photo (step 5.6): the camera at once (expo-image-picker, the
+ * The iPhone's Photo: the camera at once (expo-image-picker, the
  * permission text in app.json); the photo is kept on the phone, queued and
  * shown in My notes at the moment Photo was tapped. The laptop's is
  * ./photoBoard.web.

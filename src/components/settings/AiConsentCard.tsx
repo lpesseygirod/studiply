@@ -37,7 +37,7 @@ export function useAiConsent(): { allowed: boolean | null; since: string | null;
 }
 
 /**
- * Settings → AI & privacy's first card (step 10.1, iphone-08): "Use AI on my lectures" with its
+ * Settings → AI & privacy's first card (iphone-08): "Use AI on my lectures" with its
  * switch, where the data goes, and the date it was allowed. Off is one tap, as easy as on (GDPR):
  * nothing is sent to an AI service from then on, on this device at once and everywhere once it
  * reaches the server. On shows the consent screen first (it needs a connection).

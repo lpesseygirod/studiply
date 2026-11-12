@@ -13,7 +13,7 @@ import {
 describe('the sections (docs/design desktop-05)', () => {
   it('are in the designed order, Development last and only in development builds', () => {
     expect(visibleSections(false).map((s) => s.label)).toEqual([
-      // Step 10.2-2: Credits right after Account.
+      // Credits right after Account.
       'Account', 'Credits', 'Summaries', 'Recording', 'AI & privacy', 'Storage & sync', 'Notifications', 'Appearance', 'Your data',
     ]);
     expect(visibleSections(true).map((s) => s.label).at(-1)).toBe('Development');

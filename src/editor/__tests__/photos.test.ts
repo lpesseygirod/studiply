@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Photos in documents (step 4.5): `media:<id>` sources resolved for each
+// Photos in documents: `media:<id>` sources resolved for each
 // editor, and the photo node on a real editor (JSON, width, insert, remove,
 // what the node view shows).
 import { Editor, type JSONContent } from '@tiptap/core';

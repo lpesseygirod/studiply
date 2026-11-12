@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-launch.mjs — `npm run check:launch`, the launch checklist's text rules (step 10.1b-1).
+ * check-launch.mjs — `npm run check:launch`, the launch checklist's text rules.
  * Not part of `npm run check`: it fails while the legal texts are drafts, and must pass before
  * the build that goes to App Review. It fails, listing file:line, while
  *   1. a bracketed detail is still to fill in docs/legal (the five texts and the breach plan);

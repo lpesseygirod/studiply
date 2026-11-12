@@ -75,7 +75,7 @@ export default function RecordSetupScreen() {
   // Data
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
 
-  // The folder in the course (step 5.3, Lea's option A): the course itself or one of its folders.
+  // The folder in the course (Lea's option A): the course itself or one of its folders.
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -264,7 +264,7 @@ export default function RecordSetupScreen() {
       >
         {/* ── Header ──────────────────────────────────────────── */}
         <Text style={styles.screenSubtitle}>New Recording</Text>
-        {/* Step 10.2-2: 1 lecture or less left (or none: she can still record). */}
+        {/* Credits: 1 lecture or less left (or none: she can still record). */}
         <LowCreditsLine where="record" />
 
         {/* ── Credit warnings ────────────────────────────────── */}

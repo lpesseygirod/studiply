@@ -3,7 +3,7 @@ import type { Transaction } from '@tiptap/pm/state';
 import { addRow, removeColumn, removeRow, TableMap, type TableRect } from '@tiptap/pm/tables';
 
 /**
- * A table's size, set by typing rows × columns (step 4.5, Lea: "6 × 4, up to
+ * A table's size, set by typing rows × columns (Lea: "6 × 4, up to
  * a sensible limit like 50 × 20"): rows are added or removed at the bottom,
  * columns at the right.
  */

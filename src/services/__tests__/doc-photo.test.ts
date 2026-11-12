@@ -1,4 +1,4 @@
-// Photos in documents (step 4.5): kept on the iPhone and queued, sent by
+// Photos in documents: kept on the iPhone and queued, sent by
 // `upload_doc_photo` (safe to repeat), and found again for the editor: the
 // phone's copy, this device's file, or a signed link.
 import { Platform } from 'react-native';
@@ -100,7 +100,7 @@ describe('addDocPhoto on the iPhone', () => {
     expect(uploadFile).not.toHaveBeenCalled();
   });
 
-  it('step 5.6: a board photo is kept and queued with its lecture and time; the upload writes them', async () => {
+  it('a board photo is kept and queued with its lecture and time; the upload writes them', async () => {
     const id = await addDocPhoto('lec-1', picked, { moment: { tMs: 12_000 } });
     expect(jest.mocked(saveLocalRow).mock.calls[0][1]).toMatchObject({ id, file_id: 'lec-1', lecture_id: 'lec-1', t_ms: 12_000 });
     expect(syncMock.queued[0].payload).toEqual({ fileId: 'lec-1', mediaId: id, uri: `file:///docs/pending-uploads/lec-1/${id}.jpg`, lectureId: 'lec-1', tMs: 12_000 });
@@ -135,7 +135,7 @@ describe('addDocPhoto on the laptop', () => {
     expect(callsOn('media', 'insert')[0][0]).toEqual({ id, file_id: 'doc-1', lecture_id: null, t_ms: null, kind: 'photo', storage_path: `user-1/doc-1/${id}.jpg`, mime_type: 'image/jpeg' });
   });
 
-  it('step 5.6: a board photo taken while recording: its row has the lecture and the recording time', async () => {
+  it('a board photo taken while recording: its row has the lecture and the recording time', async () => {
     answer('media', { data: [{ id: 'x' }] });
     const id = await addDocPhoto('lec-1', picked, { moment: { tMs: 61_500.4 } });
     expect(callsOn('media', 'insert')[0][0]).toEqual({ id, file_id: 'lec-1', lecture_id: 'lec-1', t_ms: 61_500, kind: 'photo', storage_path: `user-1/lec-1/${id}.jpg`, mime_type: 'image/jpeg' });

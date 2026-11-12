@@ -1,4 +1,4 @@
-// Step 6.2: the study assistant from the app (services/assistant.service):
+// The study assistant from the app (services/assistant.service):
 // earlier questions and answers from assistant_messages, and asking, with the
 // answer's events mapped from the stream. The stream is faked; nothing is sent.
 import { FunctionError, streamFunction } from '../../lib/functions';

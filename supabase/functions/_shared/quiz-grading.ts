@@ -1,6 +1,6 @@
 /**
  * quiz-grading.ts
- * Step 9.1b-3: short and long answers graded by Sonnet 5.5 (the approved plan §2; the advisor's notes,
+ * Short and long answers graded by Sonnet 5.5 (the approved plan §2; the advisor's notes,
  * 8 Nov): the call sees only each question, its model answer, its key points and her answer (nothing
  * else of the lecture or of her), answers in the quiz's language, one line of reason each. Only
  * answers still `pending` are graded, and only while they still are: her own grade, set meanwhile

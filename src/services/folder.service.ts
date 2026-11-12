@@ -6,7 +6,7 @@ import type { Folder } from '../types/database';
 import { cleanName } from '../utils/names';
 
 /**
- * Folders live in the `folders` table (step 1.2 schema): `course_id` is the
+ * Folders live in the `folders` table: `course_id` is the
  * old project id and `parent_id` the old parent folder. The database keeps a
  * folder's course equal to its parent's and refuses cycles itself.
  */

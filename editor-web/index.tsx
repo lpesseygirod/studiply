@@ -8,7 +8,7 @@ import { studiplyBridges } from '../src/editor/bridges';
 import Editor from './Editor';
 
 /**
- * The editor that runs inside the iPhone's WebView (step 4.2). TenTap's
+ * The editor that runs inside the iPhone's WebView. TenTap's
  * native side inlines the boot config before this bundle; the runtime waits
  * for (and reports) a config that arrives late or never.
  *

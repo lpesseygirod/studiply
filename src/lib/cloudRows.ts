@@ -3,12 +3,12 @@
  * Translation between Supabase rows (src/types/supabase.ts) and the app's
  * own types (src/types/database.ts).
  *
- * The step 1.2 schema is shaped differently from the old SQLite tables:
+ * The Supabase schema is shaped differently from the old SQLite tables:
  * a project is a course, a session is a `files` row (kind lecture) plus its
  * `lectures` row, an old structured note is a `summaries` row whose result
  * holds the note, and a transcript is the lecture's segments. The services
- * keep returning the old types so the screens don't change until Phases 2–4
- * rebuild them; this file is where the two shapes meet. Everything here is
+ * keep returning the old types so the screens don't change until they
+ * are rebuilt; this file is where the two shapes meet. Everything here is
  * pure so it can be unit tested.
  */
 
@@ -187,7 +187,7 @@ export interface LegacyNoteResult {
   manualAnnotations: string | null;
   isConfirmed: boolean;
   /**
-   * Who last wrote each block of the note and when (step 1.8), for the
+   * Who last wrote each block of the note and when, for the
    * conflict rule in ../lib/noteBlocks. Older notes don't have it.
    */
   blocks?: Partial<Record<string, NoteBlockMeta>>;

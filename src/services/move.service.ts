@@ -1,7 +1,7 @@
 /**
  * move.service.ts
  * Moving things around the library, without any UI, so the "Move to…"
- * menus today and drag and drop in Phase 2 share one implementation:
+ * menus and drag and drop share one implementation:
  *  - moveItem: a lecture (its note goes with it), a folder (with everything
  *    in it) or a library file, to a course or folder;
  *  - moveMediaToLecture: a lecture's photo or PDF to another lecture;

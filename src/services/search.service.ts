@@ -14,7 +14,7 @@ import { searchQuery } from '../utils/searchText';
 export type { SearchHit, SearchHitKind } from '../lib/cache/localSearch';
 
 // -------------------------------------------------------------------
-// searchLibrary (step 3.5)
+// searchLibrary
 // Titles, notes, terms and transcripts, without caring about case or
 // accents. Online: public.search_library (owner RLS, never the trash).
 // Offline on the iPhone: the same search over what is on this iPhone

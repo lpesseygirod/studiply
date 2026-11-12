@@ -62,7 +62,7 @@ function gradingNoteFor(state: GradingState | null): string | null {
       return 'needs your permission to send them to Claude';
     case 'limit':
       return 'today’s AI limit is reached';
-    // Step 10.2-1b: grading uses the assistant allowance; her own grade always works.
+    // Grading uses the assistant allowance; her own grade always works.
     case 'extras':
       return 'graded when your assistant allowance frees up; you can grade them yourself';
     case 'failed':
@@ -75,7 +75,7 @@ function gradingNoteFor(state: GradingState | null): string | null {
 }
 
 /**
- * Taking a quiz (step 9.1b-3). desktop-07 on the laptop: the top bar's breadcrumb, "Question n of M"
+ * Taking a quiz. desktop-07 on the laptop: the top bar's breadcrumb, "Question n of M"
  * with "From your marks…" (or "12:30 left" with a time limit), the bar, the 720 px card (the mark
  * chip, the question, the answer, Show hint and Check / Next). The iPhone: full screen in iphone-10's
  * look, ‹ Quit at the top.

@@ -11,7 +11,7 @@ import { LegalLinks } from '../../../src/components/legal/LegalLinks';
 import { SETTINGS_LEGAL_LINKS } from '../../../src/legal/pages';
 
 /**
- * Settings (step 3.6). iPhone: the list, each section a page on a stack.
+ * Settings. iPhone: the list, each section a page on a stack.
  * Laptop (docs/design desktop-05): two columns on the gradient, the section
  * menu on the left and the open section on the right; one route per section.
  */
@@ -37,7 +37,7 @@ export default function SettingsLayout() {
       <View style={styles.columns}>
         <View style={styles.menu}>
           <SettingsMenu />
-          {/* Step 10.1b-1: the legal pages, under the menu. */}
+          {/* The legal pages, under the menu. */}
           <LegalLinks slugs={SETTINGS_LEGAL_LINKS} />
         </View>
         <View style={styles.page}>

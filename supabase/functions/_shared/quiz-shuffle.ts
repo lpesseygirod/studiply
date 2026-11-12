@@ -1,6 +1,6 @@
 /**
  * quiz-shuffle.ts
- * The one fixed shuffle quizzes use (step 9.1b-2, moved here in 9.1b-3 so the app uses it too): the
+ * The one fixed shuffle quizzes use (here so the app uses it too): the
  * questions' places and the multiple-choice options when a quiz is saved (quiz-pipeline.ts), an
  * attempt's question order, and the order match pairs and put-in-order steps are shown in
  * (src/lib/quiz/session.ts). The same seed always gives the same order, on every device. No imports.

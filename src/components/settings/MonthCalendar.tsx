@@ -29,7 +29,7 @@ export function dayName(day: Day): string {
 }
 
 /**
- * A small month calendar drawn by the app (step 9.2-2: the exam date; no date-picker dependency): ‹ the
+ * A small month calendar drawn by the app (the exam date; no date-picker dependency): ‹ the
  * month › and its days, Monday first; today ringed, the chosen day filled. Each day is a button named
  * by its date ("Monday 9 November 2026"), the chosen one selected.
  */

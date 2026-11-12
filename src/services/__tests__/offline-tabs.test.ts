@@ -1,4 +1,4 @@
-// Tabs changed offline on the iPhone (step 4.7b), sent when the connection
+// Tabs changed offline on the iPhone, sent when the connection
 // is back: a new tab reaches the server before its own edits; a name, a
 // place and a deletion queue as one tab step (the latest of each); deleted
 // on one device and edited offline on the other, the edit is kept and the

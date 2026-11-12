@@ -21,11 +21,11 @@ import { useLibraryUpload } from './useLibraryUpload';
 type FolderLinks = { id: string; parent_id: string | null }[];
 
 /**
- * Drag and drop's one drop (step 3.3), for the laptop's browser drag and
+ * Drag and drop's one drop, for the laptop's browser drag and
  * the iPhone's gesture: `check` while hovering (canDrop with every folder's
  * parent), `drop` to move into a course or folder or onto Trash, with the
  * screen's Undo toast (also ⌘Z's). Files dragged from the computer are
- * uploaded where they are dropped (`filesFromComputer`, step 3.4).
+ * uploaded where they are dropped (`filesFromComputer`).
  */
 export function useLibraryDrop({
   showUndo,
@@ -92,7 +92,7 @@ export function useLibraryDrop({
   );
 
   /**
-   * Paste (step 3.4) into a course or folder: a cut item moves there (the
+   * Paste into a course or folder: a cut item moves there (the
    * same checks and toast as a drop; the clipboard empties); a copied PDF or
    * photo is copied there ("Notas copy.pdf", its own Storage object; Undo
    * deletes the copy; the clipboard stays, to paste again).

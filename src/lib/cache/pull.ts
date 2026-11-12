@@ -18,7 +18,7 @@
 import type { SegmentRow } from '../cloudRows';
 import type { CacheableRow, CachedTable } from './store';
 
-/** Tables whose `changed_at` moves on every update (step 2.2 favorites). */
+/** Tables whose `changed_at` moves on every update (favorites). */
 export const CHANGED_AT_TABLES: readonly CachedTable[] = ['courses', 'folders', 'files', 'media'];
 
 /** The column a table is downloaded by. */
@@ -35,16 +35,16 @@ export const PULL_TABLES: CachedTable[] = [
   'media',
   'audio_chunks',
   'documents',
-  // Step 9.1: Review offline (a rating made here is queued, review.service).
+  // Review offline (a rating made here is queued, review.service).
   'flashcards',
   'review_schedule',
-  // Step 9.1b: the Quiz me tab's list of quizzes.
+  // The Quiz me tab's list of quizzes.
   'quizzes',
-  // Step 9.1b-3: taking a quiz offline (answers made here are queued, quiz-attempt.service).
+  // Taking a quiz offline (answers made here are queued, quiz-attempt.service).
   'quiz_questions',
   'quiz_attempts',
   'quiz_answers',
-  // Step 9.2: the exam dates and study reminders, so the review plan is known offline.
+  // The exam dates and study reminders, so the review plan is known offline.
   'course_settings',
 ];
 

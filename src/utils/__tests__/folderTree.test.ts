@@ -1,4 +1,4 @@
-// Step 5.3: the recording setup's folder picker (Lea's option A: the course,
+// The recording setup's folder picker (Lea's option A: the course,
 // then a folder in it) and what its button says; also the strip's clock and
 // what it says after Stop.
 import { folderPath, folderTree } from '../folderTree';

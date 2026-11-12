@@ -32,7 +32,7 @@ const SLIDER_SAVE_MS = 600;
 const SAVED_MS = 1500;
 
 /**
- * A course's settings (step 9.2-2; no mockup: Settings' cards and rows, desktop-05 / iphone-07).
+ * A course's settings (no mockup: Settings' cards and rows, desktop-05 / iphone-07).
  * Opened from "Course settings…" in every course menu. Laptop: beside the library sidebar, a column
  * on the gradient with "‹ Psicobiología", the title and the ✓; iPhone: a Settings page.
  * - EXAM: Exam date (opens a month calendar; Clear exam date) and Exam format (radios).

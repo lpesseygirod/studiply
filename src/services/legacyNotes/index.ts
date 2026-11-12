@@ -31,7 +31,7 @@ const appDeps: ConvertDeps = {
   },
 };
 
-/** Step 4.9: the lecture's earlier note as its Summary tab, if that tab has no document yet. */
+/** The lecture's earlier note as its Summary tab, if that tab has no document yet. */
 export function convertEarlierNoteOf(lectureId: string): Promise<ConvertOutcome> {
   return convertEarlierNote(lectureId, appDeps);
 }

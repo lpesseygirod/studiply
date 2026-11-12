@@ -5,7 +5,7 @@ import type { Breadcrumb } from '../../services/folder.service';
 import { courseAt } from '../../utils/shelf';
 
 /**
- * What the focused screen tells the laptop shell (step 2.2): where it is
+ * What the focused screen tells the laptop shell: where it is
  * (course and folder: the sidebar expands that course, Record lecture
  * preselects it) and, for documents, the top bar's breadcrumb, title and
  * "Saved · time". Screens publish with `useShellScreen`; it is cleared when
@@ -95,7 +95,7 @@ export function useShellScreen(location: ShellLocation | null, header: DocumentH
 // Commands (keyboard shortcuts): the focused screen that can do it does it
 // -------------------------------------------------------------------
 
-/** `openAssistant` (step 7.7): a question's Full answer link opens the laptop's study assistant panel. */
+/** `openAssistant`: a question's Full answer link opens the laptop's study assistant panel. */
 export type ShellCommand = 'newFolder' | 'upload' | 'focusSearch' | 'showShortcuts' | 'contextMenu' | 'cut' | 'copy' | 'openAssistant';
 
 /** A handler may return false: "nothing to do here now" (⌘C with no tile selected stays the browser's). */

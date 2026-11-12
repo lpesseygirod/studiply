@@ -256,7 +256,7 @@ describe('languageCode', () => {
 describe('constants', () => {
   it('match the decisions in docs/PROGRESS.md', () => {
     expect(DAILY_LIMIT_SECONDS).toBe(21_600);
-    // Step 10.1: the store's consent screen (everyone asked again).
+    // The store's consent screen (everyone asked again).
     expect(CONSENT_POLICY_VERSION).toBe('2026-11-store-1');
     expect(TRANSCRIBE_MODELS.openai.model).toBe('whisper-1');
     expect(TRANSCRIBE_MODELS.elevenlabs.model).toBe('scribe_v2');

@@ -2,9 +2,9 @@
  * @jest-environment node
  */
 // The checks before anything reaches Anthropic (supabase/functions/_shared/claude-gate.ts, which
-// readyForClaude runs): step 7.9's requests (an Exam pack, a Unit summary, Extend on a lecture) go
+// readyForClaude runs): the combined summaries' requests (an Exam pack, a Unit summary, Extend on a lecture) go
 // through them like any summary, and the paid daily limit counts every summarize call (operation
-// summary). Step 10.2-1b: what credits pay for and the extras each have their own daily guard; only
+// summary). What credits pay for and the extras each have their own daily guard; only
 // extras meet the 30-day allowance (429 extras_limit).
 import { claudeGate, type GateDeps } from '../../../supabase/functions/_shared/claude-gate';
 import {
@@ -60,7 +60,7 @@ function deps(over: Partial<GateDeps<{ lectureId: string; fileId: string }>> & {
   return { d, asked, allowanceAsked: () => allowanceAsked };
 }
 
-describe('the operations (step 10.2-1b)', () => {
+describe('the operations', () => {
   it('paid and extras are apart, and every Claude operation logged is one of them', () => {
     expect(PAID_OPERATIONS).toEqual(['summary', 'quiz']);
     expect(EXTRAS_OPERATIONS).toEqual(['assistant', 'quiz_grade', 'quiz_format']);
@@ -113,7 +113,7 @@ describe('the paid daily limit counts Extend, Merge and Exam pack', () => {
   });
 });
 
-describe('step 10.2-1b: the extras (the assistant, grading, a past exam’s format)', () => {
+describe('the extras (the assistant, grading, a past exam’s format)', () => {
   const body = { lectureId: LECTURE, summaryId: ROW };
   const extra = (spent: number, left: number) => deps({ body, spent, left, useOf: () => 'extra' });
 
@@ -144,7 +144,7 @@ describe('step 10.2-1b: the extras (the assistant, grading, a past exam’s form
   });
 });
 
-describe('step 9.1b-2: a quiz must be hers; writing it is paid, grading and a past exam are extras', () => {
+describe('a quiz must be hers; writing it is paid, grading and a past exam are extras', () => {
   const QUIZ = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
   type QuizValue = { lectureId: string; fileId: string | null; quizId: string; mode: string };
   const byQuiz = (body: unknown) => {

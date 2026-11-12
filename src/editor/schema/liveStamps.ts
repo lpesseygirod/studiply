@@ -5,7 +5,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { TIMESTAMP_CHIP, chipMs } from './timestampChip';
 
 /**
- * Live notes (step 5.4): while the lecture records, each new line of My
+ * Live notes: while the lecture records, each new line of My
  * notes starts with the recording time as a timestamp chip, put there when
  * the line's first character is typed (Lea, 30 Oct). Only lines that were
  * empty: lines written before Start, lines already stamped and empty lines

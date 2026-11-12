@@ -4,8 +4,8 @@ import { showAlert } from '../dialogs/dialogs';
 import { errorMessage } from '../../utils/errors';
 
 /**
- * Why a recording couldn't start (the setup's Start, step 5.3, and the Record
- * button inside a document, step 5.7): the microphone refused (the iPhone's
+ * Why a recording couldn't start (the setup's Start and the Record
+ * button inside a document): the microphone refused (the iPhone's
  * Settings, or the browser's address bar), or the reason.
  */
 export function showStartError(err: unknown): void {

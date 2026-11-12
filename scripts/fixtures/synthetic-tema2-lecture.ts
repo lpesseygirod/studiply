@@ -1,5 +1,5 @@
 /**
- * The second synthetic lecture (step 7.9: Extend with next lecture, Merge, Exam pack) as a fixture (the
+ * The second synthetic lecture (for Extend with next lecture, Merge, Exam pack) as a fixture (the
  * format of supabase/functions/_shared/summary-fixture.ts): 20 min of Psicobiología in Spanish, the
  * lecture after Tema 1 (synthetic-lecture.mjs), in the same course. Made to test "no repeats":
  * - new material (the neuron, the synapse, the action potential);

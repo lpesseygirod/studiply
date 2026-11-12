@@ -5,7 +5,7 @@ import { DarkColors } from '../../constants/colors';
 const DELAY_MS = 400;
 
 /**
- * A tool's name on hover (laptop; the simplicity pass before 4.6): "Bold ⌘B"
+ * A tool's name on hover (laptop; the simplicity pass): "Bold ⌘B"
  * in a small dark label under the tool after a moment. Fixed to the window,
  * so a toolbar's own clipping can't cut it; a press hides it.
  */

@@ -1,9 +1,9 @@
 /**
  * assistant.service.ts
- * The study assistant from the app (step 6.2): the lecture's earlier
+ * The study assistant from the app: the lecture's earlier
  * questions and answers (assistant_messages, saved by assistant-chat),
  * how far its transcript goes, and asking, with the answer streamed in
- * (supabase/functions/assistant-chat, step 6.1).
+ * (supabase/functions/assistant-chat).
  *
  * The stream: `meta` (the saved ids, the window, how far the lecture is
  * transcribed), the answer's pieces, then `done`; or `error`, and then the
@@ -37,7 +37,7 @@ export interface AssistantWindow {
 export interface ChatTurn {
   /** The question's id (a local one until the server has saved it). */
   id: string;
-  /** The answer's saved id (Flashcards from it, step 6.3); known once `meta` arrived. */
+  /** The answer's saved id (Flashcards from it); known once `meta` arrived. */
   answerId?: string;
   question: string;
   quickPrompt: QuickPrompt | null;

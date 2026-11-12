@@ -32,7 +32,7 @@ import type { Json, Tables } from '../types/supabase';
 import { cleanName } from '../utils/names';
 
 /**
- * Documents (step 4.3): a blank document is a `files` row of kind
+ * Documents: a blank document is a `files` row of kind
  * `document` with one `documents` row (tab `notes`); a lecture has up to
  * three (notes, summary, transcript). The content is ProseMirror JSON whose
  * blocks carry an id, an origin and an edit time (src/editor/schema/blockMeta).
@@ -47,10 +47,10 @@ import { cleanName } from '../utils/names';
 /** A lecture's three tabs (also a plain document's first tab, `notes`). */
 export type FixedTab = 'notes' | 'summary' | 'transcript';
 export const FIXED_TABS: readonly FixedTab[] = ['notes', 'summary', 'transcript'];
-/** A tab's id (step 4.7b): one of the fixed tabs, or `t-<uuid>` for an added one (document-tabs.service). */
+/** A tab's id: one of the fixed tabs, or `t-<uuid>` for an added one (document-tabs.service). */
 export type DocTab = FixedTab | (string & {});
 export type DocumentRow = Tables<'documents'>;
-/** A new row's tab columns (step 4.7b): null is the default name, place, life and kind. */
+/** A new row's tab columns: null is the default name, place, life and kind. */
 export const NO_TAB_META = { title: null, position: null, deleted_at: null, kind: null } as const;
 export type VersionRow = Tables<'document_versions'>;
 export type VersionReason = 'ai_generation' | 'session_end' | 'restore' | 'conflict';
@@ -97,7 +97,7 @@ export async function openDocument(fileId: string, tab: DocTab): Promise<OpenedD
       if (data) remember('documents', [data]);
       let local = await localDocument(fileId, tab).catch(() => null);
       // iPhone: nothing of this tab waits to be sent, so the server's copy is
-      // the one, even if this copy was left marked unsynced (before step 4.3's
+      // the one, even if this copy was left marked unsynced (before an earlier
       // fix a queued session version kept it so, and the other device's
       // changes, a restore included, never showed).
       if (data && syncEnabled && (await waitingEdits(fileId, tab)) === 0) {
@@ -167,7 +167,7 @@ export interface CreateDocumentParams {
   courseId: string | null;
   folderId: string | null;
   title?: string;
-  /** Its first content (a Word file imported, step 4.8b); else one empty line. */
+  /** Its first content (a Word file imported); else one empty line. */
   content?: DocJSON;
 }
 
@@ -278,7 +278,7 @@ export interface SavedDocument {
   queued: boolean;
   /** Blocks where another device's newer edit was kept (this one is in version history). */
   lost: string[];
-  /** The tab had been deleted on another device; this edit brought it back (step 4.7b). */
+  /** The tab had been deleted on another device; this edit brought it back. */
   revived?: boolean;
 }
 
@@ -300,7 +300,7 @@ export async function saveDocument(params: {
 
   try {
     const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit);
-    // A lecture's My notes: its note_lines (step 5.4) and its marks (5.5) follow. The document is saved
+    // A lecture's My notes: its note_lines and its marks follow. The document is saved
     // either way; what couldn't be written is written with the next save.
     await syncNoteLines(row).catch((err) => console.warn('[document] note lines not saved yet', err));
     await syncMarks(row).catch((err) => console.warn('[document] marks not saved yet', err));
@@ -316,7 +316,7 @@ export async function saveDocument(params: {
 // Page setup (after test D): per document, a setting beside the content.
 // The latest one wins (it is not text to merge). Writing it moves the row's
 // updated_at, so the other device's check every few seconds picks it up.
-// With tabs (step 4.7b) it is the document's: saved to every tab, and a new
+// With tabs it is the document's: saved to every tab, and a new
 // tab copies it (document-tabs.service).
 // -------------------------------------------------------------------
 
@@ -430,7 +430,7 @@ export async function applyDocEdit(
 
     const merged = mergeDocEdit(asDoc(row.content), edit);
     await saveConflictVersions(row, edit, merged.versions);
-    // A tab deleted on another device comes back when an edit reaches it: the edit is kept (step 4.7b).
+    // A tab deleted on another device comes back when an edit reaches it: the edit is kept.
     const revived = !!row.deleted_at;
     if (!merged.changed && !revived) return { row, conflicts: merged.conflicts, revived };
 
@@ -498,8 +498,8 @@ export async function takeDocumentConflicts(fileId: string, tab: DocTab): Promis
 const keptKey = (fileId: string) => `${cacheUser()}:tabkept:${fileId}`;
 
 /**
- * A tab deleted on one device and edited offline on another is kept (step
- * 4.7b): remembered here so the document screen can say so, once.
+ * A tab deleted on one device and edited offline on another is kept:
+ * remembered here so the document screen can say so, once.
  */
 export async function noteKeptTab(fileId: string, tab: DocTab): Promise<void> {
   const raw = await getMeta(keptKey(fileId)).catch(() => null);
@@ -569,7 +569,7 @@ interface SaveVersionPayload {
   tab: DocTab;
   content: DocJSON;
   reason: VersionReason;
-  /** A name given with it (step 5.7: "Before recording"); named versions are never thinned. */
+  /** A name given with it (e.g. "Before recording"); named versions are never thinned. */
   name?: string | null;
 }
 
@@ -720,7 +720,7 @@ registerSyncHandler<DocumentEditPayload>('document_edit', {
   run: async ({ fileId, tab, localId, edit }) => {
     await ensureDocumentOnServer(fileId);
     const { row, conflicts, revived } = await applyDocEdit(fileId, tab, edit, localId);
-    // A lecture's My notes: its note_lines (step 5.4) and marks (5.5) follow; a failure retries the whole edit (safe twice).
+    // A lecture's My notes: its note_lines and marks follow; a failure retries the whole edit (safe twice).
     await syncNoteLines(row);
     await syncMarks(row);
     await refreshSyncedDocument(row, localId, fileId, tab);

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 6.3: Ask Claude on a selection and Flashcards from an answer, on the
+// Ask Claude on a selection and Flashcards from an answer, on the
 // server (supabase/functions/_shared/assistant.ts and assistant-actions.ts),
 // with Claude faked: the request checks, the prompts (material never
 // instructions), the JSON checked against its shape, and the errors where

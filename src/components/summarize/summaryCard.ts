@@ -12,13 +12,13 @@ export const SUMMARY_ERRORS: Record<string, string> = {
   no_transcript: 'This lecture has no transcript yet.',
   claude_rejected: 'Claude didn’t accept the request. Nothing was changed.',
   consent_withdrawn: 'Stopped: AI was turned off in Settings → AI & privacy. Nothing more was sent.',
-  // Step 10.2-1: the server put the row back to pending (nothing was spent or sent).
+  // The server put the row back to pending (nothing was spent or sent).
   no_credits: 'Not started: no lecture credits left. Your recording and notes are safe.',
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** The quality checks' line (step 7.5): all passed, or which didn't. Empty for a summary made before 7.5. */
+/** The quality checks' line: all passed, or which didn't. Empty for a summary made before the checks. */
 export function checksLine(c: CheckReport | undefined): string {
   if (!c) return '';
   const words = (n: number) => n.toLocaleString('en-US');
@@ -33,14 +33,14 @@ export function checksLine(c: CheckReport | undefined): string {
   ].filter((f): f is string => typeof f === 'string');
   if (failed.length) return `Checks: ${failed.join(' · ')}.`;
   const moved = c.faithfulness.labelled ? ` ${plural(c.faithfulness.labelled, 'detail')} not said in class ${c.faithfulness.labelled === 1 ? 'is' : 'are'} under “Added context”.` : '';
-  // Step 8.2: chart values not said in class were taken out of their charts.
+  // Chart values not said in class were taken out of their charts.
   const out = c.charts?.removed.length ?? 0;
   const charts = out ? ` ${plural(out, 'chart value')} not said in class ${out === 1 ? 'is' : 'are'} under “Unclear in the recording”.` : '';
   return `All checks passed.${moved}${charts}`;
 }
 
 /**
- * The green banner's line (step 7.7, desktop-03): "Built from your notes (all 14 lines, 6 marks) + 34 min
+ * The green banner's line (desktop-03): "Built from your notes (all 14 lines, 6 marks) + 34 min
  * of audio · slides · board photos · your questions to the assistant".
  */
 export function bannerText(r: Pick<NonNullable<LectureSummary['result']>, 'coverage' | 'header'>): string {
@@ -56,11 +56,11 @@ export function bannerText(r: Pick<NonNullable<LectureSummary['result']>, 'cover
   return `Built from your notes (${lines}, ${plural(c.marks, 'mark')}) + ${extra.join(' · ')}`;
 }
 
-/** Extend with next lecture (7.9) and Quiz me (9.1): shown as in the mockups, not built yet. */
+/** Extend with next lecture and Quiz me: shown as in the mockups, not built yet. */
 export const COMING_LATER = 'Coming in a later update';
 
-/** The Summary tab card's words for a summary, by status (step 7.4; "ready" shows for a moment, while 7.7 writes it into the document). */
-/** Step 10.2-2: what the card knows of her credits: her balance (null: unknown), and the laptop's buy line. */
+/** The Summary tab card's words for a summary, by status ("ready" shows for a moment, while it is written into the document). */
+/** What the card knows of her credits: her balance (null: unknown), and the laptop's buy line. */
 export interface CardCredits {
   units?: number | null;
   buy?: string;
@@ -84,7 +84,7 @@ export function summaryCardText(s: LectureSummary, credits: CardCredits = {}): {
     case 'done': {
       const r = s.result;
       if (!r) return { label: 'Summary ready', text: '' };
-      // Step 7.9: an Extend / Merge / Exam pack: its document is being written (no counts of its own).
+      // An Extend / Merge / Exam pack: its document is being written (no counts of its own).
       if (r.format !== 'studiply-summary-v1') return { label: 'Ready', text: 'Writing it into this document…' };
       const count = (v: unknown) => (Array.isArray(v) ? v.length : 0);
       const c = r.coverage;

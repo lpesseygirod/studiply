@@ -106,7 +106,7 @@ function Stepper({ label, value, max, onChange }: { label: string; value: number
 }
 
 /**
- * A new table (step 4.5; the toolbar's second row since test C), in place
+ * A new table (the toolbar's second row since test C), in place
  * of the keyboard: rows and columns, then Insert. Starts at 3 × 3.
  */
 function NewTablePanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
@@ -156,7 +156,7 @@ const TABLE_ROWS: { action: TableAction; label: string; icon: IconName; danger?:
 ];
 
 /**
- * The table the cursor is in (step 4.5), in place of the keyboard: rows and
+ * The table the cursor is in, in place of the keyboard: rows and
  * columns, header row, cell colour (the colour picker), merge and split,
  * Table size… (rows × columns, typed or stepped), delete table. The
  * floating bar's Colour and Table size… open it on those.

@@ -1,6 +1,6 @@
 /**
  * documentSession.ts
- * One open document tab and its autosave (step 4.3), without React so it is
+ * One open document tab and its autosave, without React so it is
  * unit tested; `useDocumentSync` wires it to the services, the app's state
  * and the sync queue.
  *
@@ -28,7 +28,7 @@ export interface SessionState {
   savedAt: number | null;
   /** Blocks where another device's newer edit was kept; this device's is in version history. */
   lost: string[];
-  /** The tab had been deleted on another device; this device's edit kept it (step 4.7b). */
+  /** The tab had been deleted on another device; this device's edit kept it. */
   kept?: boolean;
   error: string | null;
 }

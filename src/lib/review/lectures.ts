@@ -1,5 +1,5 @@
 /**
- * The lectures to review today (step 9.2), from rows as Supabase returns them (online) or as the
+ * The lectures to review today, from rows as Supabase returns them (online) or as the
  * iPhone keeps them (offline): the same function both ways, so the sidebar badge, the Library chip,
  * the Review header and the lectures card always agree.
  *
@@ -13,7 +13,7 @@
 import { daysBetween, lectureState, localDay, reviewSessions, sessionLabel, type Day, type Session } from './lecturePlan';
 import type { ScheduleRow } from './deck';
 
-/** The hidden lecture of photos and PDFs from before step 3.4 (session.service's PROJECT_FILES_TITLE). */
+/** The hidden lecture of photos and PDFs from before the library had them (session.service's PROJECT_FILES_TITLE). */
 const PROJECT_FILES_TITLE = 'Project Files';
 
 export interface PlanFileRow {
@@ -116,7 +116,7 @@ export function dueLectures(rows: PlanRows, now: Date, since?: Day): DueLecture[
 }
 
 // ---------------------------------------------------------------------
-// Step 9.2-2: a course's review plan, as its settings screen previews it
+// A course's review plan, as its settings screen previews it
 // ---------------------------------------------------------------------
 
 export interface CoursePlanLecture {

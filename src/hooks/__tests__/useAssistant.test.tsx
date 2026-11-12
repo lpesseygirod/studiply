@@ -1,4 +1,4 @@
-// Step 6.2: the study assistant's conversation (hooks/useAssistant): the
+// The study assistant's conversation (hooks/useAssistant): the
 // earlier questions load, an answer streams into its turn, an error drops
 // what was shown (the streaming contract), Retry asks again in place, and the
 // recording's time goes along only while this lecture records here.
@@ -113,7 +113,7 @@ describe('useAssistant', () => {
     expect(chat.turns[1]).toMatchObject({ question: 'What did she just say?', status: 'streaming' });
   });
 
-  it('step 10.2-1b: refused because the allowance is used up: only “Nothing was sent.” under it (why is said above the composer)', async () => {
+  it('refused because the allowance is used up: only “Nothing was sent.” under it (why is said above the composer)', async () => {
     await act(async () => chat.ask('¿Y la neurona?', null));
     await act(async () => {
       pending[0].reject(Object.assign(new Error('You’ve used the assistant for now. It grows with each lecture you record and frees up over 30 days.'), { status: 429, code: 'extras_limit' }));

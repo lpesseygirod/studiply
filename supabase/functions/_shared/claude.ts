@@ -7,16 +7,16 @@
 /**
  * The one place each function's Claude model is set (server-side; the app
  * never chooses). claude-opus-5-5 is Anthropic's recommended default (Oct
- * 2026). assistant-chat uses claude-sonnet-5-5 (Lea, 30 Oct 2026, step 6.1:
+ * 2026). assistant-chat uses claude-sonnet-5-5 (Lea, 30 Oct 2026:
  * half the price, quicker in class). Summaries moved to claude-sonnet-5-5 too
  * (Lea, 12 Nov: every summarize call, so the summary, writing it again, Extend,
  * Merge, Exam pack, a long lecture's parts and the earlier notes; half the price,
- * for cheaper credit packs, step 10.2). Every model here must be in PRICES below.
+ * for cheaper credit packs). Every model here must be in PRICES below.
  */
 export const CLAUDE_MODELS: { assistant: string; summary: string; quiz: string; quizFormat: string; quizGrade: string } = {
   assistant: 'claude-sonnet-5-5',
   summary: 'claude-sonnet-5-5',
-  // Step 9.1b (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format and grades answers.
+  // Quizzes (advisor, 2 Nov; Lea's list): Opus writes quizzes, Sonnet reads a past exam's format and grades answers.
   quiz: 'claude-opus-5-5',
   quizFormat: 'claude-sonnet-5-5',
   quizGrade: 'claude-sonnet-5-5',
@@ -36,7 +36,7 @@ export const MAX_TOKENS = 4096;
 /** The study assistant's answers are short (read on a phone in class): thinking plus about 400 words. */
 export const ASSISTANT_MAX_TOKENS = 2048;
 
-/** Ask Claude on a selection and Flashcards (step 6.3): room for a rewrite of a 6,000-character selection. */
+/** Ask Claude on a selection and Flashcards: room for a rewrite of a 6,000-character selection. */
 export const ACTION_MAX_TOKENS = 4096;
 
 /**
@@ -47,7 +47,7 @@ export const FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
 /**
  * The request both functions send (anthropic.ts's claudeParams), built here without the SDK so Jest
- * can check the exact body (step 7.4: summaryRequest.test.ts). `jsonSchema` makes the answer JSON of
+ * can check the exact body (summaryRequest.test.ts). `jsonSchema` makes the answer JSON of
  * that shape (structured outputs): it sits in output_config with the effort. One user turn, no
  * assistant prefill (structured outputs refuse prefill), no citations.
  */
@@ -73,7 +73,7 @@ export function claudeRequest<M>(model: string, system: string, messages: M[], o
 export const DAILY_CLAUDE_LIMIT_USD = 3;
 export const PAID_OPERATIONS = ['summary', 'quiz'] as const;
 /**
- * Step 10.2-1b (Lea, 12 Nov): the extras, which cost no credits: the study assistant in every mode
+ * The extras (Lea, 12 Nov), which cost no credits: the study assistant in every mode
  * (`assistant`), grading a quiz's answers (`quiz_grade`) and reading a past exam's format
  * (`quiz_format`). Their own daily guard, and a 30-day allowance (extras_allowance(), 20261029153000).
  */
@@ -86,7 +86,7 @@ export const QUIZ_OPERATION = 'quiz' satisfies (typeof PAID_OPERATIONS)[number];
 export const QUIZ_GRADE_OPERATION = 'quiz_grade' satisfies (typeof EXTRAS_OPERATIONS)[number];
 export const QUIZ_FORMAT_OPERATION = 'quiz_format' satisfies (typeof EXTRAS_OPERATIONS)[number];
 
-/** What a request to Claude is: paid in credits, or an extra (step 10.2-1b). */
+/** What a request to Claude is: paid in credits, or an extra. */
 export type ClaudeUse = 'paid' | 'extra';
 
 /** The 30-day allowance used up (429 extras_limit); the app shows these words as they are. */
@@ -94,7 +94,7 @@ export const EXTRAS_LIMIT_MESSAGE = 'You’ve used the assistant for now. It gro
 /** The extras' daily guard (429 daily_limit, as before). */
 export const EXTRAS_DAILY_MESSAGE = 'You’ve used the assistant a lot today. It frees up over the next 24 hours.';
 
-// The assistant's real prompts are in ./assistant.ts (step 6.1); this one is replaced in Phase 7 (summary).
+// The assistant's real prompts are in ./assistant.ts; this one is replaced by the summary engine.
 export const SUMMARIZE_TEST_PROMPT =
   "This is a connection test of Studiply's summary engine. Reply with one short sentence saying you received it.";
 
@@ -201,7 +201,7 @@ export function validateSummarizeBody(body: unknown): { ok: true; value: { lectu
 
 /**
  * One Server-Sent Events frame. assistant-chat sends `meta` first (a
- * question: its saved ids and window, step 6.1), `delta` { text } for each
+ * question: its saved ids and window), `delta` { text } for each
  * piece of the answer, then `done` { model, usage, costUsd }, or `error`
  * { code, error } if Claude fails after the stream has started.
  */

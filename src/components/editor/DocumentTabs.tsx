@@ -16,10 +16,10 @@ const DOUBLE_MS = 400;
 const DRAG_PX = 6;
 
 /**
- * A document's tabs (step 4.7b; laptop docs/design desktop-01, iPhone
+ * A document's tabs (laptop docs/design desktop-01, iPhone
  * iphone-06): a lecture's My notes · Summary · Transcript first and fixed,
  * then the added tabs, and "+" at the end. A plain document with one tab
- * shows only "+ Add tab". "+" asks Document or Spreadsheet (step 4.7e).
+ * shows only "+ Add tab". "+" asks Document or Spreadsheet.
  * - Laptop: a click opens a tab, a second click on the open one renames it,
  *   right-click → Rename · Delete, drag along the row to move it.
  * - iPhone (and a narrow window): the row scrolls sideways; long-press →

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-storage-local.mjs — end-to-end check of the storage rules (step 1.4).
+ * check-storage-local.mjs — end-to-end check of the storage rules.
  *
  * Talks to the real local Storage API (not the database directly):
  *   1. creates two throwaway users, A and B;

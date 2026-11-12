@@ -1,4 +1,4 @@
-// Step 10.1b-4: what goes where in "Export my data", from a fixture library; parts of 500 MB.
+// What goes where in "Export my data", from a fixture library; parts of 500 MB.
 import { EXPORT_TABLES, planExport, type ExportSnapshot, type ExportTables } from '../plan';
 import { exportSize, PART_LIMIT_BYTES, partFileName, splitParts } from '../parts';
 

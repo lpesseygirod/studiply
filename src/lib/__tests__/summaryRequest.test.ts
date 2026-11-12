@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.4, after the paid run's HTTP 400 on the generate call (classify worked): the exact request
+// After the paid run's HTTP 400 on the generate call (classify worked): the exact request
 // both calls send, built as the summarize function builds it (runSummary's arguments → claude.ts's
 // claudeRequest, which anthropic.ts's claudeParams returns as is), checked against what the API
 // accepts with structured outputs (the claude-api reference): the schema's subset, output_config

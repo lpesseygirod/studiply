@@ -8,7 +8,7 @@
  * stored them; the duplicates are removed only where the transcript is put
  * together.
  *
- * On the web the chunks overlap by 500 ms (step 5.1), so the words of an
+ * On the web the chunks overlap by 500 ms, so the words of an
  * overlap are in both chunks' transcripts. Where chunk B starts before chunk
  * A (the one before it) ends:
  * 1. each half of the overlap belongs to one chunk: a segment of A that

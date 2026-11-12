@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Whether the editor's second toolbar row is open (step 4.5, Lea: "remember
+ * Whether the editor's second toolbar row is open (Lea: "remember
  * open/closed per device"): kept on this device (AsyncStorage, localStorage
  * in the browser), one value for the laptop's ⌄ row and one for the
  * iPhone's "more" row.

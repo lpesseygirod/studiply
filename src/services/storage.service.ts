@@ -1,10 +1,10 @@
 /**
  * storage.service.ts
- * On-device file store (iPhone), from before step 1.7.
+ * On-device file store (iPhone), from before Supabase.
  *
- * Since step 1.7 recordings, photos and PDFs are uploaded to Supabase
+ * Recordings, photos and PDFs are now uploaded to Supabase
  * Storage instead (cloud-storage.service, source-file.service). This store
- * only holds copies made by earlier versions of the app: step 1.9 uploads
+ * only holds copies made by earlier versions of the app: the legacy import uploads
  * them, and "Delete all data" removes them (deleteUserStorage).
  *
  *   {documentDirectory}source-files/{userId}/{sessionId}/{filename}

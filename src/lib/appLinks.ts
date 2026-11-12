@@ -1,5 +1,5 @@
 /**
- * Links inside a document that open something in the app instead of a web page (step 7.7): the
+ * Links inside a document that open something in the app instead of a web page: the
  * summary's "See them in My notes" (`studiply:tab/notes`) and each question's "Full answer"
  * (`studiply:assistant/<message id>`: the study assistant at that question). Both editors' Open
  * (the laptop's link bubble, the iPhone's keyboard toolbar) hand them here; the document screen on

@@ -16,7 +16,7 @@ declare global {
   interface Window {
     /** The laptop's last print document (the PDF export), for the Chrome check (export.mjs). */
     studiplyPrint?: { title: string; html: string; pages: number; fileName?: string };
-    /** The laptop's last Word file (step 4.8b), for the Chrome check (docx.mjs). */
+    /** The laptop's last Word file, for the Chrome check (docx.mjs). */
     studiplyDocx?: { title: string; fileName: string; blob: Blob; missing: number; reasons: string[] };
   }
 }
@@ -50,11 +50,11 @@ export async function exportNoteToPDF(params: {
 }
 
 // -------------------------------------------------------------------
-// exportDocumentPdf (step 4.8a)
+// exportDocumentPdf
 // A document's tabs as a PDF with its page setup, pages as the page view
 // shows them (editor/export/printPages.ts). Laptop: the print dialog,
 // where "Save as PDF" writes the file (it proposes `fileName`, the print
-// document's title; step 8.3, advisor). iPhone: `build` is the PdfRenderer's
+// document's title; advisor). iPhone: `build` is the PdfRenderer's
 // (the editor bundle in a WebView); expo-print writes the PDF at the
 // paper's size and the share sheet opens.
 // -------------------------------------------------------------------
@@ -63,7 +63,7 @@ export async function exportDocumentPdf(params: {
   tabs: PrintTab[];
   options: Omit<PrintOptions, 'target'>;
   build?: (tabs: PrintTab[], options: PrintOptions, title: string) => Promise<PrintResult>;
-  /** Step 8.3: a summary's "Course – Lecture – YYYY-MM-DD.pdf"; else the title's. */
+  /** A summary's "Course – Lecture – YYYY-MM-DD.pdf"; else the title's. */
   fileName?: string;
 }): Promise<void> {
   const { title, tabs, options, build } = params;
@@ -90,7 +90,7 @@ export async function exportDocumentPdf(params: {
 }
 
 // -------------------------------------------------------------------
-// exportDocumentWord (step 4.8b)
+// exportDocumentWord
 // A document's tabs as a .docx (editor/export/docxBuild.ts) with the page
 // setup. Formulas and graphs go in as pictures the editor draws (laptop: in
 // the page; iPhone: `draw` is the PdfRenderer's, the editor bundle in a

@@ -2,7 +2,7 @@ import type { LibraryItem } from '../services/move.service';
 import type { LibraryFile } from '../services/source-file.service';
 import type { Folder, Session } from '../types/database';
 
-/** The app's lists as items "Move to…" (and Phase 2 drag and drop) work with. */
+/** The app's lists as items "Move to…" (and drag and drop) work with. */
 
 export function lectureItem(session: Session): LibraryItem {
   return { type: 'lecture', id: session.id, title: session.title, courseId: session.project_id, folderId: session.folder_id };

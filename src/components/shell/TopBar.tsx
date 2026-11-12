@@ -20,7 +20,7 @@ import { recordHref, useShell, type Crumb } from './ShellContext';
  *  - document: the breadcrumb, title and "Saved · time" the open
  *    document publishes (ShellContext), Share, the assistant toggle;
  *  - settings: Back to library and the page title;
- *  - review (step 9.1, desktop-07/08): "Review today · Course › Lecture" over the lecture's title,
+ *  - review (desktop-07/08): "Review today · Course › Lecture" over the lecture's title,
  *    and the Quiz me | Flashcards control; no sidebar toggle (Review has no sidebar).
  */
 export function TopBar({
@@ -96,7 +96,7 @@ export function TopBar({
           </View>
         )}
         {kind === 'review' && (
-          // Step 9.1 (desktop-07/08): "Review today · Course › Lecture" over the card's lecture, as the review screen publishes it.
+          // Review (desktop-07/08): "Review today · Course › Lecture" over the card's lecture, as the review screen publishes it.
           <View style={styles.titleBlock} testID="review-header">
             <Text style={styles.crumb} numberOfLines={1}>
               {header?.crumbs.map((c) => c.label).join(' › ') ?? 'Review today'}
@@ -142,7 +142,7 @@ export function TopBar({
   );
 }
 
-/** Review's two modes (desktop-07/08): Quiz me | Flashcards, kept in the address (?mode=quiz); a quiz being taken (step 9.1b-3) is Quiz me. */
+/** Review's two modes (desktop-07/08): Quiz me | Flashcards, kept in the address (?mode=quiz); a quiz being taken is Quiz me. */
 function ReviewModes() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();

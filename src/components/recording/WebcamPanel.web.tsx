@@ -9,7 +9,7 @@ import type { Moment } from './markPanelState';
 import { saveWebcamPhoto } from './photoBoard.web';
 
 /**
- * The laptop's webcam for a board photo (step 5.6): the live picture (the
+ * The laptop's webcam for a board photo: the live picture (the
  * back camera when there is one; video only, never the microphone the
  * recording uses), Take photo and Cancel. The browser asks for the camera
  * the first time. The camera is let go as soon as the panel closes.

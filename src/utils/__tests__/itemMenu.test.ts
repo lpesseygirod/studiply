@@ -1,5 +1,5 @@
 // One item menu for the grid, the sidebar and the Library, and the
-// empty-space menu (Lea, step 3.2 feedback).
+// empty-space menu (Lea's feedback).
 import { actionHint, emptySpaceActions, itemActions, itemNoun, movableItem, pasteLabel, SPACE_LABELS, starTarget } from '../itemMenu';
 import type { ShelfItem } from '../shelf';
 
@@ -18,13 +18,13 @@ describe('itemActions', () => {
   const inFolder = (type: ShelfItem['type']) => itemActions(item({ type, folderId: 'parent' }));
   const atTop = (type: ShelfItem['type']) => itemActions(item({ type, folderId: null }));
 
-  it('the full menu in order (step 3.4); lectures also Summarize, Extend (7.9), Study reminders (9.2) and Export PDF', () => {
+  it('the full menu in order; lectures also Summarize, Extend, Study reminders and Export PDF', () => {
     expect(inFolder('folder')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete']);
     expect(inFolder('lecture')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'reminders', 'export', 'delete']);
     expect(actionHint('reminders', 'lecture')).toBeNull();
     expect(inFolder('pdf')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete']);
     expect(inFolder('image')).toEqual(inFolder('pdf'));
-    // Documents (step 4.3): as a PDF, without Copy for now.
+    // Documents: as a PDF, without Copy for now.
     expect(inFolder('document')).toEqual(['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete']);
     expect(itemNoun('document')).toBe('Document');
     expect(movableItem(item({ type: 'document', folderId: 'f' }))).toMatchObject({ type: 'file', folderId: 'f' });
@@ -35,12 +35,12 @@ describe('itemActions', () => {
     expect(atTop('folder')).not.toContain('moveOut');
   });
 
-  it('a course: no Move to…, Move out, Cut or Copy (courses are the top level); Course settings… (9.2-2) before Delete', () => {
+  it('a course: no Move to…, Move out, Cut or Copy (courses are the top level); Course settings… before Delete', () => {
     expect(atTop('course')).toEqual(['open', 'rename', 'star', 'merge', 'examPack', 'courseSettings', 'delete']);
     expect(actionHint('courseSettings', 'course')).toBeNull();
   });
 
-  it('a Unit summary and an Exam pack have a document’s menu (7.9); they move as files and are named by kind', () => {
+  it('a Unit summary and an Exam pack have a document’s menu; they move as files and are named by kind', () => {
     for (const kind of ['unit_summary', 'exam_pack'] as const) {
       expect(inFolder(kind)).toEqual(inFolder('document'));
       expect(atTop(kind)).toEqual(['open', 'rename', 'move', 'cut', 'star', 'delete']);
@@ -62,7 +62,7 @@ describe('actionHint (greyed out, with why)', () => {
     expect(actionHint('copy', 'folder')).toBe('Coming soon');
   });
 
-  it('Summarize (7.3), Extend, Merge and Make exam pack (7.9) work, as does the rest', () => {
+  it('Summarize, Extend, Merge and Make exam pack work, as does the rest', () => {
     expect(actionHint('summarize', 'lecture')).toBeNull();
     expect(actionHint('extend', 'lecture')).toBeNull();
     expect(actionHint('merge', 'folder')).toBeNull();

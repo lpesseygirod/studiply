@@ -1,5 +1,5 @@
 /**
- * When a flashcard comes back (step 9.1): a small SM-2-like rule on review_schedule's columns
+ * When a flashcard comes back: a small SM-2-like rule on review_schedule's columns
  * (interval in days, ease, reps), with the four ratings of the review screen (desktop-08,
  * iphone-10). Pure, so both devices and the offline queue give the same dates.
  *
@@ -9,7 +9,7 @@
  * - After that: Hard the interval × 1.2 (at least a day more), Good × ease, Easy × ease × 1.3.
  * - Ease: Hard −0.15, Good unchanged, Easy +0.15; never under 1.3. Intervals are whole days (at
  *   most 365), due at the same time of day as the review.
- * The day 1 / 3 / 7 / 21 lecture reminders are step 9.2's (review_schedule's file rows).
+ * The day 1 / 3 / 7 / 21 lecture reminders are the lecture plan's (review_schedule's file rows).
  */
 
 export type Grade = 'again' | 'hard' | 'good' | 'easy';

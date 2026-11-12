@@ -1,6 +1,6 @@
 /**
  * quiz-checks.ts
- * Step 9.1b-2: the checks on each question Claude writes, in code (the approved plan, §3), and what is
+ * The checks on each question Claude writes, in code (the approved plan, §3), and what is
  * done when one fails. Pure: no Deno or network code (Jest: src/lib/__tests__/quizChecks.test.ts).
  *
  * - shape: the type's `data` (zod, quiz-zod.ts); the slot exists and is answered once;
@@ -11,13 +11,13 @@
  * - source: L# a chosen lecture and its time within the lecture; F# a resource and its page within it;
  * - duplicates (prompts compared without case, accents, spaces or punctuation): the second goes; a
  *   question that copies a past exam's example stem goes (past exams give the format only);
- * - faithfulness (7.5's finder): every number, date and formula of the prompt, the right answer and
+ * - faithfulness (the summary checks' finder): every number, date and formula of the prompt, the right answer and
  *   the explanation in the material; what code can't find goes to one verify call. A calculation or
- *   application question's numbers are an exercise's (made up to practise on, as 7.5's exercise rule):
+ *   application question's numbers are an exercise's (made up to practise on, as the summary checks' exercise rule):
  *   only its formulas are checked. "added" in the explanation moves that sentence to Added context;
  *   "added" in the prompt or the right answer drops the question; "corrected" fixes the explanation
  *   or the prompt in place, a numeric answer when it reads as one number, else drops it;
- * - language: 7.5's stopword check on each question long enough to tell.
+ * - language: the summary checks' stopword check on each question long enough to tell.
  */
 
 import { stamp } from './assistant.ts';
@@ -347,7 +347,7 @@ function fieldTexts(q: QuizQuestion): [QuizField, string][] {
   ];
 }
 
-/** Every number, date and formula of the questions not found in the material (7.5's finder). */
+/** Every number, date and formula of the questions not found in the material (the summary checks' finder). */
 export function quizFaithfulness(questions: QuizQuestion[], src: Sources): { checked: number; unverified: QuizUnverified[] } {
   const unverified: QuizUnverified[] = [];
   let checked = 0;

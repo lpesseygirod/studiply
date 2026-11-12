@@ -37,7 +37,7 @@ import { HIDDEN_ROUTES, MAIN_TABS, isFullScreenRoute, type MainTab } from '../..
 import { setCommentMarginRoom, useCommentMargin } from '../../src/components/shell/commentMargin';
 import { COMMENT_MARGIN_GAP, COMMENT_MARGIN_W } from '../../src/editor/schema/comments';
 
-/** The page, its column's padding and the comments margin beside it (step 4.5). */
+/** The page, its column's padding and the comments margin beside it. */
 const COMMENT_MARGIN_ROOM = Layout.documentMaxWidth + 48 + COMMENT_MARGIN_GAP + COMMENT_MARGIN_W;
 
 // The bar's own height, above the home indicator (React Navigation's default).
@@ -115,10 +115,10 @@ export default function MainLayout() {
   const isFullScreen = isFullScreenRoute(pathname);
   const commentMargin = useCommentMargin();
 
-  // Review (step 9.1, desktop-07/08) has no sidebar either: the card on the gradient, the top bar's logo back to the library.
+  // Review (desktop-07/08) has no sidebar either: the card on the gradient, the top bar's logo back to the library.
   const showSidebar = wide && kind !== 'settings' && kind !== 'review' && prefs.sidebarOpen;
   const showAssistant = wide && kind === 'document' && prefs.assistantOpen;
-  // A summary's Full answer link (step 7.7) opens the study assistant panel.
+  // A summary's Full answer link opens the study assistant panel.
   useEffect(() => registerShellCommand('openAssistant', () => setPrefs({ assistantOpen: true })), [setPrefs]);
   const summaryBanner = useSummaryBanner();
 
@@ -135,9 +135,9 @@ export default function MainLayout() {
               onToggleAssistant={() => setPrefs({ assistantOpen: !prefs.assistantOpen })}
             />
           )}
-          {/* Step 7.7 (desktop-03): a lecture's Summary tab holding its summary: the green banner, the window's full width. */}
+          {/* desktop-03: a lecture's Summary tab holding its summary: the green banner, the window's full width. */}
           {wide && kind === 'document' && summaryBanner && <SummaryBanner summary={summaryBanner.summary} lecture={summaryBanner.lecture} />}
-          {/* While a lecture records (step 5.3): on every screen, so leaving the lecture never stops it. */}
+          {/* While a lecture records: on every screen, so leaving the lecture never stops it. */}
           {wide && <RecordingStrip />}
           <View style={styles.row}>
             {showSidebar && <Sidebar kind={kind} showUndo={showUndo} />}
@@ -147,7 +147,7 @@ export default function MainLayout() {
                 style={[
                   styles.centerColumn,
                   wide && kind !== 'library' && kind !== 'review' && !(kind === 'document' && commentMargin.pages) && (kind === 'settings' ? styles.centerColumnSettings : styles.centerColumnNarrow),
-                  // A document showing its comments margin (step 4.5); in Pages it has the whole pane (step 4.5b).
+                  // A document showing its comments margin; in Pages it has the whole pane.
                   wide && kind === 'document' && !commentMargin.pages && commentMargin.shown && commentMargin.room && styles.centerColumnWithComments,
                 ]}
               >
@@ -191,11 +191,11 @@ export default function MainLayout() {
           {!wide && <OfflineBanner bottom={(isFullScreen ? 0 : TAB_BAR_HEIGHT) + insets.bottom + 8} />}
           {!wide && <RecordingPill />}
           <RecordingHost />
-          {/* Stop & summarize (step 7.3): over any screen, during a recording or after it. */}
+          {/* Stop & summarize: over any screen, during a recording or after it. */}
           <SummarizePanel />
-          {/* Step 9.2-3: the review reminders (iPhone), planned again as things change; a tap opens Review. */}
+          {/* The review reminders (iPhone), planned again as things change; a tap opens Review. */}
           <RemindersHost />
-          {/* Step 10.2-2: her credits, read again as she comes back; waiting recordings sent once she has some. */}
+          {/* Her credits, read again as she comes back; waiting recordings sent once she has some. */}
           <CreditsHost />
           <LecturePicker />
           {/* New folder outside a course (Lea, 10 Nov): "New folder in…". */}

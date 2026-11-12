@@ -3,9 +3,9 @@ import type { Mark as PMMark, Node as PMNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@tiptap/pm/state';
 
 /**
- * Comments (step 4.5), inside the document (Lea's choice): a `comment` mark
+ * Comments, inside the document (Lea's choice): a `comment` mark
  * on the text, carrying the comment itself, so it travels with its block:
- * it syncs and merges with it (4.3) and comes back with version restore.
+ * it syncs and merges with it and comes back with version restore.
  * No table, no migration. Several comments can cover the same words.
  *
  * Shared by both editors: the laptop shows them in a margin beside the page
@@ -34,9 +34,9 @@ export interface CommentInfo {
   quote: string;
   from: number;
   to: number;
-  /** Step 7.9: who wrote it: 'studiply' (a summary extended with a lecture), else null (hers). */
+  /** Who wrote it: 'studiply' (a summary extended with a lecture), else null (hers). */
   author: string | null;
-  /** Step 7.9: the moment it is about (a lecture and its time), kept so a later step can play it. */
+  /** The moment it is about (a lecture and its time), kept so a later step can play it. */
   source: CommentSource | null;
 }
 
@@ -144,7 +144,7 @@ export const Comment = Mark.create({
         parseHTML: (el) => el.hasAttribute('data-resolved'),
         renderHTML: (a) => (a.resolved ? { 'data-resolved': '' } : {}),
       },
-      // Step 7.9: a comment Studiply wrote (a summary extended with a lecture), and the moment it is about.
+      // A comment Studiply wrote (a summary extended with a lecture), and the moment it is about.
       author: {
         default: null,
         parseHTML: (el) => el.getAttribute('data-author'),

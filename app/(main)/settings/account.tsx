@@ -11,8 +11,8 @@ import { useThemedStyles } from '../../../src/theme/ThemeProvider';
 
 /**
  * Account (docs/design desktop-05): profile (how she signs in under the name), the sign-in methods
- * (Sign in with Apple Linked / Not linked, step 10.1), where the library is kept, sync status, Export
- * my data (step 10.1b-4), Sign out and Delete account… (step 10.1).
+ * (Sign in with Apple Linked / Not linked), where the library is kept, sync status, Export
+ * my data, Sign out and Delete account….
  */
 export default function AccountSettingsPage() {
   const { session } = useAuth();

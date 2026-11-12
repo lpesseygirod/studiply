@@ -1,5 +1,5 @@
 /**
- * The legal pages' shapes (step 10.1b-1). The texts are written in docs/legal/*.md and turned into
+ * The legal pages' shapes. The texts are written in docs/legal/*.md and turned into
  * these blocks by scripts/build-legal.mjs (texts.generated.ts); LegalDocument draws them.
  */
 

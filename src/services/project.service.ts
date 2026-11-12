@@ -15,7 +15,7 @@ import { activeCourses, inLectureScope, isActiveCourse, itemCounts, lectureCount
 import type { Project, Session } from '../types/database';
 
 /**
- * Projects are `courses` in the database (step 1.2 schema). Row Level
+ * Projects are `courses` in the database. Row Level
  * Security limits every query to the signed-in student, so the `userId`
  * parameters are kept for the callers but not needed as filters.
  *

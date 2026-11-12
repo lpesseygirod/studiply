@@ -1,10 +1,10 @@
 /**
  * @jest-environment node
  */
-// Step 9.2-1: spaced review of lectures (the approved plan, docs/reports/plan-9.2.md). The sessions
+// Spaced review of lectures (the approved plan, docs/reports/plan-9.2.md). The sessions
 // (1 · 3 · 7 · 21; steered by the exam: E−7 and E−1, nothing on or after it, two sessions 0–1 days
 // apart become the later one), what is due today (the current session, lapses, the last one's 7 days,
-// reviewed on or after the session, nothing before 9.2), the study reminders switch (Lea, 9 Nov) and
+// reviewed on or after the session, nothing before the plan), the study reminders switch (Lea, 9 Nov) and
 // the lectures due today from rows (both devices' function).
 import { addDays, daysBetween, lectureState, localDay, reviewSessions, sessionLabel, PLAN_START } from '../review/lecturePlan';
 import { coursePlan, dueLectures, lectureReviewRow, remindersOn, sessionDate, shortDay, type PlanRows } from '../review/lectures';
@@ -116,7 +116,7 @@ describe('what is due today', () => {
   it('after the exam: no more sessions for the lectures before it', () => {
     expect(due(16, 13, at(14))).toBeNull();
     expect(due(30, null, at(14))).toBeNull();
-    // Step 9.2-3: the day-before session not done doesn't stay due on the exam's day or after (no reminder then).
+    // The day-before session not done doesn't stay due on the exam's day or after (no reminder then).
     expect(due(13, 7, at(14))).toBe(13);
     expect(due(14, 7, at(14))).toBeNull();
     expect(due(16, 7, at(14))).toBeNull();
@@ -225,7 +225,7 @@ describe('the lectures due today (the badge, the chip, the header and the card)'
   });
 });
 
-describe('step 9.2-2: the course settings’ preview of the plan', () => {
+describe('the course settings’ preview of the plan', () => {
   const NOW2 = new Date(2026, 10, 10, 9, 0);
   const file = (id: string, title: string, course = 'k1', more: object = {}) => ({ id, title, kind: 'lecture', course_id: course, deleted_at: null, created_at: '2026-11-01T09:00:00', ...more });
   const rows: PlanRows = {

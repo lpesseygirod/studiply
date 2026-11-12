@@ -6,9 +6,9 @@ import { boxAround, leaveBoxOnEmptyLast } from './boxKeys';
 import { placeBlock } from './placeBlock';
 
 /**
- * Formula cards (step 4.7c; SUMMARY-SPEC "Formula card": a boxed formula with
+ * Formula cards (SUMMARY-SPEC "Formula card": a boxed formula with
  * its legend underneath): what the formula library puts in, and the block the
- * summary's formula cards use later (8.2). A small title (drawn, not text),
+ * summary's formula cards use later. A small title (drawn, not text),
  * the formula on its own line, and under it the legend: each symbol a small
  * formula, then what it means ("PV present value · r rate per period").
  *

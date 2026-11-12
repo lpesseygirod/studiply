@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Links (step 4.5): the address rule and the link command on a real editor.
+// Links: the address rule and the link command on a real editor.
 import { Editor } from '@tiptap/core';
 
 import { studiplyExtensions } from '../bridges';

@@ -1,5 +1,5 @@
 /**
- * The synthetic lecture (steps 7.4–7.5) as a fixture (the format of
+ * The synthetic lecture as a fixture (the format of
  * supabase/functions/_shared/summary-fixture.ts): 30 min of Psicobiología in
  * Spanish, notes with formatting, marks of all three kinds at low and high
  * levels, a board photo, a question to the assistant, an exam phrase, a

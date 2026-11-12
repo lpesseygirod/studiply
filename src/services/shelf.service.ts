@@ -221,7 +221,7 @@ async function lectureMediaOf(starred: MediaRow[]): Promise<ReturnType<typeof st
 }
 
 // -------------------------------------------------------------------
-// Exam packs (made in Phase 7)
+// Exam packs (made by the summary engine)
 // -------------------------------------------------------------------
 
 export async function getExamPacks(): Promise<ShelfItem[]> {
@@ -304,7 +304,7 @@ export async function getFolderChildCounts(folderIds: string[]): Promise<Map<str
 }
 
 /**
- * One level of a course for the Finder-style grid (step 3.2): its folders
+ * One level of a course for the Finder-style grid: its folders
  * (with how much each holds) and files of every kind (lectures with their
  * length), without the hidden "Project Files" lecture.
  */
@@ -322,15 +322,15 @@ export async function getCourseContents(courseId: string, folderId: string | nul
 }
 
 // -------------------------------------------------------------------
-// Review today (Phase 9 fills the schedule)
+// Review today (spaced review fills the schedule)
 // -------------------------------------------------------------------
 
 /**
- * Review today: the cards due by the end of today and the lectures due today (step 9.2, their plan);
+ * Review today: the cards due by the end of today and the lectures due today (their plan);
  * null when it can't be known (offline without the iPhone's copy, error).
  */
 export async function getReviewDueCount(now: Date = new Date()): Promise<number | null> {
-  // Step 9.1: the iPhone counts from its own copy (offline too, and after a rating made here).
+  // The iPhone counts from its own copy (offline too, and after a rating made here).
   const cached = await cachedDueCount(now).catch(() => null);
   if (cached !== null) return cached;
   if (isOffline()) return null;

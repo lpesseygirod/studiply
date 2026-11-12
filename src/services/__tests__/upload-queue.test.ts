@@ -1,4 +1,4 @@
-// The iPhone's queued uploads (step 1.8): what each operation sends, and that
+// The iPhone's queued uploads: what each operation sends, and that
 // sending one twice (the app closed just after it reached the server) does
 // no harm. The queue's own rules are tested in src/lib/sync/__tests__.
 

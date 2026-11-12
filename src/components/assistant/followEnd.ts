@@ -2,7 +2,7 @@
  * Whether the study assistant's conversation follows its end (Lea, 6 Nov): it does while the student is
  * at the bottom (within FOLLOW_SLACK_PX); once she scrolls up to read, a streaming answer no longer pulls
  * her down; asking (a typed question or a quick prompt) takes her to the end and it follows again. A
- * summary's Full answer link (step 7.7) keeps its question in view first.
+ * summary's Full answer link keeps its question in view first.
  *
  * Only her own scrolling changes it: the app's scrolls to the end, and the scroll events a layout sends,
  * report a grown conversation before the offset has caught up, which read as "scrolled up".

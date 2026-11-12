@@ -1,5 +1,5 @@
 /**
- * The recorder service (step 5.2): records a lecture in chunks, keeps every
+ * The recorder service: records a lecture in chunks, keeps every
  * chunk on the device first and sends it through the queue, so a recording
  * works without internet and uploads later, and survives a crash.
  *
@@ -40,7 +40,7 @@ import type {
 } from './types';
 
 export const CHUNK_MS = 30_000;
-/** Measured in 5.1: restarting leaves gaps of 6–56 ms on the web; a 500 ms overlap none. */
+/** Measured: restarting leaves gaps of 6–56 ms on the web; a 500 ms overlap none. */
 export const OVERLAP_MS = 500;
 /** A finished recording's details stay this long after everything is sent. */
 const KEEP_FINISHED_MS = 24 * 60 * 60_000;
@@ -232,7 +232,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       // Recording again into a lecture recorded here goes on after its chunks (numbers are never reused).
       if (earlier && earlier.status !== 'stopped') throw new Error('This lecture has an unfinished recording: continue or finish it first.');
       if (!(await deps.claim(lectureId))) throw new Error('This lecture is being recorded somewhere else.');
-      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier, step 5.7).
+      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier).
       const here = earlier ? await endOf(lectureId) : { seq: 0, ms: 0 };
       const from = after ? { seq: Math.max(here.seq, after.seq), ms: Math.max(here.ms, after.ms) } : here;
       // A recording discarded earlier in this lecture no longer applies to the new one.

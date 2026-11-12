@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Stop & summarize (step 7.3): which lecture the panel is open for. Opened
+ * Stop & summarize: which lecture the panel is open for. Opened
  * by the recording's Stop & summarize (the laptop's strip, the iPhone's
  * bar), by the Summary tab and by an item's Summarize; drawn once, by the
  * app's layout, over any screen.
@@ -10,7 +10,7 @@ export interface SummarizeRequest {
   lectureId: string;
   /** Opened from a recording: Keep recording · Stop & generate summary; else Cancel · Generate summary. */
   recording: boolean;
-  /** Step 7.9: Extend, Merge or Exam pack with the lectures picked (the first is `lectureId`, the base). */
+  /** Extend, Merge or Exam pack with the lectures picked (the first is `lectureId`, the base). */
   combine?: { mode: 'extend' | 'merge' | 'exam_pack'; lectureIds: string[]; numbers: number[]; titles: string[]; courseId: string | null; folderId: string | null };
 }
 

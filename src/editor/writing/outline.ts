@@ -1,6 +1,6 @@
 /**
  * outline.ts
- * The outline of a document's headings (step 4.7), to jump around: Title,
+ * The outline of a document's headings, to jump around: Title,
  * Heading 1, Heading 2 and Subheading, in the order of the text, with
  * their level; "it follows as I write": the current one is the section the
  * cursor is in (the last heading at or before it). Kept per document

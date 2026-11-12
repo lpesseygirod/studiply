@@ -16,9 +16,9 @@ declare global {
   interface Window {
     /** The editor, for the Chrome check (editor-spike.mjs), which runs this bundle without the app. */
     studiplyEditor?: ReturnType<typeof useTenTap>;
-    /** The PDF export's pages (step 4.8a, the export bridge's), for the Chrome check (export.mjs). */
+    /** The PDF export's pages (the export bridge's), for the Chrome check (export.mjs). */
     studiplyBuildPrint?: typeof buildPrint;
-    /** The Word export's pictures and import (step 4.8b, the export bridge's), for the Chrome check (docx.mjs). */
+    /** The Word export's pictures and import (the export bridge's), for the Chrome check (docx.mjs). */
     studiplyDrawPictures?: typeof makePictures;
     studiplyImportHtml?: typeof wordHtmlToDoc;
     studiplyFlatten?: typeof flattenOnWhite;

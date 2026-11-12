@@ -1,6 +1,6 @@
 /**
  * localSearch.ts
- * Search on the iPhone without a connection (step 3.5): the same hits as the
+ * Search on the iPhone without a connection: the same hits as the
  * database's public.search_library (migration 20261026090700), answered from
  * the cached rows. Only what is on this iPhone can be found: every title and
  * note, and the transcripts of the lectures whose transcript was downloaded.

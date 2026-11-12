@@ -22,14 +22,14 @@ describe('the iPhone tab bar', () => {
 
   it('hides the bar on documents (a recording opens in its document), not on Record’s setup', () => {
     expect(isFullScreenRoute('/doc/abc')).toBe(true);
-    // Step 9.1b-3: a quiz being taken; the Review tab itself keeps the bar.
+    // A quiz being taken; the Review tab itself keeps the bar.
     expect(isFullScreenRoute('/review/quiz/abc')).toBe(true);
     expect(isFullScreenRoute('/review')).toBe(false);
     expect(HIDDEN_ROUTES).toContain('review/quiz/[id]');
     expect(isFullScreenRoute('/record')).toBe(false);
     expect(isFullScreenRoute('/library')).toBe(false);
     expect(isFullScreenRoute('/project/abc')).toBe(false);
-    // Step 9.2-2: a course's settings keep the tab bar, as the course does.
+    // A course's settings keep the tab bar, as the course does.
     expect(HIDDEN_ROUTES).toContain('course-settings/[id]');
     expect(isFullScreenRoute('/course-settings/abc')).toBe(false);
   });

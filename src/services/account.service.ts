@@ -1,6 +1,6 @@
 /**
  * account.service.ts
- * Step 10.1: Delete account (Settings → Account; App Review 5.1.1(v)). The delete-account Edge
+ * Delete account (Settings → Account; App Review 5.1.1(v)). The delete-account Edge
  * Function deletes everything of hers on Studiply: her files in Storage, every row (they cascade from
  * her account) and the account itself; with Sign in with Apple, Apple is asked once more for a code
  * so the server can revoke her Apple token. Needs a connection (nothing is queued: a deletion waiting

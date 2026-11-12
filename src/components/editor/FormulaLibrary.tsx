@@ -7,7 +7,7 @@ import { FORMULA_GROUPS, searchFormulas } from '../../editor/formulas/library';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * The formula library (step 4.7c), the same on both devices: a search box,
+ * The formula library, the same on both devices: a search box,
  * then the formulas under their group's heading, each with its name and the
  * formula in plain text. A pick puts in its formula card. Laptop: a popover
  * from Insert ▾; iPhone: in the formula sheet.

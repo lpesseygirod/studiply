@@ -1,6 +1,6 @@
 /**
  * apple-auth.ios.ts
- * Sign in with Apple on the iPhone (step 10.1): Apple's own sheet (expo-apple-authentication), then
+ * Sign in with Apple on the iPhone: Apple's own sheet (expo-apple-authentication), then
  * Supabase with the identity token. Needs the app's Sign in with Apple entitlement (app.json
  * ios.usesAppleSignIn), so an EAS build: in Expo Go the token is issued to Expo Go, not to Studiply.
  */

@@ -3,8 +3,8 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import { TextSelection, type EditorState } from '@tiptap/pm/state';
 
 /**
- * Keys shared by Studiply's boxes (callouts since 4.6, formula cards since
- * 4.7c): Enter on an empty last line leaves the box, as in a list.
+ * Keys shared by Studiply's boxes (callouts and formula cards):
+ * Enter on an empty last line leaves the box, as in a list.
  */
 
 /** The innermost `name` box around the cursor. */

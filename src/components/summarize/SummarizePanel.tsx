@@ -45,7 +45,7 @@ import type { SummaryQuote } from '../../lib/credits/quote';
 import { COMBINE_UNITS, LECTURE_UNITS } from '../../../supabase/functions/_shared/credits';
 
 /**
- * Stop & summarize (step 7.3; DESIGN.md "Stop & summarize", docs/design
+ * Stop & summarize (DESIGN.md "Stop & summarize", docs/design
  * desktop-02 and iphone-05): the lecture's counts, the extra resources (My
  * notes and marks always in), the add buttons, the 10 sliders with the
  * presets, Save as course default, and the calculator's preview line.
@@ -57,11 +57,11 @@ import { COMBINE_UNITS, LECTURE_UNITS } from '../../../supabase/functions/_share
  * Opened from a recording, the recording goes on until Stop & generate
  * summary: that stops it, saves the request (a pending `summaries` row,
  * summarize.service) and opens the Summary tab. After class the buttons are
- * Cancel · Generate summary. No AI is called here (step 7.4 writes the summary).
+ * Cancel · Generate summary. No AI is called here (the summary is written later).
  */
 /**
  * Stop & generate summary: stops the recording (if any), saves the request and the lecture's study
- * reminders (step 9.2, Lea: the panel's switch), opens the Summary tab.
+ * reminders (Lea: the panel's switch), opens the Summary tab.
  */
 async function stopAndRequest(p: { lectureId: string; recording: boolean; sliders: Sliders; resources: SummarizeResources; plan: SummaryPlan; target?: SummaryTarget; studyReminders: boolean; open: () => void }) {
   if (p.recording) {
@@ -88,7 +88,7 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
     );
   }
   p.open();
-  // Step 7.4: the laptop starts it now when the student already allowed it (no dialog over the screen
+  // The laptop starts it now when the student already allowed it (no dialog over the screen
   // she's on); the iPhone once the request has reached the server (summarize.service). Otherwise the
   // Summary tab's "Summarize now" asks and starts it.
   if (summaryId && !syncEnabled && (await consentGiven('assistant_summary'))) {
@@ -103,8 +103,8 @@ async function stopAndRequest(p: { lectureId: string; recording: boolean; slider
 const COMBINE_TITLES = { extend: 'Extend with next lecture', merge: 'Merge lectures', exam_pack: 'Make exam pack' } as const;
 
 /**
- * Step 7.9: the Extend / Merge / Exam pack request (its Unit summary or Exam pack file made now), then
- * opens where it's written; started at once when the student already allowed it (as 7.4).
+ * The Extend / Merge / Exam pack request (its Unit summary or Exam pack file made now), then
+ * opens where it's written; started at once when the student already allowed it (as a lecture's summary).
  */
 async function combineAndStart(p: { ask: CombineAsk; open: (fileId: string, tab: string) => void }) {
   try {
@@ -149,14 +149,14 @@ function Panel({ request }: { request: SummarizeRequest }) {
   const [ticks, setTicks] = useState({ slides: true, photos: true, assistant: true });
   const [busy, setBusy] = useState(false);
   const [savedNote, setSavedNote] = useState<string | null>(null);
-  // Step 7.7: when the lecture has a summary already, where the new one goes (a new tab unless she chooses).
+  // When the lecture has a summary already, where the new one goes (a new tab unless she chooses).
   const [target, setTarget] = useState<SummaryTarget>('new');
-  // Step 7.9: Extend's target: a new Unit summary (default) or added to this lecture's summary.
+  // Extend's target: a new Unit summary (default) or added to this lecture's summary.
   const combine = request.combine;
   const [extendTarget, setExtendTarget] = useState<CombineTarget>('unit');
-  // Step 9.2 (Lea): study reminders for this lecture; its own choice, else its course's default (on).
+  // Study reminders for this lecture (Lea): its own choice, else its course's default (on).
   const [reminders, setReminders] = useState<boolean | null>(null);
-  // Step 10.2-2: a lecture's summary: included (the first) or ½ (again), as the server decides.
+  // A lecture's summary: included (the first) or ½ (again), as the server decides.
   const [quote, setQuote] = useState<SummaryQuote | null>(null);
   useEffect(() => {
     if (combine) return;
@@ -186,7 +186,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
     void load();
   }, [load]);
   // The web draws scrollbars from the CSS color-scheme: dark in dark mode, the browser's own in light mode
-  // (as the assistant's chips, 6.2). Again once loaded: the chips' row appears then.
+  // (as the assistant's chips). Again once loaded: the chips' row appears then.
   const loaded = !!info && !!sliders;
   useEffect(() => {
     if (Platform.OS !== 'web') return;
@@ -231,7 +231,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
     notes: true,
   });
 
-  // The panel closes at once; the strip shows "Saving…" while the recording's last audio goes, as before 7.3.
+  // The panel closes at once; the strip shows "Saving…" while the recording's last audio goes, as before this panel.
   const generate = () => {
     if (!sliders || !plan || busy) return;
     setBusy(true);
@@ -411,7 +411,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
     );
   };
 
-  // Step 10.2-2: what it costs, by the server's rules (the server still decides). Recording now, the
+  // What it costs, by the server's rules (the server still decides). Recording now, the
   // lecture's credit is its transcription's, so only "again" can cost here.
   const cost = combine ? COMBINE_UNITS : quote ? (recording && quote.unpaidLecture ? quote.units - LECTURE_UNITS : quote.units) : null;
   const costLine = plan && info ? <CostLine cost={cost} unpaidLecture={!recording && !combine && !!quote?.unpaidLecture} style={styles.preview} testId="summarize-cost" /> : null;
@@ -484,12 +484,12 @@ function Panel({ request }: { request: SummarizeRequest }) {
     </View>
   );
 
-  // Step 7.7: the lecture has a summary already: a new tab (default), or the Summary tab written again around her edits.
+  // The lecture has a summary already: a new tab (default), or the Summary tab written again around her edits.
   const targets: { key: SummaryTarget; title: string; detail: string }[] = [
     { key: 'new', title: 'Put it in a new tab', detail: '“New summary”, after Summary and Transcript. The Summary tab stays as it is.' },
     { key: 'summary', title: 'Update the Summary tab', detail: 'Your edits stay: only the parts you haven’t changed are written again.' },
   ];
-  // Step 7.9: Extend's two targets (the 7.7 radios' look).
+  // Extend's two targets (the look of the radios above).
   const extendTargets: { key: CombineTarget; title: string; detail: string }[] = [
     { key: 'unit', title: 'A new Unit summary', detail: 'A new document in the course with both lectures. This lecture’s summary stays as it is.' },
     { key: 'add', title: 'Add to this summary', detail: 'Only what’s new is added; repeats become comments on what’s there. Your text never changes.' },
@@ -548,7 +548,7 @@ function Panel({ request }: { request: SummarizeRequest }) {
     </View>
   );
 
-  // Step 9.2 (Lea, 9 Nov): one lecture's summary only, after where it goes (the panel's choices).
+  // Study reminders (Lea, 9 Nov): one lecture's summary only, after where it goes (the panel's choices).
   const remindersRow =
     !combine && reminders !== null ? (
       <View style={styles.target} {...{ dataSet: { summarize: 'reminders', checked: String(reminders) } }}>

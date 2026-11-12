@@ -1,6 +1,6 @@
 /**
  * sample.ts
- * Development only: realistic earlier-version data to test step 1.9 with,
+ * Development only: realistic earlier-version data to test the import with,
  * in its own database file (studiply-sample.db) and folder
  * (documents/legacy-sample/). The real studiply.db is never touched.
  *
@@ -9,7 +9,7 @@
  * transcripts, a PDF and a photo, one lecture in the old trash, one that
  * was trashed too long ago, a recording whose file is missing, and the
  * course's own uploads (a PDF and a photo in a "Project Files" session,
- * which the import turns into library files, step 3.4).
+ * which the import turns into library files).
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -108,7 +108,7 @@ export async function createSampleEarlierVersion(): Promise<void> {
   await file('audio', 'file:///old-install/cache/AV/recording-gone.m4a', null, 'audio/m4a');
 
   // The course's own uploads, in the old app's hidden "Project Files" session (no recording,
-  // transcript or notes): the import makes them library files in Tema 1 (step 3.4).
+  // transcript or notes): the import makes them library files in Tema 1.
   const uploads = newId();
   await session(uploads, lea, psico, tema, 'Project Files');
   const uploadsDir = `${root}${lea}/${uploads}/`;

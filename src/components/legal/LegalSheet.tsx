@@ -1,6 +1,6 @@
 /**
  * LegalSheet.tsx
- * A legal page opened over the screen (step 10.1b-1), where leaving would lose something: sign-up
+ * A legal page opened over the screen, where leaving would lose something: sign-up
  * (the form) and the AI consent screen. The same page as the route, from the texts bundled with
  * the app (works offline). Links to another legal page open inside the sheet; "‹" goes back, then
  * closes.

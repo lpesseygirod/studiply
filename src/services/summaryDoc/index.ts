@@ -63,12 +63,12 @@ const appDeps: PlaceDeps = {
 /** One placement at a time per lecture on this device (two at once could add two "New summary" tabs). */
 const running = new Map<string, Promise<PlaceOutcome>>();
 
-/** Step 7.7: the lecture's newest finished summary written into its document (once); where it is. */
+/** The lecture's newest finished summary written into its document (once); where it is. */
 export function placeSummaryOf(lectureId: string): Promise<PlaceOutcome> {
   const busy = running.get(lectureId);
   if (busy) return busy;
   const run = (async (): Promise<PlaceOutcome> => {
-    // Step 7.9 first: an Extend / Merge / Exam pack finished for this file (a Unit summary, an Exam pack, or added to this lecture).
+    // First: an Extend / Merge / Exam pack finished for this file (a Unit summary, an Exam pack, or added to this lecture).
     const combined = await placeCombined(lectureId).catch(() => null);
     if (combined?.written) return { tab: combined.tab, written: true, summaryId: '' };
     return placeSummary(lectureId, appDeps);

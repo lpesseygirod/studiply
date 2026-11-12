@@ -1,4 +1,4 @@
-// Step 5.2: the live transcript from the chunks' transcripts, the words of
+// The live transcript from the chunks' transcripts, the words of
 // each 500 ms overlap kept once (the shared rule; the full transcript's rows
 // are tested in src/lib/__tests__/transcriptRows.test.ts).
 import { joinTranscript, type ChunkTranscript } from '../../../../supabase/functions/_shared/transcriptJoin';

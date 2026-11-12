@@ -8,7 +8,7 @@ import { useThemedStyles } from '../../theme/ThemeProvider';
 const GRID = 10;
 
 /**
- * The laptop's table grid (step 4.5, as Google Docs): point at a cell to
+ * The laptop's table grid (as Google Docs): point at a cell to
  * choose rows × columns ("3 × 4" shows under it), click to insert. Bigger
  * tables are typed in below it (TableSizeForm).
  */

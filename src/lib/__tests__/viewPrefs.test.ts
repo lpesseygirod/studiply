@@ -4,7 +4,7 @@ import { DEFAULT_VIEW, effectiveZoom, readViewPrefs, saveViewPrefs, stepZoom } f
 
 beforeEach(() => AsyncStorage.clear());
 
-describe('viewPrefs (step 4.5b)', () => {
+describe('viewPrefs', () => {
   it('the laptop starts in Pages at Fit, the iPhone Pageless at 100 %', async () => {
     expect(await readViewPrefs('laptop')).toEqual({ pages: true, zoom: 'fit' });
     expect(await readViewPrefs('iphone')).toEqual({ pages: false, zoom: 1 });

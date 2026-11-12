@@ -1,7 +1,7 @@
 import { DocColors } from '../../constants/colors';
 
 /**
- * The colour picker's colours (step 4.5), as Word's: each base colour of
+ * The colour picker's colours, as Word's: each base colour of
  * `DocColors.palette` at the top of its column, with three lighter and two
  * darker shades below it (Lighter 80 %, 60 %, 40 %, Darker 25 %, 50 %).
  * Worked out here, so only the bases are written in colors.ts.

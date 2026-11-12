@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Comments (step 4.5) on a real editor: add on the selected words, edit,
+// Comments on a real editor: add on the selected words, edit,
 // resolve and reopen, delete, select; several on the same words; JSON and
 // HTML keep them; they travel with their block when two devices merge.
 import { Editor, type JSONContent } from '@tiptap/core';

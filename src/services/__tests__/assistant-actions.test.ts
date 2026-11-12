@@ -1,4 +1,4 @@
-// Step 6.3 from the app: Ask Claude on a selection and Flashcards from an
+// From the app: Ask Claude on a selection and Flashcards from an
 // answer (services/assistant-actions), the cards saved (services/flashcards:
 // flashcards rows only, no review schedule; Undo trashes them), and an answer
 // added to My notes (services/moment-placement: through the editor when it's

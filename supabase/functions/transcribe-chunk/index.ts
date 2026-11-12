@@ -2,13 +2,13 @@
  * transcribe-chunk — turns one uploaded audio chunk into transcript segments.
  *
  * POST { lectureId, seq, storagePath, startMs } with the user's access token.
- *   storagePath: the chunk in the audio-chunks bucket ({userId}/…), step 1.4
+ *   storagePath: the chunk in the audio-chunks bucket ({userId}/…)
  *   seq:         the chunk's number in the lecture (audio_chunks is unique on it)
  *   startMs:     where the chunk starts in the recording
  *
  * In order: signed in → valid request → own lecture → transcription consent
  * → under the daily limit → (already done? answer from the database, no
- * second charge) → the lecture's credit (step 10.2-1: 402 no_credits when
+ * second charge) → the lecture's credit (402 no_credits when
  * none is left) → download → transcribe → log cost in ai_usage → save
  * segments.
  *
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       return json({ chunkId: existing.id, durationMs: existing.duration_ms, segments: await storedSegments(db, existing.id) });
     }
 
-    // 6b. Step 10.2-1: the lecture's credit, once per started 2 hours (a chunk retried or later in the
+    // 6b. The lecture's credit, once per started 2 hours (a chunk retried or later in the
     // same block finds it paid). None left: 402, the chunk stays uploaded, sent again later by the app.
     // A transcription that then fails keeps its credit (decided 12 Nov: rare; an admin grant gives it back).
     const block = blockOf(startMs);

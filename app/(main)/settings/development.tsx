@@ -7,7 +7,7 @@ import { AiUsageSettings } from '../../../src/components/settings/AiUsageSetting
 
 /**
  * Development builds only: server badge, Simulate offline, sync, drag debugging, sample data; and
- * (step 10.2-2, Lea 12 Nov) AI usage today against the daily limits with the cost breakdown, moved
+ * (Lea 12 Nov) AI usage today against the daily limits with the cost breakdown, moved
  * from AI & privacy.
  */
 export default function DevelopmentSettingsPage() {

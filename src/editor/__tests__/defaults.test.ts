@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The defaults `sameBlock` leaves out (step 4.5) match the real schema.
+// The defaults `sameBlock` leaves out match the real schema.
 import { getSchema } from '@tiptap/core';
 
 import { studiplyExtensions } from '../bridges';

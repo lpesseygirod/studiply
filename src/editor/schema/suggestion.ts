@@ -11,7 +11,7 @@ import { TIMESTAMP_CHIP } from './timestampChip';
 import type { DocJSON } from '../types';
 
 /**
- * The study assistant in the document (step 6.3), shared by both editors:
+ * The study assistant in the document, shared by both editors:
  *
  *  - Ask Claude on a selection: pressing the selection bar's "✦ Ask Claude"
  *    keeps the selection as the suggestion's range, highlighted and mapped

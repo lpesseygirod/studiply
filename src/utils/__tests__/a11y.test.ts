@@ -1,4 +1,4 @@
-// Step 10.1b-5: a control's checked / selected / expanded state reaches screen readers on the web too.
+// A control's checked / selected / expanded state reaches screen readers on the web too.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 

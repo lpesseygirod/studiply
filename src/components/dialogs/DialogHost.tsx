@@ -5,7 +5,7 @@
  * renders nothing. Mounted once in app/_layout.tsx.
  *
  * Keyboard: Escape cancels; Enter confirms a prompt or a one-button alert.
- * In a menu (step 3.4) the first available item has the focus; ↑ / ↓ / Tab
+ * In a menu the first available item has the focus; ↑ / ↓ / Tab
  * move (wrapping, skipping greyed-out items), Home / End jump, Enter or
  * Space chooses, and the focus goes back where it was when it closes.
  * Clicking outside cancels a menu or prompt (and an alert that has Cancel).
@@ -170,7 +170,7 @@ function Dialog({ request }: { request: DialogRequest }) {
   if (request.kind === 'menu') {
     const items = menuItems;
     // Its height as drawn (items, section headings, the title), never more than the window: a longer
-    // menu (a lecture's document menu, step 7.9) scrolls instead of running off the bottom.
+    // menu (a lecture's document menu) scrolls instead of running off the bottom.
     const tall = items.length * 44 + items.filter((b) => b.section).length * 28 + (request.title ? 40 : 0) + 12;
     const maxHeight = height - 16;
     const anchored = request.anchor

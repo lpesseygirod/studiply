@@ -1,5 +1,5 @@
 /**
- * Fitting toolbar tools into one row (step 4.5, Lea): the first tools that
+ * Fitting toolbar tools into one row (Lea): the first tools that
  * fit, in order, stay in the row; the rest go to the second row (the
  * laptop's ⌄, the iPhone's arrow). Shared by both toolbars.
  */

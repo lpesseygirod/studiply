@@ -1,6 +1,6 @@
 /**
  * sheetDoc.ts
- * A spreadsheet tab's cells in its documents row (step 4.7e).
+ * A spreadsheet tab's cells in its documents row.
  *
  * The tab's content is a document whose top-level blocks are its cells, one
  * block per cell that isn't empty, in row order (A1, B1, …, A2, …):

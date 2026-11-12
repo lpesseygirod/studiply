@@ -1,5 +1,5 @@
 /**
- * What the iPhone keeps of a recording (steps 5.2, iPhone half): each
+ * What the iPhone keeps of a recording: each
  * recording's details, its chunks (their files' place and size, until
  * uploaded; their transcripts) in AsyncStorage, one entry per lecture, and
  * the recorder's two queue lanes, each in its own entry. The audio itself is

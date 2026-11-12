@@ -1,6 +1,6 @@
 /**
  * codes.service.ts
- * Free-credit codes (part A): redeeming one (Settings → Credits, on the web only: App Store rule
+ * Free-credit codes: redeeming one (Settings → Credits, on the web only: App Store rule
  * 3.1.1), whether she is an admin, and the dashboard's Codes section. All through the server's own
  * functions (20261029153100); the codes themselves are never readable by a student.
  */

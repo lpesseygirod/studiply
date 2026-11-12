@@ -130,7 +130,7 @@ export default function LibraryScreen() {
   // The same item menu as the course grid and the sidebar; changes reload through useLibraryUpdates.
   const itemMenu = useItemMenu({ showUndo, onOpen: item => router.push(openTarget(item)) });
 
-  // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
+  // The earlier version's data on this iPhone, offered once per app start.
   const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -248,11 +248,11 @@ export default function LibraryScreen() {
           </>
         )}
 
-        {/* ── Credits (step 10.2-2): the beta friends' thanks, once; a quiet line when 1 lecture or less is left ── */}
+        {/* ── Credits: the beta friends' thanks, once; a quiet line when 1 lecture or less is left ── */}
         {!section && <BetaCreditsNotice />}
         {!section && <LowCreditsLine where="library" />}
 
-        {/* ── Earlier version (step 1.9) ─────────────────────────── */}
+        {/* ── Earlier version ──────────────────────────────────── */}
         {earlier && (
           <View style={styles.earlierCard}>
             <Text style={styles.earlierTitle}>Found data from the earlier version on this iPhone</Text>
@@ -500,7 +500,7 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: 10,
   },
 
-  // Earlier version card (step 1.9)
+  // Earlier version card
   earlierCard: {
     marginTop: 20,
     backgroundColor: c.white,

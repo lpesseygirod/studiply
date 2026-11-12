@@ -1,7 +1,7 @@
 /**
  * styles.ts
  * The settings rows, cards, pills and radios, shared by every settings
- * section (step 3.6; moved from the old General screen unchanged).
+ * section (moved from the old General screen unchanged).
  */
 
 import { StyleSheet } from 'react-native';

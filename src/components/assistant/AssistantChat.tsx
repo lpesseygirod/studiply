@@ -28,7 +28,7 @@ import { EXTRAS_NOT_SENT, EXTRAS_USED_UP, extrasRefusal, extrasUsedUp } from '..
 
 /** How long a short notice ("comes in the next step", "Copied") stays. */
 const NOTICE_MS = 3000;
-/** How long a question a summary's link opened stays marked (step 7.7). */
+/** How long a question a summary's link opened stays marked. */
 const FOCUS_MS = 4000;
 
 export const OFFLINE_NOTE = 'The assistant needs the internet. Your question stays here.';
@@ -40,13 +40,13 @@ export function knownText(knownUpToMs: number | null): string {
 }
 
 /**
- * The study assistant's conversation, quick prompts and composer (step 6.2,
- * DESIGN "Study assistant"), the same on both devices, drawn as each mockup:
+ * The study assistant's conversation, quick prompts and composer (DESIGN
+ * "Study assistant"), the same on both devices, drawn as each mockup:
  * `panel` the laptop's right panel (desktop-01: an avatar in the question's
  * bubble, "From 24:12 to 34:12", Copy and Retry icons, the composer box with
  * + and "Context: this lecture"), `sheet` the iPhone's sheet (iphone-04:
  * "24:12 → 34:12", Add to notes and Flashcards only, Copy and Retry on a
- * long-press, a rounded composer with a round send button). Step 6.3: Add
+ * long-press, a rounded composer with a round send button). Add
  * to notes puts the answer in My notes ("Added ✓" after); Flashcards
  * proposes cards under the answer (Save cards · Discard); + says it comes later.
  */
@@ -73,7 +73,7 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     return () => clearTimeout(t);
   }, [notice]);
 
-  // A summary's Full answer link (step 7.7): this question scrolled to and marked for a few seconds,
+  // A summary's Full answer link: this question scrolled to and marked for a few seconds,
   // instead of the end of the conversation.
   const tops = useRef(new Map<string, number>());
   const [follow] = useState(createFollower);
@@ -122,7 +122,7 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     scroll.current?.scrollToEnd({ animated: false });
   };
 
-  // Step 10.2-1b: the assistant & extras allowance used up: nothing is sent (the server would refuse);
+  // The assistant & extras allowance used up: nothing is sent (the server would refuse);
   // the draft stays. The credits store is read again after any refusal.
   const usedUp = extrasUsedUp(useCredits().credits?.extras);
   const canAsk = !!chat.lectureId && !chat.busy && !offline && !usedUp;
@@ -138,7 +138,7 @@ export function AssistantChat({ chat, layout, onTime }: { chat: Chat; layout: 'p
     await Clipboard.setStringAsync(answerPlainText(turn.answer)).catch(() => {});
     setNotice({ where: turn.id, text: 'Copied' });
   };
-  // Step 6.3. Add to notes: a "From the study assistant" box in My notes (at the recording's time while
+  // Add to notes: a "From the study assistant" box in My notes (at the recording's time while
   // it records here, else the question's), then "Added ✓" so it isn't added twice. Works offline.
   const [added, setAdded] = useState<Set<string>>(new Set());
   const addToNotes = async (turn: ChatTurn) => {

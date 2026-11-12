@@ -21,11 +21,11 @@ import { openNewQuiz } from './newQuizState';
 const POLL_MS = 5_000;
 
 /**
- * Review → Quiz me's quizzes (step 9.1b): + New quiz, and every quiz, newest first: its title, how
- * many questions, its state and Take. Step 9.1b-2: while one is written its row says so (with a
+ * Review → Quiz me's quizzes: + New quiz, and every quiz, newest first: its title, how
+ * many questions, its state and Take. While one is written its row says so (with a
  * spinner) and is read every 5 s; a quiz saved but not started has Start, one that failed Try again
  * (src/lib/quiz/status.ts). A quiz's menu (… , right-click on the laptop, long-press on the iPhone):
- * Delete, with Undo (deleting one being written stops it). Step 9.1b-3: Take (Resume while an attempt
+ * Delete, with Undo (deleting one being written stops it). Take (Resume while an attempt
  * is in progress) opens the quiz; "Last: 7.5 / 10" and the menu's Results show the latest finished
  * attempt. The laptop takes quizzes online only; the iPhone offline too.
  */
@@ -157,7 +157,7 @@ function Row({
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const more = useRef<View>(null);
-  // Step 10.2-2: not started for want of credits, and she has some again: it says so (it never starts by itself).
+  // Not started for want of credits, and she has some again: it says so (it never starts by itself).
   const creditUnits = useCreditUnits();
   const state = quizRowState(quiz.status === 'pending' && quiz.note === NO_CREDITS_NOTE && creditUnits !== null && creditUnits > 0 ? { ...quiz, note: CREDITS_AGAIN_QUIZ } : quiz);
   const label = state.action === 'start' ? 'Start' : 'Try again';

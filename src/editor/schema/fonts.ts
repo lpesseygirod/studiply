@@ -1,5 +1,5 @@
 /**
- * The document's fonts and sizes (step 4.4). Stored in the text-style mark
+ * The document's fonts and sizes. Stored in the text-style mark
  * as CSS (`fontFamily`, `fontSize`), so both editors and the export read
  * them the same way. Pasted fonts and sizes are dropped (src/editor/paste),
  * so a pasted page takes the document's look.

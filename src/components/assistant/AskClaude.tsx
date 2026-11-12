@@ -41,7 +41,7 @@ export interface AskState {
 }
 
 /**
- * Ask Claude on a selection (step 6.3): the selection bar's "✦ Ask Claude" →
+ * Ask Claude on a selection: the selection bar's "✦ Ask Claude" →
  * the five actions (an action sheet: a menu at the button on the laptop) →
  * Claude's suggestion, to Accept (in place, or below) or Reject; Make
  * flashcard → the cards, Save cards · Discard. The editor keeps the range
@@ -74,7 +74,7 @@ export function useAskClaude({
         cur && cur.action === action ? { ...cur, ...(r.kind === 'cards' ? { status: 'cards', cards: r.cards } : { status: 'suggestion', text: r.text }) } : cur,
       );
     } catch (err) {
-      // Step 10.2-1b: the assistant & extras allowance used up says so.
+      // The assistant & extras allowance used up says so.
       setAsk((cur) => (cur ? { ...cur, status: 'error', error: extrasRefusal(err) ?? errorMessage(err, 'Claude could not answer. Nothing was changed.') } : cur));
     }
   };
@@ -143,7 +143,7 @@ export function useAskClaude({
 }
 
 /**
- * The suggestion (step 6.3): a card under the selection on the laptop, a sheet on the iPhone (and the
+ * The suggestion: a card under the selection on the laptop, a sheet on the iPhone (and the
  * web below 1024 px): what Claude suggests, then Accept (Insert below when the text changed) · Reject;
  * or the proposed cards, Save cards · Discard. Built from the app's existing styles.
  */

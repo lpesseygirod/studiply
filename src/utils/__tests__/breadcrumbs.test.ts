@@ -1,7 +1,7 @@
 import { withProjectRoot } from '../breadcrumbs';
 import type { Breadcrumb } from '../../services/folder.service';
 
-// Reproduces the step 1.7 commit 2 test: courses Math and Science, folder
+// Reproduces an earlier commit's test: courses Math and Science, folder
 // Funcions in Math, Funcions moved to Science, Math renamed to History.
 
 const funcions: Breadcrumb = { id: 'f1', name: 'Funcions', type: 'folder' };

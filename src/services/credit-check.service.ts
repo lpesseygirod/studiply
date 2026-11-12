@@ -2,12 +2,12 @@
  * credit-check.service.ts
  * How much AI the student has used today, against the server's daily limits.
  *
- * Since step 1.7 nobody brings their own OpenAI or Anthropic account: the
+ * Nobody brings their own OpenAI or Anthropic account: the
  * Edge Functions call them with Studiply's keys and enforce a daily limit
  * per student, counted over a rolling 24 hours from ai_usage (which the
  * student can read but not write). The limits are imported from the
  * functions' own rules, so the app and the server never disagree. Plans and
- * real limits come in step 10.2.
+ * real limits come with credits.
  */
 
 import { supabase } from '../lib/supabase';
@@ -25,7 +25,7 @@ export interface TodayUsage {
   /** Claude paid in credits (summaries, writing quizzes) in the last 24 hours, and the limit, in USD. */
   claudeUsd: number;
   claudeLimitUsd: number;
-  /** Step 10.2-1b: the extras (the assistant, grading, a past exam's format), and their own daily limit. */
+  /** The extras (the assistant, grading, a past exam's format), and their own daily limit. */
   extrasUsd: number;
   extrasLimitUsd: number;
   transcriptionReached: boolean;

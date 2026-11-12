@@ -1,5 +1,5 @@
 /**
- * The spike's paste report (step 4.2): what a paste from Google Docs or Word
+ * The spike's paste report: what a paste from Google Docs or Word
  * had, and what the document kept. Formatting is counted in characters
  * (robust to how each app splits its runs), structure in blocks.
  *

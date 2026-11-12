@@ -1,6 +1,6 @@
 /**
  * a11y.ts
- * A control's state for screen readers on both devices (step 10.1b-5). iOS VoiceOver reads React
+ * A control's state for screen readers on both devices. iOS VoiceOver reads React
  * Native's `accessibilityState`; react-native-web 0.21 ignores it and only maps `aria-*` props to
  * the page. Spread this instead of writing `accessibilityState` by hand:
  *

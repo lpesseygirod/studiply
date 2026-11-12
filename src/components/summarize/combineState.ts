@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import type { CombineMode } from '../../services/summaryCombine.service';
 
 /**
- * Step 7.9: the lecture picker of Extend with next lecture, Merge lectures and Make exam pack, opened
+ * The lecture picker of Extend with next lecture, Merge lectures and Make exam pack, opened
  * from a lecture's document menu, the green banner's + Extend with next lecture, the iPhone's
  * + Extend with next, and the Library's item menus; drawn once, by the app's layout, over any screen.
  */

@@ -18,7 +18,7 @@ const GRADES: { verdict: Verdict; text: string }[] = [
 ];
 
 /**
- * An attempt's results (step 9.1b-3, no mockup; the latest finished attempt only: Lea's decision 3):
+ * An attempt's results (no mockup;the latest finished attempt only: Lea's decision 3):
  * the score ("7.5 / 10" or "Passed · 72 %"), how long it took, a row per question (her answer, the
  * verdict, the AI's reason, "Changed by you (was: Wrong)"), "being graded…" while Sonnet grades, how
  * many wrong answers went to review, Take again / Done. Her grade on any row: tap its verdict →

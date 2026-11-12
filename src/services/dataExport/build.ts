@@ -1,6 +1,6 @@
 /**
  * build.ts
- * One part of "Export my data" as a ZIP (jszip, already a dependency; step 10.1b-4). Text is
+ * One part of "Export my data" as a ZIP (jszip, already a dependency). Text is
  * compressed; recordings, photos and PDFs are stored as they are (already compressed, and faster).
  * Files come through `fetchFile` (her signed links in the app; fixtures in the tests). Cancel stops
  * between files and during the packing; nothing is saved then.

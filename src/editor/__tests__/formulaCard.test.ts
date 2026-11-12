@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The formula library and its formula cards (step 4.7c): every formula
+// The formula library and its formula cards: every formula
 // draws, search finds them (Spanish names too), a card goes in with its
 // legend, stays editable, leaves and goes like a callout, and copies.
 import { Editor, type JSONContent } from '@tiptap/core';

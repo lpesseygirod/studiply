@@ -40,7 +40,7 @@ const showCm = (n: number) => String(n);
  * menu on both devices: orientation, paper size, margins (Normal, Narrow,
  * Wide or typed in cm), page numbers and the space between pages. Each
  * choice is a small drawn tile, and the page as set is drawn at the top
- * (the simplicity pass before 4.6). OK saves it
+ * (the simplicity pass). OK saves it
  * on the document; "Set as default" keeps it for new documents. A centred
  * dialog on the laptop, a sheet on the iPhone.
  */

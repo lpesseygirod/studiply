@@ -63,7 +63,7 @@ describe('tile meta', () => {
   it('documents and files say when they were edited', () => {
     expect(tileMeta(item('P', 'pdf', '2026-10-25T09:00:00'), now)).toBe('Edited today');
     expect(tileMeta(item('P', 'pdf', '2026-10-24T09:00:00'), now)).toBe('Edited yesterday');
-    // Added on the iPhone, not uploaded yet (step 3.4)
+    // Added on the iPhone, not uploaded yet
     expect(tileMeta(item('P', 'image', '2026-10-25T09:00:00', { pending: true }), now)).toBe('Waiting to upload');
     expect(editedLabel('2026-10-22T09:00:00', now)).toBe('Edited 3 days ago');
     expect(editedLabel('2026-10-02T09:00:00', now)).toBe('Edited 2 Oct');

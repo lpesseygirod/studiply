@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { Outline, OutlineHeading } from '../writing/outline';
 
 /**
- * The iPhone's outline (step 4.7; the document menu's Outline): the
+ * The iPhone's outline (the document menu's Outline): the
  * headings in a sheet, the section the cursor is in marked; a tap jumps to
  * the heading and closes it.
  */

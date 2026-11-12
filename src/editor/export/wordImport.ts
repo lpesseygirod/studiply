@@ -5,7 +5,7 @@ import { transformPastedHTML } from '../paste/rules';
 import type { DocJSON } from '../types';
 
 /**
- * A Word file's page as a Studiply document (step 4.8b), from the HTML that
+ * A Word file's page as a Studiply document, from the HTML that
  * mammoth reads out of the .docx (services/docx-import.service.ts). Needs a
  * DOM: runs in the laptop's page and in the iPhone's export WebView.
  *

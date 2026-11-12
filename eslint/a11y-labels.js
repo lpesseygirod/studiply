@@ -1,5 +1,5 @@
 /**
- * studiply/a11y-labels — step 10.1b-5. A local ESLint rule (no npm package): a pressable that shows
+ * studiply/a11y-labels — a local ESLint rule (no npm package): a pressable that shows
  * no text (an icon-only button) and every image must have a name for screen readers, or be hidden
  * from them on purpose.
  *
@@ -7,7 +7,7 @@
  *     fine with accessibilityLabel / aria-label / aria-labelledby, or accessible={false} /
  *     aria-hidden, or any text inside (a <Text>, words, a value in {…}, a custom component that may
  *     draw text). Flagged when everything inside is icons, views, images or spinners.
- *   Switch, SettingSwitch: always need accessibilityLabel / aria-label (step 10.1b-5: a switch's
+ *   Switch, SettingSwitch: always need accessibilityLabel / aria-label (a switch's
  *     row text is beside it, not in it, so the switch itself was read without a name).
  *   Image (react-native, expo-image):
  *     fine with accessibilityLabel / aria-label / alt, or accessible={false} / aria-hidden /

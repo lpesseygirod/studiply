@@ -7,7 +7,7 @@ import type { LegalSlug } from '../../legal/types';
 import { LegalPageView } from './LegalPageView';
 
 /**
- * A legal page as a route (/privacy, /terms, /refunds, /cookies, /legal; step 10.1b-1), signed in
+ * A legal page as a route (/privacy, /terms, /refunds, /cookies, /legal), signed in
  * or signed out (the root layout lets app/(legal) through). The pages are their own group, so the
  * screen they were opened from isn't behind them: "‹ Back" goes to the legal page before it (a
  * link inside the texts), else to `?from=` (Settings passes where she was), else to Settings when

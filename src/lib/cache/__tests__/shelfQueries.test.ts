@@ -1,4 +1,4 @@
-// The library sections and course tree answered from cached rows (step 2.2).
+// The library sections and course tree answered from cached rows.
 import type { CourseRow, FileRow, FolderRow, LectureRow } from '../../cloudRows';
 import { childCounts, examPackFiles, filesAtLevel, itemCounts, recentFiles, starredLectureMedia, starredRows, type MediaRow } from '../localQueries';
 

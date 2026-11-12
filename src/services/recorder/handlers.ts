@@ -1,5 +1,5 @@
 /**
- * The recorder's two queued jobs (step 5.2), each in its own queue lane so
+ * The recorder's two queued jobs, each in its own queue lane so
  * that transcription trouble never holds up the audio:
  *  - upload_chunk: the chunk's audio to Storage and its audio_chunks row,
  *    then the audio is dropped from the device (the server has it);
@@ -51,7 +51,7 @@ export function uploadChunkHandler(deps: {
 }
 
 /**
- * Step 10.2-1: a chunk refused because she has no lecture credits left (402 no_credits) is waiting,
+ * A chunk refused because she has no lecture credits left (402 no_credits) is waiting,
  * not refused: the recorder's sweep (app start, back in front, sign-in) sends it again.
  */
 export const WAITING_FOR_CREDITS = 'no_credits';

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 9.1: Quiz me on a summary's sections (schema/quizMe.ts), both editors. A pill on each section
+// Quiz me on a summary's sections (schema/quizMe.ts), both editors. A pill on each section
 // heading with a cue question; quizzed, the section's blocks are hidden behind "? cue" and Reveal;
 // all at once by the format command; never an edit (the document, its dates and its history
 // untouched); no pill in a read-only editor (the PDF export's).

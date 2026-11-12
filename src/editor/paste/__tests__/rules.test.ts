@@ -1,8 +1,8 @@
 /**
  * @jest-environment jsdom
  */
-// Pasting from Google Docs and Word (step 4.4) into a real editor: what the
-// 4.2 spike found lost (Docs' highlights, Word's lists and highlights) is
+// Pasting from Google Docs and Word into a real editor: what the
+// paste spike found lost (Docs' highlights, Word's lists and highlights) is
 // kept now, in Studiply's styles. The fixtures are clipboard HTML shaped
 // like what each app copies (also used by the Chrome check); Lea's real
 // paste is the final check.
@@ -42,7 +42,7 @@ function find(nodes: JSONContent[] | undefined, pred: (n: JSONContent) => boolea
 const marksOf = (doc: JSONContent[], text: string) => find(doc, (n) => n.type === 'text' && (n.text ?? '').includes(text))?.marks ?? [];
 
 describe('Google Docs', () => {
-  it('keeps everything, highlights included (lost in 4.2)', () => {
+  it('keeps everything, highlights included (lost in the spike)', () => {
     const doc = paste(clipboard.googleDocs);
     expect(losses(clipboard.googleDocs, doc)).toEqual([]);
     const highlight = marksOf(doc, 'resaltado').find((m) => m.type === 'highlight');
@@ -54,7 +54,7 @@ describe('Google Docs', () => {
 });
 
 describe('Word', () => {
-  it('keeps everything, lists and highlights included (lost in 4.2)', () => {
+  it('keeps everything, lists and highlights included (lost in the spike)', () => {
     const doc = paste(clipboard.word);
     expect(losses(clipboard.word, doc)).toEqual([]);
     const list = find(doc, (n) => n.type === 'bulletList');

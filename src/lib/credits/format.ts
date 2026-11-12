@@ -1,6 +1,6 @@
 /**
  * format.ts
- * Step 10.2-2 (docs/reports/plan-10.2-2.md): credits in the student's words, without React. The
+ * Credits in the student's words, without React (docs/reports/plan-10.2-2.md). The
  * server counts quarter credits ("units": 1 lecture = 4); she sees lectures ("6¾ lectures left") and
  * credits ("Uses ½ credit"), which are the same thing. Jest: credits.test.ts.
  */
@@ -25,7 +25,7 @@ export interface Credits {
   /** She has the beta grant (the beta friends' notice). */
   beta: boolean;
   history: CreditRow[];
-  /** Step 10.2-1b: what's left of the assistant & extras allowance (0–1), or null (an older server). */
+  /** What's left of the assistant & extras allowance (0–1), or null (an older server). */
   extras: { left: number; resetsAt: string | null } | null;
 }
 
@@ -95,7 +95,7 @@ export function creditsValue(units: number | null): string {
   return units <= 0 ? 'None left' : `${unitsText(units)} left`;
 }
 
-/** 1 lecture or less, but some (step 10.2-2's quiet line). */
+/** 1 lecture or less, but some (the quiet line). */
 export const isLow = (units: number) => units > 0 && units <= 4;
 
 /** A cost: "¼ credit", "1 credit", "2 credits". */
@@ -192,5 +192,5 @@ export const WAITING_FOR_CREDITS_SENTENCE = 'No credits left: recording goes on,
 
 /** The laptop's only word on buying (App Store rule 3.1.1: no link, no price). */
 export const BUY_ON_IPHONE = 'Buy credits in the Studiply iPhone app';
-/** The iPhone, until the buy sheet exists (step 10.2-4): nothing that pretends to sell. */
+/** The iPhone, until the buy sheet exists: nothing that pretends to sell. */
 export const BUY_SOON = 'You’ll be able to buy more credits here soon.';

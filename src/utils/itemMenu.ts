@@ -1,7 +1,7 @@
 /**
  * itemMenu.ts
  * Which actions an item's menu has, the same in the course grid, the
- * laptop sidebar and the Library (Lea, step 3.2 feedback). Pure; the menu
+ * laptop sidebar and the Library (Lea's feedback). Pure; the menu
  * itself is src/hooks/useItemMenu.tsx.
  */
 
@@ -27,22 +27,22 @@ export type ItemAction =
   | 'delete';
 
 const ACTIONS: Partial<Record<ShelfType, ItemAction[]>> = {
-  // Step 9.2-2: Course settings… (exam date and format, summary language and defaults).
+  // Course settings… (exam date and format, summary language and defaults).
   course: ['open', 'rename', 'star', 'merge', 'examPack', 'courseSettings', 'delete'],
   folder: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'merge', 'examPack', 'delete'],
-  // Step 9.2 (Lea): Study reminders… turns a lecture's review sessions on or off.
+  // Study reminders… (Lea) turns a lecture's review sessions on or off.
   lecture: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'summarize', 'extend', 'reminders', 'export', 'delete'],
   pdf: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   image: ['open', 'rename', 'move', 'moveOut', 'cut', 'copy', 'star', 'delete'],
   // Copying a document (its text and versions) comes later.
   document: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
-  // Step 7.9: a Unit summary and an Exam pack are documents (advisor, 31 Oct): a document's menu.
+  // A Unit summary and an Exam pack are documents (advisor, 31 Oct): a document's menu.
   unit_summary: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
   exam_pack: ['open', 'rename', 'move', 'moveOut', 'cut', 'star', 'delete'],
 };
 
 /**
- * The item's menu, in order (step 3.4). Move out only for an item inside a
+ * The item's menu, in order. Move out only for an item inside a
  * folder. Kinds without their own actions (a lecture's photos and PDFs):
  * Open and Favorites.
  */

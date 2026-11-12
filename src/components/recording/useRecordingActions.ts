@@ -11,7 +11,7 @@ import { showStartError } from './startError';
 
 /**
  * What the strip, the iPhone screen's bottom bar and the interrupted banner
- * do (step 5.3). Stop & summarize opens the summarize panel (step 7.3); the
+ * do. Stop & summarize opens the summarize panel; the
  * recording stops only with its Stop & generate summary.
  */
 export function useRecordingActions() {
@@ -22,7 +22,7 @@ export function useRecordingActions() {
     [router],
   );
 
-  // A recording ended without the panel (an interrupted one finished): its Summary tab and the panel (step 7.3).
+  // A recording ended without the panel (an interrupted one finished): its Summary tab and the panel.
   const afterRecording = useCallback(
     (lectureId: string) => {
       router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'summary' } });
@@ -31,7 +31,7 @@ export function useRecordingActions() {
     [router],
   );
 
-  // Stop & summarize (step 7.3): the panel, while the recording goes on; its Stop & generate summary stops it.
+  // Stop & summarize: the panel, while the recording goes on; its Stop & generate summary stops it.
   const stop = useCallback(() => {
     const { lectureId, status } = recorder.state();
     if (!lectureId || status === 'idle' || status === 'stopping') return;
@@ -68,7 +68,7 @@ export function useRecordingActions() {
   );
 
   /**
-   * Step 5.7: Record inside a document (a lecture, or a plain document that becomes one). True when
+   * Record inside a document (a lecture, or a plain document that becomes one). True when
    * it records; the student is told why when it doesn't (and nothing changed).
    */
   const recordHere = useCallback(async (p: StartInParams): Promise<boolean> => {

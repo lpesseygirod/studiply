@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 6.2: assistant-chat's answer read as it arrives (lib/functions
+// assistant-chat's answer read as it arrives (lib/functions
 // streamFunction), with a fake fetch whose body comes in pieces. Nothing is sent.
 import { sseEvent } from '../../../supabase/functions/_shared/claude';
 import { FunctionError, streamFunction } from '../functions';

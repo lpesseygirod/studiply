@@ -5,26 +5,26 @@
  * first (401, 400, 404, 403 consent_required, 429 daily_limit).
  *
  * { lectureId, task: 'notes', summaryLevel, recordingMode?, title, includeMedia? }
- *   The old app's structured study notes (step 1.7, _shared/legacy-notes.ts).
+ *   The old app's structured study notes (_shared/legacy-notes.ts).
  *   The server reads the transcript itself, and with includeMedia the
  *   lecture's photos and PDFs from Storage, which also needs `images`
  *   consent (403 consent_required, scope images). Answers JSON
  *   { note, model, stopReason, usage, costUsd }; 409 no_transcript when
  *   there is nothing to summarize, 413 media_too_large over 24 MB.
  *
- * { lectureId, summaryId } (step 7.4)
+ * { lectureId, summaryId }
  *   The summary of the summarize panel's pending `summaries` row: 202 at
  *   once, then the pipeline (_shared/summary-pipeline.ts: align, classify,
  *   calculate, generate, check) in the background, its status and result
  *   saved on the row. 409 already_started, 404 summary_not_found.
- *   Step 10.2-1: credits, decided from the row and the ledger: a lecture's first summary is included,
+ *   Credits, decided from the row and the ledger: a lecture's first summary is included,
  *   again ½ a lecture, Extend / Merge / Exam pack ½; a run that fails gives them back once. None
  *   left: 402 no_credits, the row back to pending. The notes are included in the lecture's credit.
  *
  * { lectureId } (no task)
- *   Step 1.6 skeleton: a fixed test prompt, answering { text, ... }.
+ *   The skeleton: a fixed test prompt, answering { text, ... }.
  *
- * { probe: 'schemas' } (step 7.9; LOCAL Supabase only, else 404)
+ * { probe: 'schemas' } (LOCAL Supabase only, else 404)
  *   Each structured-output schema the engine uses (_shared/schema-probe.ts), sent with a one-line text
  *   and max_tokens 16: { results: [{ name, accepted, … }] }. A rejected schema costs nothing; an
  *   accepted one a fraction of a cent (logged in ai_usage). Signed in; no lecture, no content sent.
@@ -64,7 +64,7 @@ function log(event: string, details: Record<string, unknown>) {
   console.log(JSON.stringify({ fn: 'summarize', event, ...details }));
 }
 
-/** { lectureId } alone is the test prompt; task 'notes' adds the notes fields; summaryId is the summary (7.4). */
+/** { lectureId } alone is the test prompt; task 'notes' adds the notes fields; summaryId is the summary. */
 function validateBody(body: unknown) {
   const base = validateSummarizeBody(body);
   if (!base.ok) return base;
@@ -72,7 +72,7 @@ function validateBody(body: unknown) {
   if (fields.summaryId !== undefined) {
     const run = validateSummaryRunBody(body);
     if (!run.ok) return run;
-    // The row's file: a lecture, or (step 7.9) the Unit summary or Exam pack it is written into.
+    // The row's file: a lecture, or the Unit summary or Exam pack it is written into.
     return { ok: true as const, value: { lectureId: run.value.lectureId, fileId: run.value.lectureId, notes: null as NotesRequest | null, summaryId: run.value.summaryId as string | null } };
   }
   // The test prompt and the notes are a lecture's (fileId null: readyForClaude checks it's her lecture).
@@ -86,7 +86,7 @@ function validateBody(body: unknown) {
 declare const EdgeRuntime: { waitUntil<T>(promise: Promise<T>): Promise<T> };
 
 /**
- * The summary (step 7.4): the pending row is claimed (pending → generating, once: a second call is
+ * The summary: the pending row is claimed (pending → generating, once: a second call is
  * 409), the answer is 202 at once, and the pipeline runs in the background (summary-pipeline.ts),
  * saving its progress and outcome on the row (checking → done | failed) for the app to read.
  */
@@ -119,7 +119,7 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
   const withMedia = (request.resources.photos || request.resources.slides) && (await hasConsent(db, 'images'));
   log('summary_started', { lectureId, summaryId, media: withMedia, mode: claimed.mode });
 
-  // Step 10.1: before each call, still allowed? AI switched off meanwhile → the call is never made, the
+  // Before each call, still allowed? AI switched off meanwhile → the call is never made, the
   // run ends ('consent_withdrawn' on the row, below).
   let withdrawn = false;
   const stillAllowed = () => hasConsent(db, 'assistant_summary').catch(() => false);
@@ -132,8 +132,8 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
         log('consent_withdrawn', { summaryId });
       },
     ) as unknown as ReturnType<SummaryRunDeps['claude']>;
-  // Step 7.9: every call's cost is logged (operation summary: it counts for the daily limit), against a real
-  // lecture of hers, else null (an Exam pack's or a Unit summary's file, as 6.3 does for a plain document):
+  // Every call's cost is logged (operation summary: it counts for the daily limit), against a real
+  // lecture of hers, else null (an Exam pack's or a Unit summary's file, as Ask Claude does for a plain document):
   // ai_usage's lecture must be one of her lectures (a foreign key), and a refused row would let the call
   // escape the limit. The meter counts the calls and the rows logged (saved in the result as costLog).
   const lectureOf = new Map<string, Promise<string | null>>();
@@ -143,7 +143,7 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
   };
   const meter: CostMeter = { calls: 0, logged: 0 };
   const logCostFor = (id: string) => async (message: unknown) => logClaudeCost(SUMMARY_OPERATION, userId, await costLecture(id), MODEL, message as Anthropic.Beta.BetaMessage);
-  /** A lecture's summary with the 7.4–7.6 pipeline, saved on its row; with `extend` (7.9): written against that existing summary. */
+  /** A lecture's summary with the summary pipeline, saved on its row; with `extend`: written against that existing summary. */
   const summaryRun = (forLecture: string, rowId: string, saveRow: (patch: Record<string, unknown>) => Promise<void>, extend?: ExtendContext) =>
     runSummary({
       extend,
@@ -160,14 +160,14 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
       meter,
     });
 
-  // Step 7.9: Extend, Merge, Exam pack.
+  // Extend, Merge, Exam pack.
   const combine = claimed.mode === 'new' ? null : combineRequestOf(claimed);
   if (claimed.mode !== 'new' && !combine) {
     await save({ status: 'failed', error: 'invalid_request' });
     return fail(400, 'invalid_request', 'The summary settings are not readable.');
   }
 
-  // Step 10.2-1: the price, decided here from the saved row (its mode) and the ledger (first or again),
+  // The price, decided here from the saved row (its mode) and the ledger (first or again),
   // never from the request. A lecture without a transcript spends nothing: its run fails no_transcript.
   // None left: the row goes back to pending ("no_credits") and the answer is 402.
   const credits = serviceClient();
@@ -237,7 +237,7 @@ async function startSummary(ready: { db: SupabaseClient; userId: string; claude:
 }
 
 /**
- * Step 7.9: the schema probe (local only). Each schema once, no retry (a rejection is final and free);
+ * The schema probe (local only). Each schema once, no retry (a rejection is final and free);
  * an accepted call's cost logged as any summary call's. The API's message for a rejection is returned
  * (it describes the request's form, never content: there is none).
  */
@@ -274,14 +274,14 @@ async function probeSchemas(req: Request): Promise<Response> {
   return json({ results, costLog: meter }, 200);
 }
 
-/** Whether the lecture has any transcript (step 10.2-1: a summary without one spends nothing). */
+/** Whether the lecture has any transcript (a summary without one spends nothing). */
 async function hasTranscript(db: SupabaseClient, lectureId: string): Promise<boolean> {
   const { data, error } = await db.from('transcript_segments').select('id').eq('lecture_id', lectureId).limit(1);
   if (error) throw error;
   return (data ?? []).length > 0;
 }
 
-/** A lecture's newest finished summary of the new engine (step 7.9), or null. */
+/** A lecture's newest finished summary of the new engine, or null. */
 async function latestDoneSummary(db: SupabaseClient, lectureId: string): Promise<{ summaryId: string; result: StoredSummary } | null> {
   const { data } = await db.from('summaries').select('id, result').eq('file_id', lectureId).eq('status', 'done').order('created_at', { ascending: false }).limit(10);
   const row = (data ?? []).find((r) => (r.result as { format?: unknown } | null)?.format === SUMMARY_FORMAT);
@@ -303,10 +303,10 @@ Deno.serve(async (req) => {
 
   let lectureId: string | undefined;
   try {
-    // Step 7.9: the schema probe (local only), before the usual checks (it has no lecture).
+    // The schema probe (local only), before the usual checks (it has no lecture).
     const peek = (await req.clone().json().catch(() => null)) as { probe?: unknown } | null;
     if (peek?.probe === 'schemas') return await probeSchemas(req);
-    // Step 10.2-1b: a summary (or combine) and the old notes are paid in credits; the skeleton's test prompt is an extra.
+    // A summary (or combine) and the old notes are paid in credits; the skeleton's test prompt is an extra.
     const ready = await readyForClaude(req, validateBody, log, (v) => (v.summaryId || v.notes ? 'paid' : 'extra'));
     if (!ready.ok) return ready.response;
     const { claude, db, userId } = ready;
@@ -322,7 +322,7 @@ Deno.serve(async (req) => {
     if (notes) {
       const prepared = await prepareNotes(db, notes);
       if (!prepared.ok) return prepared.response;
-      // Step 10.2-1: the old notes are included in the lecture's credit (decided 12 Nov); a lecture
+      // The old notes are included in the lecture's credit (decided 12 Nov); a lecture
       // never paid for pays it first. None left: 402.
       const spend = await spendCredits(serviceClient(), { userId, key: lectureKey(lectureId, 0), units: LECTURE_UNITS, kind: 'spend_lecture', lectureId });
       if (spend.outcome === 'insufficient') {

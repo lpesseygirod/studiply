@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-bundle.mjs — proves that no secret ships in the app (step 1.7).
+ * check-bundle.mjs — proves that no secret ships in the app.
  *
  * Builds the web bundle and the iOS bundle (`expo export`) into a temporary
  * folder, then searches every output file for:
@@ -9,14 +9,14 @@
  *      OPENAI_API_KEY, ANTHROPIC_API_KEY, ELEVENLABS_API_KEY and CRON_SECRET in supabase/functions/.env, and
  *      the local service_role key, secret key and JWT secret from
  *      `supabase status`, and the remote project's service_role and
- *      sb_secret_ keys from `supabase projects api-keys` (step 1.7B);
+ *      sb_secret_ keys from `supabase projects api-keys`;
  *   2. anything shaped like an OpenAI or Anthropic key (sk-…) or a
  *      Supabase secret key (sb_secret_…);
  *   3. the names of the AI key variables, `service_role`, and the OpenAI
  *      and Anthropic API hosts (only the Edge Functions may call them);
  *   4. web only: expo-sqlite / wa-sqlite (the web build must never load SQLite): what bundling it
  *      leaves (module and asset paths, wa-sqlite's wasm, its web module's strings) and its files
- *      in the export, not the package's name (the licences on /legal name it; step 10.1b-1).
+ *      in the export, not the package's name (the licences on /legal name it).
  *
  * Prints how many hits each check has per bundle and exits 1 on any hit.
  * Secret values are never printed: a hit shows the file and the first four
@@ -139,7 +139,7 @@ const checks = [
   ['the host api.anthropic.com', (text) => count(text, 'api.anthropic.com'), ['web', 'ios']],
   ['the host api.elevenlabs.io', (text) => count(text, 'api.elevenlabs.io'), ['web', 'ios']],
   // What bundling expo-sqlite leaves (paths, wa-sqlite's files, its web module's strings), never the
-  // bare package name: the licences on /legal name it (step 10.1b-1). scripts/lib/sqlite-markers.cjs.
+  // bare package name: the licences on /legal name it. scripts/lib/sqlite-markers.cjs.
   ['expo-sqlite / wa-sqlite code (web must not load SQLite)', (text) => sqliteHits(text), ['web']],
   ['expo-sqlite / wa-sqlite files in the export', (_text, path) => (isSqliteFile(path) ? 1 : 0), ['web'], 'paths'],
 ];

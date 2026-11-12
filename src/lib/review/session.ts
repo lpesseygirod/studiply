@@ -1,5 +1,5 @@
 /**
- * A review session's order (step 9.1), pure so the review screen and its tests share it.
+ * A review session's order, pure so the review screen and its tests share it.
  *
  * Flashcards: the due cards in order. A rating moves on; Again puts the card (with its new state) at
  * the end, so it comes back in this session. A skip (the iPhone's swipe, the laptop's →) moves the
@@ -63,7 +63,7 @@ export const startQuiz = (decks: QuizDeck[]): QuizSession => ({ items: decks.fla
 export const currentQuestion = (s: QuizSession): QuizItem | null => s.items[s.at] ?? null;
 export const showAnswer = (s: QuizSession): QuizSession => ({ ...s, shown: true });
 export const nextQuestion = (s: QuizSession): QuizSession => ({ ...s, at: Math.min(s.at + 1, s.items.length), shown: false });
-/** Step 9.2: the lecture whose last question this is (Next question finishes its deck), else null. */
+/** The lecture whose last question this is (Next question finishes its deck), else null. */
 export function deckEndsHere(s: QuizSession): string | null {
   const item = currentQuestion(s);
   if (!item) return null;

@@ -4,7 +4,7 @@ import { BlockMath, InlineMath } from '@tiptap/extension-mathematics';
 import { Formulas } from '../schema/formula';
 
 /**
- * Formulas (step 4.5) in the shared schema: inline (in the line) and
+ * Formulas in the shared schema: inline (in the line) and
  * display (a centred block of its own, KaTeX's display mode), drawn with
  * KaTeX in both editors. A formula that isn't valid LaTeX shows its text in
  * red instead of breaking the page. Commands and the request to edit one go

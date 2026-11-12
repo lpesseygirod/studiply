@@ -1,6 +1,6 @@
 /**
  * assistant-answer.ts
- * How assistant-chat answers a question (step 6.1), with the lecture's reads,
+ * How assistant-chat answers a question, with the lecture's reads,
  * the saved messages and Claude passed in, so Jest runs it with fakes
  * (src/lib/__tests__/assistantAnswer.test.ts) and nothing here imports the
  * SDK or Deno.

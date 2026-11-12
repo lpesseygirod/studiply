@@ -208,7 +208,7 @@ describe('planned rows match the database', () => {
   });
 });
 
-describe('the old "Project Files" session (a course\'s own uploads, step 3.4)', () => {
+describe('the old "Project Files" session (a course\'s own uploads)', () => {
   // Uploads in Psicobiología › Tema 1: two photos and a PDF.
   const uploads = snapshot({
     sessions: [

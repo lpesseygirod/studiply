@@ -1,10 +1,10 @@
 /**
  * CreditsSettings.tsx
- * Settings → Credits (step 10.2-2, docs/reports/plan-10.2-2.md §1; Lea 12 Nov; no mockup: Settings'
+ * Settings → Credits (docs/reports/plan-10.2-2.md §1; Lea 12 Nov; no mockup: Settings'
  * cards, rows and section headings, desktop-05 / iphone-07). The balance as lectures, what a credit
  * covers, what extras use, the last 20 changes in her words, and the fair-use line. Buying: the laptop
  * names the iPhone app (no link, no price: App Store rule 3.1.1); the iPhone says it comes soon, with
- * no button, until the buy sheet (10.2-4).
+ * no button, until the buy sheet is built.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -94,7 +94,7 @@ export function CreditsSettings() {
           </React.Fragment>
         ))}
         <View style={settingsStyles.divider} />
-        {/* Step 10.2-1b: they cost no credits but use the assistant & extras allowance. */}
+        {/* They cost no credits but use the assistant & extras allowance. */}
         <Text style={[styles.small, styles.free]}>No credits: grading your answers, flashcards, reading a past exam, Clarify and Ask Claude. They use your assistant allowance.</Text>
       </View>
 
@@ -120,7 +120,7 @@ export function CreditsSettings() {
           })
         )}
       </View>
-      {/* Step 10.2-1b: the assistant & extras allowance, never in dollars. */}
+      {/* The assistant & extras allowance, never in dollars. */}
       {!!extrasLine(credits.extras) && (
         <Text style={styles.covers} {...{ dataSet: { credits: 'extras-left' } }}>
           {extrasLine(credits.extras)}

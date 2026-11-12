@@ -18,7 +18,7 @@ const ICONS: Record<FormKind, React.ComponentProps<typeof MaterialCommunityIcons
 const NUMBER_KEYS = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default';
 
 /**
- * A graph's data (step 4.7d), the same on both devices: its type, title and
+ * A graph's data, the same on both devices: its type, title and
  * axis labels, and a small table (a label per row, a column per series, up to
  * 3). Every change is reported at once, so the graph in the document redraws
  * as the student types (laptop: a popover under the graph; iPhone: a sheet).

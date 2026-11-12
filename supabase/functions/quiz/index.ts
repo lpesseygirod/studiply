@@ -1,5 +1,5 @@
 /**
- * quiz — writes a quiz with Claude (step 9.1b-2; the approved plan, docs/reports/plan-9.1b-2.md).
+ * quiz — writes a quiz with Claude (the approved plan, docs/reports/plan-9.1b-2.md).
  *
  * POST with the user's access token. The checks in _shared/anthropic.ts run first (401, 400, 404,
  * 403 consent_required, 429 daily_limit), with the quiz (or the file) as what must be hers.
@@ -10,7 +10,7 @@
  *   questions removed, 202 at once; then written in the background (_shared/quiz-pipeline.ts), its
  *   status, plan, questions and checks saved for the app to read. 409 already_started, 404
  *   quiz_not_found. Past exams whose format wasn't read yet are read first.
- *   Step 10.2-1: ¼ / ½ / ¾ of a lecture's credit (≤ 10 / ≤ 25 / more questions), by the row's saved
+ *   Credits: ¼ / ½ / ¾ of a lecture's credit (≤ 10 / ≤ 25 / more questions), by the row's saved
  *   question count, the run capped at it; a run that fails gives it back once. None left: 402
  *   no_credits, the quiz back to pending. Format and grade are free.
  *
@@ -18,7 +18,7 @@
  *   A past exam's format, read on Sonnet 5.5 and saved on its file (files.past_exam_format) once:
  *   { format }. A PDF or photo needs the images consent too (403 consent_required, scope images).
  *
- * { mode: 'grade', quizId, attemptId } (step 9.1b-3)
+ * { mode: 'grade', quizId, attemptId }
  *   The attempt's short and long answers still pending, graded on Sonnet 5.5 (quiz-grading.ts), each
  *   written only while still pending (her own grade wins): { graded, left }. 502 grading_failed
  *   leaves them pending, to be tried again.
@@ -74,7 +74,7 @@ function validateBody(body: unknown): { ok: true; value: Body } | { ok: false; s
 }
 
 /**
- * { mode: 'grade', quizId, attemptId } (step 9.1b-3): the attempt's short and long answers still
+ * { mode: 'grade', quizId, attemptId }: the attempt's short and long answers still
  * pending, graded by Sonnet 5.5 (quiz-grading.ts: it sees only each question, its model answer, its
  * key points and her answer). Each grade is written only where the answer is still pending, so her
  * own grade, set meanwhile, wins. { graded, left }.
@@ -220,7 +220,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     return fail(400, 'invalid_request', problem);
   }
 
-  // Step 10.2-1: priced from the row as read here (its saved question count), never from the request,
+  // Priced from the row as read here (its saved question count), never from the request,
   // and the run is capped at that count, so a row changed after paying gets no more questions. Claimed
   // again after a run the platform stopped (never given back): already paid, capped at what it paid for.
   // None left: back to pending ("no_credits"), 402.
@@ -288,7 +288,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
       const { data } = await db.from('quizzes').select('deleted_at').eq('id', quizId).maybeSingle();
       return !!data && !data.deleted_at;
     },
-    // Step 10.1: AI switched off meanwhile → stop before the next call.
+    // AI switched off meanwhile → stop before the next call.
     consentWithdrawn: async () => !(await hasConsent(db, 'assistant_summary').catch(() => true)),
     touch: async () => {
       await db.from('quizzes').update({ status: 'generating' }).eq('id', quizId).eq('status', 'generating');
@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
   try {
-    // Step 10.2-1b: writing a quiz is paid in credits; grading and a past exam's format are extras.
+    // Writing a quiz is paid in credits; grading and a past exam's format are extras.
     const ready = await readyForClaude(req, validateBody, log, (v) => (v.mode === 'generate' ? 'paid' : 'extra'));
     if (!ready.ok) return ready.response;
     const { claude, db, userId, value } = ready;

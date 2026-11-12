@@ -1,4 +1,4 @@
-// Step 10.1: consent.service asks with the consent screen (desktop-09 / iphone-12): one answer gives the
+// consent.service asks with the consent screen (desktop-09 / iphone-12): one answer gives the
 // three scopes under the current policy version; Not now records nothing. Settings → AI & privacy:
 // the status with its date; withdrawing is one call (the server's time), also offline (AI off on this
 // device at once, the withdrawal queued on the iPhone); giving again sends a pending withdrawal first.

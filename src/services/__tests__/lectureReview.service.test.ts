@@ -1,4 +1,4 @@
-// Step 9.2-1: spaced review of lectures (lectureReview.service). The laptop reads the plan's rows from
+// Spaced review of lectures (lectureReview.service). The laptop reads the plan's rows from
 // Supabase and writes a review at once (review_lecture; Undo: undo_lecture_review); offline it
 // refuses. The iPhone reads its own copy (offline too) and keeps a review or a switch there, queued.
 // Lea, 9 Nov: a lecture's study reminders, on or off.

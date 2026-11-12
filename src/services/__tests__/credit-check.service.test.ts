@@ -5,7 +5,7 @@ import { DAILY_CLAUDE_LIMIT_USD, DAILY_EXTRAS_LIMIT_USD } from '../../../supabas
 jest.mock('../../lib/supabase', () => ({ supabase: {} }));
 
 describe('sumToday', () => {
-  it('adds audio for transcription, and the cost of what credits pay for and of the extras apart, as the server does (step 10.2-1b)', () => {
+  it('adds audio for transcription, and the cost of what credits pay for and of the extras apart, as the server does', () => {
     const usage = sumToday([
       { operation: 'transcription', audio_seconds: '600.00', cost_usd: '0.060000' },
       { operation: 'summary', audio_seconds: 0, cost_usd: '0.250000' },

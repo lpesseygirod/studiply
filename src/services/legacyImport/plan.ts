@@ -1,6 +1,6 @@
 /**
  * plan.ts
- * Step 1.9: what the earlier version's data (the old `studiply.db`) becomes
+ * What the earlier version's data (the old `studiply.db`) becomes
  * in Supabase. Pure, so every rule is unit tested; legacyDb.ts reads the old
  * rows and run.ts sends the plan.
  *
@@ -13,7 +13,7 @@
  *    photo / PDF → media.
  *  - The old "Project Files" session (a course's own uploads, no recording,
  *    transcript or notes) becomes no lecture: each of its photos and PDFs
- *    becomes a library file in that course and folder (step 3.4), with the
+ *    becomes a library file in that course and folder, with the
  *    photo's id as the file's id too, so a second upload still adds nothing.
  *    "Photo N.jpg" (photos are stored as JPEG) or the PDF's own name.
  *  - Every section of an old note counts as written by the student
@@ -92,7 +92,7 @@ export interface MediaItem {
   id: string;
   /** The lecture it belongs to; null for an old course upload, which became a library file. */
   lectureId: string | null;
-  /** That library file (step 3.4); null for a lecture's photo or PDF. */
+  /** That library file; null for a lecture's photo or PDF. */
   fileId: string | null;
   kind: 'photo' | 'slides';
   caption: string | null;
@@ -284,7 +284,7 @@ export function planImport(snapshot: LegacySnapshot, opts: { profileIds: string[
       skipped.oldTrash++;
       continue;
     }
-    // The course's own uploads: library files, no lecture (step 3.4).
+    // The course's own uploads: library files, no lecture.
     if (isUploadsHolder(s)) {
       const uploads = snapshot.sourceFiles
         .filter((f) => f.session_id === s.id && (f.file_type === 'photo' || f.file_type === 'pdf') && f.is_deleted === 0)

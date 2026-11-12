@@ -18,7 +18,7 @@ const LABELS: Record<ReviewCard['kind'], string> = { term: 'Term', question: 'Qu
 const SWIPE = 80;
 
 /**
- * The review screen's Flashcards (step 9.1, desktop-08 / iphone-10): the due cards one by one.
+ * The review screen's Flashcards (desktop-08 / iphone-10): the due cards one by one.
  * Click (laptop: also Space) or tap flips the card; Again · Hard · Good · Easy rate it (the laptop
  * shows each one's next interval; keys 1–4); a swipe left or right on the iPhone skips to the next
  * card (it stays due; → on the laptop). On the back: the answer, its lecture, and Delete card.

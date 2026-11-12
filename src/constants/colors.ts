@@ -1,4 +1,4 @@
-// Studiply color palettes (docs/design README; dark mode from step 2.3).
+// Studiply color palettes (docs/design README), light and dark.
 // Gradient: lavender → dusty rose → warm amber (sunrise/sunset feel); in
 // dark mode the same gradient dimmed by about a fifth (Lea: "just dimmed,
 // not a night look"), with dark text on it and dark-grey cards.
@@ -42,7 +42,7 @@ const light = {
   text: {
     primary: '#0A0A0A',
     secondary: '#5A5A6A',
-    // 4.5:1 on cards and muted rows (step 10.1b-5; was #9B9BAA, 2.6:1).
+    // 4.5:1 on cards and muted rows (was #9B9BAA, 2.6:1).
     placeholder: '#6A6A7A',
     inverse: '#FFFFFF',
     /** Secondary text placed straight on the gradient (readable on every stop). */
@@ -88,7 +88,7 @@ const light = {
   onRecording: '#FFFFFF',
   /** The ring around the raised Record button. */
   recordRing: '#FFFFFF',
-  /** While recording (step 5.3, desktop-01 / iphone-02): the pale strip, its red text, the timer chip and the waveform. */
+  /** While recording (desktop-01 / iphone-02): the pale strip, its red text, the timer chip and the waveform. */
   recordingStrip: { bg: '#FCE8E8', text: '#B22A2A', border: '#F5C2C2', wave: '#E59A86', dot: '#CC3333' },
 
   // Status
@@ -112,7 +112,7 @@ const light = {
     confused: { bg: '#EAE8F7', text: '#4F43B0' },
     exam: { bg: '#F5E0D8', text: '#8A3B22' },
   },
-  /** The recording screen's mark buttons and panel (step 5.5): the mark chips' colours (Important and Exam amber, Confused salmon). */
+  /** The recording screen's mark buttons and panel: the mark chips' colours (Important and Exam amber, Confused salmon). */
   markButton: {
     important: { bg: '#FFE4B5', text: '#7A4A00' },
     confused: { bg: '#F5E0D8', text: '#8A3B22' },
@@ -134,7 +134,7 @@ const light = {
 
   /** A meter's empty track. */
   track: 'rgba(0, 0, 0, 0.08)',
-  /** A switch that is off (Settings): its track, ≥ 3:1 on the card so it reads as a switch (step 10.1). */
+  /** A switch that is off (Settings): its track, ≥ 3:1 on the card so it reads as a switch. */
   switchOff: '#8C89A3',
   /** A see-through white chip on tinted boxes. */
   glass: 'rgba(255, 255, 255, 0.6)',
@@ -199,7 +199,7 @@ export const DarkColors: ThemeColors = {
   text: {
     primary: '#F2F1F6',   // on cards
     secondary: '#BDBBCB', // on cards
-    // 4.5:1 on cards and muted rows (step 10.1b-5; was #8F8DA3, 4.1:1 on rows).
+    // 4.5:1 on cards and muted rows (was #8F8DA3, 4.1:1 on rows).
     placeholder: '#9997AD',
     inverse: '#1A1A2E',
     onGradient: '#14141F',       // dark text straight on the dimmed gradient
@@ -281,7 +281,7 @@ export const DarkColors: ThemeColors = {
 };
 
 /**
- * The document page's own colours (step 4.4): the text colours and
+ * The document page's own colours: the text colours and
  * highlights of the formatting tools. The page is always white (editorCss),
  * so there is one set for both appearances; every text colour reads on
  * white and black text reads on every highlight (contrast test).
@@ -297,7 +297,7 @@ export const DocColors = {
     { key: 'pink', label: 'Pink', value: '#B5176B' },
   ],
   /**
-   * The colour picker's base colours (step 4.5, as Word's): each gets lighter
+   * The colour picker's base colours (as Word's): each gets lighter
    * and darker shades worked out by shadesOf (src/editor/colors).
    */
   palette: [
@@ -313,7 +313,7 @@ export const DocColors = {
     { key: 'pink', label: 'Pink', value: '#DB2777' },
   ],
   /**
-   * Studiply's blocks in the document (step 4.6; SUMMARY-SPEC "Color system"
+   * Studiply's blocks in the document (SUMMARY-SPEC "Color system"
    * where it gives them): each callout a light fill, a 4 px border and a label
    * colour that passes 4.5:1 on its fill. Example, Warning and Added context
    * aren't in the spec.
@@ -326,31 +326,31 @@ export const DocColors = {
     fromNotes: { bg: '#E8F5EE', border: '#8FD1AE', label: '#1F6B45' },
     confused: { bg: '#F5E0D8', border: '#E8B4A0', label: '#8A3B22' },
     addedContext: { bg: '#F3F1EC', border: '#CFCBC4', label: '#5A5A6A' },
-    /** From the study assistant (step 6.3): the assistant's accent purple, as the Definition box. */
+    /** From the study assistant: the assistant's accent purple, as the Definition box. */
     get fromAssistant() {
       return this.definition;
     },
-    /** Step 7.7 (desktop-03): Key takeaways, a warm light grey box; its border barely darker. */
+    /** Key takeaways (desktop-03), a warm light grey box; its border barely darker. */
     takeaways: { bg: '#F6F5F1', border: '#E4E0D8', label: '#5A5A6A' },
-    /** Step 7.7: "All your notes are in this summary", the From your notes green. */
+    /** "All your notes are in this summary", the From your notes green. */
     get notesCheck() {
       return this.fromNotes;
     },
-    /** Step 7.7: a self-test answer (hidden until tapped), the formula card's quiet box. */
+    /** A self-test answer (hidden until tapped), the formula card's quiet box. */
     answer: { bg: '#F8F7FC', border: '#DCD8EE', label: '#4F43B0' },
-    /** Step 7.9: an Update (the professor corrected an earlier lecture), the Exam signal's amber family, a stronger border. */
+    /** An Update (the professor corrected an earlier lecture), the Exam signal's amber family, a stronger border. */
     update: { bg: '#FFF6E5', border: '#E8A33D', label: '#7A4A00' },
   },
-  /** Mark chips in the document (step 4.6): Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
+  /** Mark chips in the document: Important and Exam on the exam-signal amber, Confused on salmon (SUMMARY-SPEC). */
   markChip: {
     important: { bg: '#FFE4B5', text: '#7A4A00' },
     exam: { bg: '#FFE4B5', text: '#7A4A00' },
     confused: { bg: '#F5E0D8', text: '#8A3B22' },
   },
-  /** Formula cards (step 4.7c; SUMMARY-SPEC "Formula card"): a quiet box, the title in the accent, the legend softer than the text. */
+  /** Formula cards (SUMMARY-SPEC "Formula card"): a quiet box, the title in the accent, the legend softer than the text. */
   formulaCard: { bg: '#F8F7FC', border: '#DCD8EE', title: '#4F43B0', legend: '#4A4A5C' },
   /**
-   * The summary's text modules (step 8.1; SUMMARY-SPEC "Module library"): the formula card's quiet box
+   * The summary's text modules (SUMMARY-SPEC "Module library"): the formula card's quiet box
    * and accent label; white inner boxes (cause → effect, framework cells); the accent for the timeline's
    * line and dots and the process's stages; secondary text (In → Out, a step's why) softer than the text;
    * a worked example's answer and a case's lesson boxed in the accent family; an argument's premises on
@@ -369,9 +369,9 @@ export const DocColors = {
     objection: '#E8A0A0',
     codeBg: '#F2F0F5',
   },
-  /** Timestamp chips (step 4.6): the accent on its light fill. */
+  /** Timestamp chips: the accent on its light fill. */
   timestamp: { bg: '#EAE8F7', text: '#4F43B0' },
-  /** Text tinted to show it has a comment (step 4.5): not one of the highlights. */
+  /** Text tinted to show it has a comment: not one of the highlights. */
   comment: '#FDECC8',
   commentResolved: '#F3F1EC',
   highlight: [
@@ -386,5 +386,5 @@ export const DocColors = {
 
 export const Colors = LightColors;
 
-/** Sign in with Apple's button (step 10.1): Apple's black and white, the same in both themes (Apple's guidelines). */
+/** Sign in with Apple's button: Apple's black and white, the same in both themes (Apple's guidelines). */
 export const AppleButtonColors = { background: '#000000', text: '#FFFFFF' } as const;

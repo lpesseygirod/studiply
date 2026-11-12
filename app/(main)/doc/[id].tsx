@@ -82,7 +82,7 @@ import type { Note, Session } from '../../../src/types/database';
 import { errorMessage } from '../../../src/utils/errors';
 import type { ShelfItem } from '../../../src/utils/shelf';
 
-/** A tab id from a link (`?tab=`): a fixed tab or an added one (step 4.7b). */
+/** A tab id from a link (`?tab=`): a fixed tab or an added one. */
 const isTab = (v: unknown): v is DocTab => typeof v === 'string' && ((FIXED_TABS as readonly string[]).includes(v) || isAddedTab(v));
 const isFixedTab = (v: DocTab): v is FixedTab => (FIXED_TABS as readonly string[]).includes(v);
 
@@ -94,15 +94,15 @@ const HINTS: Record<FixedTab, string> = {
 
 const metaDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** How often the summary being written is read again (as the Summary tab's card, 7.4). */
+/** How often the summary being written is read again (as the Summary tab's card). */
 const SUMMARY_POLL_MS = 5000;
 
 /** What a lecture's Summary or Transcript tab shows when it has no document (yet). */
 type TabState = 'loading' | 'document' | 'earlier' | 'none';
 
 /**
- * A document (step 4.3): a blank document (its title and one page) or a
- * lecture (tabs My notes · Summary · Transcript), in the editor from 4.2,
+ * A document: a blank document (its title and one page) or a
+ * lecture (tabs My notes · Summary · Transcript), in the editor,
  * saving itself (src/hooks/useDocumentSync). Looks as docs/design
  * desktop-01 (laptop) and iphone-06 (iPhone): the white page on the
  * gradient, the title and meta line, "Saved · time".
@@ -120,7 +120,7 @@ export default function DocumentScreen() {
   const [file, setFile] = useState<FileRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  // The document's language (step 4.7d: graphs write Spanish decimals with a comma): the lecture's, else the account's.
+  // The document's language (graphs write Spanish decimals with a comma): the lecture's, else the account's.
   const { session: auth } = useAuth();
   const userId = auth?.user.id;
   const [accountLanguage, setAccountLanguage] = useState<string | null>(null);
@@ -132,29 +132,29 @@ export default function DocumentScreen() {
   }, [userId]);
   const [note, setNote] = useState<Note | null>(null);
   // The lecture whose note lookup has finished: until then its Summary tab can't tell "no summary" from
-  // "an earlier note not converted yet" (4.9), so it stays loading instead of flashing "No summary yet".
+  // "an earlier note not converted yet", so it stays loading instead of flashing "No summary yet".
   const [noteCheckedFor, setNoteCheckedFor] = useState<string | null>(null);
   const [courseName, setCourseName] = useState<string | null>(null);
   const [chain, setChain] = useState<Breadcrumb[]>([]);
   const [tab, setTab] = useState<DocTab>(isTab(params.tab) ? params.tab : 'notes');
-  // Opened again on a tab while on screen (step 7.3: Stop & generate summary opens the Summary tab; `at` makes each opening new).
+  // Opened again on a tab while on screen (Stop & generate summary opens the Summary tab; `at` makes each opening new).
   const askedTab = isTab(params.tab) ? params.tab : null;
   useEffect(() => {
     if (askedTab) setTab(askedTab);
   }, [askedTab, params.at]);
   const [tabState, setTabState] = useState<TabState>('loading');
   const isLecture = file?.kind === 'lecture';
-  // Step 7.9: a Unit summary or an Exam pack (its first tab is written by the summary engine).
+  // A Unit summary or an Exam pack (its first tab is written by the summary engine).
   const isCombined = file?.kind === 'unit_summary' || file?.kind === 'exam_pack';
 
-  // The document's tabs (step 4.7b): a lecture's three first, then added ones; a plain document's from "Tab 1".
+  // The document's tabs: a lecture's three first, then added ones; a plain document's from "Tab 1".
   const [tabs, setTabs] = useState<TabInfo[] | null>(null);
   // The list was read (or couldn't be): until then the tab's kind isn't known, so nothing is drawn in it.
   const [tabsKnown, setTabsKnown] = useState(false);
   // Tabs deleted on another device that an edit here kept (shown once).
   const [keptTabs, setKeptTabs] = useState<string[]>([]);
-  // The file as shown now: a list read for an older kind (a document that just became a lecture,
-  // step 5.7) arrives too late to be shown.
+  // The file as shown now: a list read for an older kind (a document that just became a lecture)
+  // arrives too late to be shown.
   const shownKind = useRef(file?.kind);
   shownKind.current = file?.kind;
   const loadTabs = useCallback(async () => {
@@ -174,7 +174,7 @@ export default function DocumentScreen() {
     if (tabs && tabs.length > 0 && !tabs.some((t) => t.tab === tab)) setTab(tabs[0].tab);
   }, [tabs, tab]);
 
-  // This lecture is recording (step 5.3): on the iPhone (and below 1024 px) the
+  // This lecture is recording: on the iPhone (and below 1024 px) the
   // recording header and bar of iphone-02 around the document screen as it is
   // outside a recording (Lea, 30 Oct: its tabs, toolbar and page view); the laptop has the strip.
   const live = useRecorderState();
@@ -182,7 +182,7 @@ export default function DocumentScreen() {
   const recordingHere =
     !!id && ((live.lectureId === id && live.status !== 'idle') || recordingFlowState.saving?.lectureId === id);
   const recordingScreen = recordingHere && !wide;
-  // Live notes (step 5.4): while this lecture records (or pauses), new lines of My notes get its time.
+  // Live notes: while this lecture records (or pauses), new lines of My notes get its time.
   const recordingClock = useCallback(() => {
     const now = recorder.state();
     return now.lectureId === id && (now.status === 'recording' || now.status === 'paused') ? recorder.elapsedMs() : null;
@@ -235,7 +235,7 @@ export default function DocumentScreen() {
     if (id) markOpened(id);
   }, [id]);
 
-  // An item's Summarize (step 7.3): the lecture opens with the summarize panel, once.
+  // An item's Summarize: the lecture opens with the summarize panel, once.
   const askedSummarize = params.summarize === '1';
   useEffect(() => {
     if (!askedSummarize || !id || file?.id !== id || file.kind !== 'lecture') return;
@@ -276,7 +276,7 @@ export default function DocumentScreen() {
       ? `Recording: ${audioStatusLine(lectureAudio)}.${lectureAudio.deletedAt ? ' The transcript and notes stay.' : ''}`
       : undefined;
 
-  // Step 7.7: the lecture's newest summary, read again while it's being written; once done, written into
+  // The lecture's newest summary, read again while it's being written; once done, written into
   // its document (the Summary tab, a "New summary" tab, or merged around her edits: services/summaryDoc).
   const [lectureSummary, setLectureSummary] = useState<LectureSummary | null>(null);
   const [summaryRev, setSummaryRev] = useState(0);
@@ -332,7 +332,7 @@ export default function DocumentScreen() {
     (async () => {
       // A lecture's Summary and Transcript may have nothing yet; every other tab is a document.
       const added = tabs?.find((t) => t.tab === tab);
-      // Step 7.9: a Unit summary's or Exam pack's first tab shows the summary card until it's written in.
+      // A Unit summary's or Exam pack's first tab shows the summary card until it's written in.
       if ((kind === 'unit_summary' || kind === 'exam_pack') && tab === 'notes') {
         if (live) setSummaryHere(false);
         const opened = await openDocument(id, tab).catch(() => null);
@@ -347,7 +347,7 @@ export default function DocumentScreen() {
       if (opened?.id) return 'document' as const;
       if (tab === 'summary') {
         if (!hasNote) return 'none' as const;
-        // Step 4.9: the earlier note becomes this tab, once (never over a document that is there). The
+        // The earlier note becomes this tab, once (never over a document that is there). The
         // card stays for when that can't be done now (e.g. offline before the note was ever read).
         const outcome = await convertEarlierNoteOf(id).catch(() => null);
         return outcome === 'converted' || outcome === 'exists' ? ('document' as const) : ('earlier' as const);
@@ -363,11 +363,11 @@ export default function DocumentScreen() {
     return () => {
       live = false;
     };
-    // `summaryRev`: a summary was just written in (step 7.7); `tabs`: an added tab's kind.
+    // `summaryRev`: a summary was just written in; `tabs`: an added tab's kind.
   }, [kind, id, tab, hasNote, noteChecked, lectureStatus, summaryRev, tabs]);
 
   // The editor, one per tab; its autosave starts once it is ready. A
-  // spreadsheet tab (step 4.7e) has the grid instead, with the same autosave.
+  // spreadsheet tab has the grid instead, with the same autosave.
   const editorRef = useRef<StudiplyEditorHandle>(null);
   const sheetRef = useRef<SheetHandle>(null);
   const isSheet = tabs?.find((t) => t.tab === tab)?.kind === 'sheet';
@@ -385,7 +385,7 @@ export default function DocumentScreen() {
   const flushNotes = useRef(async () => {});
   flushNotes.current = () => sync.flush();
 
-  // Record inside the document (step 5.7): a lecture records again; a plain document becomes a lecture
+  // Record inside the document: a lecture records again; a plain document becomes a lecture
   // (its first tab is My notes, its other tabs follow). Not while this one records, or in other kinds of file.
   const actions = useRecordingActions();
   const connection = useConnectivity();
@@ -415,7 +415,7 @@ export default function DocumentScreen() {
     }
   };
   const recordButton = recordable ? <RecordButton onPress={() => void onRecord()} blocked={recordBlocked} starting={startingRecord} /> : null;
-  // Marks (step 5.5) and board photos (5.6) made while recording go into this lecture's My notes through its
+  // Marks and board photos made while recording go into this lecture's My notes through its
   // editor while it is on screen here (not while another screen is in front of it: then they're saved as a new last line).
   const momentsHere = isLecture && tab === 'notes' && !isSheet && showEditor && readyKey === editorKey;
   useFocusEffect(
@@ -455,7 +455,7 @@ export default function DocumentScreen() {
     [file, isLecture],
   );
 
-  // Tabs (step 4.7b): add, rename, move, delete with Undo. The list is read again after each change.
+  // Tabs: add, rename, move, delete with Undo. The list is read again after each change.
   const failed = (what: string) => (err: unknown) => showAlert(what, errorMessage(err, 'Please try again.'));
   const askTabName = (title: string, current: string) => promptText(title, { defaultValue: current, confirmLabel: 'Save', placeholder: 'Tab name' });
   const onAddTab = async (kind: TabKind | null) => {
@@ -508,7 +508,7 @@ export default function DocumentScreen() {
       file
         ? {
             id: file.id,
-            // Step 7.9: a Unit summary or Exam pack has a document's menu under its own name.
+            // A Unit summary or Exam pack has a document's menu under its own name.
             type: isLecture ? 'lecture' : file.kind === 'unit_summary' || file.kind === 'exam_pack' ? file.kind : 'document',
             title: file.title,
             courseId: file.course_id,
@@ -523,7 +523,7 @@ export default function DocumentScreen() {
   );
 
   const [historyOpen, setHistoryOpen] = useState(false);
-  // The document menu's Comments (step 4.5): every comment, read from the editor when opened.
+  // The document menu's Comments: every comment, read from the editor when opened.
   const [comments, setComments] = useState<CommentInfo[] | null>(null);
   // Laptop: a comments margin beside the page when the shell has room; the columns widen while it shows.
   const margin = useCommentMargin();
@@ -535,11 +535,11 @@ export default function DocumentScreen() {
     // The iPhone's list comes back with the editor's next state.
     setTimeout(() => void editorRef.current?.comments().then((list) => setComments((open) => (open ? list : open))), 150);
   };
-  // iPhone (step 4.5b): Print layout and the zoom, kept on this phone (the laptop's are in its toolbar).
+  // iPhone: Print layout and the zoom, kept on this phone (the laptop's are in its toolbar).
   const [phoneView, setPhoneView] = useViewPrefs('iphone');
   // Page setup (after test D): saved on the document; both devices.
   const [pageSetupOpen, setPageSetupOpen] = useState(false);
-  // Export PDF… and Export Word… (steps 4.8a, 4.8b): one dialog; this tab or all, with the page setup; the open tab as it is now (unsaved edits too).
+  // Export PDF… and Export Word…: one dialog; this tab or all, with the page setup; the open tab as it is now (unsaved edits too).
   const [exportOpen, setExportShown] = useState(false);
   // Kept while the dialog closes, so its title doesn't change as it fades.
   const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
@@ -555,11 +555,11 @@ export default function DocumentScreen() {
     }
     return (await openDocument(id, t.tab)).content;
   };
-  // A tap on a timestamp chip plays the lecture's recording from there (step 4.6).
+  // A tap on a timestamp chip plays the lecture's recording from there.
   const [play, setPlay] = useState<PlayRequest | null>(null);
-  // A time tapped in a study-assistant answer (step 6.2; the laptop's panel is outside this screen).
+  // A time tapped in a study-assistant answer (the laptop's panel is outside this screen).
   useEffect(() => onPlayRequest((r) => r.lectureId === id && setPlay({ ms: r.ms, id: Date.now() })), [id]);
-  // The study assistant (step 6.2): the laptop's panel asks about the lecture shown here; on the
+  // The study assistant: the laptop's panel asks about the lecture shown here; on the
   // iPhone its sheet opens over this screen (✦ Ask while recording, ✦ in the header after class).
   useEffect(() => {
     if (!id || !file) return;
@@ -568,7 +568,7 @@ export default function DocumentScreen() {
   useEffect(() => () => setAssistantTarget(null), []);
   const phoneChat = useAssistant(!wide && isLecture && id ? id : null);
   const [askOpen, setAskOpen] = useState(false);
-  // Links into the app from the document (step 7.7): "See them in My notes" opens that tab; a question's
+  // Links into the app from the document: "See them in My notes" opens that tab; a question's
   // "Full answer" opens the study assistant at it (the laptop's panel, the iPhone's sheet).
   useEffect(
     () =>
@@ -584,7 +584,7 @@ export default function DocumentScreen() {
       }),
     [tabs, isLecture, wide],
   );
-  // Quiz me (step 9.1): every summary section behind its cue question, from the document menu (both
+  // Quiz me: every summary section behind its cue question, from the document menu (both
   // devices) and the iPhone's button under the summary. View only: off again when the tab changes.
   const quizHere = summaryHere || ((kind === 'unit_summary' || kind === 'exam_pack') && tab === 'notes');
   const [quizOn, setQuizOn] = useState(false);
@@ -594,7 +594,7 @@ export default function DocumentScreen() {
     editorRef.current?.run({ type: 'quiz', on });
     setQuizOn(on);
   };
-  // Ask Claude on a selection (step 6.3): any document; a suggestion to accept or reject.
+  // Ask Claude on a selection: any document; a suggestion to accept or reject.
   const askClaude = useAskClaude({ fileId: id ?? null, courseId: file?.course_id ?? null, editorRef, showUndo });
   const discardRecording = useDiscardRecording();
   const menuButton = useRef<View>(null);
@@ -602,7 +602,7 @@ export default function DocumentScreen() {
     if (!item) return;
     editorRef.current?.blur();
     const extra: DialogButton[] = showEditor && isSheet
-      ? // A spreadsheet tab (step 4.7e): no comments, page setup or print layout yet; its PDF is a table of values (4.8a).
+      ? // A spreadsheet tab: no comments, page setup or print layout yet; its PDF is a table of values.
         [
           { text: 'Version history', icon: 'time-outline', section: 'Review', onPress: () => setHistoryOpen(true) },
           { text: 'Export PDF…', icon: 'download-outline', section: 'Page', onPress: () => setExportOpen('pdf') },
@@ -610,11 +610,11 @@ export default function DocumentScreen() {
         ]
       : showEditor
       ? [
-          // Headings on the laptop (the simplicity pass before 4.6): Review · Page, then Document (ending with Delete).
+          // Headings on the laptop (the simplicity pass): Review · Page, then Document (ending with Delete).
           { text: 'Comments', icon: 'chatbox-ellipses-outline', section: 'Review', onPress: () => void openComments() },
           { text: 'Version history', icon: 'time-outline', onPress: () => setHistoryOpen(true) },
           ...(showEditor && quizHere ? [{ text: quizOn ? 'Show all sections' : 'Quiz me', icon: 'help-circle-outline' as const, onPress: toggleQuiz }] : []),
-          // Writing tools (step 4.7); on the laptop also ⌘F, ⌘⇧H and ⌘⌥A, and the word count's line under the page.
+          // Writing tools; on the laptop also ⌘F, ⌘⇧H and ⌘⌥A, and the word count's line under the page.
           { text: 'Find and replace', icon: 'search-outline', section: 'Tools', onPress: () => editorRef.current?.tool('replace') },
           { text: 'Outline', icon: 'list-outline', onPress: () => editorRef.current?.tool('outline') },
           { text: 'Word count', icon: 'stats-chart-outline', onPress: () => editorRef.current?.tool('wordCount') },
@@ -631,7 +631,7 @@ export default function DocumentScreen() {
     const after: DialogButton[] = discardable
       ? [{ text: `${DISCARD_LABEL}…`, icon: 'trash-outline', style: 'destructive', section: 'Recording', accessibilityLabel: 'Discard this recording', onPress: () => void discardRecording() }]
       : [];
-    // With a document open, Export PDF… (4.8a) takes the place of the lecture's earlier-notes export (still in the library's menu).
+    // With a document open, Export PDF… takes the place of the lecture's earlier-notes export (still in the library's menu).
     itemMenu.open(item, await anchorBelow(menuButton), { skip: showEditor ? ['open', 'export'] : ['open'], dialogRename: true, extra, section: showEditor ? 'Document' : undefined, after });
   };
 
@@ -647,7 +647,7 @@ export default function DocumentScreen() {
         selectTitle={created}
         compact={!wide}
         inset={inset}
-        // Pages (the web, any width) and Print layout (iPhone) put it on the gradient, above the pages (step 4.5b); a sheet's is on its card.
+        // Pages (the web, any width) and Print layout (iPhone) put it on the gradient, above the pages; a sheet's is on its card.
         onGradient={!onCard && (nativeEditor ? !!phoneView?.pages : margin.pages)}
         // The phone's recording screen shows the title in its header above (once).
         showTitle={!recordingScreen}
@@ -665,7 +665,7 @@ export default function DocumentScreen() {
       </Pressable>
     ) : null;
 
-  // A tab deleted on another device and edited here is kept (step 4.7b): said once.
+  // A tab deleted on another device and edited here is kept: said once.
   const keptNames = [...keptTabs, ...(sync.state.kept ? [tabs?.find((t) => t.tab === tab)?.title ?? 'This tab'] : [])];
   const keptNotice =
     keptNames.length > 0 ? (
@@ -703,7 +703,7 @@ export default function DocumentScreen() {
   const body = !file ? (
     <View style={styles.center}>{error ? <Text style={styles.errorText}>{error}</Text> : null}</View>
   ) : showEditor && isSheet ? (
-    // A spreadsheet tab (step 4.7e): a white card with the title, the formula bar and the grid, which scrolls inside it.
+    // A spreadsheet tab: a white card with the title, the formula bar and the grid, which scrolls inside it.
     <View style={[styles.editorWrap, wide ? styles.sheetCard : styles.pageCard]}>
       {keptNotice}
       {lostNotice}
@@ -717,7 +717,7 @@ export default function DocumentScreen() {
       />
     </View>
   ) : showEditor ? (
-    // Print layout: no white card; the pages sit on the gradient (step 4.5b).
+    // Print layout: no white card; the pages sit on the gradient.
     <View style={[styles.editorWrap, !wide && nativeEditor && !phoneView?.pages && styles.pageCard]}>
       {keptNotice}
       {lostNotice}
@@ -828,11 +828,11 @@ export default function DocumentScreen() {
   );
 
   const fullPane = margin.pages || (showEditor && isSheet);
-  // A tab that holds a summary written in (step 7.7): the banner (laptop, Summary tab) and the iPhone's buttons.
+  // A tab that holds a summary written in: the banner (laptop, Summary tab) and the iPhone's buttons.
   const showSummaryChrome = isLecture && showEditor && !isSheet && summaryHere;
   // The banner runs the window's width under the top bar (desktop-03): the shell draws it, told from here.
   const bannerOn = wide && showSummaryChrome && tab === 'summary';
-  // Step 7.9: + Extend with next lecture opens the lecture picker for this lecture.
+  // + Extend with next lecture opens the lecture picker for this lecture.
   const bannerLecture = useMemo(() => (file ? { id: file.id, courseId: file.course_id } : undefined), [file]);
   useEffect(() => {
     setSummaryBanner(bannerOn ? { summary: lectureSummary, lecture: bannerLecture } : null);
@@ -845,7 +845,7 @@ export default function DocumentScreen() {
     <View style={styles.container}>
       <GradientFill />
       {!wide && <ThemedStatusBar />}
-      {/* In Pages (step 4.5b) and on a spreadsheet tab (4.7e) the page area has the whole pane; the tabs row keeps its column. */}
+      {/* In Pages and on a spreadsheet tab the page area has the whole pane; the tabs row keeps its column. */}
       <View style={wide ? (fullPane ? styles.columnPages : [styles.column, margin.shown && commentRoom && styles.columnWithMargin]) : styles.container}>
         {wide && fullPane ? <View style={styles.topRowPages}>{top}</View> : top}
         <View style={wide ? styles.container : [styles.phoneBody, { paddingBottom: insets.bottom + 8 }]}>
@@ -904,7 +904,7 @@ export default function DocumentScreen() {
           setup={sync.pageSetup}
           language={docLanguage}
           loadTab={loadTabContent}
-          // Step 8.3: a tab holding a summary exports as a summary's PDF (the dialog checks); a lecture's has the transcript appendix.
+          // A tab holding a summary exports as a summary's PDF (the dialog checks); a lecture's has the transcript appendix.
           summary={{ meta, course: courseName, day: new Date(file.created_at), transcript: isLecture ? (tabs.find((t) => t.tab === 'transcript') ?? null) : null }}
         />
       )}

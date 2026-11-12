@@ -1,13 +1,13 @@
 /**
  * legacy-notes.ts
- * The old app's study notes and "clarify" prompts, moved to the server in
- * step 1.7 so no API key is in the app. Kept free of Deno and network code
+ * The old app's study notes and "clarify" prompts, moved to the server
+ * so no API key is in the app. Kept free of Deno and network code
  * so Jest can test it (src/lib/__tests__/legacy-notes.test.ts).
  *
- * The prompts are the ones the app sent to Claude itself before 1.7 (from
+ * The prompts are the ones the app used to send to Claude itself (from
  * its earlier ai.service.ts), with one change: the note's JSON shape is now
  * enforced with structured outputs (NOTE_SCHEMA) instead of asked for in
- * words. Phase 7's summary engine replaces all of this.
+ * words. The summary engine replaces all of this.
  */
 
 export type SummaryLevel = 'minimal' | 'standard' | 'extra';

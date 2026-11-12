@@ -12,7 +12,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { unitsText } from '../../lib/credits/format';
 
 /**
- * Step 10.2-2 (plan §6; no mockup: the Review offer card's look), at the top of Library on both
+ * The beta friends' notice (plan §6; no mockup: the Review offer card's look), at the top of Library on both
  * devices: the beta friends are thanked once per account, with her balance now. See credits or Got it
  * hides it for good (profiles.preferences.betaCreditsSeen; on this device at once, also offline).
  */

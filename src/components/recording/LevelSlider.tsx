@@ -6,7 +6,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { levelAfterKey, levelAt } from '../../utils/markHints';
 
 /**
- * A 1–10 slider (step 5.5, the mark panel; docs/design desktop-01 and
+ * A 1–10 slider (the mark panel; docs/design desktop-01 and
  * iphone-03): a thin track filled in the accent up to a round accent thumb.
  * Drag the thumb or tap a place on the track; ten stops. VoiceOver adjusts it
  * one step at a time; on the laptop it takes the arrow keys, Home and End.

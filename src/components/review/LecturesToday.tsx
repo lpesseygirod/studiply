@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { anchorBelow, menuTriggerProps, showActionSheet, type Anchor } from '../dialogs/dialogs';
 
 /**
- * Review's "Lectures to review today" (step 9.2; no mockup, the quiz rows' look of 9.1b), the same on
+ * Review's "Lectures to review today" (no mockup, the quiz rows' look), the same on
  * both devices, over Flashcards and Quiz me: each lecture due today, "Psicobiología · Day 3" (or "A
  * week before the exam", "Day before the exam"). **Review** opens its Quiz me questions (finishing
  * them marks it reviewed) or, without a self-test, its Summary tab; its menu (…, right-click,

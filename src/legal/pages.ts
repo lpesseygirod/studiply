@@ -2,7 +2,7 @@ import type { Href } from 'expo-router';
 
 import type { LegalSlug } from './types';
 
-/** The legal pages in the order /legal and the footers list them (step 10.1b-1). */
+/** The legal pages in the order /legal and the footers list them. */
 export const LEGAL_SLUGS: readonly LegalSlug[] = ['privacy', 'terms', 'refunds', 'cookies', 'legal'];
 
 /** Short names for the footers ("Terms · Privacy · Legal"). */

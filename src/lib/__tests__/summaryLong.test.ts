@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.6: lectures over 60 minutes (supabase/functions/_shared/summary-long.ts and the pipeline's
+// Lectures over 60 minutes (supabase/functions/_shared/summary-long.ts and the pipeline's
 // long path), Claude faked: the split by topic (≤ 35 min, at segment boundaries; no topics → windows),
 // every item in exactly one part, 30 s of context at the edges, the part prompt, the media (slides
 // shared and cached, each photo in its own part), the code merge, the wrap-up, and the run (parts in

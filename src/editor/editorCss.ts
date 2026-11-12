@@ -22,7 +22,7 @@ import { PAGE_CLASS, PAGE_GAP_CLASS, PAGE_LAYER_CLASS, PAGES_DRAWN_CLASS } from 
 export const PAGE_COLORS = LightColors;
 
 /**
- * The summary's text modules (step 8.1; SUMMARY-SPEC "Module library" and "Spacing and layout"): a quiet
+ * The summary's text modules (SUMMARY-SPEC "Module library" and "Spacing and layout"): a quiet
  * box with its label in small capitals, laid out by kind. Tables have thin horizontal rules only and a
  * semibold header; code is monospace (SF Mono / Menlo, 13 px). Lines, dots and arrows are drawn (never
  * read: the words carry the meaning); a module moves whole between pages and in the PDF.
@@ -92,7 +92,7 @@ ${kind('workedExample')} > p:last-child:not(:first-child) { padding: 6px 10px; b
  * and a <style> on the laptop scoped under `scope`. The page is always white
  * with dark text, like Google Docs, in light and dark mode alike (pasted
  * text keeps colours chosen for white paper); only the app around it follows
- * the appearance. Step 4.4 replaces this with the designed styles.
+ * the appearance.
  */
 export function editorCss(scope = ''): string {
   const c = PAGE_COLORS;
@@ -101,7 +101,7 @@ export function editorCss(scope = ''): string {
   const handles = `${scope} .${TABLE_HANDLES_CLASS}`.trim();
   const photo = `${pm} .${PHOTO_CLASS}`;
   const sheet = `${pm}.${PAGE_CLASS}`;
-  // A page's soft shadow on the gradient (the page view, step 4.5b).
+  // A page's soft shadow on the gradient (the page view).
   const PAGE_SHADOW = `0 1px 3px ${c.scrim}, 0 6px 24px ${c.scrim}`;
   const gap = `${pm} .${PAGE_GAP_CLASS}`;
   const page = scope ? '' : `html, body { background: ${c.card}; color: ${c.text.primary}; color-scheme: light; }\n`;

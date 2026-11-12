@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 5.6: a board photo taken while recording goes into My notes as a
+// A board photo taken while recording goes into My notes as a
 // thumbnail on a line of its own, with its time: after the line the student
 // was writing (an empty line is used), or a new last line when they hadn't
 // been in the notes; the same line saved from outside the editor.

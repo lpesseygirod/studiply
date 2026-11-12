@@ -21,7 +21,7 @@ const HINTS = {
 } as const;
 
 /**
- * Step 7.9: which lectures (MoveToModal's list, the summarize panel's check rows): Extend picks one
+ * Which lectures (MoveToModal's list, the summarize panel's check rows): Extend picks one
  * later lecture (the next one chosen), Merge two or more with a summary, Exam pack all with a summary
  * (chosen). Then the summarize panel, as for a summary. Drawn once by the app's layout.
  */

@@ -1,6 +1,6 @@
 /**
  * assistant-actions.ts
- * Ask Claude on a selection and Flashcards from an answer (step 6.3): one
+ * Ask Claude on a selection and Flashcards from an answer: one
  * Claude call whose answer is JSON of a fixed shape (structured outputs),
  * checked against that shape before anything uses it. With Claude passed
  * in, so Jest runs it with fakes (src/lib/__tests__/assistantActions.test.ts).

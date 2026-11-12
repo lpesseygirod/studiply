@@ -3,7 +3,7 @@ import BridgeExtension from '@10play/tentap-editor/src/bridges/base.ts';
 import { LiveStamps, setRecordingClock } from '../schema/liveStamps';
 
 /**
- * Live notes on the iPhone (step 5.4): native tells the WebView the
+ * Live notes on the iPhone: native tells the WebView the
  * recording time now and then (`ms` at `at`, and whether it is running), and
  * the WebView counts from it, so a line's stamp needs no round trip while
  * typing. `ms` null: nothing records, no stamps.

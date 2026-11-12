@@ -1,17 +1,17 @@
 /**
  * quiz-attempt.service.ts
- * Taking a quiz (step 9.1b-3; the approved plan, docs/reports/plan-9.1b-3.md): the quiz with its
+ * Taking a quiz (the approved plan, docs/reports/plan-9.1b-3.md): the quiz with its
  * questions and attempts, an attempt started or resumed, an answer saved (graded in code at once:
  * quiz-grade.ts), the short and long answers sent to Sonnet (the quiz function's grade mode), an
  * attempt finished (its unanswered questions written as wrong), a grade she changes, a file source
  * opened at its page.
  *
- * - The laptop reads and writes Supabase (online only, as the web since 1.8).
+ * - The laptop reads and writes Supabase (online only, as the web always does).
  * - The iPhone reads its own copy (quiz_questions, quiz_attempts and quiz_answers are downloaded with
  *   the library) and writes there, queued in order: `quiz_attempt` (the attempt: started, finished),
  *   `quiz_answer` (one per question: the latest wins, her grade changes too), `quiz_grade` (the grading
  *   call, after its answers). A quiz is taken offline; short and long answers wait ("Grading when online").
- * - The database's triggers keep the score and make the review cards (9.1b-1), on every device.
+ * - The database's triggers keep the score and make the review cards, on every device.
  */
 
 import { Platform } from 'react-native';
@@ -290,7 +290,7 @@ export async function changeGrade(answer: AnswerRow, verdict: Verdict): Promise<
   return row;
 }
 
-/** Step 10.2-1b: `extras` — grading uses the assistant & extras allowance, used up for now. */
+/** `extras`: grading uses the assistant & extras allowance, used up for now. */
 export type GradingState = 'done' | 'grading' | 'offline' | 'needs_permission' | 'limit' | 'extras' | 'failed';
 
 /** Whether an attempt has answers waiting for Sonnet. */

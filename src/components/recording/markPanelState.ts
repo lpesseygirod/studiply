@@ -21,7 +21,7 @@ export function recordingMoment(): Moment | null {
 }
 
 /**
- * The new-mark panel (step 5.5), shared by the laptop's strip (inline under
+ * The new-mark panel, shared by the laptop's strip (inline under
  * it) and the iPhone's bar (a small sheet): which mark, and the recording
  * time when its button was pressed (while paused, the paused moment).
  */

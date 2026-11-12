@@ -1,7 +1,7 @@
 /**
  * summary-extend.ts
- * Step 7.9, Extend and Merge (the approved plan): the lecture being added is written by the 7.4
- * generate call (or the 7.6 parts over 60 min) with the existing summary in its prompt, so Claude sees
+ * Extend and Merge (the approved plan): the lecture being added is written by the summary's
+ * generate call (or the parts over 60 min) with the existing summary in its prompt, so Claude sees
  * both at once and writes only what is new. Its answer has two more lists, as JSON in one string field
  * (summary-schema.ts EXTEND_FIELD: the grammar limit): `alreadyCovered` (a repeat about an existing part
  * → a Studiply comment there) and `corrections` (→ an Update callout). Imported by summary-pipeline.ts and summary-combine.ts; no Deno

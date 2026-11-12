@@ -1,6 +1,6 @@
 /**
  * legacyDb.ts
- * Reads the earlier version's data on this iPhone for step 1.9: the old
+ * Reads the earlier version's data on this iPhone for the import: the old
  * database and its files under documents/source-files/. Read-only; only
  * removeLegacyCopy deletes, when the student asks after a verified upload.
  *

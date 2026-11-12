@@ -8,7 +8,7 @@ import type { FunctionHelp, HelpPart } from '../../lib/sheets';
 const web = Platform.OS === 'web';
 
 /**
- * Under the formula bar while a formula is typed (step 4.7e 2a): the
+ * Under the formula bar while a formula is typed: the
  * functions starting with the letters typed (↑ ↓ to choose, Tab or Enter
  * or a click to take one), else the help line of the function the cursor
  * is in, its current argument in bold: PMT(**rate**, nper, pv, [fv], [type]).

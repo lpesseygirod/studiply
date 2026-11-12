@@ -1,4 +1,4 @@
-// Step 10.1b-2: accepting the Terms and the Privacy Policy (16+). The sign-up metadata carries the
+// Accepting the Terms and the Privacy Policy (16+). The sign-up metadata carries the
 // texts' version; the gate is asked only when the server says there is no acceptance; accepting
 // adds her row (never the time: the server's); boxes ticked before Continue with Apple count.
 import AsyncStorage from '@react-native-async-storage/async-storage';

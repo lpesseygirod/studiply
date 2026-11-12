@@ -1,6 +1,6 @@
 /**
- * Spaced review of lectures (step 9.2; the approved plan, docs/reports/plan-9.2.md), pure so both
- * devices, the count, the Review screen and (9.2-3) the reminders share it. Calendar days, local.
+ * Spaced review of lectures (the approved plan, docs/reports/plan-9.2.md), pure so both
+ * devices, the count, the Review screen and the reminders share it. Calendar days, local.
  *
  * Sessions of a lecture recorded on day L, its course's exam on day E (or none):
  * 1. No exam, or an exam on or before the lecture's day (a past exam doesn't steer new lectures):
@@ -12,7 +12,7 @@
  * Due: the lecture's current session (its latest one dated today or before) while it wasn't reviewed
  * on or after that day. A missed session isn't stacked: it lapses when the next one's day comes, and
  * the last one after 7 days, so a lecture counts once. Sessions dated before the plan started
- * (PLAN_START, decision 3: lectures recorded before 9.2 keep their remaining sessions only) never count.
+ * (PLAN_START, decision 3: lectures recorded before the plan keep their remaining sessions only) never count.
  */
 
 /** "2026-11-09" */
@@ -30,7 +30,7 @@ export interface Session {
 export const STANDARD_OFFSETS = [1, 3, 7, 21] as const;
 /** The last session stays due this many days (its own day included). */
 export const LAST_SESSION_DAYS = 7;
-/** Step 9.2 shipped: sessions before this day never count (decision 3). */
+/** The review plan shipped: sessions before this day never count (decision 3). */
 export const PLAN_START: Day = '2026-11-09';
 
 const DAY_MS = 86_400_000;

@@ -10,7 +10,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 const MONO = Platform.select({ ios: 'Menlo', default: 'ui-monospace, Menlo, Consolas, monospace' });
 
 /**
- * A formula's editor (step 4.5), the same on both devices: inline or
+ * A formula's editor, the same on both devices: inline or
  * display, the LaTeX, starters (fraction, power, root, sum, integral) that
  * go in where the cursor is, and Remove / Done. Every change is reported at
  * once, so the formula in the text changes as the student types. The

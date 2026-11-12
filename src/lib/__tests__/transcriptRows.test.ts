@@ -1,4 +1,4 @@
-// Step 5.2: a lecture's full transcript assembled from its transcript_segments
+// A lecture's full transcript assembled from its transcript_segments
 // rows as stored (each chunk's raw text), the 500 ms overlaps' duplicated
 // words removed by the shared rule; rows in any order, chunks missing.
 import { joinSegmentRows, type ChunkPlace } from '../../../supabase/functions/_shared/transcriptJoin';

@@ -9,16 +9,16 @@ import { openLecturePicker } from './combineState';
 import { bannerText } from './summaryCard';
 import type { BannerLecture } from './summaryBannerState';
 
-/** Step 7.9: the lecture picker for Extend, with the next lecture chosen. */
+/** The lecture picker for Extend, with the next lecture chosen. */
 const extend = (lecture: BannerLecture | undefined) => {
   if (lecture) openLecturePicker({ mode: 'extend', courseId: lecture.courseId, folderId: null, baseLectureId: lecture.id });
 };
 
 /**
- * The laptop's green banner while a lecture's Summary tab holds its summary (step 7.7, desktop-03):
+ * The laptop's green banner while a lecture's Summary tab holds its summary (desktop-03):
  * the window's full width under the top bar (the shell draws it), one line: "Summary added to this
  * document", what it was built from (cut with … when the window is too narrow, only that part), and
- * + Extend with next lecture at the right (7.9). No close button: the mockup has none.
+ * + Extend with next lecture at the right. No close button: the mockup has none.
  */
 export function SummaryBanner({ summary, lecture }: { summary: LectureSummary | null; lecture?: BannerLecture }) {
   const styles = useThemedStyles(makeStyles);
@@ -29,7 +29,7 @@ export function SummaryBanner({ summary, lecture }: { summary: LectureSummary | 
         Summary added to this document
       </Text>
       <Text style={styles.text} numberOfLines={1} ellipsizeMode="tail" {...{ dataSet: { summaryBanner: 'built' } }}>
-        {/* Step 7.9: after "Add to this summary" the newest row is the Extend's (no counts of its own). */}
+        {/* After "Add to this summary" the newest row is the Extend's (no counts of its own). */}
         {r?.coverage ? bannerText(r) : r ? 'Extended with the next lecture' : ''}
       </Text>
       <Pressable
@@ -47,7 +47,7 @@ export function SummaryBanner({ summary, lecture }: { summary: LectureSummary | 
   );
 }
 
-/** The iPhone's two buttons under a summary (iphone-06): + Extend with next (7.9) and Quiz me (9.1: every section behind its cue question; then Show all). */
+/** The iPhone's two buttons under a summary (iphone-06): + Extend with next and Quiz me (every section behind its cue question; then Show all). */
 export function SummaryPhoneButtons({ lecture, quizOn, onQuiz }: { lecture?: BannerLecture; quizOn: boolean; onQuiz: () => void }) {
   const styles = useThemedStyles(makeStyles);
   return (

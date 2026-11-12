@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 8.3: a summary's PDF (SUMMARY-SPEC "PDF export"). The tab made ready for paper
+// A summary's PDF (SUMMARY-SPEC "PDF export"). The tab made ready for paper
 // (export/summaryPrint.ts): the title block first, times as plain "[12:34]", the app's links as words,
 // the self-test's answers on a last page under "Answers" (or the self-test left out), the transcript
 // appendix; the running header from page 2 and the "Studiply · Page 2 of 4" footer (printPages.ts);

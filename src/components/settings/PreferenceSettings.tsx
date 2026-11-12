@@ -1,6 +1,6 @@
 /**
  * PreferenceSettings.tsx
- * The settings groups of the old General screen, moved unchanged (step 3.6):
+ * The settings groups of the old General screen, moved unchanged:
  * Appearance (+ keyboard shortcuts on the laptop), Recording defaults
  * (with the language picker), Summary defaults and file retention.
  * `title` is the group's small header; null hides it (a section page that
@@ -43,7 +43,7 @@ export const APPEARANCES = [
   { value: 'dark', label: 'Dark' },
 ] as const;
 
-// Step 10.1b-3: the default ("Delete in 3 days": 3 days after the recording is transcribed) first.
+// The default ("Delete in 3 days": 3 days after the recording is transcribed) first.
 const RETENTION_OPTIONS = [
   { value: 'delete_3_days', label: 'Delete 3 days after transcription' },
   { value: 'delete_now', label: 'Delete immediately' },
@@ -61,7 +61,7 @@ interface SettingsProps extends GroupProps {
 }
 
 /**
- * A settings switch in the app's colours. `accessibilityLabel` is required (step 10.1b-5): it is the
+ * A settings switch in the app's colours. `accessibilityLabel` is required: it is the
  * row's text, read for the switch itself (react-native-web puts it on the <input role="switch">).
  */
 export function SettingSwitch(props: { value: boolean; onValueChange: (v: boolean) => void; accessibilityLabel: string }) {
@@ -69,7 +69,7 @@ export function SettingSwitch(props: { value: boolean; onValueChange: (v: boolea
   return (
     <Switch
       {...props}
-      // Off: a track that reads as a switch on the card in both themes (step 10.1).
+      // Off: a track that reads as a switch on the card in both themes.
       trackColor={{ false: c.switchOff, true: c.salmon }}
       thumbColor={c.white}
       ios_backgroundColor={c.switchOff}

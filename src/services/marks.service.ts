@@ -1,5 +1,5 @@
 /**
- * A lecture's marks (step 5.5) follow its My notes, as its note_lines do:
+ * A lecture's marks follow its My notes, as its note_lines do:
  * after each save of the notes tab (the laptop's save, the iPhone's queued
  * edit), every linked mark chip in the document as saved on the server is
  * its `marks` row (type, level, time, note), and a row whose chip is gone is

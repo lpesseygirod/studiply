@@ -1,6 +1,6 @@
 /**
  * LegalDocument.tsx
- * Draws one legal text (step 10.1b-1) from its blocks (src/legal/texts.generated.ts, made from
+ * Draws one legal text from its blocks (src/legal/texts.generated.ts, made from
  * docs/legal/*.md): the title, headings, paragraphs, lists and tables, with bold and links.
  * Links to another legal page call `onOpenPage`; web addresses and emails open outside the app.
  * Tables: a grid on the laptop; on the iPhone each row is a small card ("Provider: Supabase…").

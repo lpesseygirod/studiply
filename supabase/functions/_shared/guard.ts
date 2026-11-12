@@ -4,7 +4,7 @@
  * signed in, the student's own lecture, consent, and how much they used today.
  *
  * `db` acts as the student, so RLS applies to every read. Only `logUsage`
- * and the credit spends (step 10.2-1, _shared/credits.ts) use the service
+ * and the credit spends (_shared/credits.ts) use the service
  * role, because students can read ai_usage and credit_ledger but never write
  * them (deleting rows must not reset a limit or a balance).
  */
@@ -43,14 +43,14 @@ export async function ownLecture(db: SupabaseClient, lectureId: string) {
   return data;
 }
 
-/** The caller's own document (RLS): any kind, not in the Trash (step 6.3: Ask Claude in any document). */
+/** The caller's own document (RLS): any kind, not in the Trash (Ask Claude in any document). */
 export async function ownFile(db: SupabaseClient, fileId: string) {
   const { data, error } = await db.from('files').select('id, kind').eq('id', fileId).is('deleted_at', null).maybeSingle();
   if (error) throw error;
   return data;
 }
 
-/** The caller's own quiz (RLS), not in the Trash (step 9.1b-2). */
+/** The caller's own quiz (RLS), not in the Trash. */
 export async function ownQuiz(db: SupabaseClient, quizId: string) {
   const { data, error } = await db.from('quizzes').select('id').eq('id', quizId).is('deleted_at', null).maybeSingle();
   if (error) throw error;

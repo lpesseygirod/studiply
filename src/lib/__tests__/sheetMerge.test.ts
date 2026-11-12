@@ -1,6 +1,6 @@
 /**
  * A sheet's cells merge between devices through the same rule as text
- * (editor/docBlocks.ts), one cell at a time (step 4.7e).
+ * (editor/docBlocks.ts), one cell at a time.
  */
 import { combineDocEdits, makeDocEdit, mergeDocEdit, stampBlocks } from '../../editor/docBlocks';
 import { cellsOf, inputsOf, sheetDocOf, type SheetCells } from '../sheetDoc';

@@ -1,8 +1,8 @@
 /**
  * panel.ts
- * The New quiz panel's rules without React (step 9.1b): the counts line, the quiz's title, the time
+ * The New quiz panel's rules without React: the counts line, the quiz's title, the time
  * limit's start. What the calculator is given (and the wrong questions that come back) moved to
- * supabase/functions/_shared/quiz-input.ts in 9.1b-2, so the quiz function computes the same plan;
+ * supabase/functions/_shared/quiz-input.ts, so the quiz function computes the same plan;
  * re-exported here. Jest: src/lib/__tests__/quizPanel.test.ts.
  */
 

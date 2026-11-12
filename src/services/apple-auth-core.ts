@@ -1,6 +1,6 @@
 /**
  * apple-auth-core.ts
- * Step 10.1, Sign in with Apple: what the iPhone (apple-auth.ios.ts) and the laptop (apple-auth.web.ts)
+ * Sign in with Apple: what the iPhone (apple-auth.ios.ts) and the laptop (apple-auth.web.ts)
  * share. Apple gets the SHA-256 of a one-time nonce, Supabase the nonce itself, so a token can't be
  * replayed (Supabase checks that the token's nonce is the hash). Apple gives the name only on the
  * first sign-in: it is saved at once.

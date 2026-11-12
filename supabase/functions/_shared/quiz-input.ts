@@ -1,7 +1,7 @@
 /**
  * quiz-input.ts
- * What the quiz calculator (quiz-plan.ts) is given for the lectures and files chosen (step 9.1b): the
- * New quiz panel computes it for its preview, and the quiz function (9.1b-2) computes it again from
+ * What the quiz calculator (quiz-plan.ts) is given for the lectures and files chosen: the
+ * New quiz panel computes it for its preview, and the quiz function computes it again from
  * its own reads, with these same rules, so the server never trusts the app's plan. Moved here from
  * src/lib/quiz/panel.ts (which re-exports it). Without imports but types, so the app and Jest use it.
  */
@@ -21,7 +21,7 @@ export interface MaterialLecture {
   marks: number;
   examMarks: number;
   confusedMarks: number;
-  /** Questions to the assistant with a window (each an implicit Confused, 7.2). */
+  /** Questions to the assistant with a window (each an implicit Confused, as in the summary calculator). */
   assistantWindows: number;
   /** From its summary: the material has calculations (true), has none (false), or no summary (null). */
   calculations: boolean | null;

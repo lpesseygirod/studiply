@@ -1,11 +1,11 @@
 /**
  * summary-combine.ts
- * Step 7.9 (SUMMARY-SPEC "Extend with the next lecture"; BUILD-PLAN 7.9 and Lea's 29 Oct rules):
+ * Combined summaries (SUMMARY-SPEC "Extend with the next lecture"; BUILD-PLAN and Lea's 29 Oct rules):
  * Extend with next lecture, Merge lectures and Exam pack, without Deno or network code so Jest runs it
  * with Claude faked.
  *
  * Extend / Merge (the approved plan): the first lecture's summary is the base. Each lecture added goes
- * through the 7.4 generate call (the 7.6 parts over 60 min) with the existing summary in its prompt
+ * through the summary's generate call (its parts over 60 min) with the existing summary in its prompt
  * (summary-extend.ts: every block of the target document, by its id, the anchors the app sent), so
  * Claude sees both at once and writes only what is new. Its answer's two more lists:
  *  - alreadyCovered → a Studiply comment on the existing words it is about ("Lecture 4 · 18:30 · the
@@ -20,7 +20,7 @@
  * Exam pack: the lectures' stored summaries (not their transcripts) → one call → topics with their exam
  * signals, formulas, key terms and self-test, and flashcards.
  *
- * The app turns the result into documents (src/lib/summaryCombine.ts), as in 7.7.
+ * The app turns the result into documents (src/lib/summaryCombine.ts), as it does a lecture's summary.
  */
 
 import { stamp } from './assistant.ts';
@@ -54,7 +54,7 @@ export interface CombineRequest {
   anchors: Anchor[];
 }
 
-/** The row's mode, lectures and the app's anchors; null when it isn't a 7.9 request. */
+/** The row's mode, lectures and the app's anchors; null when it isn't an Extend, Merge or Exam pack request. */
 export function combineRequestOf(row: { mode: unknown; source_lecture_ids: unknown; applied_settings: unknown }): CombineRequest | null {
   const mode = row.mode === 'extend' || row.mode === 'merge' || row.mode === 'exam_pack' ? row.mode : null;
   const ids = Array.isArray(row.source_lecture_ids) ? row.source_lecture_ids.filter((x): x is string => typeof x === 'string') : [];
@@ -301,7 +301,7 @@ export interface CombineDeps extends Pick<SummaryRunDeps, 'summaryId' | 'claude'
   request: CombineRequest;
   /** A lecture's newest finished summary, or null (the base; an exam pack's lectures). */
   summaryOf: (lectureId: string) => Promise<LectureSummaryRef | null>;
-  /** A lecture added, written with the 7.4–7.6 pipeline against the existing summary (runSummary with `extend`). */
+  /** A lecture added, written with the summary pipeline against the existing summary (runSummary with `extend`). */
   extendWith: (lectureId: string, context: ExtendContext) => Promise<SummaryOutcome>;
   lectureInfo: (lectureId: string) => Promise<{ number: number | null; title: string }>;
 }

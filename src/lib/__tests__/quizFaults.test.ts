@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-2: the free evaluation's planted faults (scripts/fixtures/quiz-faults.ts, run by
+// The free evaluation's planted faults (scripts/fixtures/quiz-faults.ts, run by
 // `npm run eval:quizzes -- --faults` with the synthetic lecture's sources) on every `npm run check`:
 // the hand-made good quiz passes as it is, and each fault planted in it is caught.
 import { goodAnswer, goodContext } from '../../../scripts/fixtures/quiz-good-answer';

@@ -1,5 +1,5 @@
 /**
- * The study assistant's answer as the app draws it (step 6.2): paragraphs,
+ * The study assistant's answer as the app draws it: paragraphs,
  * numbered and bulleted lists, **bold** (desktop-01 / iphone-04), and the
  * times it cites, [12:34] or [1:02:03], as tappable times shown without
  * their brackets ("En el 31:05 dijo…"). Read again on every streamed piece:

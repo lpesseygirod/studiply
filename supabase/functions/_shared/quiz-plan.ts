@@ -1,8 +1,8 @@
 /**
  * quiz-plan.ts
- * The quiz calculator (step 9.1b; BUILD-PLAN "Create a quiz"): the New quiz panel's 10 sliders and
+ * The quiz calculator (BUILD-PLAN "Create a quiz"): the New quiz panel's 10 sliders and
  * choices as numbers, with no AI, as summary-plan.ts is for summaries. The panel shows its preview
- * line; the quiz function (9.1b-2) gives Claude its slots, one per question to write, and checks the
+ * line; the quiz function gives Claude its slots, one per question to write, and checks the
  * answer against them. Where sliders pull against each other (Definitions, Calculations, Theory vs
  * practice) this decides the mix, not the AI. The same settings always give the same plan.
  *
@@ -158,13 +158,13 @@ export const PER_WEAK_SPOT = 2;
 export type Focus = 'exam' | 'weak' | 'any';
 export type Level = 'recall' | 'understand' | 'apply';
 
-/** What a past exam's format gives the calculator (read in 9.1b-2). */
+/** What a past exam's format gives the calculator (read by the quiz function). */
 export interface PastExamFormat {
   questionCount: number;
   types: { type: QuestionType; count: number }[];
 }
 
-/** Step 9.1b-2: a past exam's format as read and saved on its file (files.past_exam_format; quiz-zod.ts FormatAnswer). */
+/** A past exam's format as read and saved on its file (files.past_exam_format; quiz-zod.ts FormatAnswer). */
 export interface PastExamFormatRead extends PastExamFormat {
   language: string;
   optionsPerQuestion: number;
@@ -189,7 +189,7 @@ export interface QuizPlanInput {
   /** Questions answered wrong or partly before, not right since (for these lectures). */
   pendingWrong: number;
   wrongComeBack: boolean;
-  /** Step 10.2-1: at most this many questions (the count the quiz was paid for; the server's run only). */
+  /** At most this many questions (the count the quiz was paid for; the server's run only). */
   maxCount?: number;
 }
 
@@ -305,7 +305,7 @@ export function categoryWeights(s: QuizSliders, hasCalculations: boolean): Recor
 }
 
 /**
- * Step 9.1b-2: several past exams' formats as the one the calculator takes: their average length
+ * Several past exams' formats as the one the calculator takes: their average length
  * (rounded half up) and their type counts summed (the shares are what count). Null when none.
  */
 export function mergeFormats(formats: readonly PastExamFormat[]): PastExamFormat | null {

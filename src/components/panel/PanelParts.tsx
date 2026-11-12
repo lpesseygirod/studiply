@@ -8,7 +8,7 @@ import { LevelSlider } from '../recording/LevelSlider';
 import { makePanelStyles } from './panelStyles';
 
 /**
- * The pieces the settings panels share (Stop & summarize, 7.3; New quiz, 9.1b), moved out of
+ * The pieces the settings panels share (Stop & summarize, New quiz), moved out of
  * SummarizePanel.tsx as they were drawn there. `data` is the element's test attributes (each panel
  * keeps its own: `{ summarize: 'slider-length', value: '5' }`).
  */

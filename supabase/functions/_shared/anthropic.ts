@@ -33,7 +33,7 @@ export async function readyForClaude<T extends { lectureId: string; fileId?: str
   req: Request,
   validate: (body: unknown) => { ok: true; value: T } | { ok: false; status: number; code: string; error: string },
   log: (event: string, details: Record<string, unknown>) => void,
-  /** Step 10.2-1b: paid in credits, or an extra (the 30-day allowance and the $1 daily guard). */
+  /** Paid in credits, or an extra (the 30-day allowance and the $1 daily guard). */
   useOf: (value: T) => ClaudeUse,
 ): Promise<Ready<T>> {
   const caller = await signedIn(req);
@@ -92,7 +92,7 @@ export function claudeParams(
 export async function logClaudeCost(
   operation: Operation,
   userId: string,
-  /** null: a plain document's (step 6.3), not a lecture's. */
+  /** null: a plain document's, not a lecture's. */
   lectureId: string | null,
   requestedModel: string,
   message: Anthropic.Beta.BetaMessage,
@@ -125,7 +125,7 @@ export function answerText(message: Anthropic.Beta.BetaMessage): string {
  * characters. These describe the request's form, never its content; the request itself is never logged.
  */
 export function claudeFailure(err: unknown): { status: number; code: string; type?: string; message?: string } {
-  // Step 10.1: the call that wasn't made because AI was switched off (consent-gate.ts): permanent.
+  // The call that wasn't made because AI was switched off (consent-gate.ts): permanent.
   if ((err as { code?: string } | null)?.code === 'consent_withdrawn') return { status: 403, code: 'consent_withdrawn' };
   if (err instanceof Anthropic.APIConnectionTimeoutError) return { status: 0, code: 'timeout' };
   if (err instanceof Anthropic.APIConnectionError) return { status: 0, code: 'network_error' };

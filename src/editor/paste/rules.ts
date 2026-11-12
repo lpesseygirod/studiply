@@ -1,7 +1,7 @@
 import { DocColors } from '../../constants/colors';
 
 /**
- * Pasting from Google Docs or Word (step 4.4): the clipboard HTML is
+ * Pasting from Google Docs or Word: the clipboard HTML is
  * rewritten before the editor reads it, so a pasted page keeps its
  * headings, bold/italic/underline, colours, highlights, lists, links and
  * tables, in Studiply's styles:

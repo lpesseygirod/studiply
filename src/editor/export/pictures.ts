@@ -6,7 +6,7 @@ import { cleanGraph, planGraph, usesDecimalComma } from '../graph/data';
 import { PICTURE_SCALE, type DrawRequest, type Picture } from './docxPictures';
 
 /**
- * Formulas and graphs as PNGs for the Word export (step 4.8b), drawn by the
+ * Formulas and graphs as PNGs for the Word export, drawn by the
  * editor's own code so they look as on the page: on the laptop in the page,
  * on the iPhone in the export WebView (bridges/export.ts).
  *
@@ -161,7 +161,7 @@ async function formulaCss(used: Set<string>): Promise<string> {
 }
 
 /**
- * Step 8.3: the KaTeX faces of these families as data (@font-face rules), for the PDF's print
+ * The KaTeX faces of these families as data (@font-face rules), for the PDF's print
  * document: it is a page of its own, and linked fonts were not loaded in time when it printed (the
  * formulas came out in Times and STIX). A face whose file can't be had is left out (its fallback
  * prints); the fonts are read once.

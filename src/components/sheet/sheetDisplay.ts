@@ -1,6 +1,6 @@
 /**
  * sheetDisplay.ts
- * How a spreadsheet tab shows its cells and moves around them (step 4.7e).
+ * How a spreadsheet tab shows its cells and moves around them.
  * Pure, so it is unit tested; SheetTab and SheetGrid draw with it.
  */
 
@@ -96,13 +96,13 @@ function fixed(n: number, decimals: number): string {
 }
 
 /**
- * A number as Excel's General format shows it in a cell (step 4.7e): all
+ * A number as Excel's General format shows it in a cell: all
  * its digits when they fit; else rounded to the decimals that fit the
  * cell's width (898.0893756 → 898.0894 → 898.09 → 898.1 → 898); scientific
  * only when even the whole part doesn't fit (1.23457E+14) or for very small
  * numbers (1E-05, as Excel shows 0.00001); "###" when nothing fits. Never
  * cut with "…": a cut number would read as another value. The formula bar
- * keeps what was typed; there are no number formats in 4.7e.
+ * keeps what was typed; there are no number formats yet.
  */
 export function fitNumber(n: number, fits: Fits): string {
   if (n === 0) return '0';

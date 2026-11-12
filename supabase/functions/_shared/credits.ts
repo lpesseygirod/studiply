@@ -1,6 +1,6 @@
 /**
  * credits.ts
- * Step 10.2-1 (docs/reports/plan-10.2-1.md): what each action costs, the ledger's keys, and the
+ * Credits (docs/reports/plan-10.2-1.md): what each action costs, the ledger's keys, and the
  * spend calls (the database functions of 20261029152800_credits.sql, service role only). Counted in
  * quarter credits ("units"): 1 lecture = 4. The server decides every price from what it reads itself,
  * never from the request body. Without Deno or npm code, so Jest runs it.

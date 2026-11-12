@@ -1,5 +1,5 @@
 /**
- * eval-summaries.ts — the summary quality checks (step 7.5) on the test fixtures, run by Deno so it
+ * eval-summaries.ts — the summary quality checks on the test fixtures, run by Deno so it
  * uses the very files the summarize function uses (supabase/functions/_shared, npm:zod@4.6.7):
  *
  *   npm run eval:summaries                         every fixture's saved summary checked again: free, no network
@@ -12,23 +12,23 @@
  *                                                  PAID: each fixture (or one) seeded into LOCAL Supabase as a
  *                                                  throwaway user, summarized by the local summarize function
  *                                                  (Claude, Sonnet 5.5 since Lea, 12 Nov), saved to tests/output/<name>/, then checked
- *   npm run eval:summaries -- --probe-schemas      ALMOST FREE (step 7.9): each structured-output schema the server
+ *   npm run eval:summaries -- --probe-schemas      ALMOST FREE: each structured-output schema the server
  *                                                  uses, sent once by the local summarize function with a one-line
  *                                                  text and max_tokens 16: accepted / rejected with the API's message
  *                                                  (a rejection costs nothing; an acceptance a fraction of a cent)
- *   npm run eval:summaries -- --extend             PAID, ≈ $0.20 (step 7.9): Tema 1 (its saved summary) extended with
+ *   npm run eval:summaries -- --extend             PAID, ≈ $0.20: Tema 1 (its saved summary) extended with
  *                                                  Tema 2, "Add to this summary": Tema 2 written by the generate call
  *                                                  with Tema 1's summary in its prompt; saved to tests/output/extend/
- *   npm run eval:summaries -- --exam-pack          PAID, ≈ $0.10 (step 7.9): an Exam pack from the two saved
+ *   npm run eval:summaries -- --exam-pack          PAID, ≈ $0.10: an Exam pack from the two saved
  *                                                  summaries (tests/output/synthetic/ and synthetic-tema2/, the latter
  *                                                  from --generate --fixture synthetic-tema2); saved to tests/output/exam-pack/
  *
  * Fixtures: tests/fixtures/lectures/<name>/ (git-ignored; format in summary-fixture.ts). The synthetic
  * ones are written here when missing (scripts/fixtures/synthetic-lecture.mjs, 30 min; synthetic-long-
- * lecture.mjs, 90 min, step 7.6: --fixture synthetic-long; synthetic-chart-lecture.ts, 10 min, a photo of a
+ * lecture.mjs, 90 min: --fixture synthetic-long; synthetic-chart-lecture.ts, 10 min, a photo of a
  * bar chart, Lea 6 Nov: its photo drawn by .claude/skills/web-check/scripts/chart-photo.mjs, and its saved
- * summary's chart compared with the photo's values). A summary saved by step
- * 7.4 (tests/output/synthetic-*.json) is checked against the synthetic fixture, except its marks
+ * summary's chart compared with the photo's values). A summary saved by the first
+ * version (tests/output/synthetic-*.json) is checked against the synthetic fixture, except its marks
  * (their ids were random then).
  *
  * Local only for --generate: refuses unless Supabase is on 127.0.0.1 / localhost. Never reads
@@ -74,11 +74,11 @@ const writeJson = (path: string, value: unknown) => Deno.writeTextFile(path, `${
 
 // ---------- fixtures ----------
 
-/** The synthetic lectures (30 min, step 7.4; 90 min, step 7.6) and their photos' files. */
+/** The synthetic lectures (30 min and 90 min) and their photos' files. */
 const SYNTHETIC = [
   { name: 'synthetic', make: syntheticFixture },
   { name: 'synthetic-long', make: syntheticLongFixture },
-  // Step 7.9: the lecture after Tema 1 (a repeat, an exam statement about Tema 1, a correction).
+  // The lecture after Tema 1 (a repeat, an exam statement about Tema 1, a correction).
   { name: 'synthetic-tema2', make: syntheticTema2Fixture },
   // Lea, 6 Nov: a photographed bar chart, redrawn as a chart; its photo is drawn by chart-photo.mjs, not the icon.
   { name: 'synthetic-chart', make: syntheticChartFixture, drawn: true },
@@ -128,7 +128,7 @@ async function fixtureNames(): Promise<string[]> {
   return names.sort().filter((n) => !only || n === only);
 }
 
-/** The newest saved summary of a fixture: tests/output/<name>/latest.json, else (synthetic) step 7.4's file. */
+/** The newest saved summary of a fixture: tests/output/<name>/latest.json, else (synthetic) the first version's file. */
 async function savedOutput(name: string): Promise<{ path: string; result: StoredSummary; legacy: boolean } | null> {
   const latest = `${OUTPUT}/${name}/latest.json`;
   if (await exists(latest)) return { path: latest, result: (await readJson(latest)).result, legacy: false };
@@ -536,7 +536,7 @@ async function runRow(t: TestUser, fileId: string, summaryId: string, minutes = 
   const usageCalls: UsageCall[] = usage.map((r) => ({ at: r.created_at, operation: r.operation, model: r.model, tokensIn: r.tokens_input, tokensOut: r.tokens_output, costUsd: Number(r.cost_usd) }));
   for (const [i, u] of usageCalls.entries()) console.log(`    call ${i + 1}: ${u.model} · in ${u.tokensIn} · out ${u.tokensOut} · $${u.costUsd.toFixed(4)}`);
   console.log(`  ${row?.status ?? '?'} after ${seconds} s${row?.error ? ` (${row.error})` : ''}; ${usage.length} Claude calls, $${costUsd.toFixed(4)}`);
-  // Step 7.9: every Claude call the server made has exactly one ai_usage row (else it escapes the daily limit).
+  // Every Claude call the server made has exactly one ai_usage row (else it escapes the daily limit).
   const costLog = (row?.result as { costLog?: { calls: number; logged: number } } | null)?.costLog;
   if (row?.status === 'done') {
     costLogged(!!costLog && costLog.calls === costLog.logged && costLog.logged === usage.length, `every Claude call has its ai_usage row (server: ${costLog ? `${costLog.calls} calls, ${costLog.logged} logged` : 'no costLog'}; ai_usage: ${usage.length} rows)`);
@@ -571,7 +571,7 @@ async function generate(name: string, fixture: Fixture): Promise<void> {
   });
 }
 
-// ---------- --probe-schemas (step 7.9) ----------
+// ---------- --probe-schemas ----------
 
 /** Each schema through the local function: accepted / rejected with the API's message. The number rejected. */
 async function probeSchemas(): Promise<number> {
@@ -597,7 +597,7 @@ async function probeSchemas(): Promise<number> {
   return rejected;
 }
 
-// ---------- --extend and --exam-pack (step 7.9), paid ----------
+// ---------- --extend and --exam-pack, paid ----------
 
 /** A done summary row for a seeded lecture (a saved output: no call). */
 async function seedSummary(t: TestUser, lectureId: string, result: StoredSummary, sliders: unknown): Promise<string> {

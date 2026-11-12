@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 5.4: live notes. While the lecture records, a line's first character
+// Live notes. While the lecture records, a line's first character
 // puts the recording time in front of it (a timestamp chip); earlier lines,
 // stamped lines and empty lines get none; "- " and "# " still work on a
 // stamped line; paste stamps each new line; Undo takes the stamp away.

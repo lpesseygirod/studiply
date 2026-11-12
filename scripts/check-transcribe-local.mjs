@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-transcribe-local.mjs — end-to-end check of transcribe-chunk (step 1.5).
+ * check-transcribe-local.mjs — end-to-end check of transcribe-chunk.
  *
  * Calls the real local Edge Function, which calls the provider chosen by
  * TRANSCRIBE_PROVIDER in supabase/functions/.env (Scribe v2 when unset or
@@ -47,7 +47,7 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 const FUNCTION_URL = `${url}/functions/v1/transcribe-chunk`;
 const BUCKET = 'audio-chunks';
-// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts.
 const POLICY_VERSION = '2026-11-store-1';
 const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 const START_MS = 60_000;

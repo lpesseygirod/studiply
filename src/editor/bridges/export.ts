@@ -11,9 +11,9 @@ import type { DocJSON } from '../types';
  * Export and import on the iPhone, through TenTap's bridge: native sends a
  * request to the WebView (the PdfRenderer's, the editor bundle), which does
  * what needs a browser and answers.
- * - PDF (step 4.8a): the tabs laid out in pages as the laptop does
+ * - PDF: the tabs laid out in pages as the laptop does
  *   (export/printPages.ts); expo-print turns the print document into the PDF.
- * - Word (step 4.8b): the formulas and graphs drawn as PNGs
+ * - Word: the formulas and graphs drawn as PNGs
  *   (export/pictures.ts) for the .docx the app builds, and a Word file's page
  *   (mammoth's HTML) read into a document (export/wordImport.ts).
  * - Any photo that can be transparent, drawn on white before it becomes a

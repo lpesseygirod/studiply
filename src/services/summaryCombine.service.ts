@@ -1,5 +1,5 @@
 /**
- * Step 7.9: Extend with next lecture, Merge lectures and Make exam pack, the app's services.
+ * Extend with next lecture, Merge lectures and Make exam pack, the app's services.
  *
  * - The picker's lectures: a course's (or folder's), in teaching order, each with whether it has a
  *   summary (Merge and Exam pack only take lectures that have one; Extend writes the next lecture's

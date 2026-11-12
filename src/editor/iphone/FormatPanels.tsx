@@ -50,7 +50,7 @@ function PanelHeader({ title, close }: { title: string; close: () => void }) {
 }
 
 /**
- * Aa (step 4.4, DESIGN: the iPhone's styles and size), in place of the
+ * Aa (DESIGN: the iPhone's styles and size), in place of the
  * keyboard as in Google Docs: the selection stays where it is. Styles in
  * their own look · align (left, centre, right, justify, labelled) · font ·
  * − size + · line spacing · indent − + ·
@@ -168,7 +168,7 @@ function AaPanel({ editor, close }: Partial<CustomKeyboardComponentProps>) {
 }
 
 /**
- * Text colour and highlight, in place of the keyboard (step 4.5): the same
+ * Text colour and highlight, in place of the keyboard: the same
  * picker as the laptop's: Automatic / None, the 10 colours with their
  * shades, Recent colours (synced with the laptop), More colours… (the
  * spectrum, here in the panel).

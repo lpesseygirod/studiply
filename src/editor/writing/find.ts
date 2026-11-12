@@ -1,6 +1,6 @@
 /**
  * find.ts
- * Find & replace (step 4.7), in the shared editor so both devices run it
+ * Find & replace, in the shared editor so both devices run it
  * (the laptop's bar calls it directly; the iPhone's sends `find` commands
  * through the format bridge and reads `find` in the format state):
  *   - every match highlighted, the current one stronger; next / previous go

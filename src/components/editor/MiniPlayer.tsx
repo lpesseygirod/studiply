@@ -22,7 +22,7 @@ export interface PlayRequest {
 }
 
 /**
- * The mini player (step 4.6; BUILD-PLAN "Tap a timestamp to replay the
+ * The mini player (BUILD-PLAN "Tap a timestamp to replay the
  * audio"): a tap on a timestamp chip plays the lecture's recording from that
  * moment, chunk after chunk (the recording is stored in 30-second pieces).
  * ▶ / ❚❚, −10 s, +10 s, the time and the length, ✕. Plays through
@@ -30,7 +30,7 @@ export interface PlayRequest {
  * overlap by 500 ms: the next one starts where the last one ended, so
  * nothing is heard twice.
  *
- * While the lecture is being recorded (step 5.4) it plays from this
+ * While the lecture is being recorded it plays from this
  * device's own copy (recorder.playback), never touching the recording
  * (CLAUDE.md), and says once to use headphones (the microphone would record
  * the sound again). Where the recorder can't (a build without expo-audio),

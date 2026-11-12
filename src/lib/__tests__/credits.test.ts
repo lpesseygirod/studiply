@@ -1,4 +1,4 @@
-// Step 10.2-1: the credit rules the Edge Functions use (_shared/credits.ts), the quiz cap
+// The credit rules the Edge Functions use (_shared/credits.ts), the quiz cap
 // (quiz-plan.ts maxCount), and the words the app shows for no_credits.
 
 import {

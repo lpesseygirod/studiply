@@ -1,6 +1,6 @@
 /**
  * consentGate.ts
- * Step 10.1: "AI is off" for the signed-in student on this device. Set the moment she switches "Use
+ * "AI is off" for the signed-in student on this device. Set the moment she switches "Use
  * AI on my lectures" off in Settings → AI & privacy (also offline, before the server knows), cleared
  * when she allows it again. While it is set, ./functions.ts sends nothing to an AI function (the
  * server refuses anyway once the withdrawal has reached it; this covers the time before, and queued

@@ -1,6 +1,6 @@
 /**
  * plan.ts
- * "Export my data" (step 10.1b-4, D6): from her rows and the list of her stored files, what goes
+ * "Export my data" (D6): from her rows and the list of her stored files, what goes
  * where in the ZIP. Pure: no network, no device; tested from fixtures.
  *
  *   README.txt                      what each folder holds
@@ -53,7 +53,7 @@ export const EXPORT_TABLES = [
   'ai_consent',
   'ai_usage',
   'terms_acceptances',
-  // Step 10.2-1: her credits (every grant, purchase and spend).
+  // Her credits (every grant, purchase and spend).
   'credit_ledger',
 ] as const;
 export type ExportTable = (typeof EXPORT_TABLES)[number];

@@ -46,7 +46,7 @@ import type { SourceFile } from '../types/database';
 import './library-upload.service';
 
 /**
- * A lecture's files, in Supabase Storage (step 1.4 buckets):
+ * A lecture's files, in Supabase Storage buckets:
  *  - audio: one `audio_chunks` row per recorded chunk, the audio in
  *    `audio-chunks` at {userId}/{lectureId}/{seq}.{ext};
  *  - photos (always JPEG) and PDFs: `media` rows (kind photo / slides), the
@@ -458,7 +458,7 @@ export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
 export const getActiveSourceFiles = getSourceFiles;
 
 // -------------------------------------------------------------------
-// getLectureAudio (step 10.1b-3)
+// getLectureAudio
 // The lecture's recording setting, the server's date and whether it was
 // deleted, for "Deletes on 17 Nov" / "Deleted on 14 Nov". Offline from the
 // lecture row kept on the iPhone. Null when there is no such lecture.

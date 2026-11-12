@@ -1,6 +1,6 @@
 /**
  * CreditLine.tsx
- * Step 10.2-2 (docs/reports/plan-10.2-2.md §3–§5; no mockup): the quiet credit lines.
+ * The quiet credit lines (docs/reports/plan-10.2-2.md §3–§5; no mockup):
  *  - LowCreditsLine: on Record's setup and in Library, with 1 lecture or less (or none): "1 lecture
  *    left"; at 0 "No lecture credits left. You can still record…". It opens Settings → Credits. Never
  *    dismissible, no alarm colour: secondary text on the gradient, an info icon.
@@ -23,7 +23,7 @@ export function LowCreditsLine({ where }: { where: 'record' | 'library' }) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
   const router = useRouter();
-  // The laptop (any web) names the iPhone app; the iPhone says nothing about buying until 10.2-4.
+  // The laptop (any web) names the iPhone app; the iPhone says nothing about buying until the buy sheet is built.
   const text = lowCreditsText(useCreditUnits(), Platform.OS !== 'ios');
   if (!text) return null;
   return (

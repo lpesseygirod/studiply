@@ -7,7 +7,7 @@ import { mediaIdOf } from '../media/photoSource';
 import { cleanPageSetup, paperCm, type PageSetup } from '../page/pageSetup';
 
 /**
- * The pictures of the Word export (step 4.8b): formulas and graphs are put in
+ * The pictures of the Word export: formulas and graphs are put in
  * the .docx as PNGs that the editor's own drawing makes (KaTeX, the charts
  * module), photos as their files. This file has no DOM and no docx: the
  * builder asks for the pictures of the tabs (`pictureRequests`), the device
@@ -94,7 +94,7 @@ export function pictureRequests(docs: JSONContent[], width: number, language: st
       const id = formulaKey(latex, true, DEFAULT_SIZE);
       out.set(id, { id, kind: 'formula', latex, display: true, fontPx: DEFAULT_SIZE });
     } else if (node.type === 'graph' && canDraw(planGraph(cleanGraph(node.attrs)).spec)) {
-      // A kind the charts module doesn't draw yet (8.2) isn't asked for: the builder writes its line.
+      // A kind the charts module doesn't draw yet isn't asked for: the builder writes its line.
       const attrs = node.attrs ?? {};
       const id = graphKey(attrs, width, language);
       out.set(id, { id, kind: 'graph', graph: attrs, width, blockId: String(attrs.blockId ?? ''), language });

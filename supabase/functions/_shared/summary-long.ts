@@ -1,6 +1,6 @@
 /**
  * summary-long.ts
- * Lectures over 60 minutes (step 7.6; SUMMARY-SPEC "long transcripts are split by topic, summarized
+ * Lectures over 60 minutes (SUMMARY-SPEC "long transcripts are split by topic, summarized
  * in parts, then merged"), the pure pieces (the run is in summary-pipeline.ts):
  *
  *  - split: the classify call's topics grouped into parts of at most PART_MAX_MS, cut at segment
@@ -296,7 +296,7 @@ export function mergeParts(parts: PartGenerated[], c: Classification): Generated
   };
 }
 
-/** The wrap-up call: the merged sections as prose, the whole summary's numbers (7.2), the marks that need a list item. */
+/** The wrap-up call: the merged sections as prose, the whole summary's numbers (the calculator's), the marks that need a list item. */
 export function wrapUpPrompt(baseSystem: string, merged: { sections: { heading: string; timestamp: string; blocks: Record<string, unknown>[] }[] }, plan: SummaryPlan) {
   const text = merged.sections.map((x) => `## ${x.heading} [${x.timestamp}]\n${x.blocks.filter((b) => b.type !== 'fromNotes').flatMap((b) => proseOf(b)).join(' ')}`).join('\n\n');
   const p = plan;

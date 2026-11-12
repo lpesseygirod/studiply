@@ -7,11 +7,11 @@ import { leaveBoxOnEmptyLast } from './boxKeys';
 import { chipLabel } from './timestampChip';
 
 /**
- * Callouts (step 4.6; SUMMARY-SPEC "Callouts"): a box in the document with a
+ * Callouts (SUMMARY-SPEC "Callouts"): a box in the document with a
  * small label, so meaning never depends on colour: Definition, Example, Exam
  * signal, Warning (a common mistake), From your notes, You were confused here
  * (its level and time) and Added context (not from the lecture). The summary
- * (Phase 7) writes them; the student types in them and edits them like any
+ * writes them; the student types in them and edits them like any
  * text (paragraphs, lists, formulas, photos inside).
  *
  * A top-level block with its own id, origin and edit time (blockMeta), so the
@@ -50,14 +50,14 @@ export const CALLOUT_KINDS: { kind: CalloutKind; name: string; label: string }[]
   { kind: 'fromNotes', name: 'From your notes', label: 'From your notes' },
   { kind: 'confused', name: 'You were confused here', label: 'You were confused here' },
   { kind: 'addedContext', name: 'Added context', label: 'Added context · not from the lecture' },
-  // Step 6.3: an answer added to My notes, or a suggestion put below its text; only the assistant makes it.
+  // An answer added to My notes, or a suggestion put below its text; only the assistant makes it.
   { kind: 'fromAssistant', name: 'From the study assistant', label: 'From the study assistant' },
-  // Step 7.7, the summary written into the Summary tab: Key takeaways, the notes check line (its label
+  // The summary written into the Summary tab: Key takeaways, the notes check line (its label
   // a sentence, not small capitals) and a self-test answer, hidden until tapped.
   { kind: 'takeaways', name: 'Key takeaways', label: 'Key takeaways' },
   { kind: 'notesCheck', name: 'Notes check', label: 'All your notes are in this summary' },
   { kind: 'answer', name: 'Answer', label: 'Answer' },
-  // Step 7.9: the professor corrected an earlier lecture ("last week I said X, actually…"): "UPDATE · LECTURE 4 · 18:30".
+  // The professor corrected an earlier lecture ("last week I said X, actually…"): "UPDATE · LECTURE 4 · 18:30".
   { kind: 'update', name: 'Update', label: 'Update' },
 ];
 
@@ -78,10 +78,10 @@ const cleanMs = (v: unknown): number | null => {
   return typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
 };
 
-/** A mark on the notes of a From your notes box (step 7.7: "FROM YOUR NOTES · 06:40 · EXAM 9/10"). */
+/** A mark on the notes of a From your notes box ("FROM YOUR NOTES · 06:40 · EXAM 9/10"). */
 const MARK_NAMES: Record<string, string> = { important: 'Important', confused: 'Confused', exam: 'Exam' };
 const cleanMark = (v: unknown): string | null => (typeof v === 'string' && v in MARK_NAMES ? v : null);
-/** An Update's lecture number (step 7.9), or null. */
+/** An Update's lecture number, or null. */
 const cleanLecture = (v: unknown): number | null => {
   const n = typeof v === 'string' ? Number(v) : v;
   return typeof n === 'number' && Number.isInteger(n) && n > 0 ? n : null;
@@ -142,7 +142,7 @@ declare module '@tiptap/core' {
   }
 }
 
-/** What a callout holds: text blocks, lists, formulas (and formula cards, 4.7c), graphs (4.7d), photos, tables; not another callout, a title or a page break. */
+/** What a callout holds: text blocks, lists, formulas (and formula cards), graphs, photos, tables; not another callout, a title or a page break. */
 const INSIDE = '(paragraph | heading | bulletList | orderedList | taskList | blockquote | blockMath | formulaCard | graph | image | table)+';
 
 export const Callout = Node.create({
@@ -168,16 +168,16 @@ export const Callout = Node.create({
         parseHTML: (el) => cleanMs(el.getAttribute('data-ms')),
         renderHTML: (attrs) => (cleanMs(attrs.ms) === null ? {} : { 'data-ms': String(cleanMs(attrs.ms)) }),
       },
-      // Step 7.7: the student's mark on the notes of a From your notes box (its label shows it).
+      // The student's mark on the notes of a From your notes box (its label shows it).
       mark: {
         default: null,
         parseHTML: (el) => cleanMark(el.getAttribute('data-mark')),
         renderHTML: (attrs) => (cleanMark(attrs.mark) ? { 'data-mark': cleanMark(attrs.mark) } : {}),
       },
-      // Step 7.7: the note lines a From your notes box copies (My notes' block ids, comma-separated),
+      // The note lines a From your notes box copies (My notes' block ids, comma-separated),
       // so a summary written again leaves out the lines a box she edited already has.
       noteIds: { default: null, rendered: false },
-      // Step 7.9: an Update's lecture number (its label: "UPDATE · LECTURE 4 · 18:30").
+      // An Update's lecture number (its label: "UPDATE · LECTURE 4 · 18:30").
       lecture: {
         default: null,
         parseHTML: (el) => cleanLecture(el.getAttribute('data-lecture')),
@@ -273,7 +273,7 @@ export const Callout = Node.create({
               const box = label?.parentElement;
               if (!label || !box) return false;
               const pos = view.posAtDOM(box, 0) - 1;
-              // A self-test answer's label shows or hides it (step 7.7), also in a read-only view.
+              // A self-test answer's label shows or hides it, also in a read-only view.
               const node = view.state.doc.nodeAt(pos);
               if (node?.type.name === CALLOUT && node.attrs.kind === 'answer') {
                 event.preventDefault();
@@ -297,7 +297,7 @@ export const Callout = Node.create({
   },
 });
 
-/** The answers shown (step 7.7): by block id, the view's own state, never the document. */
+/** The answers shown: by block id, the view's own state, never the document. */
 export const answerKey = new PluginKey<Set<string>>('studiplyAnswers');
 export const ANSWER_SHOWN_CLASS = 'shown';
 

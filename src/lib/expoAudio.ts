@@ -1,5 +1,5 @@
 /**
- * expo-audio (step 5.1–5.4, iPhone half), loaded only where its native module
+ * expo-audio (the iPhone's recording and playback), loaded only where its native module
  * is in the build: a development build made before it was added (or Expo Go
  * without it) gets null: the app can't record there (Record says so) and
  * keeps its expo-av player, instead of crashing at start.

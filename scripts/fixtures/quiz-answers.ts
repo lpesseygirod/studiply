@@ -1,5 +1,5 @@
 /**
- * quiz-answers.ts — step 9.1b-3's grading fixture (scripts/eval-quizzes.ts):
+ * quiz-answers.ts — the grading fixture (scripts/eval-quizzes.ts):
  *
  * - CODE_ANSWERS: synthetic answers to synthetic Psicobiología questions (every type, Spanish and
  *   English number formats, accents, typos, partly answers, unanswered), each with the grade code

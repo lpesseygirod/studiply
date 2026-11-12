@@ -27,18 +27,18 @@ export type StudiplyEditorHandle = {
   /** Takes `doc` changing only the blocks that differ, keeping the cursor (another device's changes). */
   applyBlocks: (doc: DocJSON) => void;
   insertTimestampChip: (ms: number) => void;
-  /** Every comment in the document (step 4.5). */
+  /** Every comment in the document. */
   comments: () => Promise<CommentInfo[]>;
   /** Selects, edits, resolves or deletes a comment. */
   comment: (cmd: CommentCommand) => void;
   focus: () => void;
   /** Leaves the editor; on the iPhone this closes the keyboard. */
   blur: () => void;
-  /** Writing tools (step 4.7), from the document menu: the find bar (with Replace), the outline, the word count. */
+  /** Writing tools, from the document menu: the find bar (with Replace), the outline, the word count. */
   tool: (which: WritingTool) => void;
-  /** A format command from the screen (step 5.5: a mark made while recording goes in, or comes back after Remove). */
+  /** A format command from the screen (a mark made while recording goes in, or comes back after Remove). */
   run: (cmd: FormatCommand) => void;
-  /** Ask Claude's pending range (step 6.3): what to send, and whether its text changed since; null when none. */
+  /** Ask Claude's pending range: what to send, and whether its text changed since; null when none. */
   suggestion: () => Promise<SuggestionInfo | null>;
 };
 
@@ -65,7 +65,7 @@ export type StudiplyEditorProps = {
   /** After a paste with HTML: what it had and what the document kept. */
   onPaste?: (report: PasteReport) => void;
   /**
-   * iPhone (step 4.5b): Print layout and the zoom, kept on the phone by the
+   * iPhone: Print layout and the zoom, kept on the phone by the
    * screen (its … menu switches Print layout); a pinch reports the new zoom.
    * The laptop keeps its own, from its toolbar.
    */
@@ -73,19 +73,19 @@ export type StudiplyEditorProps = {
   onZoom?: (zoom: number) => void;
   /** The document's page setup (after test D): paper, margins, page numbers, gap. */
   pageSetup?: PageSetup;
-  /** Under the document (the mini player, step 4.6): under the pages on the laptop, above the keyboard toolbar on the iPhone. */
+  /** Under the document (the mini player): under the pages on the laptop, above the keyboard toolbar on the iPhone. */
   footer?: React.ReactNode;
-  /** The document's language ('es', 'en'…): the lecture's, else the account's. Graphs write Spanish decimals with a comma (step 4.7d). */
+  /** The document's language ('es', 'en'…): the lecture's, else the account's. Graphs write Spanish decimals with a comma. */
   language?: string | null;
   /**
-   * Live notes (step 5.4): the recording time now (ms on the recorder's timeline), or null when
+   * Live notes: the recording time now (ms on the recorder's timeline), or null when
    * nothing records. Given for a lecture's My notes; each new line then starts with that time.
    */
   recordingClock?: () => number | null;
-  /** A mark made while recording was removed from its chip's panel (step 5.5): the screen offers Undo. */
+  /** A mark made while recording was removed from its chip's panel: the screen offers Undo. */
   onMarkRemoved?: (mark: LinkedMark, at: MarkPlace) => void;
   /**
-   * The selection bar's "✦ Ask Claude" (step 6.3): the selection is now the suggestion's range;
+   * The selection bar's "✦ Ask Claude": the selection is now the suggestion's range;
    * the screen offers the actions (`anchor`: the button and the editor as seen, the laptop's window coordinates).
    */
   onAskClaude?: (anchor?: AskClaudeAnchor) => void;

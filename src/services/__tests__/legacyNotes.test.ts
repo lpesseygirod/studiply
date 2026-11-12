@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 4.9: an earlier note (legacy-note-v1) as the lecture's Summary tab.
+// An earlier note (legacy-note-v1) as the lecture's Summary tab.
 import { Editor } from '@tiptap/core';
 
 import { studiplyExtensions } from '../../editor/bridges';

@@ -1,6 +1,6 @@
 /**
  * sheetHistory.ts
- * Undo and Redo for a spreadsheet tab (step 4.7e, checkpoint 2b): one step
+ * Undo and Redo for a spreadsheet tab: one step
  * per thing the student did (a cell typed, Delete, bold, a fill, a paste,
  * an insert or delete of rows or columns), holding the cells it changed
  * before and after. Undo writes the "before" cells back, Redo the "after"

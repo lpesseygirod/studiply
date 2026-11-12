@@ -12,7 +12,7 @@ import { useTheme } from '../../theme/ThemeProvider';
  * short gradient line, the title (editable: Enter or leaving the field
  * renames) and the meta line ("Psicobiología · Lecture · 23 Oct 2026").
  * On the white page, so it uses the light palette; above pages on the
- * gradient (Pages, Print layout: step 4.5b) it takes the app's text colours
+ * gradient (Pages, Print layout) it takes the app's text colours
  * for the gradient instead, without the line.
  */
 export function DocumentHeader({

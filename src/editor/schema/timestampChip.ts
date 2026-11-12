@@ -4,8 +4,8 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { formatHitTime } from '../../utils/searchText';
 
 /**
- * The timestamp chip (step 4.2 spike; the real chip with playback is 4.6 /
- * 5.4): an inline, atomic node holding a recording time in milliseconds,
+ * The timestamp chip (first made in the spike; the real chip has playback):
+ * an inline, atomic node holding a recording time in milliseconds,
  * shown as "4:12". Its HTML (`<span data-timestamp-ms>`) is what copy and
  * paste inside the editor carries, so a pasted chip stays a chip.
  *
@@ -47,7 +47,7 @@ export function chipMs(value: unknown): number {
 }
 
 /**
- * A tap on a chip (step 5.4): its time and a running count, so a tap on the
+ * A tap on a chip: its time and a running count, so a tap on the
  * chip that is already selected (the same one again, after the player was
  * closed) still plays. Selecting alone missed it: nothing changes then.
  */

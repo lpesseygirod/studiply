@@ -1,4 +1,4 @@
-// The last Undo, for ⌘Z (step 3.3).
+// The last Undo, for ⌘Z.
 import { offerUndo, onUndone, resetUndoForTests, settleUndo, undoLast } from '../undo';
 
 beforeEach(() => resetUndoForTests());

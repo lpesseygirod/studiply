@@ -1,4 +1,4 @@
-// Step 10.2-2: what she sees about credits (lib/credits/format.ts, quote.ts), the Summary card's and
+// What she sees about credits (lib/credits/format.ts, quote.ts), the Summary card's and
 // the quiz row's words, and the iPhone Settings row.
 
 import {
@@ -117,7 +117,7 @@ describe('the history in her words', () => {
       history: [{ id: 'a', units: 8, kind: 'grant_free', label: null, lecture_id: null, ref_id: null, created_at: 'x', what: null, block: null }],
       extras: null,
     });
-    // Step 10.2-1b (20261029153000): what's left of the extras allowance, clamped to 0–1.
+    // Since migration 20261029153000: what's left of the extras allowance, clamped to 0–1.
     expect(parseCredits({ units: 8, history: [], extras: { left: 0.62, resets_at: '2026-12-01T10:00:00Z' } })?.extras).toEqual({ left: 0.62, resetsAt: '2026-12-01T10:00:00Z' });
     expect(parseCredits({ units: 8, history: [], extras: { left: 1.4, resets_at: null } })?.extras).toEqual({ left: 1, resetsAt: null });
     expect(parseCredits({ units: 8, history: [], extras: { left: 'x' } })?.extras).toBeNull();
@@ -126,7 +126,7 @@ describe('the history in her words', () => {
   });
 });
 
-describe('step 10.2-1b: the assistant & extras allowance, never in dollars', () => {
+describe('the assistant & extras allowance, never in dollars', () => {
   it('a percentage rounded down to 5 %, "Less than 5%" near the end, nothing when used up', () => {
     expect([1, 0.62, 0.05, 0.049, 0.001, 0, -1].map(extrasPercent)).toEqual(['100%', '60%', '5%', 'Less than 5%', 'Less than 5%', null, null]);
   });

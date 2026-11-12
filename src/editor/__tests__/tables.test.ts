@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Tables (step 4.5) on a real editor: insert, rows and columns, header row,
+// Tables on a real editor: insert, rows and columns, header row,
 // cell colour, and a pasted cell's shading.
 import { Editor, type JSONContent } from '@tiptap/core';
 import { AllSelection, NodeSelection } from '@tiptap/pm/state';

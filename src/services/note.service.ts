@@ -45,7 +45,7 @@ import type { Note } from '../types/database';
 /**
  * The old structured note (summary, key concepts, formulas, …) is kept in
  * a `summaries` row: file_id is the lecture, `result` holds the note
- * (format legacy-note-v1, see cloudRows). The Phase 4 editor and the Phase 7
+ * (format legacy-note-v1, see cloudRows). The document editor and the
  * summary engine replace this with document blocks. A note goes to Trash
  * with its lecture, so reads skip notes whose lecture file is trashed.
  *
@@ -338,7 +338,7 @@ export async function getNoteBySession(sessionId: string): Promise<Note | null> 
 
 /**
  * The most recent note of a session as stored (each section's origin and time
- * included), for step 4.9's conversion into the Summary tab. Null if none.
+ * included), for its conversion into the Summary tab. Null if none.
  */
 export async function getNoteResultBySession(sessionId: string): Promise<{ id: string; result: LegacyNoteResult } | null> {
   const row = await latestNoteRow(sessionId);

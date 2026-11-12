@@ -14,14 +14,14 @@ export interface MarkDraft {
   level: number | null;
   /** A chip already in the text (Done changes it; it can be removed). */
   existing: boolean;
-  /** A mark made while recording (step 5.5): its panel instead, and where it is (Undo of Remove). */
+  /** A mark made while recording: its panel instead, and where it is (Undo of Remove). */
   linked?: { mark: LinkedMark; at: MarkPlace } | null;
 }
 
 /**
- * The iPhone's mark chip sheet (step 4.6): its kind and level 1–10, to put
+ * The iPhone's mark chip sheet: its kind and level 1–10, to put
  * one in or change a chip tapped in the text. A mark made while recording
- * (step 5.5) shows its mark panel (iphone-03): level, note, Done, Remove
+ * shows its mark panel (iphone-03): level, note, Done, Remove
  * mark. Dragging it down or tapping above it closes it.
  */
 export function MarkSheet({

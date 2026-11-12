@@ -1,7 +1,7 @@
 /**
  * imageAlpha.ts
- * Whether a picture can have transparent pixels, read from its first bytes
- * (step 4.8b). Photos are kept as JPEGs, which have no transparency: a
+ * Whether a picture can have transparent pixels, read from its first bytes.
+ * Photos are kept as JPEGs, which have no transparency: a
  * transparent pixel saved as JPEG turns black, so such a picture is drawn on
  * white first (toJpeg). Camera photos (JPEG, HEIC) never are, and skip that.
  * Pure, so it is unit tested.

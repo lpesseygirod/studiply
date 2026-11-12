@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-legal.mjs — step 10.1b-1.
+ * build-legal.mjs — builds the legal pages.
  * Turns docs/legal/*.md into src/legal/texts.generated.ts (the pages /privacy, /terms, /refunds,
  * /cookies, /legal and LEGAL_VERSION) and the package metadata into src/legal/licences.generated.ts
  * (the open-source licences on /legal). Run after editing a legal text or changing dependencies:

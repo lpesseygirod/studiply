@@ -1,7 +1,7 @@
 /**
  * docBlocks.ts
- * The conflict rule for a document edited on two devices (step 4.3): step
- * 1.8's rule (src/lib/noteBlocks.ts) over the document's top-level blocks,
+ * The conflict rule for a document edited on two devices: the note
+ * blocks' rule (src/lib/noteBlocks.ts) over the document's top-level blocks,
  * which carry an id, an origin and the time the student last changed them
  * (src/editor/schema/blockMeta.ts).
  *

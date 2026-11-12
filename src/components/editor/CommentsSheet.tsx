@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { CommentCard } from './CommentCard';
 
 /**
- * Every comment in the document (step 4.5; the document menu's Comments, on
+ * Every comment in the document (the document menu's Comments, on
  * both devices): open ones first, then resolved ones, in the order of the
  * text. Pressing one selects its words and closes the list; each card can
  * be edited, resolved (reopened) or deleted here.

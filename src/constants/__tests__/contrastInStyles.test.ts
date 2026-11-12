@@ -1,4 +1,4 @@
-// Step 10.1b-5: every style in the app that sets a text colour on its own background (one style object
+// Every style in the app that sets a text colour on its own background (one style object
 // with both `color: c.…` and `backgroundColor: c.…`) passes WCAG contrast in both palettes:
 // 4.5:1, or 3:1 for large text (24 px, or 18.66 px bold). Found by reading the source, so a new
 // screen's pair is checked without adding it by hand; contrast.test.ts keeps the pairs that span two

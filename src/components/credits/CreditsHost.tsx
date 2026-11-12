@@ -6,7 +6,7 @@ import { recorder } from '../../services/recorder';
 import { REFRESH_EVERY_MS, getCreditsState, onCreditsRise, refreshCredits, setCreditsUser } from '../../services/credits.service';
 
 /**
- * Step 10.2-2, mounted once in the main layout: whose credits to read (signing out forgets them), and
+ * Mounted once in the main layout: whose credits to read (signing out forgets them), and
  * when to read them again (the app or the tab back in front). Recordings waiting for credits are sent
  * again when she has some: on coming back, and when her balance rises from 0 (at most every 30 s).
  * A summary or quiz that waited is never started here: she starts it (Lea, 12 Nov).

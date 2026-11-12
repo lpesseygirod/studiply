@@ -25,7 +25,7 @@ function RootNavigator() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inMainGroup = segments[0] === '(main)';
-    // Step 10.1b-1: the legal pages are readable signed in or signed out.
+    // The legal pages are readable signed in or signed out.
     if (segments[0] === '(legal)') return;
 
     if (isOnboarded && inAuthGroup) {
@@ -61,13 +61,13 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <RootNavigator />
-            {/* Step 10.1b-2: an account that never accepted the Terms is asked once, after sign-in. */}
+            {/* An account that never accepted the Terms is asked once, after sign-in. */}
             <TermsGateHost />
           </AuthProvider>
-          {/* Step 10.1b-5: the laptop's visible focus ring for keyboard users. */}
+          {/* The laptop's visible focus ring for keyboard users. */}
           <FocusRing />
           <DialogHost />
-          {/* Step 10.1: the AI consent screen, asked from anywhere (services/consent.service). */}
+          {/* The AI consent screen, asked from anywhere (services/consent.service). */}
           <AiConsentHost />
           {/* iPhone: pictures that can be transparent are drawn on white before they become JPEGs (toJpeg). */}
           <PictureFlattenerHost />

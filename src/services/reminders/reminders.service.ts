@@ -1,5 +1,5 @@
 /**
- * reminders.service.ts — review reminders on the iPhone (step 9.2-3; the approved plan,
+ * reminders.service.ts — review reminders on the iPhone (the approved plan,
  * docs/reports/plan-9.2.md, decisions 4–6).
  *
  * - Local notifications only (./notifier: expo-notifications on the iPhone, nothing on the web):

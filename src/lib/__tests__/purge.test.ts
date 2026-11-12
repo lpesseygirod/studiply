@@ -31,7 +31,7 @@ describe('purge-trash rules', () => {
     expect(removalBatches([])).toEqual([]);
   });
 
-  it('recordings (step 10.1b-3): each due lecture once, also one whose files are already gone; its null path is not removed', () => {
+  it('recordings: each due lecture once, also one whose files are already gone; its null path is not removed', () => {
     const plan = [
       { lecture_id: 'l1', bucket: 'audio-chunks', path: 'u/l1/0000.m4a' },
       { lecture_id: 'l1', bucket: 'audio-chunks', path: 'u/l1/0001.m4a' },

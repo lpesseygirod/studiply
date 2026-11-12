@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.7: links in a document that open something in the app (My notes, the study assistant at a
+// Links in a document that open something in the app (My notes, the study assistant at a
 // question) instead of a web page.
 import { appLinkText, assistantFocus, assistantLink, focusAssistantMessage, onAppLink, onAssistantFocus, openAppLink, parseAppLink, tabLink } from '../appLinks';
 

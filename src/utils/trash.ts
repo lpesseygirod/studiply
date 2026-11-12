@@ -1,6 +1,6 @@
 /**
  * trash.ts
- * What Recently Deleted shows (step 3.5), pure so it is tested: each item's
+ * What Recently Deleted shows, pure so it is tested: each item's
  * real kind, where it was ("Math › Tema 1"), how long ago it was deleted,
  * and which items to list at all. Like Finder, what was deleted together
  * with its folder or course is listed once, under that folder or course:

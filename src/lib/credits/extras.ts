@@ -1,6 +1,6 @@
 /**
  * extras.ts
- * Step 10.2-1b (docs/reports/plan-10.2-1b.md; Lea, 12 Nov): the assistant & extras allowance in her
+ * The fair-use cap (docs/reports/plan-10.2-1b.md; Lea, 12 Nov): the assistant & extras allowance in her
  * words, never in dollars. The server counts it (extras_allowance()) and alone refuses (429
  * extras_limit); this is only what she sees. Jest: creditsScreens.test.ts.
  */

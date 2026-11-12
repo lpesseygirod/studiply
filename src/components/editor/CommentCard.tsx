@@ -15,7 +15,7 @@ export function commentDate(ms: number): string {
 }
 
 /**
- * Writing a comment (step 4.5, laptop): the words it is about, a field,
+ * Writing a comment (laptop): the words it is about, a field,
  * Cancel and Comment (also ⌘↩). Editing an existing comment uses it too.
  */
 export function CommentComposer({
@@ -71,7 +71,7 @@ export function CommentComposer({
 }
 
 /**
- * One comment (step 4.5): the words it is about, its text and date, and
+ * One comment: the words it is about, its text and date, and
  * Edit · Resolve (Reopen) · Delete. Pressing it selects its words.
  */
 export function CommentCard({
@@ -116,7 +116,7 @@ export function CommentCard({
       <Text style={[styles.linkText, danger && styles.danger]}>{label}</Text>
     </Pressable>
   );
-  // Step 7.9: one Studiply wrote when a lecture was added ("Lecture 4 · 18:30 · …"): she resolves or deletes it, it isn't edited.
+  // One Studiply wrote when a lecture was added ("Lecture 4 · 18:30 · …"): she resolves or deletes it, it isn't edited.
   const studiply = comment.author === 'studiply';
   return (
     <Pressable

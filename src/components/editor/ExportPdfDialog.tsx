@@ -21,7 +21,7 @@ import { summaryPdfFileName } from '../../utils/fileNames';
 
 export type ExportFormat = 'pdf' | 'word';
 
-/** Step 8.3: what a summary's PDF needs from the document's screen. */
+/** What a summary's PDF needs from the document's screen. */
 export interface SummaryPdfInfo {
   /** The header's meta line, the first lines of page 1 ("Math · Lecture · 31 Oct 2026"). */
   meta: string;
@@ -39,7 +39,7 @@ const textIn = (doc: DocJSON | null): string => {
 };
 
 /**
- * Export PDF… and Export Word… (steps 4.8a, 4.8b), from the document menu on
+ * Export PDF… and Export Word…, from the document menu on
  * both devices: one dialog, opened with that format chosen (PDF / Word
  * at its top). This tab or All tabs (with more than one; each tab from a new
  * page with its name as a heading) and Page numbers (on by default, through
@@ -48,7 +48,7 @@ const textIn = (doc: DocJSON | null): string => {
  *   writes the file; iPhone: laid out in the PdfRenderer, then the share sheet.
  * - Word: a .docx (export.service); formulas and graphs as pictures (on the
  *   iPhone drawn in the PdfRenderer). Laptop: it downloads; iPhone: the share sheet.
- * - Step 8.3, a summary's PDF (the open tab holds a summary, This tab): the options sheet of
+ * - A summary's PDF (the open tab holds a summary, This tab): the options sheet of
  *   SUMMARY-SPEC (self-test yes/no, transcript appendix yes/no, A4 or Letter) in place of the page
  *   numbers; the title block, plain times, answers on the last page (export/summaryPrint.ts), the
  *   running header and footer, and "Course – Lecture – YYYY-MM-DD.pdf".
@@ -77,7 +77,7 @@ export function ExportPdfDialog({
   language?: string | null;
   /** A tab's content (the open one as it is now, unsaved edits too). */
   loadTab: (tab: TabInfo) => Promise<DocJSON>;
-  /** Step 8.3: given, a tab that holds a summary exports as a summary's PDF. */
+  /** Given, a tab that holds a summary exports as a summary's PDF. */
   summary?: SummaryPdfInfo;
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -88,7 +88,7 @@ export function ExportPdfDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // Step 8.3: whether the open tab holds a summary (read when the dialog opens), and the sheet's options.
+  // Whether the open tab holds a summary (read when the dialog opens), and the sheet's options.
   const [summaryHere, setSummaryHere] = useState(false);
   const [selfTest, setSelfTest] = useState(true);
   const [appendix, setAppendix] = useState(false);

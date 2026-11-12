@@ -41,7 +41,7 @@ import { numberPlace, withTabHeading, type PrintTab } from './printPages';
 import { blockFontPx, formulaKey, graphKey, inlineFormulaPx, photoKey, textWidthPx, type Picture } from './docxPictures';
 
 /**
- * The Word export (step 4.8b): a document's tabs as a .docx, built from
+ * The Word export: a document's tabs as a .docx, built from
  * their JSON with the `docx` library, on both devices (no DOM).
  *
  * - Each tab is a section with the document's paper, orientation and
@@ -444,7 +444,7 @@ class WordBuilder {
           const p = this.pictures.get(graphKey(attrs, this.room, this.language));
           const width = p ? Math.min(p.width, ctx.width) : 0;
           const picture = p ? this.picture(p.id, width, (p.height * width) / p.width) : null;
-          // No picture: its title; a kind the charts module doesn't draw yet (8.2): its line, as on the page.
+          // No picture: its title; a kind the charts module doesn't draw yet: its line, as on the page.
           const data = cleanGraph(attrs);
           const words = canDraw(planGraph(data).spec) ? data.title || 'Graph' : laterLine(data);
           out.push(this.para({ spacing: { before: 60, after: 120 }, children: picture ? [picture] : [new TextRun({ text: words, italics: true, color: SECONDARY })] }, ctx));
@@ -466,7 +466,7 @@ class WordBuilder {
           break;
         }
         case 'studyModule': {
-          // Step 8.1: the summary's text modules as a box with their label; their tables, lists and lines as
+          // The summary's text modules as a box with their label; their tables, lists and lines as
           // usual (a code module's lines carry the code mark: monospace in Word).
           const m = DocColors.module;
           out.push(...this.boxed(moduleLabel(node.attrs ?? {}), { bg: m.bg, border: m.border, label: m.label }, node.content ?? [], ctx, true));

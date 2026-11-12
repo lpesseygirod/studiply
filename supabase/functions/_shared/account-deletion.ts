@@ -1,6 +1,6 @@
 /**
  * account-deletion.ts
- * Step 10.1: the rules of the delete-account Edge Function, kept pure (Jest).
+ * The rules of the delete-account Edge Function, kept pure (Jest).
  *
  * - The body is only her confirmation and, for an account with Sign in with Apple, a fresh
  *   authorization code: never a user id (the function takes hers from her own token).

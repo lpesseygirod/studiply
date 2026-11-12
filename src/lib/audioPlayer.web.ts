@@ -5,9 +5,9 @@ import type { AudioPlayer, PlayerStatus } from './audioPlayer';
 export type { AudioPlayer, PlayerStatus };
 
 /**
- * Playing audio in the browser (step 4.6, the mini player): expo-av's HTML
+ * Playing audio in the browser (the mini player): expo-av's HTML
  * audio element, as before. The iPhone's (./audioPlayer.ts) moved to
- * expo-audio in step 5.4's iPhone half, because expo-av's audio mode would
+ * expo-audio, because expo-av's audio mode would
  * stop expo-audio's recording; the browser has no such shared session, so
  * this stays until the SDK upgrade.
  */

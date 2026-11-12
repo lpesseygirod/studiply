@@ -37,7 +37,7 @@ import { LegalLinks } from '../../../src/components/legal/LegalLinks';
 import { SETTINGS_LEGAL_LINKS } from '../../../src/legal/pages';
 
 /**
- * Settings (step 3.6, docs/design iphone-07). iPhone: the profile card
+ * Settings (docs/design iphone-07). iPhone: the profile card
  * (Account), the sync line, one row per section with a short value, Sign
  * out. On the laptop /settings opens Account beside the section menu.
  */
@@ -64,20 +64,20 @@ function SettingsList() {
   }, [profile?.id]);
 
   const values: Partial<Record<SettingsSectionKey, string>> = {
-    // Step 10.2-2: "12 left", "6¾ left", "None left".
+    // Credits: "12 left", "6¾ left", "None left".
     credits: creditsValue(creditUnits),
     summaries: loading ? '' : summaryLevelValue(settings.default_summary_level),
     recording: loading ? '' : languageValue(settings.default_language),
-    // iphone-07: whether AI is allowed (step 10.1). Today's use moved to Development (step 10.2-2).
+    // iphone-07: whether AI is allowed. Today's use moved to Development.
     'ai-privacy': aiConsent.allowed === null ? '' : aiConsent.allowed ? 'Allowed' : 'Off',
     storage: storageValue(storage),
     appearance: appearanceValue(appearance),
     development: backend.label,
-    // Step 9.2-3 (iphone-07: "19:00"): the reminders' time, or Off; the web has none.
+    // iphone-07 ("19:00"): the reminders' time, or Off; the web has none.
     ...(reminders.supported && reminders.prefs && { notifications: reminders.prefs.enabled ? reminders.prefs.time : 'Off' }),
   };
 
-  // Step 10.1b-4 (iphone-07): Export my data as its own row, after Appearance; the same sheet as in
+  // iphone-07: Export my data as its own row, after Appearance; the same sheet as in
   // Account and Your data.
   const exportData = useExportData();
   // Lea's dashboard (part A: its Codes): admins only, on the web (the iPhone app never asks).
@@ -152,11 +152,11 @@ function SettingsList() {
         >
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
-        {/* Step 10.1 (iphone-07): Delete account… under Sign out. */}
+        {/* iphone-07: Delete account… under Sign out. */}
         <DeleteAccountButton variant="link" />
 
         <Text style={styles.versionText}>Studiply v0.1.0</Text>
-        {/* Step 10.1b-1 (iphone-07's footer): the legal pages. */}
+        {/* iphone-07's footer: the legal pages. */}
         <LegalLinks slugs={SETTINGS_LEGAL_LINKS} />
       </ScrollView>
     </View>

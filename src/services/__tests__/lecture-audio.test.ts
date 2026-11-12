@@ -1,4 +1,4 @@
-// The mini player's recording (step 4.6): the chunk with a moment in it,
+// The mini player's recording: the chunk with a moment in it,
 // the length, and a recording whose audio was deleted by its setting.
 import { resetTables, serverWrite } from '../../test-utils/fakeTables';
 import { chunkAt, endOf, getLecturePlayback, getLivePlayback, recordingLength } from '../lecture-audio.service';
@@ -38,7 +38,7 @@ describe('playing a lecture from a moment', () => {
     expect(await getLecturePlayback('none')).toEqual({ chunks: [], deleted: false });
   });
 
-  it('step 5.4: overlapping chunks play on from where the last one ended, nothing heard twice', () => {
+  it('overlapping chunks play on from where the last one ended, nothing heard twice', () => {
     // The web's chunks: each starts 500 ms before the previous one ends.
     const overlapping = [
       { startMs: 0, durationMs: 10_500 },
@@ -50,7 +50,7 @@ describe('playing a lecture from a moment', () => {
     expect(chunkAt(overlapping, 10_200)).toEqual({ index: 0, offsetMs: 10_200 });
   });
 
-  it('step 5.4: while recording, the device’s own audio, or Storage once uploaded; its links freed after', async () => {
+  it('while recording, the device’s own audio, or Storage once uploaded; its links freed after', async () => {
     // Jest has no blob links (the browser does).
     jest.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:local-1');
     const revoke = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});

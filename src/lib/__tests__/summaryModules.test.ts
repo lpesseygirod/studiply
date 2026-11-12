@@ -1,8 +1,8 @@
 /**
  * @jest-environment jsdom
  */
-// Step 8.1: the summary's twelve text modules as editor blocks (editor/schema/studyModule.ts), written
-// by the 7.7 converter (lib/summaryDoc.ts). On the hand-made fixture with all twelve
+// The summary's twelve text modules as editor blocks (editor/schema/studyModule.ts), written
+// by the summary converter (lib/summaryDoc.ts). On the hand-made fixture with all twelve
 // (src/test-utils/summary-modules.json): each appears in its section, in order, valid for both
 // editors; its HTML round-trips (copy and paste, the other device); its label and group name; an edit
 // inside makes it hers and a summary written again keeps it; Extend's anchors see its words; the
@@ -48,7 +48,7 @@ describe('the fixture: all twelve modules, as Claude writes them', () => {
   });
 });
 
-describe('each module where expected (BUILD-PLAN 8.1’s check)', () => {
+describe('each module where expected (the build plan’s check)', () => {
   it('one block per stored module, in its section and order', () => {
     const bySection: string[][] = [];
     for (const b of doc.content) {
@@ -62,7 +62,7 @@ describe('each module where expected (BUILD-PLAN 8.1’s check)', () => {
       ['workedExample', 'code', 'vocabulary'],
     ]);
     expect(new Set(modules.map((m) => m.attrs?.kind))).toEqual(new Set(MODULE_KINDS.map((k) => k.kind)));
-    // Their ids: the stored block's place (s1-b2), one id where 7.7 sometimes made several.
+    // Their ids: the stored block's place (s1-b2), one id where the first converter sometimes made several.
     expect(of('framework').attrs).toMatchObject({ blockId: `${summaryKey(ID)}-s1-b2`, origin: 'ai', editedAt: null, title: 'DAFO' });
   });
 
@@ -185,7 +185,7 @@ describe('her edits, regeneration and Extend', () => {
     expect(kinds.filter((m) => m.attrs?.kind === 'timeline').map(textOf)).toEqual(['1900 · Otra fecha']);
   });
 
-  it('Extend’s anchors (7.9) see a module’s words, by its id', () => {
+  it('Extend’s anchors see a module’s words, by its id', () => {
     const anchors = anchorsOf(doc);
     const timeline = anchors.find((a) => a.id === of('timeline').attrs?.blockId)!;
     expect(timeline.text).toContain('Pavlov describe el reflejo condicionado');

@@ -1,6 +1,6 @@
 /**
  * legal.cjs
- * Step 10.1b-1: the legal pages are made from docs/legal/*.md, with no markdown library.
+ * The legal pages are made from docs/legal/*.md, with no markdown library.
  * Shared by scripts/build-legal.mjs (writes the generated files), scripts/check-launch.mjs
  * (the launch checklist) and the Jest tests (the generated files are up to date).
  *
@@ -164,7 +164,7 @@ function readLegal(root, file) {
 }
 
 /**
- * The texts' version, saved with each account's acceptance (step 10.1b-2): the newest "Last
+ * The texts' version, saved with each account's acceptance: the newest "Last
  * updated" date (or "draft" while a date is still [DATE]) and the first 8 hex characters of a
  * SHA-256 of the five files, so it changes whenever a word does.
  */
@@ -405,7 +405,7 @@ function walk(dir, out = []) {
 /**
  * Text a student can read that names one of `words`: string literals and JSX text in app/ and
  * src/components/ (not comments, imports or tests), app.json's strings (permission texts) and the
- * five legal texts. Transcription is ElevenLabs (BUILD-PLAN 10.1b): none may say OpenAI or Whisper.
+ * five legal texts. Transcription is ElevenLabs: none may say OpenAI or Whisper.
  */
 function userFacingMentions(root, words = ['OpenAI', 'Whisper']) {
   const ts = require('typescript');

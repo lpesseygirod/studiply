@@ -2,11 +2,11 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * The laptop's document layout between the shell and the document screen:
- * - the comments margin (step 4.5): the shell knows whether its centre pane
+ * - the comments margin: the shell knows whether its centre pane
  *   has room for the page and a margin beside it (`room`); the document says
  *   when it shows the margin (`shown`), and the shell then widens the page's
  *   column for it;
- * - Pages (step 4.5b, after test D): the document says when it shows pages
+ * - Pages (after test D): the document says when it shows pages
  *   (`pages`), and the shell gives it the whole centre pane, so the pages
  *   sit on the gradient and scroll with it (no column, no scroll box).
  */

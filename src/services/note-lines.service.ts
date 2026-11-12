@@ -1,5 +1,5 @@
 /**
- * A lecture's `note_lines` (step 5.4) follow its My notes: after each save
+ * A lecture's `note_lines` follow its My notes: after each save
  * of the notes tab (the laptop's save, the iPhone's queued edit), the lines
  * of the document as saved on the server are written (by document and
  * block) and the lines that are gone removed (editor/noteLines.ts). Safe to
@@ -17,12 +17,12 @@ const kinds = new Map<string, boolean>();
 /** What was last written per document (its lines as JSON). */
 const written = new Map<string, string>();
 
-/** A document just turned into a lecture (step 5.7): asked again at its next save. */
+/** A document just turned into a lecture: asked again at its next save. */
 export function forgetLectureKind(fileId: string): void {
   kinds.delete(fileId);
 }
 
-/** Whether the file is a lecture (kept per file; also the marks', step 5.5). */
+/** Whether the file is a lecture (kept per file; also the marks'). */
 export async function isLectureFile(fileId: string): Promise<boolean> {
   const known = kinds.get(fileId);
   if (known !== undefined) return known;

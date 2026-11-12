@@ -2,7 +2,7 @@
  * useUserSettings.ts
  * The student's processing defaults (user_settings) with an optimistic save
  * that reverts on failure; used by the Summaries, Recording and Storage
- * settings (step 3.6; moved from the old General screen unchanged).
+ * settings (moved from the old General screen unchanged).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS: Partial<UserSettings> = {
   include_unclear_parts: true,
   include_formulas: true,
   include_definitions: true,
-  // Step 10.1b-3: the recording is deleted 3 days after transcription unless she chooses otherwise.
+  // The recording is deleted 3 days after transcription unless she chooses otherwise.
   default_retention_policy: 'delete_3_days',
   default_language: 'en',
 };

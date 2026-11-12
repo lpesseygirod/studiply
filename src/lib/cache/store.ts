@@ -8,7 +8,7 @@
  * `dirty`; downloads never overwrite it.
  *
  * This is a separate database file from the old `studiply.db`, which keeps
- * the data from before step 1.7 until step 1.9 uploads it. The web build uses
+ * the data from before Supabase until the legacy import uploads it. The web build uses
  * store.web.ts: there is no cache in the browser.
  */
 
@@ -19,8 +19,8 @@ import type { SegmentRow } from '../cloudRows';
 export const cacheEnabled = true;
 
 /**
- * Step 9.1: flashcards and review_schedule too, so Review works offline; 9.1b: the quizzes (Quiz me's
- * list); 9.1b-3: their questions, attempts and answers, so a quiz is taken offline; 9.2: the
+ * Flashcards and review_schedule too, so Review works offline; the quizzes (Quiz me's
+ * list); their questions, attempts and answers, so a quiz is taken offline; the
  * course settings (exam dates, study reminders), so the review plan is known offline. A course's
  * settings row has no id of its own: it is kept under its course_id (pull.ts idColumn).
  */

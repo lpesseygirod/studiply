@@ -1,5 +1,5 @@
 /**
- * delete-account — Settings → Account → Delete account… (step 10.1; App Review 5.1.1(v)).
+ * delete-account — Settings → Account → Delete account… (App Review 5.1.1(v)).
  *
  * POST { confirm: "DELETE", appleCode?, appleClient?: "ios" | "web" } with her own token
  * (verify_jwt = true). Deletes the caller's account and everything in it:

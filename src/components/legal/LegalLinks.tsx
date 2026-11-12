@@ -1,6 +1,6 @@
 /**
  * LegalLinks.tsx
- * A small row of links to the legal pages (step 10.1b-1): "Terms · Privacy · Legal" under
+ * A small row of links to the legal pages: "Terms · Privacy · Legal" under
  * Settings (iphone-07's footer; under the laptop's settings menu, desktop-05), "Terms of Service ·
  * Privacy Policy" on sign-up, the other pages under each legal page. On the gradient.
  * `onOpen` defaults to the page's route, with where it was opened from (‹ Back returns there);

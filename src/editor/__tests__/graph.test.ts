@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Graphs the student builds (step 4.7d): the data's limits and how numbers
+// Graphs the student builds: the data's limits and how numbers
 // are read; the block put in, changed and taken out; copy and paste; what
 // crosses to the iPhone. The drawing is the charts module's (its own tests).
 import { Editor, type JSONContent } from '@tiptap/core';
