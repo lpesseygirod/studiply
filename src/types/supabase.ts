@@ -596,6 +596,20 @@ isOneToOne: false
               "bucket_id": string,"name": string
             }[]
                            },
+"admin_codes":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "active": boolean,"code": string,"created_at": string,"expires_at": string | null,"id": string,"max_redemptions": number,"note": string | null,"units": number,"used": number
+            }[]
+                           },
+"admin_create_code":
+{ Args: { "p_code": string,"p_expires"?: string,"p_max": number,"p_note"?: string,"p_units": number }; Returns: string
+                           },
+"admin_set_code_active":
+{ Args: { "p_active": boolean,"p_id": string }; Returns: undefined
+                           },
+"am_i_admin":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "extras_allowance":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -612,6 +626,11 @@ isOneToOne: false
               "balance_after": number,"charged": number,"outcome": string
             }[]
                            },
+"redeem_code":
+{ Args: { "p_code": string }; Returns: {
+              "balance_after": number,"outcome": string,"units": number
+            }[]
+                           },
 "review_card":
 { Args: { "p_due_at": string,"p_ease": number,"p_flashcard_id": string,"p_grade": string,"p_interval_days": number,"p_reps": number,"p_reviewed_at": string }; Returns: boolean
                            },
@@ -622,6 +641,9 @@ isOneToOne: false
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "course_color": string,"course_id": string,"course_name": string,"field": string,"file_kind": string,"folder_id": string,"item_id": string,"kind": string,"matched": string,"rank": number,"t_ms": number,"title": string
             }[]
+                           },
+"service_set_admin":
+{ Args: { "p_admin": boolean,"p_user": string }; Returns: undefined
                            },
 "spend_credits":
 { Args: { "p_base_key": string,"p_kind": string,"p_label"?: string,"p_lecture"?: string,"p_ref"?: string,"p_units": number,"p_user": string }; Returns: {

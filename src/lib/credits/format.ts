@@ -136,6 +136,9 @@ export function historyText(row: CreditRow): string {
       return 'Thanks for testing Studiply';
     case 'grant_admin':
       return 'Added by Studiply';
+    // Part A: a free-credit code she redeemed (its label is the code).
+    case 'grant_code':
+      return row.label ? `Code ${row.label}` : 'Code';
     case 'purchase':
       return `Bought ${unitsText(row.units)} ${lecturesWord(row.units)}`;
     case 'refund':

@@ -19,6 +19,7 @@ import { getTodayUsage } from '../../services/credit-check.service';
 import { BUY_ON_IPHONE, BUY_SOON, balanceLine, balanceSpoken, historyLine } from '../../lib/credits/format';
 import { makeSettingsStyles } from './styles';
 import { extrasLine } from '../../lib/credits/extras';
+import { RedeemCode } from './RedeemCode';
 
 /** What extras use (plan-10.2 §3, with Sonnet prices). */
 const EXTRAS: readonly [string, string][] = [
@@ -75,6 +76,9 @@ export function CreditsSettings() {
           {Platform.OS === 'ios' ? BUY_SOON : BUY_ON_IPHONE}
         </Text>
       </View>
+
+      {/* Codes (part A): on the web only (App Store rule 3.1.1); nothing on the iPhone. */}
+      <RedeemCode />
 
       <Text style={settingsStyles.sectionHeader} accessibilityRole="header">
         WHAT EXTRAS USE

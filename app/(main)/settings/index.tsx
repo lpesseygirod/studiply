@@ -29,6 +29,7 @@ import { SettingsRows, type SettingsRowItem } from '../../../src/components/sett
 import { useExportData } from '../../../src/components/settings/ExportData';
 import { SyncBanner } from '../../../src/components/settings/StatusBanners';
 import { useCreditUnits } from '../../../src/hooks/useCredits';
+import { useIsAdmin } from '../../../src/hooks/useIsAdmin';
 import { creditsValue } from '../../../src/lib/credits/format';
 import { useAiConsent } from '../../../src/components/settings/AiConsentCard';
 import { DeleteAccountButton } from '../../../src/components/settings/DeleteAccount';
@@ -79,7 +80,12 @@ function SettingsList() {
   // Step 10.1b-4 (iphone-07): Export my data as its own row, after Appearance; the same sheet as in
   // Account and Your data.
   const exportData = useExportData();
-  const rows: SettingsRowItem[] = visibleSections(__DEV__)
+  // Lea's dashboard (part A: its Codes): admins only, on the web (the iPhone app never asks).
+  const isAdmin = useIsAdmin() === true;
+  const adminRow: SettingsRowItem[] = isAdmin
+    ? [{ key: 'admin', label: 'Admin', letter: 'Z', tone: 'neutral', onPress: () => router.push('/admin'), dataSet: { settings: 'admin' } }]
+    : [];
+  const sectionRows: SettingsRowItem[] = visibleSections(__DEV__)
     .filter((s) => s.key !== 'account')
     .flatMap((s) => {
       const row: SettingsRowItem = {
@@ -104,6 +110,7 @@ function SettingsList() {
         },
       ];
     });
+  const rows = [...sectionRows, ...adminRow];
 
   return (
     <View style={styles.container}>
