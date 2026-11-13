@@ -10,7 +10,7 @@ import type { Json } from '../types/supabase';
 import { cleanPageSetup, type PageSetup } from '../editor/page/pageSetup';
 
 /**
- * Preferences that follow the student across devices (step 4.5):
+ * Preferences that follow the student across devices:
  * `profiles.preferences`: the colour picker's Recent colours, and the
  * default page setup for new documents (after test D).
  *
@@ -223,7 +223,7 @@ registerSyncHandler<DefaultPageSetupPayload>('default_page_setup', {
 });
 
 // -------------------------------------------------------------------
-// Step 10.1: the reminder before the first recording ("check that you may record this class"), shown
+// The reminder before the first recording ("check that you may record this class"), shown
 // once per account: `recordingReminderSeen` in the preferences, kept on this device too.
 // -------------------------------------------------------------------
 

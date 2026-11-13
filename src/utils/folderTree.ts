@@ -1,6 +1,6 @@
 /**
- * A course's folders as the recording setup's folder picker lists them (step
- * 5.3, Lea's option A): each folder followed by its subfolders, indented by
+ * A course's folders as the recording setup's folder picker lists them (Lea's
+ * option A): each folder followed by its subfolders, indented by
  * depth, siblings in the order given (the service's sort order, then name).
  * A folder whose parent isn't in the list (deleted) is shown at the top.
  */

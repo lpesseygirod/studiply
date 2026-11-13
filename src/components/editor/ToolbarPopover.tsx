@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import type { Anchor } from '../dialogs/dialogs';
 
 /**
- * A small panel under a toolbar button (step 4.4: the style, font, align and
+ * A small panel under a toolbar button (the style, font, align and
  * line-spacing menus and the colour grids), where the app's text menus can't
  * show each choice in its own look. A click outside or Esc closes it.
  */

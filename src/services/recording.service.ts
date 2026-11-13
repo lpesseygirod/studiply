@@ -1,5 +1,5 @@
 /**
- * The app's recording flow (step 5.3, ./recording-flow) with its real parts:
+ * The app's recording flow (./recording-flow) with its real parts:
  * the recorder service, the microphone question (the browser's or the
  * iPhone's), transcription consent, the lecture's row. One per app, like the
  * recorder.
@@ -20,7 +20,7 @@ import { cleanUpLate, discardRecording } from './discard-recording.service';
 export type { DiscardPlan, DiscardPreview, FlowState, InterruptedRecording } from './recording-flow';
 
 /**
- * Where a lecture's audio already ends on Studiply (step 5.7: recording again into it), so the new
+ * Where a lecture's audio already ends on Studiply (when recording again into it), so the new
  * chunks never reuse a number. Offline it can't be read: fine for a lecture never recorded (draft);
  * otherwise the student is asked to connect first.
  */
@@ -40,7 +40,7 @@ async function audioEnd(lectureId: string): Promise<{ seq: number; ms: number } 
 const shared = globalThis as { __studiplyRecordingFlow?: RecordingFlow };
 export const recordingFlow: RecordingFlow = (shared.__studiplyRecordingFlow ??= createRecordingFlow({
   recorder,
-  // Step 10.1: the first time, the reminder to check recording is allowed in the class; then the
+  // The first time, the reminder to check recording is allowed in the class; then the
   // browser's or the iPhone's own microphone question, before a lecture is made.
   openMicrophone: async () => {
     await remindBeforeFirstRecording();

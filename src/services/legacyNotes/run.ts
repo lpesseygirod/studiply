@@ -3,13 +3,13 @@ import type { DocJSON } from '../../editor/types';
 import { legacyNoteToDoc, type LegacyAttachment, type LegacyClarification } from './convert';
 
 /**
- * Step 4.9: a lecture's earlier note becomes its Summary tab, when that tab
+ * A lecture's earlier note becomes its Summary tab, when that tab
  * is opened and has no document yet (decided 30 Oct: no background pass).
  *
  * - Never overwrites: a Summary tab that has a document (converted before,
- *   written by the student, or made by Phase 7) is left as it is, so a note
+ *   written by the student, or made by the summary engine) is left as it is, so a note
  *   generated again later (the generate flow writes the old format until
- *   Phase 7) doesn't reach it; the old notes view shows that newer note.
+ *   the summary engine) doesn't reach it; the old notes view shows that newer note.
  * - Keeps the old data: the `summaries` row is only read.
  * - Safe to run twice and on two devices at once: the same note gives the
  *   same blocks (convert.ts), and the document is saved as any edit is

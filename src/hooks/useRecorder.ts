@@ -14,7 +14,7 @@ export interface LiveRecording extends RecorderState {
 }
 
 /**
- * The recording as the screens show it (step 5.3): its state, the time and
+ * The recording as the screens show it: its state, the time and
  * the recent loudness for the waveform, read every 100 ms while it records.
  */
 export function useRecorder(): LiveRecording {

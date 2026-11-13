@@ -10,14 +10,14 @@
 
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { claudeCost, claudeRequest, type Cost } from './claude.ts';
+import { claudeCost, claudeRequest, type ClaudeUse, type Cost } from './claude.ts';
 import { claudeGate } from './claude-gate.ts';
 import { hasConsent, logUsage, ownFile, ownLecture, ownQuiz, signedIn, usedToday } from './guard.ts';
-import { fail } from './http.ts';
+import { fail, json } from './http.ts';
 
 const TIMEOUT_MS = 120_000;
 
-type Operation = 'assistant' | 'summary' | 'quiz';
+type Operation = 'assistant' | 'summary' | 'quiz' | 'quiz_grade' | 'quiz_format';
 
 export type Ready<T> =
   | { ok: true; db: SupabaseClient; userId: string; claude: Anthropic; value: T }
@@ -33,6 +33,8 @@ export async function readyForClaude<T extends { lectureId: string; fileId?: str
   req: Request,
   validate: (body: unknown) => { ok: true; value: T } | { ok: false; status: number; code: string; error: string },
   log: (event: string, details: Record<string, unknown>) => void,
+  /** Paid in credits, or an extra (the 30-day allowance and the $1 daily guard). */
+  useOf: (value: T) => ClaudeUse,
 ): Promise<Ready<T>> {
   const caller = await signedIn(req);
   if (!caller.ok) return caller;
@@ -44,14 +46,27 @@ export async function readyForClaude<T extends { lectureId: string; fileId?: str
     hasKey: !!apiKey,
     body: apiKey ? await req.json().catch(() => null) : null,
     validate,
+    useOf,
     ownFile: (fileId) => ownFile(db, fileId),
     ownLecture: (lectureId) => ownLecture(db, lectureId),
     ownQuiz: (quizId) => ownQuiz(db, quizId),
     hasConsent: () => hasConsent(db, 'assistant_summary'),
     spentToday: (operations) => usedToday(db, [...operations], 'cost_usd'),
+    // Her own rows (RLS): ai_usage is select-only for her and the ledger append-only, so it can't be forged.
+    extrasLeft: async () => {
+      const { data, error } = await db.rpc('extras_allowance');
+      if (error) throw error;
+      const e = (data ?? {}) as { left?: unknown; resets_at?: unknown };
+      return { left: Number(e.left ?? 0), resetsAt: typeof e.resets_at === 'string' ? e.resets_at : null };
+    },
     log,
   });
-  if (!gate.ok) return { ok: false, response: fail(gate.status, gate.code, gate.error) };
+  if (!gate.ok) {
+    return {
+      ok: false,
+      response: gate.code === 'extras_limit' ? json({ error: gate.error, code: gate.code, resetsAt: gate.resetsAt ?? null }, gate.status) : fail(gate.status, gate.code, gate.error),
+    };
+  }
 
   const claude = new Anthropic({ apiKey: apiKey!, maxRetries: 2, timeout: TIMEOUT_MS });
   return { ok: true, db, userId, claude, value: gate.value };
@@ -77,7 +92,7 @@ export function claudeParams(
 export async function logClaudeCost(
   operation: Operation,
   userId: string,
-  /** null: a plain document's (step 6.3), not a lecture's. */
+  /** null: a plain document's, not a lecture's. */
   lectureId: string | null,
   requestedModel: string,
   message: Anthropic.Beta.BetaMessage,
@@ -110,7 +125,7 @@ export function answerText(message: Anthropic.Beta.BetaMessage): string {
  * characters. These describe the request's form, never its content; the request itself is never logged.
  */
 export function claudeFailure(err: unknown): { status: number; code: string; type?: string; message?: string } {
-  // Step 10.1: the call that wasn't made because AI was switched off (consent-gate.ts): permanent.
+  // The call that wasn't made because AI was switched off (consent-gate.ts): permanent.
   if ((err as { code?: string } | null)?.code === 'consent_withdrawn') return { status: 403, code: 'consent_withdrawn' };
   if (err instanceof Anthropic.APIConnectionTimeoutError) return { status: 0, code: 'timeout' };
   if (err instanceof Anthropic.APIConnectionError) return { status: 0, code: 'network_error' };

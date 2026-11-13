@@ -1,5 +1,5 @@
 /**
- * quiz — writes a quiz with Claude (step 9.1b-2; the approved plan, docs/reports/plan-9.1b-2.md).
+ * quiz — writes a quiz with Claude (the approved plan, docs/reports/plan-9.1b-2.md).
  *
  * POST with the user's access token. The checks in _shared/anthropic.ts run first (401, 400, 404,
  * 403 consent_required, 429 daily_limit), with the quiz (or the file) as what must be hers.
@@ -10,12 +10,15 @@
  *   questions removed, 202 at once; then written in the background (_shared/quiz-pipeline.ts), its
  *   status, plan, questions and checks saved for the app to read. 409 already_started, 404
  *   quiz_not_found. Past exams whose format wasn't read yet are read first.
+ *   Credits: ¼ / ½ / ¾ of a lecture's credit (≤ 10 / ≤ 25 / more questions), by the row's saved
+ *   question count, the run capped at it; a run that fails gives it back once. None left: 402
+ *   no_credits, the quiz back to pending. Format and grade are free.
  *
  * { mode: 'format', fileId }
  *   A past exam's format, read on Sonnet 5.5 and saved on its file (files.past_exam_format) once:
  *   { format }. A PDF or photo needs the images consent too (403 consent_required, scope images).
  *
- * { mode: 'grade', quizId, attemptId } (step 9.1b-3)
+ * { mode: 'grade', quizId, attemptId }
  *   The attempt's short and long answers still pending, graded on Sonnet 5.5 (quiz-grading.ts), each
  *   written only while still pending (her own grade wins): { graded, left }. 502 grading_failed
  *   leaves them pending, to be tried again.
@@ -29,8 +32,9 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { claudeFailure, claudeParams, logClaudeCost, readyForClaude } from '../_shared/anthropic.ts';
-import { CLAUDE_MODELS, QUIZ_OPERATION } from '../_shared/claude.ts';
-import { hasConsent } from '../_shared/guard.ts';
+import { CLAUDE_MODELS, QUIZ_FORMAT_OPERATION, QUIZ_GRADE_OPERATION, QUIZ_OPERATION } from '../_shared/claude.ts';
+import { hasConsent, serviceClient } from '../_shared/guard.ts';
+import { maxQuestionsFor, noCredits, quizKey, quizPaidCount, quizUnits, reverseSpend, spendCredits, type SpendResult } from '../_shared/credits.ts';
 import { corsHeaders, fail, json } from '../_shared/http.ts';
 import { fileContent, needsImages, quizRunMaterial } from '../_shared/quiz-content.ts';
 import { FORMAT_MAX_TOKENS, FORMAT_SYSTEM, formatUserText, runQuiz, type QuizCall, type QuizRunDeps } from '../_shared/quiz-pipeline.ts';
@@ -70,7 +74,7 @@ function validateBody(body: unknown): { ok: true; value: Body } | { ok: false; s
 }
 
 /**
- * { mode: 'grade', quizId, attemptId } (step 9.1b-3): the attempt's short and long answers still
+ * { mode: 'grade', quizId, attemptId }: the attempt's short and long answers still
  * pending, graded by Sonnet 5.5 (quiz-grading.ts: it sees only each question, its model answer, its
  * key points and her answer). Each grade is written only where the answer is still pending, so her
  * own grade, set meanwhile, wins. { graded, left }.
@@ -103,10 +107,10 @@ async function gradeNow(db: SupabaseClient, claude: Anthropic, userId: string, q
   } catch (err) {
     log('grade_failed', { quizId, attemptId, ...claudeFailure(err) });
     const partial = stream.currentMessage as unknown as Anthropic.Beta.BetaMessage | undefined;
-    if (partial) await logClaudeCost(QUIZ_OPERATION, userId, firstLecture, GRADE_MODEL, partial).catch(() => {});
+    if (partial) await logClaudeCost(QUIZ_GRADE_OPERATION, userId, firstLecture, GRADE_MODEL, partial).catch(() => {});
     return fail(502, 'grading_failed', 'The answers couldn’t be graded. They will be tried again.');
   }
-  await logClaudeCost(QUIZ_OPERATION, userId, firstLecture, GRADE_MODEL, message).catch((err) => log('usage_log_failed', { quizId, message: String((err as Error)?.message ?? err) }));
+  await logClaudeCost(QUIZ_GRADE_OPERATION, userId, firstLecture, GRADE_MODEL, message).catch((err) => log('usage_log_failed', { quizId, message: String((err as Error)?.message ?? err) }));
   const text = message.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
   const grades = message.stop_reason === 'refusal' ? null : parseGrades(text);
   if (!grades) {
@@ -159,11 +163,11 @@ async function readFormat(
   } catch (err) {
     log('format_failed', { fileId: file.id, ...claudeFailure(err) });
     const partial = stream.currentMessage as unknown as Anthropic.Beta.BetaMessage | undefined;
-    if (partial) await logClaudeCost(QUIZ_OPERATION, userId, null, FORMAT_MODEL, partial).catch(() => {});
+    if (partial) await logClaudeCost(QUIZ_FORMAT_OPERATION, userId, null, FORMAT_MODEL, partial).catch(() => {});
     return { error: 'unreadable' };
   }
   if (meter) meter.calls += 1;
-  await logClaudeCost(QUIZ_OPERATION, userId, null, FORMAT_MODEL, message)
+  await logClaudeCost(QUIZ_FORMAT_OPERATION, userId, null, FORMAT_MODEL, message)
     .then(() => meter && (meter.logged += 1))
     .catch((err) => log('usage_log_failed', { fileId: file.id, message: String((err as Error)?.message ?? err) }));
   const text = message.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text').map((b) => b.text).join('');
@@ -198,7 +202,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     .is('deleted_at', null)
     // The time quoted: it has dots and colons (PostgREST's logic-tree syntax).
     .or(`status.in.(pending,failed),and(status.eq.generating,updated_at.lt."${staleBefore}")`)
-    .select('id, settings, course_id')
+    .select('id, settings, course_id, title, question_count')
     .maybeSingle();
   if (error) throw error;
   if (!claimed) {
@@ -215,6 +219,36 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     await save({ status: 'failed', error: 'invalid_request' });
     return fail(400, 'invalid_request', problem);
   }
+
+  // Priced from the row as read here (its saved question count), never from the request,
+  // and the run is capped at that count, so a row changed after paying gets no more questions. Claimed
+  // again after a run the platform stopped (never given back): already paid, capped at what it paid for.
+  // None left: back to pending ("no_credits"), 402.
+  const credits = serviceClient();
+  const paidCount = quizPaidCount(claimed);
+  let spend: SpendResult;
+  try {
+    spend = await spendCredits(credits, { userId, key: quizKey(quizId), units: quizUnits(paidCount), kind: 'spend_extra', refId: quizId, label: String(claimed.title ?? '') || null });
+  } catch (err) {
+    await save({ status: 'failed', error: 'server_error' }).catch(() => {});
+    throw err;
+  }
+  if (spend.outcome === 'insufficient') {
+    log('no_credits', { quizId, questions: paidCount });
+    await save({ status: 'pending', error: 'no_credits' });
+    const refusal = noCredits('quiz');
+    return fail(refusal.status, refusal.code, refusal.error);
+  }
+  const maxQuestions = spend.outcome === 'already' ? Math.min(paidCount, maxQuestionsFor(spend.charged)) : paidCount;
+  log('credit_spent', { quizId, outcome: spend.outcome, units: spend.charged, maxQuestions });
+  /** A run that ends without a quiz gives its credit back, once (reverse_spend); Try again pays again. */
+  const giveBack = async () => {
+    await reverseSpend(credits, userId, quizKey(quizId)).then(
+      (reversed) => reversed && log('credit_reversed', { quizId }),
+      (err) => log('reverse_failed', { quizId, message: String((err as Error)?.message ?? err) }),
+    );
+  };
+
   // A retry starts clean: the questions written before go.
   const { error: clearError } = await db.from('quiz_questions').delete().eq('quiz_id', quizId);
   if (clearError) throw clearError;
@@ -226,6 +260,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
   const call = streamCall(claude, MODEL);
   const deps: QuizRunDeps = {
     quizId,
+    maxQuestions,
     material: async () => {
       // A past exam whose format wasn't read yet (added on another device, or its read failed) is read first.
       if (settings.pastExamIds.length) {
@@ -253,7 +288,7 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
       const { data } = await db.from('quizzes').select('deleted_at').eq('id', quizId).maybeSingle();
       return !!data && !data.deleted_at;
     },
-    // Step 10.1: AI switched off meanwhile → stop before the next call.
+    // AI switched off meanwhile → stop before the next call.
     consentWithdrawn: async () => !(await hasConsent(db, 'assistant_summary').catch(() => true)),
     touch: async () => {
       await db.from('quizzes').update({ status: 'generating' }).eq('id', quizId).eq('status', 'generating');
@@ -263,7 +298,18 @@ async function startQuiz(db: SupabaseClient, claude: Anthropic, userId: string, 
     meter,
   };
   log('quiz_started', { quizId, images, lectures: settings.topic.lectureIds.length, resources: settings.resources.fileIds.length, pastExams: settings.pastExamIds.length });
-  EdgeRuntime.waitUntil<unknown>(runQuiz(deps));
+  EdgeRuntime.waitUntil<unknown>(
+    runQuiz(deps).then(
+      async (outcome) => {
+        if (outcome.status !== 'ready') await giveBack();
+        return outcome;
+      },
+      async (err) => {
+        await giveBack();
+        throw err;
+      },
+    ),
+  );
   return json({ quizId, status: 'generating' }, 202);
 }
 
@@ -271,7 +317,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return fail(405, 'method_not_allowed', 'Use POST.');
   try {
-    const ready = await readyForClaude(req, validateBody, log);
+    // Writing a quiz is paid in credits; grading and a past exam's format are extras.
+    const ready = await readyForClaude(req, validateBody, log, (v) => (v.mode === 'generate' ? 'paid' : 'extra'));
     if (!ready.ok) return ready.response;
     const { claude, db, userId, value } = ready;
     if (value.mode === 'format') return await formatNow(db, claude, userId, value.fileId!);

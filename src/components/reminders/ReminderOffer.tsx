@@ -9,7 +9,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 import { reminderExplanation, turnOnReminders } from './reminderDialogs';
 
 /**
- * Step 9.2-3 (decision 5), on the iPhone's Review the first time something is due: the app explains
+ * The reminders offer (decision 5), on the iPhone's Review the first time something is due: the app explains
  * the reminders (iOS's own question has no text of ours), then **Turn on reminders** (iOS asks) or
  * **Not now**. Either answer hides it for good; the Settings switch stays. Never on the web.
  */

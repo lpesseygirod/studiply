@@ -5,7 +5,7 @@ import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * Record inside a document (step 5.7): in the laptop's row above the page
+ * Record inside a document: in the laptop's row above the page
  * and the iPhone's document header. "● Record"; greyed out with the reason
  * when it can't start (another lecture records; the laptop offline).
  */

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 10.1, Sign in with Apple's shared part (apple-auth-core): Apple gets the SHA-256 of a fresh
+// Sign in with Apple's shared part (apple-auth-core): Apple gets the SHA-256 of a fresh
 // nonce, Supabase the nonce itself; the name Apple sends only the first time is kept (only when none is set).
 import { createHash } from 'node:crypto';
 

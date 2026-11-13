@@ -1,6 +1,6 @@
 /**
  * SettingsPage.tsx
- * The frame of every settings page (step 3.6).
+ * The frame of every settings page.
  *
  *   iPhone: the gradient, "‹ Settings" (or the page it was opened from),
  *     the big title, then the cards, scrolling.

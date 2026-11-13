@@ -18,9 +18,11 @@ import { closeWebcam, PHOTO_OFFLINE_NOTE, photoBoardUsable, useWebcam } from './
 import { startBoardPhoto } from './photoBoard';
 import { WebcamPanel } from './WebcamPanel';
 import { DragSheet } from '../DragSheet';
+import { useCreditUnits } from '../../hooks/useCredits';
+import { WAITING_FOR_CREDITS_SENTENCE } from '../../lib/credits/format';
 
 /**
- * The iPhone's recording screen (step 5.3, docs/design iphone-02), drawn
+ * The iPhone's recording screen (docs/design iphone-02), drawn
  * around the lecture's document when that lecture is recording: the header
  * (back, ❚❚, the red timer chip, the ⋯ menu, Course › folder, the title, the
  * waveform) and the bottom bar. Between them the document screen as it is
@@ -51,6 +53,7 @@ export function RecordingPhoneHeader({
   // After Stop (or Finish) until the parts are sent: no ❚❚ and no running clock (it reads 0:00 once stopped).
   const saving = !!flow.saving || (live.status !== 'recording' && live.status !== 'paused');
   const paused = !saving && live.status === 'paused';
+  const creditUnits = useCreditUnits();
   return (
     <View style={styles.header}>
       <View style={styles.headerRow}>
@@ -97,6 +100,12 @@ export function RecordingPhoneHeader({
       <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
+      {/* No credits left: the recording goes on, its transcript waits. */}
+      {creditUnits !== null && creditUnits <= 0 && !saving && (
+        <Text style={styles.credits} {...{ dataSet: { recording: 'credits' } }}>
+          {WAITING_FOR_CREDITS_SENTENCE}
+        </Text>
+      )}
       {live.microphoneLost && !saving ? (
         <View style={styles.lost}>
           <Text style={styles.lostText}>Microphone disconnected</Text>
@@ -119,7 +128,7 @@ const MARKS = [
   { key: 'exam', glyph: '!', label: 'Exam' },
 ] as const;
 
-/** `onAsk` opens the study assistant's sheet (step 6.2). */
+/** `onAsk` opens the study assistant's sheet. */
 export function RecordingPhoneBar({ onAsk }: { onAsk?: () => void } = {}) {
   const styles = useThemedStyles(makeStyles);
   const { colors: c } = useTheme();
@@ -150,7 +159,7 @@ export function RecordingPhoneBar({ onAsk }: { onAsk?: () => void } = {}) {
           {PHOTO_OFFLINE_NOTE}
         </Text>
       )}
-      {/* The marks (step 5.5): each opens its small sheet; Photo (5.6): the camera (the web: webcam or files). The recording goes on. */}
+      {/* The marks: each opens its small sheet; Photo: the camera (the web: webcam or files). The recording goes on. */}
       <View style={styles.tiles}>
         {MARKS.map((m) => (
           <Pressable
@@ -183,7 +192,7 @@ export function RecordingPhoneBar({ onAsk }: { onAsk?: () => void } = {}) {
         </View>
       </View>
       <View style={styles.actions}>
-        {/* The study assistant (step 6.2): its sheet over this screen; the recording goes on. */}
+        {/* The study assistant: its sheet over this screen; the recording goes on. */}
         <Pressable
           onPress={onAsk}
           disabled={!onAsk}
@@ -264,6 +273,7 @@ const makeStyles = (c: ThemeColors) =>
     chipText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, fontVariant: ['tabular-nums'] },
     crumbs: { marginLeft: 6, fontSize: Typography.size.xs, color: c.text.onGradient },
     title: { marginLeft: 6, fontSize: Typography.size.xl, fontWeight: Typography.weight.bold, color: c.text.onGradientStrong },
+    credits: { marginLeft: 6, fontSize: Typography.size.xs, color: c.text.onGradient },
     lost: { flexDirection: 'row', alignItems: 'center', gap: 10, marginLeft: 6 },
     lostText: { fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.text.onGradientStrong },
     resume: { minHeight: 36, paddingHorizontal: 16, borderRadius: 18, justifyContent: 'center', backgroundColor: c.black },

@@ -1,6 +1,6 @@
 /**
  * summary-zod.ts
- * Checking Claude's summary answers with zod (step 7.4; Lea OK'd zod on 31 Oct, 4.6.7 pinned):
+ * Checking Claude's summary answers with zod (Lea OK'd zod on 31 Oct, 4.6.7 pinned):
  * the outer shape of the summary (a section's blocks as { type, data }) and of the classify
  * answer, and each block's data against its type's shape (SUMMARY-SPEC "How to generate it").
  *
@@ -21,7 +21,7 @@ const list = <T extends z.ZodType>(item: T) => z.array(item);
 const obj = <T extends z.ZodRawShape>(shape: T) => z.strictObject(shape);
 
 /**
- * Step 8.2: what a function plot's expression may hold, as the charts module parses it
+ * What a function plot's expression may hold, as the charts module parses it
  * (docs/charts-work-order-8.2.md, section 2). Anything else isn't drawn.
  */
 export const EXPRESSION_GRAMMAR =
@@ -54,7 +54,7 @@ export const BLOCK_DATA = {
   argument: obj({ claim: str, premises: list(str), objections: list(obj({ objection: str, reply: str })) }),
   code: obj({ language: str, code: str, output: str }),
   vocabulary: obj({ entries: list(obj({ term: str, meaning: str, example: str })) }),
-  // Step 8.2: the descriptions are prompt text only (blockGuide); the API sends a block's data as a string.
+  // The descriptions are prompt text only (blockGuide); the API sends a block's data as a string.
   functionPlot: obj({
     expression: str.describe(EXPRESSION_GRAMMAR),
     xRange: list(num).describe('two numbers: from, to'),
@@ -110,10 +110,10 @@ export const SummaryAnswer = obj({
   ...rest,
 });
 
-/** Step 7.5: the lists written again. */
+/** The lists written again. */
 export const ListsAnswer = obj({ takeaways, selfTest, flashcards });
 
-/** Step 7.6: one part of a long lecture. */
+/** One part of a long lecture. */
 export const PartAnswer = obj({
   modulesUsed: list(z.enum(MODULES)),
   sections: list(SectionAnswer),
@@ -124,16 +124,16 @@ export const PartAnswer = obj({
   unclear: rest.unclear,
 });
 
-/** Step 7.6: the wrap-up after the merge. */
+/** The wrap-up after the merge. */
 export const WrapUpAnswer = obj({ title: str, takeaways, selfTest, flashcards });
 
-/** Step 7.9: Extend's two lists, the JSON inside the generate answer's `extend` string (summary-schema.ts EXTEND_FIELD). */
+/** Extend's two lists, the JSON inside the generate answer's `extend` string (summary-schema.ts EXTEND_FIELD). */
 export const ExtendLists = obj({
   alreadyCovered: list(obj({ anchor: str, quote: str, note: str, t: str })),
   corrections: list(obj({ anchor: str, said: str, t: str })),
 });
 
-/** Step 7.9: the exam pack. */
+/** The exam pack. */
 export const ExamPackAnswer = obj({
   title: str,
   topics: list(
@@ -148,7 +148,7 @@ export const ExamPackAnswer = obj({
   flashcards,
 });
 
-/** Step 7.5: the faithfulness check's verdicts. */
+/** The faithfulness check's verdicts. */
 export const VerifyAnswer = obj({ items: list(obj({ id: str, verdict: z.enum(VERDICTS), replacement: str })) });
 
 /** A stored block (unpacked): its type and its type's fields; a "From your notes" block also carries the notes, copied by code. */
@@ -162,7 +162,7 @@ const storedBlock = z.discriminatedUnion(
   ) as unknown as [z.ZodObject, ...z.ZodObject[]],
 );
 
-/** The summary as stored in summaries.result (step 7.5's schema check, also on saved outputs). */
+/** The summary as stored in summaries.result (the quality checks' schema check, also on saved outputs). */
 export const StoredSummaryShape = z.object({
   format: z.literal(SUMMARY_FORMAT),
   subjectType: z.enum(SUBJECT_TYPES),
@@ -206,7 +206,7 @@ export function checkBlock(type: BlockType, data: unknown, path: string): { ok: 
 
 /** A field's type in words, for the prompt. */
 function describe(s: Record<string, unknown>): string {
-  // A field's description (8.2: the function plot's grammar) follows its type, in parentheses.
+  // A field's description (e.g. the function plot's grammar) follows its type, in parentheses.
   const note = typeof s.description === 'string' ? ` (${s.description})` : '';
   if (Array.isArray(s.enum)) return (s.enum as string[]).map((v) => `"${v}"`).join(' | ') + note;
   if (s.type === 'array') return `[${describe(s.items as Record<string, unknown>)}]${note}`;

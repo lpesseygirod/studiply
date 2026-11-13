@@ -80,7 +80,7 @@ function checkPassword(password: string): void {
 // Creates the account; Supabase emails a 6-digit code. The profile row is
 // created by the database trigger from `display_name`.
 // -------------------------------------------------------------------
-// Step 10.1b-2: `acceptance` (both boxes ticked: the texts' version, 16 or older) goes in the
+// `acceptance` (both boxes ticked: the texts' version, 16 or older) goes in the
 // metadata; the new-user trigger saves it with the server's time.
 export async function signUp(
   name: string,
@@ -246,7 +246,7 @@ export async function getCachedProfile(user: User): Promise<Profile> {
 // deleteAllUserData
 // Removes everything this device stores for the user, then signs out.
 // Deleting the Supabase account itself needs a server function and comes
-// with account deletion in step 10.1.
+// with Delete account (account.service).
 // -------------------------------------------------------------------
 export async function deleteAllUserData(userId: string): Promise<void> {
   await deleteLocalUserData(userId);

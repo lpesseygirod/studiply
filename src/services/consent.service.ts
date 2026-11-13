@@ -1,6 +1,6 @@
 /**
  * consent.service.ts
- * Asking before anything is sent to an AI service (Apple guideline 5.1.2(i); step 10.1). The Edge
+ * Asking before anything is sent to an AI service (Apple guideline 5.1.2(i)). The Edge
  * Functions refuse without an ai_consent row of the current policy version that isn't withdrawn;
  * this asks the student with the consent screen (components/consent: desktop-09, iphone-12) and
  * records the answer.

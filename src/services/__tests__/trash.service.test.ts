@@ -106,7 +106,7 @@ describe('permanentlyDelete', () => {
   });
 });
 
-describe('getTrashItems (step 3.5)', () => {
+describe('getTrashItems', () => {
   it('real kinds and places; what went with its folder is inside it', async () => {
     answer('courses', { data: [{ id: 'math', name: 'Math', deleted_at: null }] });
     answer('folders', {

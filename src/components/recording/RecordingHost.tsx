@@ -7,9 +7,9 @@ import { recorder } from '../../services/recorder';
 import { recordingFlow } from '../../services/recording.service';
 
 /**
- * Runs once in the app's shell (step 5.3), never with a screen:
+ * Runs once in the app's shell, never with a screen:
  *  - after sign-in, looks for a recording the app lost (a reload, a crash)
- *    and sends whatever is still waiting (5.2 recovery); the strip or the
+ *    and sends whatever is still waiting (the recovery); the strip or the
  *    pill then offers Continue · Finish;
  *  - in the browser, closing or reloading the tab while recording asks
  *    first (the browser's own question).

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b: the quiz calculator (supabase/functions/_shared/quiz-plan.ts): the 10 sliders as
+// The quiz calculator (supabase/functions/_shared/quiz-plan.ts): the 10 sliders as
 // numbers, the mix where Definitions, Calculations and Theory vs practice pull against each other,
 // Exam focus and My weak spots, the wrong answers that come back, the types (with a past exam's
 // format), the preview line. Table tests, as summaryPlan.test.ts.
@@ -328,7 +328,7 @@ describe('lectures, time and the preview line', () => {
   });
 });
 
-describe('step 9.1b-2: several past exams as one format', () => {
+describe('several past exams as one format', () => {
   it('their average length (rounded half up) and their types summed; none read: null', () => {
     expect(
       mergeFormats([

@@ -1,6 +1,6 @@
 /**
  * libraryGrid.ts
- * The Finder-style course view (step 3.2): sorting a level's items and the
+ * The Finder-style course view: sorting a level's items and the
  * short line under each tile. Pure, so it is unit tested.
  */
 

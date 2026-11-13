@@ -113,7 +113,7 @@ describe('mergeEdit', () => {
     expect(viaB.result.summary).toBe('from b');
   });
 
-  it('a note from before step 1.8 counts as written by the AI when it was created', () => {
+  it('a note from before per-block authors counts as written by the AI when it was created', () => {
     const old = note();
     expect(blockMeta(old, 'summary', CREATED)).toEqual({ origin: 'ai', editedAt: '2026-10-20T09:00:00.123Z', device: null });
     // Changed on the server without block times (an old app version): any later edit wins.

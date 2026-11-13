@@ -1,4 +1,4 @@
-// Search online (step 3.5): the database's search_library, mapped to hits.
+// Search online: the database's search_library, mapped to hits.
 import { reportReachable, resetConnectivityForTests } from '../../lib/connectivity';
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { searchLibrary } from '../search.service';

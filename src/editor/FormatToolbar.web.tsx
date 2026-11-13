@@ -76,8 +76,8 @@ const STYLE_LOOK: Record<TextStyleKey, object> = {
 };
 
 /**
- * The laptop's formatting toolbar (steps 4.4, 4.5; the simplicity pass
- * before 4.6). One row in groups with separators: undo, redo · Text (style,
+ * The laptop's formatting toolbar (after the simplicity pass). One row
+ * in groups with separators: undo, redo · Text (style,
  * font, size) · Format (B I U, text colour, highlight) · Paragraph (lists,
  * Align ▾, Spacing ▾) · Insert ▾ (link, image, table, formula, comment, page
  * break) · View ▾ (Pages / Pageless, zoom); ⌄ opens a second row with what
@@ -98,7 +98,7 @@ export function FormatToolbar({
   onImage?: () => void;
   /** A comment on the selected words. */
   onComment?: () => void;
-  /** Pages or Pageless and the zoom (step 4.5b): the chosen ones, the zoom shown, and the setter. */
+  /** Pages or Pageless and the zoom: the chosen ones, the zoom shown, and the setter. */
   view?: ViewPrefs & { shown: number; set: (change: Partial<ViewPrefs>) => void };
 }) {
   const styles = useThemedStyles(makeStyles);
@@ -124,7 +124,7 @@ export function FormatToolbar({
     return () => dom.removeEventListener(LINK_EVENT, onLink);
   });
 
-  // The selection bar's Callout ▸ / Mark ▸ / Time ▸ (after 4.6): the same menus as Insert ▾, under the button.
+  // The selection bar's Callout ▸ / Mark ▸ / Time ▸: the same menus as Insert ▾, under the button.
   useEffect(() => {
     const dom = editor.view.dom;
     const onMenu = (e: Event) => {
@@ -159,13 +159,13 @@ export function FormatToolbar({
     setMenu(null);
     setSpectrum(false);
   };
-  // A graph (step 4.7d): an example to replace, its form open under it.
+  // A graph: an example to replace, its form open under it.
   const insertGraph = () => {
     if (!runFormat(editor, { type: 'graph', action: 'insert' })) return;
     const g = selectedGraph(editor.state);
     if (g) askGraphForm(editor.view, g.pos);
   };
-  // A timestamp by hand (step 4.6): the time in the recording ("4:12").
+  // A timestamp by hand: the time in the recording ("4:12").
   const askTimestamp = async () => {
     const text = await promptText('Timestamp', { message: 'The time in the recording, for example 4:12.', placeholder: '4:12', confirmLabel: 'Insert' });
     if (text === null) return;
@@ -273,7 +273,7 @@ export function FormatToolbar({
     </Text>
   );
 
-  // The colour picker (step 4.5): the grid, or the spectrum after More colours…
+  // The colour picker: the grid, or the spectrum after More colours…
   const chooser = (kind: 'color' | 'highlight') => {
     const current = kind === 'color' ? s.color : s.highlight && s.highlight !== 'default' ? s.highlight : null;
     const pick = (colour: string | null) => {
@@ -303,7 +303,7 @@ export function FormatToolbar({
   const alignNow = ALIGNS.find((a) => a.key === s.align) ?? ALIGNS[0];
   const viewText = view ? `${view.pages ? 'Pages' : 'Pageless'} · ${percent(view.shown)}` : '';
 
-  // The simplicity pass (Lea, before 4.6): five groups with separators,
+  // The simplicity pass (Lea): five groups with separators,
   // Text · Format · Paragraph · Insert · View, after undo and redo; the
   // rarely used tools behind ⌄. What doesn't fit a narrow window moves there too.
   const primary: Item[] = [

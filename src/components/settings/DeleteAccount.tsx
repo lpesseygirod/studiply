@@ -15,7 +15,7 @@ import { showAlert } from '../dialogs/dialogs';
 const OFFLINE_HINT = 'Deleting your account needs a connection';
 
 /**
- * Delete account… (step 10.1; App Review 5.1.1(v)): the Account page's red card (`row`, both devices)
+ * Delete account… (App Review 5.1.1(v)): the Account page's red card (`row`, both devices)
  * and the iPhone's Settings list under Sign out (`link`, iphone-07). It opens one page: what goes (on
  * every device, can't be undone; this iPhone's changes not synced yet too), a field where she types
  * DELETE (works for Apple accounts, which have no password), Cancel and Delete account (red, greyed

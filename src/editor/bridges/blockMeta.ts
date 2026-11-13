@@ -4,7 +4,7 @@ import { BlockMeta } from '../schema/blockMeta';
 import type { DocJSON } from '../types';
 
 /**
- * Block ids and origins on the iPhone (step 4.3): the WebView runs the same
+ * Block ids and origins on the iPhone: the WebView runs the same
  * plugin, and native loads a document or takes the other device's changes
  * through these messages (TenTap's own setContent would count as the
  * student typing everything).

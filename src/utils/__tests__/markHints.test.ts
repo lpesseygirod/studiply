@@ -1,4 +1,4 @@
-// Step 5.5: the mark panel's hint follows the level's band (SUMMARY-SPEC
+// The mark panel's hint follows the level's band (SUMMARY-SPEC
 // "What each mark does": 1–3, 4–7, 8–10), and the 1–10 slider's arithmetic.
 import { levelAfterKey, levelAt, markBand, markHint, MARK_TEXT } from '../markHints';
 

@@ -12,7 +12,7 @@ import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 /** Where a question comes from, as its chip says: "Lecture 3 · 06:40", "Slides.pdf · p. 12" (the iPhone: "open at p. 12"). */
 export function sourceChipText(q: Pick<TakeQuestion, 'source_ms' | 'source_page'>, file: SourceFile | undefined): string | null {
   if (!file) return null;
-  // The 9.1 self-test chip's times (clockText): "06:40".
+  // The summary self-test chip's times (clockText): "06:40".
   if (file.kind === 'lecture') return q.source_ms !== null ? `${file.title} · ${clockText(clock(q.source_ms))}` : file.title;
   // The iPhone's preview opens a PDF at its start: the chip names the page to go to (Lea's decision 2).
   if (q.source_page && file.kind === 'pdf') return `${file.title} · ${Platform.OS === 'web' ? '' : 'go to '}p. ${q.source_page}`;

@@ -1,13 +1,13 @@
 /**
  * summary-checks.ts
- * The summary's quality checks (step 7.5; SUMMARY-SPEC "Quality checks before the summary is shown"),
+ * The summary's quality checks (SUMMARY-SPEC "Quality checks before the summary is shown"),
  * in code wherever possible, and what is done when one fails:
  *
  *  - schema: zod on the stored summary;
  *  - notes coverage (every note line in a "From your notes" block) and marks coverage (every mark at
  *    least as a chip): fixed by code, the note or chip put in the section at its time (no Claude call:
  *    the notes are copied by code anyway; advisor decision, 31 Oct);
- *  - the marks' effects (7.2): high Important a takeaway, high Exam a self-test question and a
+ *  - the marks' effects: high Important a takeaway, high Exam a self-test question and a
  *    flashcard, mid/high Confused a "You were confused here" block; missing → a part call;
  *  - length: the words Claude wrote (takeaways, sections, glossary; not the notes, self-test,
  *    flashcards or header), 85–115 % of the target, up to 120 % with a high-band mark;
@@ -15,7 +15,7 @@
  *    assistant's answers), Spanish and English number formats and words, LaTeX normalised; what code
  *    can't find goes to one verify call (found / corrected / added), never auto-failed;
  *  - language: stopword ratios, no dependency;
- *  - step 8.2: each data chart value is a number for faithfulness; one still not found after the verify
+ *  - charts and photos: each data chart value is a number for faithfulness; one still not found after the verify
  *    call is taken out of its chart and listed under unclear (a chart left with < 2 values goes); the
  *    photos given are put once each in the section at their time, by code;
  *  - Lea, 6 Nov: a graph redrawn from a photo (fromPhoto) must name a photo given, at Visuals 5+ with
@@ -34,8 +34,11 @@ import { ListsAnswer, SectionAnswer, StoredSummaryShape, VerifyAnswer, blockGuid
 
 export const MAX_PART_CALLS = 3;
 export const PART_MAX_TOKENS = { section: 4_000, lists: 3_000, verify: 2_000 } as const;
-/** Rough costs on Opus 5.5 (the plan's), for the evaluation's estimates. */
-export const PART_COST_USD = { section: 0.045, lists: 0.03, verify: 0.06 } as const;
+/**
+ * Rough costs of one part written again, for the evaluation's estimates: the plan's Opus 5.5 figures
+ * halved for Sonnet 5.5 (half the price per token; summaries on Sonnet since Lea, 12 Nov).
+ */
+export const PART_COST_USD = { section: 0.023, lists: 0.015, verify: 0.03 } as const;
 /** A block shorter than this isn't judged for its language (too few words to tell). */
 const LANGUAGE_MIN_WORDS = 12;
 
@@ -121,7 +124,7 @@ export function fixMarks(s: StoredSummary, m: LectureMaterial): { summary: Store
 
 export type EffectNeed = 'takeaway' | 'selfTest' | 'flashcard' | 'confusedHere';
 
-/** The marks' effects (7.2) the summary doesn't carry out. Flashcards have no mark id: counted. */
+/** The marks' effects the summary doesn't carry out. Flashcards have no mark id: counted. */
 export function missingEffects(s: StoredSummary, plan: SummaryPlan): { markId: string; need: EffectNeed }[] {
   const out: { markId: string; need: EffectNeed }[] = [];
   const takeaways = new Set(((s.takeaways ?? []) as Lists['takeaways']).flatMap((t) => t.fromMarkIds));
@@ -389,7 +392,7 @@ export interface ChartValue {
 }
 
 /**
- * Step 8.2: every data chart's values (BUILD-PLAN: "data charts only from numbers in the transcript"),
+ * Every data chart's values (BUILD-PLAN: "data charts only from numbers in the transcript"),
  * except a chart redrawn from one of `photos` (Lea, 6 Nov: read off the photo).
  */
 export function chartValues(s: StoredSummary, photos?: Set<string>): ChartValue[] {
@@ -412,7 +415,7 @@ export function chartValues(s: StoredSummary, photos?: Set<string>): ChartValue[
 const valueFound = (y: number, src: Sources, confirmed: Set<string>) => src.numbers.has(round(y)) || confirmed.has(`number:${y}`);
 
 /**
- * Step 8.2: a chart value neither found in the lecture by code nor confirmed by the verify call (or
+ * A chart value neither found in the lecture by code nor confirmed by the verify call (or
  * corrected by it) is taken out of its chart and listed under unclear; a series left empty goes, and
  * a chart with fewer than 2 values (left, or as written) goes. Nothing else is changed. A chart redrawn
  * from one of the lecture's photos is left to fixPhotoCharts.
@@ -538,10 +541,10 @@ export function fixPhotoCharts(s: StoredSummary, m: LectureMaterial, allowed: bo
   return { summary: changed ? out : s, kept, approxValues, removed, moved, cleared };
 }
 
-// ---------- photos at their time (8.2) ----------
+// ---------- photos at their time ----------
 
 /**
- * Step 8.2: every photo the summary was given (photos ticked) once, in the section whose time holds its
+ * Every photo the summary was given (photos ticked) once, in the section whose time holds its
  * own: a missing one added at the end of that section (no caption), a misplaced one moved to the end of
  * it with its caption, a second copy or an id it wasn't given left out. Its time is the photo's own.
  */
@@ -584,7 +587,7 @@ export function faithfulness(s: StoredSummary, src: Sources): { checked: number;
   let checked = 0;
   const add = (kind: Unverified['kind'], value: string, path: string, text: string) =>
     unverified.push({ id: `u${unverified.length + 1}`, kind, value, path, sentence: sentenceOf(text, value) });
-  // Step 8.2: each data chart value, found in the lecture's numbers (else to the verify call).
+  // Each data chart value, found in the lecture's numbers (else to the verify call).
   for (const v of chartValues(s, src.photos)) {
     checked += 1;
     if (!src.numbers.has(round(v.y))) unverified.push({ id: `u${unverified.length + 1}`, kind: 'number', value: v.value, path: v.path, sentence: v.sentence });
@@ -616,7 +619,7 @@ export function faithfulness(s: StoredSummary, src: Sources): { checked: number;
 
 // ---------- language ----------
 
-/** Each language's function words (step 9.1b-2 also leaves them out of a quiz answer's content words). */
+/** Each language's function words (the quiz also leaves them out of an answer's content words). */
 export const STOPWORDS: Record<string, string[]> = {
   // "no", "si", "qué", "tras", "otra" are Spanish too (without them a Spanish block sharing el / la / en with Catalan could read as Catalan).
   es: ['el', 'la', 'los', 'las', 'de', 'del', 'que', 'qué', 'y', 'en', 'un', 'una', 'es', 'no', 'si', 'por', 'con', 'para', 'se', 'su', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'este', 'sí', 'porque', 'esta', 'entre', 'cuando', 'muy', 'sin', 'sobre', 'también', 'hay', 'son', 'tras', 'otra', 'otro'],
@@ -690,9 +693,9 @@ export interface CheckReport {
   length: { pass: boolean; words: number; target: number; min: number; max: number };
   faithfulness: { pass: boolean; checked: number; found: number; unverified: Unverified[]; corrected: number; labelled: number };
   language: { pass: boolean; expected: string | null; detected: string | null; offBlocks: { section: number; block: number; detected: string }[] };
-  /** Step 8.2 (not in older reports): data chart values (checked in faithfulness); `removed` / `chartsRemoved` by fixCharts. */
+  /** Not in older reports: data chart values (checked in faithfulness); `removed` / `chartsRemoved` by fixCharts. */
   charts?: { values: number; removed: string[]; chartsRemoved: number };
-  /** Step 8.2 (not in older reports): the photos given, once each in the section at their time (fixed by code). */
+  /** Not in older reports: the photos given, once each in the section at their time (fixed by code). */
   photos?: { pass: boolean; total: number; misplaced: string[]; fixedByCode: string[] };
   /**
    * Lea, 6 Nov (not in older reports): the graphs redrawn from photos (fixPhotoCharts). As checked: what
@@ -708,7 +711,7 @@ export interface CheckOptions {
   hasHighMarks: boolean;
   /** False for an output saved before its fixture had stable mark ids (the marks can't be compared). */
   marksComparable?: boolean;
-  /** Step 8.2: the photos were ticked (each must be in the summary); default false. */
+  /** The photos were ticked (each must be in the summary); default false. */
   photos?: boolean;
   /** Lea, 6 Nov: graphs may be redrawn from the photos (sent with the images consent); default: photos ticked and the plan's visualsFromPhotos. */
   photoCharts?: boolean;
@@ -924,7 +927,7 @@ export function listsPartPrompt(baseSystem: string, s: StoredSummary, part: Extr
 
 /**
  * The lecture lines the verify call reads: the windows (±30 s) of the sections holding the items
- * (step 7.6: a long lecture isn't sent whole); the whole transcript when an item is outside a section
+ * (a long lecture isn't sent whole); the whole transcript when an item is outside a section
  * (a takeaway, the glossary, the self-test…) or without the summary.
  */
 export function verifySegments(part: Extract<Part, { kind: 'verify' }>, m: LectureMaterial, s?: StoredSummary): TimedSegment[] {
@@ -985,7 +988,7 @@ export function applyVerdicts(s: StoredSummary, items: Unverified[], verdicts: {
   const out = clone(s);
   let corrected = 0;
   let labelled = 0;
-  // Step 8.2: chart values the verify call corrected (fixCharts keeps them as confirmed).
+  // Chart values the verify call corrected (fixCharts keeps them as confirmed).
   const confirmed: string[] = [];
   const moves: { section: number; block: number; sentences: string[] }[] = [];
   for (const v of verdicts) {

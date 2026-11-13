@@ -17,7 +17,7 @@ import { TimestampChipBridge } from './timestampChip';
 import { LiveStampsBridge } from './liveStamps';
 
 /**
- * The one list that makes Studiply's document schema (step 4.2).
+ * The one list that makes Studiply's document schema.
  *
  * - iPhone: the app hands it to TenTap (`useEditorBridge`), and the WebView
  *   bundle (editor-web/) runs the same list.
@@ -27,7 +27,7 @@ import { LiveStampsBridge } from './liveStamps';
  *
  * TenTap's sources (not its prebuilt web bundle, which carries a second copy
  * of ProseMirror) are used, so tables and the chip share one ProseMirror.
- * Studiply's photos (step 4.5) take the place of TenTap's image.
+ * Studiply's photos take the place of TenTap's image.
  */
 export const studiplyBridges = [...TenTapStartKit.filter((b) => b !== ImageBridge), PhotoBridge, TimestampChipBridge, LiveStampsBridge, TableBridge, MathBridge, StudyBlocksBridge, CommentBridge, SpacingBridge, PasteReportBridge, FormatBridge, BlockMetaBridge, ExportBridge];
 

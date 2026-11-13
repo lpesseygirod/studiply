@@ -1,8 +1,8 @@
 /**
  * courseSettings.service.ts
- * A course's settings screen (step 9.2-2; the approved plan, docs/reports/plan-9.2.md): the exam date
+ * A course's settings screen (the approved plan, docs/reports/plan-9.2.md): the exam date
  * and format, the summary language, the 10 summary slider defaults and the course's study reminders
- * default (9.2-1). No subject type: Claude identifies each lecture's subject (Lea, 9 Nov).
+ * default. No subject type: Claude identifies each lecture's subject (Lea, 9 Nov).
  *
  * Online only, on both devices: offline it says so and nothing can be changed. Each field is saved on
  * its own. The iPhone's copy of the row is replaced by the saved one at once, so its review plan (the

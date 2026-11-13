@@ -10,7 +10,7 @@ const MAX_SIDE = 2048;
 const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
 
 /**
- * A picture that can be transparent, drawn on white (step 4.8b) into a PNG in the cache; null for one
+ * A picture that can be transparent, drawn on white into a PNG in the cache; null for one
  * that can't be (a camera photo), or a file that can't be read here (then it is converted as it is).
  */
 async function onWhite(uri: string): Promise<string | null> {
@@ -36,7 +36,7 @@ async function onWhite(uri: string): Promise<string | null> {
 // because Claude can't read HEIC. A picture that can be transparent (a PNG
 // logo, a GIF) is first drawn on white (in the editor bundle's WebView:
 // React Native has no canvas), since a JPEG has no transparency and its
-// transparent pixels would turn black (step 4.8b). Returns a new local URI.
+// transparent pixels would turn black. Returns a new local URI.
 // -------------------------------------------------------------------
 export async function toJpeg(
   uri: string,

@@ -8,7 +8,7 @@ import type { GraphData } from '../graph/data';
 import { useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * The iPhone's graph form (step 4.7d): a sheet over the lower part of the
+ * The iPhone's graph form: a sheet over the lower part of the
  * screen, like the formula sheet; the graph above it redraws as the student
  * types. Tapping above the sheet closes it, like Done.
  */

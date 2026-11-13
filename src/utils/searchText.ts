@@ -1,6 +1,6 @@
 /**
  * searchText.ts
- * How Search matches and shows text (step 3.5), pure so it is tested.
+ * How Search matches and shows text, pure so it is tested.
  *
  * normalize() is the app's copy of the database's search.norm(): lower case,
  * no accents, no Catalan middle dot, so "filogenetico" finds "filogenético"

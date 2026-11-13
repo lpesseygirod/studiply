@@ -1,6 +1,6 @@
 /**
  * apple-auth.ts
- * Sign in with Apple (step 10.1): the iPhone's is apple-auth.ios.ts, the laptop's apple-auth.web.ts.
+ * Sign in with Apple: the iPhone's is apple-auth.ios.ts, the laptop's apple-auth.web.ts.
  * Elsewhere (Android, not a target) it isn't offered. Same exports as both.
  */
 

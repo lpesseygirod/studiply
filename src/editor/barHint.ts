@@ -2,7 +2,7 @@ import { DarkColors } from '../constants/colors';
 
 /**
  * A name on every button of the bars drawn inside the document (table,
- * photo, selected text), both editors (the simplicity pass before 4.6):
+ * photo, selected text), both editors (the simplicity pass):
  * - with a mouse (laptop): after a moment's hover, a small dark label under
  *   the button, "Bold ⌘B" (the shortcut only where there is a keyboard);
  * - on a touch screen (the iPhone): a long press shows the name over the

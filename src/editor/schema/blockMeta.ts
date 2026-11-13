@@ -6,7 +6,7 @@ import { Mapping } from '@tiptap/pm/transform';
 import type { DocJSON } from '../types';
 
 /**
- * Every top-level block of a document knows who wrote it (step 4.3):
+ * Every top-level block of a document knows who wrote it:
  *
  * - `blockId`: a stable id, so two devices can merge a document block by
  *   block (src/editor/docBlocks.ts) and the regeneration of a summary can
@@ -37,7 +37,7 @@ export const BLOCK_TYPES = ['paragraph', 'heading', 'image', 'bulletList', 'orde
 export const SYSTEM_META = 'studiplySystem';
 
 /**
- * Transaction meta (step 6.3): ids of new blocks the student put in that keep the origin they come
+ * Transaction meta: ids of new blocks the student put in that keep the origin they come
  * with: the study assistant's boxes (`ai`), added by the student's press, so in Undo like any edit.
  * Every other block of that transaction is the student's as usual (an accepted rewrite is hers).
  */

@@ -60,7 +60,7 @@ export function Sidebar({ kind, showUndo }: { kind: ScreenKind; showUndo: ShowUn
       else if (item.type === 'folder' && item.id === location?.folderId) router.navigate(`/project/${item.courseId}`);
     },
   });
-  // Drag and drop (step 3.3): courses, folders and Trash take drops; the tree's items can be dragged.
+  // Drag and drop: courses, folders and Trash take drops; the tree's items can be dragged.
   const dnd = useLibraryDrop({ showUndo });
   const trashDrop = useDropZone(TRASH, dnd);
 

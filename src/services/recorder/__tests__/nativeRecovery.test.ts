@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Steps 5.1–5.2, iPhone half: the recorder service as the iPhone runs it —
+// The recorder service as the iPhone runs it —
 // lib/nativeChunkRecorder on stand-in expo-audio recorders, the recording
 // kept in AsyncStorage (./nativeStore, the package's in-memory mock), the
 // real queue lanes. The app is killed mid-chunk while offline: the finished

@@ -1,6 +1,6 @@
 /**
  * recording-reminder.ts
- * Step 10.1: before the first recording (once per account, on either device), a reminder to check
+ * Before the first recording (once per account, on either device), a reminder to check
  * that recording is allowed in the class. Shown before the microphone question and the AI consent
  * screen (recording.service). The same sentence stays readable under Settings → Recording.
  */

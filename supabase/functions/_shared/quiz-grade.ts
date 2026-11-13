@@ -1,6 +1,6 @@
 /**
  * quiz-grade.ts
- * Step 9.1b-3: grading a quiz answer in code (the approved plan §2), the same on the iPhone (offline
+ * Grading a quiz answer in code (the approved plan §2), the same on the iPhone (offline
  * too), the laptop and the server. Without imports, so the app, Jest and the quiz function use it.
  *
  * | Type | Right | Partly | Points |

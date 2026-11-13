@@ -44,7 +44,7 @@ let live = false;
 async function pullOne(userId: string, tbl: CachedTable): Promise<number> {
   const sinceKey = `${userId}:pull:${tbl}`;
   const cursor = cursorColumn(tbl);
-  // Step 9.2: a course's settings are identified by their course_id.
+  // A course's settings are identified by their course_id.
   const key = idColumn(tbl);
   return pullTable<CacheableRow>({
     cursor,

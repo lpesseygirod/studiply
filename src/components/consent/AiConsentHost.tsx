@@ -15,7 +15,7 @@ import { LegalSheet } from '../legal/LegalSheet';
 import { CONSENT_AGREE, CONSENT_INTRO, CONSENT_NO_TRAINING, CONSENT_SERVICES } from './consentTexts';
 
 /**
- * The AI consent screen (step 10.1; App Review guideline 5.1.2(i)), before anything is sent to an AI
+ * The AI consent screen (App Review guideline 5.1.2(i)), before anything is sent to an AI
  * service: what goes where (audio → ElevenLabs; transcript, notes, marks, slides and photos →
  * Anthropic), not used for training, withdraw any time.
  * - Laptop (desktop-09): a white card on the gradient, the logo, a checkbox "I agree…" that enables
@@ -23,7 +23,7 @@ import { CONSENT_AGREE, CONSENT_INTRO, CONSENT_NO_TRAINING, CONSENT_SERVICES } f
  * - iPhone (iphone-12): full screen on the gradient, the rows as white cards, Allow and continue and
  *   Not now at the bottom; the button is the explicit act (no checkbox, as the mockup).
  * Escape is Not now on the laptop. Mounted once in app/_layout.tsx.
- * Step 10.1b-1: "Privacy policy" (beside the checkbox; on the iPhone under the rows) opens the
+ * "Privacy policy" (beside the checkbox; on the iPhone under the rows) opens the
  * policy in a LegalSheet over the screen, and closing it comes back to the same choice.
  */
 export function AiConsentHost() {
@@ -39,7 +39,7 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
   const insets = useSafeAreaInsets();
   const wide = useLayoutMode() === 'wide';
   const [agreed, setAgreed] = useState(false);
-  // Step 10.1b-1: the privacy policy, read over the consent screen (its Escape closes only it).
+  // The privacy policy, read over the consent screen (its Escape closes only it).
   const [reading, setReading] = useState(false);
   const readingRef = useRef(false);
   useEffect(() => {
@@ -148,7 +148,7 @@ function ConsentScreen({ request }: { request: ConsentRequest }) {
               <View style={styles.noTrainingPhone}>
                 <Text style={styles.noTrainingText}>{CONSENT_NO_TRAINING}</Text>
               </View>
-              {/* Not in iphone-12: the link the policy needs (step 10.1b-1). */}
+              {/* Not in iphone-12: the link the policy needs. */}
               <Text style={styles.phoneLink} accessibilityRole="link" onPress={() => setReading(true)} {...{ dataSet: { consent: 'privacy' } }}>
                 Privacy policy
               </Text>

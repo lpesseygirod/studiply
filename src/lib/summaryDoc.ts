@@ -1,5 +1,5 @@
 /**
- * Step 7.7: a summary (summaries.result, studiply-summary-v1) as the Summary tab's document, and a
+ * A summary (summaries.result, studiply-summary-v1) as the Summary tab's document, and a
  * summary written again merged into a tab without touching what the student edited. Pure (no editor,
  * no network), so the iPhone converts it in the app's own JS and both devices give the same document.
  *
@@ -13,13 +13,13 @@
  * - Block ids are made from the summary's id and the block's place (`sm<8>-…`): converting the same
  *   summary twice (two devices at once) gives the same document, and a generated block can be told
  *   from one the student added.
- * - Step 8.2: function plots, model graphs and data charts (line, bar, stacked bar, histogram) are each a
+ * - Function plots, model graphs and data charts (line, bar, stacked bar, histogram) are each a
  *   `graph` block of their own kind (editor/graph/data.ts), drawn by the charts module; a kind it doesn't
  *   draw yet shows its line in its place. A data chart with no series is still a placeholder line.
  * - Lea, 6 Nov: pie and scatter charts too; a graph redrawn from a photo (`fromPhoto`) is followed by the
  *   photo, small (the board photos' 35 %, `media`), and "Redrawn from your photo at mm:ss — check the
  *   values" (`ai`), in place of the photo full size; a value read between gridlines shows as "≈7.5".
- * - Step 8.1: the twelve text modules (timeline, cause → effect, key figures, comparison, process,
+ * - The twelve text modules (timeline, cause → effect, key figures, comparison, process,
  *   framework, theory card, case card, argument, code, vocabulary, worked example) are each one
  *   `studyModule` block (editor/schema/studyModule.ts) holding ordinary lists, tables and paragraphs.
  */
@@ -63,10 +63,10 @@ export const WORDS = {
   cards: (n: number) => `${n} flashcard${n === 1 ? '' : 's'} saved for review`,
   notes: (u: number, t: number, mu: number, mt: number) => `${u} of ${t} lines and ${mu} of ${mt} marks used · shown in green as “From your notes”`,
   seeNotes: 'See them in My notes',
-  /** Step 8.1 (advisor): the first line when the lecture had no notes and no marks (no "All your notes…" box). */
+  /** The first line when the lecture had no notes and no marks (no "All your notes…" box; the advisor's). */
   noNotes: 'No notes or marks were taken in class',
   later: LATER,
-  // Step 8.1: the text modules' column headers and field names.
+  // The text modules' column headers and field names.
   keyFigures: ['Person', 'Role', 'What they did', 'Why it matters'],
   vocabulary: ['Term', 'Meaning', 'Example'],
   input: 'In',
@@ -109,7 +109,7 @@ const text = (t: string, marks?: Node['marks']): Node => ({ type: 'text', text: 
 const bold = (t: string) => text(t, [{ type: 'bold' }]);
 const chip = (ms: number): Node => ({ type: 'timestampChip', attrs: { ms } });
 const markChip = (kind: string, level: number): Node => ({ type: 'markChip', attrs: { kind, level } });
-/** The 7.2 plan's implicit signals (summary-plan.ts): a question to the assistant, a concept explained 3+ times. */
+/** The summary plan's implicit signals (summary-plan.ts): a question to the assistant, a concept explained 3+ times. */
 export const isImplicitMark = (markId: string) => markId.startsWith('assistant:') || markId.startsWith('repetition:');
 
 /** Claude's text: `**bold**` as bold, `$…$` as a formula; nothing else is read as markup. */
@@ -212,7 +212,7 @@ function convertBlock(b: Block, w: Words): { nodes: Node[]; origin?: Origin | Or
       if (s('whenToUse')) content.push(para([bold(`${w.whenToUse}: `), ...inline(s('whenToUse'))]));
       return { nodes: [{ type: 'formulaCard', attrs: { title: w.formula }, content }] };
     }
-    // Step 8.1: the twelve text modules, each one `studyModule` block (lists, tables, paragraphs inside).
+    // The twelve text modules, each one `studyModule` block (lists, tables, paragraphs inside).
     case 'workedExample': {
       const steps = arr<{ do: string; why: string }>('steps');
       return { nodes: textModule('workedExample', [labelled(w.problem, s('problem')), items(steps.map((x) => [p(x.do), ...(x.why ? [p(x.why)] : [])]), true), labelled(w.answer, s('answer'))]) };
@@ -281,13 +281,13 @@ function convertBlock(b: Block, w: Words): { nodes: Node[]; origin?: Origin | Or
       };
     }
     case 'code': {
-      // The code as code-marked lines, monospace (no syntax colours, advisor 8.1); its language in the label.
+      // The code as code-marked lines, monospace (no syntax colours, the advisor's choice); its language in the label.
       const lines = (value: string) => value.replace(/\n+$/, '').split('\n').map((line) => para(line ? [text(line, [{ type: 'code' }])] : []));
       return { nodes: textModule('code', [...(s('code') ? lines(s('code')) : []), ...(s('output') ? [para([bold(w.codeOutput)]), ...lines(s('output'))] : [])], s('language')) };
     }
     case 'conceptMap':
       return { nodes: [para([bold(s('center'))]), list(arr<{ from: string; to: string; label: string }>('links').map((l) => [text(`${l.from} → ${l.to}${l.label ? ` (${l.label})` : ''}`)]))] };
-    // Step 8.2: the visuals are graph blocks of their own kind; the charts module draws them (a function
+    // The visuals are graph blocks of their own kind; the charts module draws them (a function
     // or a model graph shows its line in its place until it does: editor/graph/charts.ts).
     case 'dataChart':
       return { nodes: [dataChart(b) ?? placeholder(`${s('title') || 'Chart'}`, w)] };
@@ -326,7 +326,7 @@ function table(rows: string[][], header: boolean): Node | null {
     })),
   };
 }
-/** A text module (step 8.1) with what it holds; nothing when it holds nothing. */
+/** A text module with what it holds; nothing when it holds nothing. */
 function textModule(kind: string, content: (Node | null)[], title = ''): Node[] {
   const kept = content.filter((c): c is Node => !!c);
   return kept.length ? [{ type: 'studyModule', attrs: { kind, ...(title.trim() && { title: title.trim() }) }, content: kept }] : [];
@@ -349,10 +349,10 @@ function gridTable(cells: { label: string; content: string }[]): Node | null {
 /** The photo a graph is redrawn from (Lea, 6 Nov: `fromPhoto`); "" when none. */
 const photoOf = (b: Block): string => (['dataChart', 'functionPlot', 'modelGraph'].includes(b.type) && typeof b.fromPhoto === 'string' ? b.fromPhoto.trim() : '');
 
-/** A graph block (4.7d) of a summary's kind; a function or a model graph keeps the table's defaults. */
+/** A graph block of a summary's kind; a function or a model graph keeps the table's defaults. */
 const graph = (kind: GraphKind, title: string, extra: Record<string, unknown>): Node => ({ type: 'graph', attrs: { kind, title, xLabel: '', yLabel: '', series: ['Series 1'], rows: [], ...extra } });
 
-/** A data chart as the graph block, of its own kind (8.2: stacked bars and histograms too), up to 3 series. */
+/** A data chart as the graph block, of its own kind (stacked bars and histograms too), up to 3 series. */
 function dataChart(b: Block): Node | null {
   const series = (Array.isArray(b.series) ? b.series : []) as { name: string; points: { x: string; y: number }[] }[];
   if (!series.length) return null;
@@ -372,12 +372,12 @@ export interface SummaryDocInput {
   summaryId: string;
   /** Each question during class's assistant message (its Full answer link), by place; null when not found. */
   questionLinks?: (string | null)[];
-  /** Step 7.9 (what a lecture adds to a summary): no notes check line, the first section's number, a tag on the lists' headings. */
+  /** What a lecture adds to a summary: no notes check line, the first section's number, a tag on the lists' headings. */
   check?: boolean;
   firstSection?: number;
   tag?: string;
   /**
-   * Step 7.9, a Unit summary: whose notes the line counts ("Lectures 1, 2"), in place of the link to My
+   * A Unit summary: whose notes the line counts ("Lectures 1, 2"), in place of the link to My
    * notes (a Unit summary's own first tab isn't her notes).
    */
   notesOf?: string;
@@ -418,7 +418,7 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [], check 
     // Chips are her own marks only: the implicit signals (a question to the assistant, a concept
     // explained 3+ times) shaped the section's content but must not look like marks she set.
     const chips = sec.markChips.filter((k) => !isImplicitMark(k.markId)).map((k) => markChip(k.type, k.level));
-    // Step 7.9: a section a lecture added is tagged with it ("4 · Lecture 2 · La sinapsis").
+    // A section a lecture added is tagged with it ("4 · Lecture 2 · La sinapsis").
     add(`s${si}`, { type: 'heading', attrs: { level: 2, cue: sec.cueQuestion || null }, content: [text(`${si + firstSection} · ${sec.lecture ? `${sec.lecture} · ` : ''}${sec.heading}`), ...(at !== null ? [text(' '), chip(at)] : []), ...(chips.length ? [text(' '), ...spaced(chips)] : [])] });
     const converted = sec.blocks.map((b) => convertBlock(b, w));
     // Lea, 6 Nov: a graph redrawn from a photo has the photo small under it (after the last one from it)
@@ -497,15 +497,15 @@ export function summaryToDoc({ summary: s, summaryId, questionLinks = [], check 
 // ---------- written again: merged around what she edited ----------
 
 const idOf = (b: Node) => (typeof b.attrs?.blockId === 'string' ? (b.attrs.blockId as string) : null);
-/** Whether a block carries a comment (hers, or Studiply's from a lecture added, 7.9) anywhere in it. */
+/** Whether a block carries a comment (hers, or Studiply's from a lecture added) anywhere in it. */
 const hasComment = (n: Node): boolean => !!n.marks?.some((m) => m.type === 'comment') || !!n.content?.some(hasComment);
-/** What Extend added to a summary (7.9): its blocks (`x…`) and Update callouts (`u…`). */
+/** What Extend added to a summary: its blocks (`x…`) and Update callouts (`u…`). */
 const EXTENDED = /^(x\d+-|u\d+$)/;
 
 /**
  * Kept when a summary is written again: a block she added (not generated) or changed (blockMeta dates
- * every edit, 4.3); a block carrying a comment (7.9: Studiply's comments are never lost); and what a
- * lecture added with Extend put there (7.9).
+ * every edit); a block carrying a comment (Studiply's comments are never lost); and what a
+ * lecture added with Extend put there.
  */
 export const isTouched = (b: Node) => {
   const path = generatedPath(idOf(b));
@@ -529,7 +529,7 @@ function anchorOf(b: Node): string | null {
 const noteIdsOf = (b: Node) => (b.type === 'callout' && b.attrs?.kind === 'fromNotes' && typeof b.attrs.noteIds === 'string' ? (b.attrs.noteIds as string).split(',').filter(Boolean) : []);
 
 /**
- * A summary written again into a tab that holds an earlier one (BUILD-PLAN 7.7: "Regenerating never
+ * A summary written again into a tab that holds an earlier one (BUILD-PLAN: "Regenerating never
  * overwrites blocks I edited"): the earlier summary's untouched blocks give way to the new one's;
  * every block she edited or added stays, at the end of the section it was in (matched by the
  * section's time, else its title; a section gone: the nearest earlier one that's still there). A

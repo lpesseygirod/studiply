@@ -6,7 +6,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } 
 import { SYSTEM_META } from './blockMeta';
 
 /**
- * Room to type around tables (step 4.5, test A: "I can't type after a table
+ * Room to type around tables (test A: "I can't type after a table
  * at the end of the document"), on both devices:
  *
  * - After a table there is always a block to type in, and the document never

@@ -1,4 +1,4 @@
-// Step 5.7 on the laptop (written at once): a plain document becomes a
+// On the laptop (written at once), a plain document becomes a
 // lecture without anything moving: a lectures row with its id, then its
 // kind; the first tab (the same row, content and versions) is My notes and
 // the other tabs follow the lecture's three; a renamed first tab takes the

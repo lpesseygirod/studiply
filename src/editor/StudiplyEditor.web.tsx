@@ -45,7 +45,7 @@ setPhotoResolver(editorPhotoSource);
 
 const SCOPE = 'studiply-editor';
 const CANVAS_PADDING = 24;
-/** The outline's column beside the page (step 4.7). */
+/** The outline's column beside the page. */
 const OUTLINE_W = 220;
 const SCROLLBAR_W = 16;
 // The page card gives the margins on the laptop; the text keeps room below.
@@ -67,7 +67,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
   const narrow = width < 600;
-  // Comments (step 4.5): a margin beside the page when the screen has room for both.
+  // Comments: a margin beside the page when the screen has room for both.
   const [activeComment, setActiveComment] = useState<string | null>(null);
   const [page, setPage] = useState<HTMLElement | null>(null);
   const photoFile = useRef(fileId);
@@ -103,7 +103,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     editable,
     immediatelyRender: true,
     shouldRerenderOnTransaction: true,
-    // The line being written keeps room above the page's bottom edge (the status line sits right under it, step 4.7):
+    // The line being written keeps room above the page's bottom edge (the status line sits right under it):
     // within 48 px of the edge the page scrolls it up to 64 px. Flush against the edge, a drag across it
     // makes the browser scroll the page under the mouse (its autoscroll edge), and the selection runs on.
     editorProps: { scrollThreshold: { top: 0, right: 0, left: 0, bottom: 48 }, scrollMargin: { top: 5, right: 5, left: 5, bottom: 64 } },
@@ -115,7 +115,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         handlers.current.onPaste?.(report);
       }
     },
-    // A tap on a chip plays, also on the chip already selected (step 5.4); the selection that
+    // A tap on a chip plays, also on the chip already selected; the selection that
     // follows it is then the same chip and doesn't play it twice.
     onTransaction: ({ transaction }) => {
       const tap = transaction.getMeta(CHIP_TAP) as ChipTap | undefined;
@@ -130,7 +130,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     },
   });
 
-  // The selection bar's "✦ Ask Claude" (step 6.3): the screen offers the actions under the button.
+  // The selection bar's "✦ Ask Claude": the screen offers the actions under the button.
   useEffect(() => {
     if (!editor) return;
     const dom = editor.view.dom;
@@ -140,7 +140,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   }, [editor]);
 
   // The editor exists from the first render (immediatelyRender); ready once mounted.
-  // The page's language (step 4.7d): graphs write Spanish decimals with a comma; also the spellchecker's language.
+  // The page's language: graphs write Spanish decimals with a comma; also the spellchecker's language.
   useEffect(() => {
     if (!editor) return;
     const lang = cleanLang(language);
@@ -181,7 +181,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     [editor],
   );
 
-  // Writing tools (step 4.7): the find bar (⌘F, ⌘⇧H with Replace), the outline (⌘⌥A), the word count.
+  // Writing tools: the find bar (⌘F, ⌘⇧H with Replace), the outline (⌘⌥A), the word count.
   const [find, setFind] = useState<{ replace: boolean; opened: number } | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const openFind = (replace: boolean) => setFind((f) => ({ replace, opened: (f?.opened ?? 0) + 1 }));
@@ -210,7 +210,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   marginShown.current = onCommentMargin;
   useEffect(() => marginShown.current?.(withMargin), [withMargin]);
 
-  // Pages and zoom (step 4.5b), kept on this laptop. In Pages (after test D) the white pages sit on
+  // Pages and zoom, kept on this laptop. In Pages (after test D) the white pages sit on
   // the app's gradient in the whole centre pane, which scrolls (no card, no box); Fit makes the
   // sheet as wide as the pane allows (at most 100 %).
   const [viewPrefs, setViewPrefs] = useViewPrefs('laptop');
@@ -256,7 +256,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
       />
     </View>
   );
-  // Live notes (step 5.4): new lines get the recording time while the lecture records.
+  // Live notes: new lines get the recording time while the lecture records.
   useEffect(() => setRecordingClock(editor, recordingClock ?? null), [editor, recordingClock]);
 
   const zoom = effectiveZoom(viewPrefs?.zoom ?? 'fit', viewPrefs?.pages ?? true, sheetRoom, sheet.width);
@@ -353,7 +353,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
               {editable && <GraphPopover editor={editor} />}
               {editable && <CommentPopovers editor={editor} wide={commentRoom} onActive={setActiveComment} />}
             </View>
-            {/* The status line (step 4.7), under the page and never over its text: "Page 3 of 12" (Pages), and the
+            {/* The status line, under the page and never over its text: "Page 3 of 12" (Pages), and the
                 word count, the selection's too when words are selected; a click gives the details. */}
             {editable && (
               <View style={styles.status} {...{ dataSet: { status: 'line' } }}>
@@ -406,12 +406,12 @@ const makeStyles = (c: ThemeColors) =>
     canvasContent: { paddingHorizontal: CANVAS_PADDING, paddingTop: 4, paddingBottom: 48 },
     sheetRow: { flexDirection: 'row', alignSelf: 'center', gap: COMMENT_MARGIN_GAP },
     sheetHeader: { paddingBottom: 12 },
-    // The page and, under it, the status line (step 4.7: outside the page, so it never covers text).
+    // The page and, under it, the status line (outside the page, so it never covers text).
     pageColumn: { flex: 1, minWidth: 0, gap: 8 },
     status: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingBottom: 8 },
     statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: c.card, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border },
     statusText: { fontSize: Typography.size.xs, color: c.text.secondary, fontVariant: ['tabular-nums'] },
-    // Writing tools (step 4.7).
+    // Writing tools.
     outline: { width: OUTLINE_W, flexShrink: 0, borderRadius: Layout.cardRadius.laptop, backgroundColor: c.card, overflow: 'hidden' },
     outlineOver: {
       position: 'absolute',

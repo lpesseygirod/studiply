@@ -8,7 +8,7 @@ import { useThemedStyles } from '../../theme/ThemeProvider';
 import { MARK_KINDS, type MarkKind } from '../../editor/schema/markChip';
 
 /**
- * A mark chip's kind and level (step 4.6), for putting one in or changing
+ * A mark chip's kind and level, for putting one in or changing
  * it, on both devices (the laptop's popover, the iPhone's sheet): Important ·
  * Confused · Exam in their chip colours, then the level 1–10.
  */

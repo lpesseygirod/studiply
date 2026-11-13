@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 4.4's blocks on a real editor (jsdom): Title, page breaks, line
+// The formatting blocks on a real editor (jsdom): Title, page breaks, line
 // spacing and indent, fonts and alignment, as both editors have them.
 import { Editor } from '@tiptap/core';
 
@@ -71,7 +71,7 @@ describe('line spacing, title, page break, fonts, align', () => {
     editor.commands.setTextSelection(editor.state.doc.content.size - 1);
     editor.commands.setPageBreak();
     expect(top().map((b) => b.type)).toEqual(['title', 'pageBreak', 'paragraph']);
-    // Both new blocks get their ids (step 4.3).
+    // Both new blocks get their ids.
     expect(top().every((b) => typeof b.attrs.blockId === 'string')).toBe(true);
     expect(editor.getHTML()).toContain('data-page-break');
   });

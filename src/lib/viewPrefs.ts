@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * How documents are shown on this device (step 4.5b): Pages or Pageless,
+ * How documents are shown on this device: Pages or Pageless,
  * and the zoom. Kept on the device (AsyncStorage, localStorage in the
  * browser), not in the document: the laptop starts with Pages at Fit (the
  * sheet fits the column, never above 100 %), the iPhone Pageless at 100 %.

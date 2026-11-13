@@ -1,4 +1,4 @@
-// Offline search on the iPhone (step 3.5): the same hits as search_library
+// Offline search on the iPhone: the same hits as search_library
 // (supabase/tests/database/11_search.test.sql), from cached rows.
 import type { CourseRow, FileRow, FolderRow, SegmentRow, SummaryRow } from '../../cloudRows';
 import { noteParts, searchRows, type SearchSource } from '../localSearch';

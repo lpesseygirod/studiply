@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  */
-// Step 7.4: the summary engine (supabase/functions/_shared/summary-pipeline.ts) with Claude faked:
-// alignment (±30 s), the classify answer, the prompts (the 7.2 plan's numbers, material in tags), the
+// The summary engine (supabase/functions/_shared/summary-pipeline.ts) with Claude faked:
+// alignment (±30 s), the classify answer, the prompts (the summary plan's numbers, material in tags), the
 // answer checked and stored (notes copied by code, unknown ids dropped, coverage), and the run (one
 // retry when unreadable or cut off, a refusal final, the cost logged once per call).
 import {
@@ -112,7 +112,7 @@ describe('the summary prompt', () => {
   const c = parseClassify(JSON.stringify(CLASSIFIED))!;
   const plan = planFor(m, REQUEST, c);
 
-  it('the 7.2 plan’s numbers and the rules', () => {
+  it('the summary plan’s numbers and the rules', () => {
     const system = summarySystemPrompt(m, plan, c);
     expect(system).toContain('Write in Spanish');
     expect(system).toContain(`about ${plan.length.targetWords} words`);
@@ -177,7 +177,7 @@ describe('checked and stored', () => {
     expect(s.appliedSettings).toEqual(plan.appliedSettings);
   });
 
-  it('a note left out shows in the coverage (7.5 asks again for it)', () => {
+  it('a note left out shows in the coverage (the quality pass asks again for it)', () => {
     const v = validSummary();
     v.sections[1].blocks[0] = { type: 'fromNotes', noteIds: [], t: '' } as never;
     const parsed = parseSummary(JSON.stringify(packedSummary(v)), m, plan, []);
@@ -201,7 +201,7 @@ describe('checked and stored', () => {
     });
   });
 
-  it('stored unpacked, in the spec’s block shape (what 7.7 reads)', () => {
+  it('stored unpacked, in the spec’s block shape (what the summary converter reads)', () => {
     const parsed = parseSummary(JSON.stringify(packedSummary()), m, plan, []);
     const block = parsed.ok && (parsed.summary.sections as { blocks: Record<string, unknown>[] }[])[0].blocks[0];
     expect(block).toEqual({ text: 'La **conducta** es un proceso biológico.', keyTerms: ['conducta'], type: 'paragraph' });
@@ -289,7 +289,7 @@ describe('the run (Claude faked)', () => {
       ['classify', 4000],
       ['generate', 16000],
     ]);
-    // Then the quality pass's part calls (step 7.5), never more than 3.
+    // Then the quality pass's part calls, never more than 3.
     expect(t.calls.slice(2).every((c) => c.call === 'part')).toBe(true);
     expect(t.calls.length - 2).toBeLessThanOrEqual(3);
     // The photo goes before the text, named by its id.
@@ -351,7 +351,7 @@ describe('the run (Claude faked)', () => {
     expect(t.calls[1].content.at(-1)?.text).not.toContain('<professor-exam-phrases>');
   });
 
-  describe('the quality pass (step 7.5)', () => {
+  describe('the quality pass', () => {
     type Stored = { sections: { blocks: Record<string, unknown>[] }[]; checks: CheckReport };
     /** The verify call's answer: "added" for the planted number, "found" for the rest. */
     const verify = (user: string) => {
@@ -382,7 +382,7 @@ describe('the run (Claude faked)', () => {
       expect((t.saved.at(-1)!.result as Stored).checks.version).toBe(1);
     });
 
-    it('step 8.2: a chart value not said in class goes to the verify call, then out of its chart and under unclear; the photo goes to its section', async () => {
+    it('a chart value not said in class goes to the verify call, then out of its chart and under unclear; the photo goes to its section', async () => {
       const v = validSummary();
       const chart = v.sections[1].blocks.find((b) => (b as { type: string }).type === 'dataChart') as unknown as { series: unknown[] };
       chart.series = [{ name: 's', points: [{ x: 'a', y: 1 }, { x: 'b', y: 2 }, { x: 'c', y: 98765 }] }];
@@ -560,7 +560,7 @@ describe('the run (Claude faked)', () => {
     });
   });
 
-  it('no transcript, or over 3 hours (step 7.6; over 60 min is written in parts): failed before any call', async () => {
+  it('no transcript, or over 3 hours (over 60 min is written in parts): failed before any call', async () => {
     const empty = setup([ok()], { material: lectureMaterial({ segments: [] }) });
     expect(await runSummary(empty.deps)).toEqual({ status: 'failed', error: 'no_transcript' });
     const long = setup([ok()], { material: lectureMaterial({ durationMs: MAX_LONG_LECTURE_MS + 1 }) });

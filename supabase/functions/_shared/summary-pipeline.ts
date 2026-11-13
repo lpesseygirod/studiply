@@ -1,17 +1,17 @@
 /**
  * summary-pipeline.ts
- * The summary engine (step 7.4; SUMMARY-SPEC "How Claude builds the
+ * The summary engine (SUMMARY-SPEC "How Claude builds the
  * summary"), without Deno or network code so Jest runs it with Claude faked
  * (src/lib/__tests__/summaryPipeline.test.ts). Up to 60 minutes in one
- * generate call; longer, up to 3 h, in parts merged into one (step 7.6,
- * summary-long.ts):
+ * generate call; longer, up to 3 h, in parts merged into one
+ * (summary-long.ts):
  *
  *  1. Align: each note line, mark, photo and assistant question to the
  *     transcript segment at its time (±30 s), else the nearest one.
  *  2. Classify (Claude, call 1): subject type, modules, topics, and the two
  *     signals the summary calculator takes as inputs (the professor's exam
  *     phrases, concepts explained 3 or more times).
- *  3. Calculate: planSummary (7.2), its numbers into the prompt.
+ *  3. Calculate: planSummary, its numbers into the prompt.
  *  4. Generate (Claude, call 2): the summary JSON (summary-schema.ts),
  *     retried once when it is unreadable or cut off; a refusal is final.
  *  5. Check and store: the shape checked again with zod (summary-zod.ts:
@@ -71,7 +71,7 @@ import {
   type WrapUp,
 } from './summary-long.ts';
 
-/** Longer lectures are written topic by topic (step 7.6); a little over 60 min (rounding) is still one. */
+/** Longer lectures are written topic by topic; a little over 60 min (rounding) is still one. */
 export const MAX_LECTURE_MS = 60 * 60_000 + 30_000;
 export const ALIGN_WINDOW_MS = 30_000;
 export const CLASSIFY_MAX_TOKENS = 4_000;
@@ -131,7 +131,7 @@ export interface LectureMaterial {
   slides: { id: string; name: string }[];
 }
 
-/** The pending row of the summarize panel (7.3). */
+/** The pending row of the summarize panel. */
 export interface SummaryRequest {
   sliders: Sliders;
   resources: { slides: boolean; photos: boolean; assistant: boolean };
@@ -152,7 +152,7 @@ export function validateSummaryRunBody(
   return { ok: true, value: { lectureId, summaryId } };
 }
 
-/** The pending row's settings (7.3): the 10 sliders and the resources ticked; null when they aren't there. */
+/** The pending row's settings: the 10 sliders and the resources ticked; null when they aren't there. */
 export function requestOf(row: { sliders: unknown; applied_settings: unknown }): SummaryRequest | null {
   const s = row.sliders as Record<string, unknown> | null;
   if (!s || typeof s !== 'object' || !SLIDER_NAMES.every((k) => Number.isInteger(s[k]) && (s[k] as number) >= 1 && (s[k] as number) <= 10)) return null;
@@ -201,7 +201,7 @@ export function alignTo(tMs: number | null, segments: TimedSegment[]): Aligned {
   return { segment: best, near: bestDistance > ALIGN_WINDOW_MS };
 }
 
-// The time and tag helpers live with the checks (step 7.5), which use them too.
+// The time and tag helpers live with the checks, which use them too.
 export { stampMs, tagSafe };
 
 // ---------- the notes' formatting, as the prompt shows it ----------
@@ -354,7 +354,7 @@ const RESOURCES: Record<SummaryPlan['resources'], string> = {
   addLabelled: 'slide and reading content that was not spoken is added, labelled as an addedContext callout "From slides"',
 };
 
-/** What a mark asks for, in words (7.2's effects). */
+/** What a mark asks for, in words (the calculator's effects). */
 export function markDuty(m: PlannedMark, examSignalsListed: boolean): string {
   const e = m.effects;
   const parts = ['a chip on its section (markChips)'];
@@ -374,7 +374,7 @@ export function markDuty(m: PlannedMark, examSignalsListed: boolean): string {
 const TAKEAWAY_WORDS = 15;
 
 /**
- * The length target as budgets (step 7.5, so the first answer lands near it): the takeaways, the
+ * The length target as budgets (so the first answer lands near it): the takeaways, the
  * sections together (the rest, at least half the target), and each topic's share of that by its time.
  */
 export function wordBudgets(plan: SummaryPlan, c: Classification): { takeaways: number; sections: number; topics: { title: string; startMs: number; endMs: number; words: number }[] } {
@@ -404,7 +404,7 @@ export const PHOTO_CHARTS_RULE = [
 ].join('\n');
 
 /**
- * The generate call's rules. `part` (step 7.6, a lecture over 60 min): the same rules for one part of
+ * The generate call's rules. `part` (a lecture over 60 min): the same rules for one part of
  * it, the same text for every part (so it is cached once); the part's own topics and length are in
  * its <part> tag, and the takeaways, self-test and flashcards come from the wrap-up call.
  */
@@ -457,7 +457,7 @@ export function summarySystemPrompt(m: LectureMaterial, plan: SummaryPlan, c: Cl
     `- examSignals: ${p.examWeighting === 'flagsOnly' ? "the professor's flags (source professor, markId \"\", level 0)" : "the professor's flags (source professor, markId \"\", level 0) and the student's Exam marks listed for it (source studentMark, their markId and effective level)"}.`,
     '- questionsDuringClass: one entry per question in <questions>, with a short answer.',
     '- capturedImage: a photo in <photos> where it belongs, imageId as given.',
-    // Step 8.2 (BUILD-PLAN: data charts only from numbers in the transcript; templates, never free drawing).
+    // Graphs (BUILD-PLAN: data charts only from numbers in the transcript; templates, never free drawing).
     '- Graphs: a dataChart only from numbers said in class, on the slides or in the notes (5 values or more; fewer: a sentence), its title the takeaway, at most 3 series. A functionPlot only for a function the professor gave, its expression in the grammar below. A modelGraph only picks its template and its shifts. fromPhoto is "" for these.',
     // Lea, 6 Nov: a graph in a photo redrawn as a chart (Visuals 5+, the photos sent).
     opts.photoCharts ? PHOTO_CHARTS_RULE : '',
@@ -668,8 +668,8 @@ export interface SummaryRunDeps {
   /** The photos and slides as Claude content (images consent and ticks checked by the caller); [] without. */
   media: () => Promise<{ blocks: Content; photos: number; pdfs: number }>;
   /**
-   * `longPart` and `wrapUp`: a lecture over 60 min (step 7.6); `part`: the quality checks' calls (7.5);
-   * `unitLists`, `examPack`: Merge and Exam pack (7.9).
+   * `longPart` and `wrapUp`: a lecture over 60 min; `part`: the quality checks' calls;
+   * `unitLists`, `examPack`: Merge and Exam pack.
    */
   claude: (
     call: 'classify' | 'generate' | 'longPart' | 'wrapUp' | 'part' | 'unitLists' | 'examPack',
@@ -684,13 +684,13 @@ export interface SummaryRunDeps {
   failure: (err: unknown) => Record<string, unknown>;
   now?: () => number;
   /**
-   * Step 7.9, Extend and Merge: the lecture is added to this existing summary (its blocks in the prompt;
+   * Extend and Merge: the lecture is added to this existing summary (its blocks in the prompt;
    * only what's new is written; the answer has alreadyCovered and corrections). The outcome isn't saved
    * on the row as the lecture's summary: the caller (summary-combine.ts) stores the combined result.
    */
   extend?: ExtendContext;
   /**
-   * Step 7.9: the Claude messages billed in this request and the ai_usage rows logged for them (one
+   * The Claude messages billed in this request and the ai_usage rows logged for them (one
    * each). Shared by a request's runs (Extend's lecture runs and its own calls); saved in the result as
    * `costLog`, so a cost that wasn't logged (and would escape the daily limit) shows.
    */
@@ -725,7 +725,7 @@ export async function attempt(
   kind: string,
 ): Promise<{ message: ClaudeMessage } | { failed: true; permanent: boolean }> {
   const started = (deps.now ?? Date.now)();
-  // Step 7.9: every billed message counted, and every cost row logged (a failed log is in the result's costLog).
+  // Every billed message counted, and every cost row logged (a failed log is in the result's costLog).
   const logged = (message: ClaudeMessage) => {
     if (deps.meter) deps.meter.calls += 1;
     return deps
@@ -751,14 +751,14 @@ export async function attempt(
 }
 
 /**
- * Step 7.5: the quality checks on a summary just written. Missing notes and marks are put in by code;
+ * The quality checks on a summary just written. Missing notes and marks are put in by code;
  * then at most MAX_PART_CALLS parts are written again (a section, the lists, or the verify call), each
  * once, each spliced in place (length re-measured after each, the next section's share asked for while
  * it is still off and calls remain); then the checks run once more and their report is stored with the
  * summary (result.checks), passing or not: a failed check never hides the summary.
  */
 export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan: SummaryPlan, baseSystem: string, start: StoredSummary, photoCharts = false): Promise<StoredSummary> {
-  // Step 8.2: with the photos ticked, each one is in the summary at its time. `photoCharts` (Lea, 6 Nov):
+  // With the photos ticked, each one is in the summary at its time. `photoCharts` (Lea, 6 Nov):
   // graphs may be redrawn from the photos (Visuals 5+, the photos sent).
   const photos = deps.request.resources.photos;
   const options = { targetWords: plan.length.targetWords, hasHighMarks: plan.length.hasHighMarks, photos, photoCharts };
@@ -828,7 +828,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
     deps.log('part_written', { summaryId: deps.summaryId, part: part.kind, ok });
     if (ok) fixCoverage();
   };
-  // Extend (7.9): the repeats are left out on purpose, so the lecture's length target doesn't apply and
+  // Extend: the repeats are left out on purpose, so the lecture's length target doesn't apply and
   // no section is written again for length (its prompt doesn't have the existing summary: it would add them back).
   const planned = deps.extend ? { ...first, length: { ...first.length, pass: true } } : first;
   for (const part of planParts(planned, s, m, MAX_PART_CALLS)) await write(part);
@@ -838,7 +838,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
     if (!next) break;
     await write(next);
   }
-  // Step 8.2: chart values still not found nor confirmed are taken out (listed under unclear); counted before they go.
+  // Chart values still not found nor confirmed are taken out (listed under unclear); counted before they go.
   const src = sourcesOf(m);
   const chartCount = chartValues(s, src.photos).length;
   const charts = fixCharts(s, src, confirmed);
@@ -868,7 +868,7 @@ export async function qualityPass(deps: SummaryRunDeps, m: LectureMaterial, plan
 type PartDone = { part: PartGenerated; sections: Record<string, unknown>[]; model: string; lists?: ExtendLists };
 
 /**
- * Step 7.6, a lecture over 60 min: the parts written in parallel (part 1 alone first when slides are
+ * A lecture over 60 min: the parts written in parallel (part 1 alone first when slides are
  * shared, so the others read them from the cache), each one that failed once more on its own, one
  * after another (also after a 429); a part failing twice fails the summary (part_failed). Then the
  * parts merged by code and the wrap-up call (title, takeaways, self-test, flashcards), retried once.
@@ -886,7 +886,7 @@ async function generateLong(
   const parts = splitParts(m, c);
   const items = assignItems(m, plan, parts);
   const { shared, photos } = splitMedia(mediaBlocks);
-  // Extend (7.9): every part sees the existing summary and answers its own alreadyCovered / corrections.
+  // Extend: every part sees the existing summary and answers its own alreadyCovered / corrections.
   const x = deps.extend;
   const system = summarySystemPrompt(m, plan, c, 'part', { photoCharts }) + (x ? `\n${extendRules(x)}` : '');
   const existing = x ? `${existingSummaryText(x.anchors).text}\n` : '';
@@ -986,12 +986,12 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
     // 4. Generate: once more when unreadable or cut off; a refusal is final.
     const media = await deps.media();
     const builtFrom = ['notes', 'audio', ...(media.pdfs ? ['slides'] : []), ...(media.photos ? ['photos'] : []), ...(deps.request.resources.assistant && m.questions.length ? ['assistant'] : [])];
-    // Extend (7.9): the rules for adding to the existing summary, which is in the user content.
+    // Extend: the rules for adding to the existing summary, which is in the user content.
     const x = deps.extend;
     // Lea, 6 Nov: graphs in the photos redrawn (Visuals 5+, the photos ticked and sent: images consent).
     const photoCharts = plan.visualsFromPhotos && deps.request.resources.photos && media.photos > 0;
     const system = summarySystemPrompt(m, plan, c, 'whole', { photoCharts }) + (x ? `\n${extendRules(x)}` : '');
-    // 5. The quality checks (step 7.5): code fixes, at most 3 parts written again, the report stored with the summary.
+    // 5. The quality checks: code fixes, at most 3 parts written again, the report stored with the summary.
     const finish = async (start: StoredSummary, model: string, tries: number, lists?: ExtendLists): Promise<SummaryOutcome> => {
       const s = await qualityPass(deps, m, plan, system, start, photoCharts);
       // Extend: the caller stores the combined result on its row.
@@ -1014,7 +1014,7 @@ export async function runSummary(deps: SummaryRunDeps): Promise<SummaryOutcome> 
       return { status: 'done', summary: s };
     };
 
-    // Over 60 min (step 7.6): by parts, merged.
+    // Over 60 min: by parts, merged.
     if (m.durationMs > MAX_LECTURE_MS) {
       const long = await generateLong(deps, m, plan, c, system, media.blocks, builtFrom, photoCharts);
       return 'error' in long ? fail(long.error) : finish(long.summary, long.model, 1, long.extend);

@@ -1,5 +1,5 @@
 /**
- * A hand-made good quiz answer (step 9.1b-2) on the synthetic Tema 1 lecture (synthetic-lecture.mjs:
+ * A hand-made good quiz answer on the synthetic Tema 1 lecture (synthetic-lecture.mjs:
  * 30 min of Psicobiología, its Exam mark at 21:05), as Claude would answer a batch: one question per
  * slot, each type once, every check passing. scripts/eval-quizzes.ts plants faults in a copy of it
  * (`--faults`, free); each one must be caught. Synthetic: no real lecture, no student data.

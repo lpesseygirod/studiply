@@ -1,7 +1,7 @@
 /**
  * rules.ts
- * Drag and drop, the part that is the same on the iPhone and the web
- * (steps 3.1 and 3.3): what is being dragged, where it can be dropped,
+ * Drag and drop, the part that is the same on the iPhone and the web:
+ * what is being dragged, where it can be dropped,
  * which target is under the pointer, and whether the drop is allowed.
  * Pure, so it is unit tested. The library's own rule (canMoveTo) decides
  * for places, so a drop and "Move to…" never disagree.

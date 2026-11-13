@@ -1,5 +1,5 @@
 /**
- * Where a document photo's picture comes from (step 4.5). A photo node's
+ * Where a document photo's picture comes from. A photo node's
  * `src` is `media:<media id>`: a stable reference to its `media` row, never
  * a link that expires. Each editor turns it into something an <img> can
  * show through a resolver:

@@ -1,6 +1,6 @@
 /**
  * docx-import.service.ts
- * A Word file (.docx) becomes a Studiply document (step 4.8b): uploaded on
+ * A Word file (.docx) becomes a Studiply document: uploaded on
  * the laptop (+ New → Upload, or dropped from the Finder onto a course or
  * folder) or picked from Files on the iPhone, in the course or folder that
  * is open, titled after the file. It isn't kept as a file the way a PDF is.

@@ -33,16 +33,16 @@ export interface InsertActions {
   formula: () => void;
   /** A comment on the selected words. */
   comment: () => void;
-  /** Studiply's blocks (step 4.6): a callout (its kind), a mark chip, a timestamp typed in. */
+  /** Studiply's blocks: a callout (its kind), a mark chip, a timestamp typed in. */
   callout: () => void;
   mark: () => void;
   timestamp: () => void;
-  /** A graph (step 4.7d): put one in and open its sheet. */
+  /** A graph: put one in and open its sheet. */
   graph: () => void;
 }
 
 /**
- * The iPhone's keyboard toolbar (steps 4.4, 4.5), like the laptop's (Lea,
+ * The iPhone's keyboard toolbar, like the laptop's (Lea,
  * test B): one row of tools in the laptop's order (Aa · B I U · colours ·
  * lists · link · Table in a table · then strikethrough, checklist,
  * indent, undo, redo), never scrolling: what doesn't fit this iPhone's width

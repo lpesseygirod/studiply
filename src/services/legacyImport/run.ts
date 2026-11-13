@@ -1,6 +1,6 @@
 /**
  * run.ts
- * Step 1.9: sends the plan (./plan.ts) to Supabase, checks it arrived, and
+ * Sends the plan (./plan.ts) to Supabase, checks it arrived, and
  * remembers where it went.
  *
  *  - Order: courses → folders (parents first) → lecture files → lectures →

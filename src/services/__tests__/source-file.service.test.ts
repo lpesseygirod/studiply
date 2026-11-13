@@ -2,12 +2,7 @@
 import { answer, callsOn, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { removeFiles, uploadFile } from '../cloud-storage.service';
 import { toJpeg } from '../../utils/toJpeg';
-import {
-  bulkApplyRetention,
-  createSourceFile,
-  saveRecordingChunks,
-  sourceFileName,
-} from '../source-file.service';
+import { createSourceFile, saveRecordingChunks, sourceFileName } from '../source-file.service';
 
 jest.mock('../../lib/supabase', () => jest.requireActual('../../test-utils/supabaseMock').module);
 jest.mock('../../lib/mappers', () => ({ newId: () => 'media-1' }));
@@ -129,27 +124,5 @@ describe('createSourceFile', () => {
     ).rejects.toThrow('Could not save the file.');
     expect(removeFiles).toHaveBeenCalledWith('slides', ['user-1/l1/media-1.pdf']);
     jest.restoreAllMocks();
-  });
-});
-
-describe('bulkApplyRetention', () => {
-  it('delete_3_days saves the setting only: the server dates it, 3 days after transcription (step 10.1b-3); deletes nothing', async () => {
-    await bulkApplyRetention('l1', 'delete_3_days');
-
-    expect(callsOn('lectures', 'update')).toEqual([[{ audio_retention: 'delete_3_days' }]]);
-    expect(removeFiles).not.toHaveBeenCalled();
-  });
-
-  it('delete_now removes the audio files, keeps the chunk rows (and their transcript), marks the audio deleted', async () => {
-    answer('audio_chunks', { data: [{ id: 'chunk-0', storage_path: 'user-1/l1/0000.m4a' }] });
-
-    await bulkApplyRetention('l1', 'delete_now');
-
-    expect(callsOn('audio_chunks', 'update')[0][0]).toEqual({ storage_path: null });
-    expect(callsOn('audio_chunks', 'delete')).toHaveLength(0);
-    expect(removeFiles).toHaveBeenCalledWith('audio-chunks', ['user-1/l1/0000.m4a']);
-    expect(callsOn('media', 'update')).toHaveLength(0);
-    const marked = callsOn('lectures', 'update')[1][0] as { audio_deleted_at: string };
-    expect(Date.parse(marked.audio_deleted_at)).toBeGreaterThan(Date.now() - 60_000);
   });
 });

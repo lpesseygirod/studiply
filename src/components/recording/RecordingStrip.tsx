@@ -18,13 +18,15 @@ import { Waveform } from './Waveform';
 import { savingText } from './savingText';
 import { MarkPanel } from './MarkPanel';
 import { closeMarkPanel, openMarkPanel, saveNewMark, useMarkPanel } from './markPanelState';
+import { useCreditUnits } from '../../hooks/useCredits';
+import { WAITING_FOR_CREDITS_TEXT } from '../../lib/credits/format';
 
 /**
- * The laptop's recording strip (step 5.3, docs/design desktop-01): under the
+ * The laptop's recording strip (docs/design desktop-01): under the
  * top bar on every screen while a lecture records, so leaving the lecture
  * never stops it. "● Recording · 34:12" (back to the lecture), the live
- * waveform, the mark buttons (step 5.5: each opens its panel as one slim row
- * under the strip, as desktop-01 draws it), Photo board (step 5.6: webcam or files; greyed out offline)
+ * waveform, the mark buttons (each opens its panel as one slim row
+ * under the strip, as desktop-01 draws it), Photo board (webcam or files; greyed out offline)
  * and Stop & summarize. After
  * Stop it says what is still being sent; a recording the page lost offers
  * Continue and Finish.
@@ -39,6 +41,7 @@ export function RecordingStrip() {
   const webcam = useWebcam();
   const connection = useConnectivity();
   const photoButton = useRef<View>(null);
+  const creditUnits = useCreditUnits();
 
   if (flow.saving) {
     return (
@@ -77,6 +80,8 @@ export function RecordingStrip() {
   const web = Platform.OS === 'web';
   const photoUsable = photoBoardUsable({ web, online: connection !== 'offline', recording: markable });
   const photoOffline = web && markable && connection === 'offline';
+  // No credits left: the recording goes on, its transcript waits.
+  const waiting = creditUnits !== null && creditUnits <= 0;
   return (
     <View>
     <View style={styles.strip} {...{ dataSet: { recording: 'strip' } }}>
@@ -84,12 +89,17 @@ export function RecordingStrip() {
         onPress={() => actions.openLecture(lectureId)}
         style={styles.timer}
         accessibilityRole="button"
-        accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}. Open the lecture`}
+        accessibilityLabel={`${paused ? 'Paused' : 'Recording'}, ${clock(live.elapsedMs)}${waiting ? `, ${WAITING_FOR_CREDITS_TEXT}` : ''}. Open the lecture`}
       >
         <View style={[styles.dot, paused && styles.dotPaused]} />
         <Text style={styles.label} {...{ dataSet: { recording: 'timer' } }}>
           {live.microphoneLost ? 'Microphone disconnected' : paused ? 'Paused' : 'Recording'} · {clock(live.elapsedMs)}
         </Text>
+        {waiting && (
+          <Text style={[styles.label, styles.waiting]} numberOfLines={1} {...{ dataSet: { recording: 'credits' } }}>
+            · {WAITING_FOR_CREDITS_TEXT}
+          </Text>
+        )}
       </Pressable>
       {live.microphoneLost ? (
         <Pressable onPress={() => void actions.resume()} style={[styles.pill, styles.plain]} accessibilityRole="button" accessibilityLabel="Resume recording">
@@ -115,7 +125,7 @@ export function RecordingStrip() {
         </>
       )}
       <View style={styles.spacer} />
-      {/* The marks (step 5.5): each opens its panel under the strip; the recording goes on. */}
+      {/* The marks: each opens its panel under the strip; the recording goes on. */}
       {MARK_BUTTONS.map((b) => (
         <Pressable
           key={b.kind}
@@ -136,7 +146,7 @@ export function RecordingStrip() {
           <Text style={[styles.markText, { color: c.markButton[b.kind].text }]}>{b.text}</Text>
         </Pressable>
       ))}
-      {/* Board photos (step 5.6): webcam or files, at this moment; online only on the laptop (greyed out offline). */}
+      {/* Board photos: webcam or files, at this moment; online only on the laptop (greyed out offline). */}
       <View ref={photoButton} collapsable={false}>
         <Pressable
           onPress={() => void anchorBelow(photoButton).then((anchor) => startBoardPhoto(anchor))}
@@ -217,6 +227,8 @@ const makeStyles = (c: ThemeColors) =>
     waveStill: { opacity: 0.4 },
     label: { flexShrink: 1, fontSize: Typography.size.sm, fontWeight: Typography.weight.semibold, color: c.recordingStrip.text, fontVariant: ['tabular-nums'] },
     wave: { flexShrink: 1, maxWidth: 240, overflow: 'hidden' },
+    // "· transcribed when you add credits", cut short when the strip is narrow.
+    waiting: { fontWeight: Typography.weight.medium, marginLeft: -4, maxWidth: 300 },
     spacer: { flex: 1 },
     pill: { height: 36, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
     pressed: { opacity: 0.85 },
@@ -229,7 +241,7 @@ const makeStyles = (c: ThemeColors) =>
     // The webcam panel, inline under the strip at the buttons' side.
     panelRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: c.recordingStrip.bg, borderBottomWidth: 1, borderBottomColor: c.recordingStrip.border },
     panel: { width: 460, maxWidth: '100%', padding: 16, borderRadius: 14, backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
-    // The laptop offline: why Photo board is greyed out (step 5.6), a slim line under the strip.
+    // The laptop offline: why Photo board is greyed out, a slim line under the strip.
     noteRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingVertical: 6, backgroundColor: c.recordingStrip.bg, borderBottomWidth: 1, borderBottomColor: c.recordingStrip.border },
     noteText: { fontSize: Typography.size.xs, fontWeight: Typography.weight.medium, color: c.recordingStrip.text },
     plain: { backgroundColor: c.white, borderColor: c.border },

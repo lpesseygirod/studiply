@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 5.5: a mark made while recording goes into My notes as a linked chip
+// A mark made while recording goes into My notes as a linked chip
 // (its mark id, time and note): at the end of the line the student was
 // writing; on a new last line with its time when they hadn't been in the
 // notes (an empty last line is used); an empty line gets the time first.

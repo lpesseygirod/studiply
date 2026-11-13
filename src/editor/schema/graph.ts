@@ -8,7 +8,7 @@ import { cleanGraph, hasTable, NEW_GRAPH, planGraph, usesDecimalComma, type Grap
 import { placeBlock } from './placeBlock';
 
 /**
- * Graphs the student builds (step 4.7d): a block holding its data (bar,
+ * Graphs the student builds: a block holding its data (bar,
  * line, pie or scatter; a title, axis labels, up to 3 series), drawn by the
  * charts module (graph/charts.ts). The data is edited in a form outside the
  * page, as formulas are: a popover under the graph on the laptop, a sheet on
@@ -18,7 +18,7 @@ import { placeBlock } from './placeBlock';
  * DOM event on the laptop, a request in the editor state on the iPhone. A
  * top-level block with its own id and origin (blockMeta), whole on a page.
  *
- * Step 8.2: summaries also write function plots, model graphs, stacked bars
+ * Summaries also write function plots, model graphs, stacked bars
  * and histograms here (graph/data.ts). A function or a model graph has no
  * form; until the charts module draws it, its line of text stands in its place.
  */
@@ -125,7 +125,7 @@ class GraphView implements NodeView {
       this.art.innerHTML = markup;
       return;
     }
-    // A kind the module doesn't draw yet (8.2: function and model graphs): its line, as text.
+    // A kind the module doesn't draw yet (function and model graphs): its line, as text.
     const line = document.createElement('p');
     line.className = `${GRAPH_CLASS}-later`;
     line.textContent = laterLine(data);
@@ -173,7 +173,7 @@ export const Graph = Node.create({
       yLabel: { default: '', parseHTML: read('yLabel'), renderHTML: quiet },
       series: { default: NEW_GRAPH.series, parseHTML: read('series'), renderHTML: quiet },
       rows: { default: NEW_GRAPH.rows, parseHTML: read('rows'), renderHTML: (attrs) => ({ 'data-graph': JSON.stringify(cleanGraph(attrs)) }) },
-      // Step 8.2, from summaries: a function's expression, range and marks; a model graph's template and shifts.
+      // From summaries: a function's expression, range and marks; a model graph's template and shifts.
       func: { default: null, parseHTML: (el) => read('func')(el) ?? null, renderHTML: quiet },
       model: { default: null, parseHTML: (el) => read('model')(el) ?? null, renderHTML: quiet },
     };
@@ -238,7 +238,7 @@ export const Graph = Node.create({
         props: {
           handleClickOn: (view, _pos, node, nodePos) => {
             if (node.type.name !== GRAPH || !view.editable) return false;
-            // A function or a model graph has no form in 8.2 (written again by regenerating): only selected.
+            // A function or a model graph has no form (written again by regenerating): only selected.
             if (!hasTable(graphOf(node).kind)) return false;
             askGraphForm(view, nodePos);
             return true;

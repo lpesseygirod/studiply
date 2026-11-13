@@ -1,6 +1,6 @@
 /**
  * terms.service.ts
- * Step 10.1b-2: accepting the Terms of Service and the Privacy Policy, and the minimum age (16).
+ * Accepting the Terms of Service and the Privacy Policy, and the minimum age (16).
  *
  * - Sign-up with email: both boxes ticked → `signUpAcceptance()` goes in the sign-up metadata and
  *   the new-user trigger saves it with the server's time (20261029152500_terms_acceptance).

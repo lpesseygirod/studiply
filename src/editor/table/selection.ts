@@ -3,7 +3,7 @@ import { NodeSelection, type EditorState } from '@tiptap/pm/state';
 import { CellSelection } from '@tiptap/pm/tables';
 
 /**
- * The table the selection is in (step 4.5): a cursor or text inside one
+ * The table the selection is in: a cursor or text inside one
  * table, cells selected in it, or the table itself selected. Not a
  * selection that only passes through a table (select all), where the table
  * commands can't act. `cell`: the cell the selection starts in.

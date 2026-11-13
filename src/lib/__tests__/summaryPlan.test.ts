@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.2: the summary calculator (supabase/functions/_shared/summary-plan.ts)
+// The summary calculator (supabase/functions/_shared/summary-plan.ts)
 // against every example and band boundary in SUMMARY-SPEC "How Claude builds
 // the summary", case by case, and the open points' answers (advisor, 30 Oct).
 import {

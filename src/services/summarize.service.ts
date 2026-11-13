@@ -26,7 +26,7 @@ import { getTranscriptBySession } from './transcript.service';
 import { studyRemindersOf } from './lectureReview.service';
 
 /**
- * Stop & summarize (step 7.3): what the panel shows and what it saves.
+ * Stop & summarize: what the panel shows and what it saves.
  *
  * - Its starting values are the course's defaults (`course_settings`), else
  *   the spec's (Lea's advisor, 30 Oct: "Course defaults pre-fill everything").
@@ -35,7 +35,7 @@ import { studyRemindersOf } from './lectureReview.service';
  *   transcript's words (for the preview line).
  * - Stop & generate saves a `summaries` row: mode `new`, status `pending`,
  *   the 10 values, and in `applied_settings` the calculator's numbers, the
- *   resources ticked and the preview line. Step 7.4 writes the summary from
+ *   resources ticked and the preview line. The summary pipeline writes the summary from
  *   it. Its `result` stays empty, so the earlier notes (legacy-note-v1 rows
  *   of the same table, read only where `result.format` says so) never take
  *   it for one.
@@ -66,14 +66,14 @@ export interface SummarizeInfo {
   photos: { id: string; tMs: number | null }[];
   slides: { id: string; name: string; pages: number | null }[];
   links: { id: string; url: string }[];
-  /** Step 7.7: the lecture has a summary written into it already (the panel asks where the new one goes). */
+  /** The lecture has a summary written into it already (the panel asks where the new one goes). */
   hasSummary: boolean;
-  /** Step 9.2 (Lea): "Study reminders for this lecture": its own switch, else its course's default (on). */
+  /** "Study reminders for this lecture" (Lea): its own switch, else its course's default (on). */
   studyReminders: boolean;
 }
 
 /**
- * Step 7.7, where a summary goes when the lecture has one already: a new tab "New summary" (the
+ * Where a summary goes when the lecture has one already: a new tab "New summary" (the
  * default: the Summary tab is never touched without her choice), or the Summary tab, written again
  * around everything she edited.
  */
@@ -99,7 +99,7 @@ export async function courseDefaults(courseId: string | null): Promise<Sliders> 
 }
 
 /**
- * Save as course default: the course's 10 values, and (step 9.2, Lea) whether its lectures get study
+ * Save as course default: the course's 10 values, and (Lea) whether its lectures get study
  * reminders. Online only (the button says so offline).
  */
 export async function saveCourseDefaults(courseId: string, s: Sliders, studyReminders?: boolean): Promise<void> {
@@ -196,21 +196,21 @@ async function mediaOf(lectureId: string): Promise<MediaRow[]> {
 // The request (a pending `summaries` row)
 // -------------------------------------------------------------------
 
-/** What `applied_settings` holds for a request: the calculator's numbers, the resources, the preview line, and where it goes (7.7). */
+/** What `applied_settings` holds for a request: the calculator's numbers, the resources, the preview line, and where it goes. */
 export type RequestSettings = SummaryPlan['appliedSettings'] & { resources: SummarizeResources; preview: string; target?: SummaryTarget };
 
 type RequestRow = Pick<SummaryRow, 'id' | 'file_id' | 'mode' | 'source_lecture_ids' | 'sliders' | 'status' | 'applied_settings'>;
 
 /** A summary request of the summarize panel (not an earlier note): no result yet, the 10 sliders. */
 export function isSummaryRequest(row: Pick<SummaryRow, 'result' | 'sliders' | 'mode'>): boolean {
-  // An earlier note (legacy-note-v1) always has its result; a request has none until 7.4 writes it.
+  // An earlier note (legacy-note-v1) always has its result; a request has none until the summary pipeline writes it.
   if (row.result != null) return false;
   const s = row.sliders as Record<string, unknown> | null;
-  // Step 7.9: Extend, Merge and Exam pack are requests too (on the file they are written into).
+  // Extend, Merge and Exam pack are requests too (on the file they are written into).
   return ['new', 'extend', 'merge', 'exam_pack'].includes(row.mode) && !!s && typeof s === 'object' && SLIDER_KEYS.every((k) => typeof s[k] === 'number');
 }
 
-/** The formats of what the new engine stores (7.4; 7.9's Extend / Merge and Exam pack). */
+/** The formats of what the new engine stores (a summary; Extend / Merge and Exam pack). */
 const NEW_FORMATS: unknown[] = [SUMMARY_FORMAT, 'studiply-combined-v1', 'studiply-exampack-v1'];
 
 export function requestRow(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, id = newId(), target?: SummaryTarget): RequestRow {
@@ -227,7 +227,7 @@ export function requestRow(lectureId: string, sliders: Sliders, resources: Summa
 }
 
 /**
- * Stop & generate summary: the request for step 7.4. The iPhone keeps it and queues it (offline too);
+ * Stop & generate summary: the request for the summary pipeline. The iPhone keeps it and queues it (offline too);
  * the laptop sends it now (a NetworkError when offline).
  */
 export async function requestSummary(lectureId: string, sliders: Sliders, resources: SummarizeResources, plan: SummaryPlan, target?: SummaryTarget): Promise<string> {
@@ -269,7 +269,7 @@ registerSyncHandler<RequestRow>('request_summary', {
     if (error) throw syncError(error, 'Could not save the summary settings.');
     const { data } = await supabase.from('summaries').select('*').eq('id', row.id).maybeSingle();
     if (data) await markClean('summaries', row.id, data);
-    // Step 7.4: on the server now, so the summary can start (consent was asked at Stop; no dialog here).
+    // On the server now, so the summary can start (consent was asked at Stop; no dialog here).
     // If it can't (no consent yet, the daily limit), the row stays pending and the Summary tab offers it.
     if (data?.status === 'pending' && !isMockAiForced()) {
       await callFunction('summarize', { lectureId: row.file_id, summaryId: row.id }).catch(() => {});
@@ -300,7 +300,7 @@ export async function latestSummaryRequest(lectureId: string): Promise<{ id: str
 }
 
 // -------------------------------------------------------------------
-// The summary (step 7.4): started on the server, read back by status
+// The summary: started on the server, read back by status
 // -------------------------------------------------------------------
 
 export type SummaryStatus = 'pending' | 'generating' | 'checking' | 'done' | 'failed';
@@ -311,7 +311,7 @@ export interface LectureSummary {
   /** Why it failed (the server's code), when it did. */
   error: string | null;
   settings: RequestSettings | null;
-  /** The summary as stored (7.7 writes it into the Summary tab), when done. */
+  /** The summary as stored (then written into the Summary tab), when done. */
   result: StoredSummary | null;
   createdAt: string;
 }
@@ -378,7 +378,7 @@ export async function retrySummary(lectureId: string, failed: LectureSummary): P
   const { data: row, error } = await supabase.from('summaries').select('sliders, mode, source_lecture_ids, applied_settings').eq('id', failed.id).single();
   if (error) throw serviceError(error, 'Could not read the summary settings.');
   const id = newId();
-  // The same request again (step 7.9: an Extend / Merge / Exam pack keeps its lectures and anchors).
+  // The same request again (an Extend / Merge / Exam pack keeps its lectures and anchors).
   const { error: insertError } = await supabase.from('summaries').insert({
     id,
     file_id: lectureId,
@@ -411,7 +411,7 @@ export async function recordedInChunks(lectureId: string): Promise<boolean> {
 
 /**
  * + Slides or PDF: the PDF kept with the lecture (a `slides` media row and its Storage file). Its pages
- * and text are read by the summary pipeline (step 7.4). Online only.
+ * and text are read by the summary pipeline. Online only.
  */
 export async function addSlides(lectureId: string, picked: PickedFile): Promise<void> {
   const check = checkUpload(picked);
@@ -431,7 +431,7 @@ export async function addSlides(lectureId: string, picked: PickedFile): Promise<
   remember('media', data ?? []);
 }
 
-/** + Link: a URL kept with the lecture (Logistics in the summary, step 7.4). Online only. */
+/** + Link: a URL kept with the lecture (Logistics in the summary). Online only. */
 export async function addLink(lectureId: string, url: string): Promise<void> {
   const clean = url.trim();
   if (!/^https?:\/\/\S+\.\S+/i.test(clean)) throw new Error('Type a web address starting with http:// or https://.');

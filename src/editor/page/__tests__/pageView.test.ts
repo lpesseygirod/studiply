@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The page view's settings (step 4.5b): one change can set several (the
+// The page view's settings: one change can set several (the
 // iPhone sends Print layout, its zoom and fit together), they are in the
 // format state the app reads, and they never touch the document or Undo.
 import { Editor } from '@tiptap/core';

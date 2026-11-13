@@ -27,7 +27,6 @@ import { confirmedNotes, latestNote, lecturesWithNotes } from '../lib/cache/loca
 import { getDeviceId } from '../lib/deviceId';
 import { newId } from '../lib/mappers';
 import {
-  aiBlocks,
   applyEdit,
   combineEdits,
   makeEdit,
@@ -41,12 +40,12 @@ import {
 import { enqueue, pendingSyncFor, PermanentSyncError, registerSyncHandler, syncEnabled } from '../lib/sync';
 import { syncError } from '../lib/sync/errors';
 import type { Json } from '../types/supabase';
-import type { Note, Session } from '../types/database';
+import type { Note } from '../types/database';
 
 /**
  * The old structured note (summary, key concepts, formulas, …) is kept in
  * a `summaries` row: file_id is the lecture, `result` holds the note
- * (format legacy-note-v1, see cloudRows). The Phase 4 editor and the Phase 7
+ * (format legacy-note-v1, see cloudRows). The document editor and the
  * summary engine replace this with document blocks. A note goes to Trash
  * with its lecture, so reads skip notes whose lecture file is trashed.
  *
@@ -76,78 +75,6 @@ function summaryRows(rows: unknown[]): SummaryRow[] {
 
 function toNotes(rows: SummaryRow[]): Note[] {
   return rows.map(summaryToNote).filter((n): n is Note => n !== null);
-}
-
-// -------------------------------------------------------------------
-// Clarification types
-// -------------------------------------------------------------------
-export interface ClarificationEntry {
-  highlightedParts: string[];
-  response: string;
-  createdAt: string;
-}
-
-export function parseClarifications(
-  manualAnnotations: string | null | undefined,
-): ClarificationEntry[] {
-  if (!manualAnnotations) return [];
-  try {
-    const parsed = JSON.parse(manualAnnotations);
-    return (parsed.clarifications ?? []) as ClarificationEntry[];
-  } catch {
-    return [];
-  }
-}
-
-// -------------------------------------------------------------------
-// createNote
-// -------------------------------------------------------------------
-export async function createNote(params: {
-  userId: string;
-  sessionId: string;
-  title: string;
-  summaryLevel: 'minimal' | 'standard' | 'extra';
-  /** How the lecture was recorded; there is no column for it on the lecture. */
-  recordingMode?: Session['recording_mode'];
-  summary?: string;
-  keyConcepts?: unknown[];
-  formulas?: unknown[];
-  definitions?: unknown[];
-  tags?: string[];
-  unclearParts?: unknown[];
-  isConfirmed?: boolean;
-  manualAnnotations?: string | null;
-}): Promise<Note> {
-  const result: LegacyNoteResult = {
-    format: LEGACY_NOTE_FORMAT,
-    blocks: aiBlocks(await getDeviceId(), new Date().toISOString()),
-    title: params.title,
-    summaryLevel: params.summaryLevel,
-    recordingMode: params.recordingMode ?? null,
-    summary: params.summary ?? null,
-    keyConcepts: (params.keyConcepts ?? []) as Json,
-    formulas: (params.formulas ?? []) as Json,
-    definitions: (params.definitions ?? []) as Json,
-    tags: params.tags ?? [],
-    unclearParts: (params.unclearParts ?? []) as Json,
-    manualAnnotations: params.manualAnnotations ?? null,
-    isConfirmed: params.isConfirmed ?? false,
-  };
-
-  const { data, error } = await supabase
-    .from('summaries')
-    .insert({
-      file_id: params.sessionId,
-      mode: 'new',
-      source_lecture_ids: [params.sessionId],
-      sliders: { summaryLevel: params.summaryLevel },
-      result: result as unknown as Json,
-      status: 'done',
-    })
-    .select('*')
-    .single();
-  if (error) throw serviceError(error, 'Could not save the note.');
-  return toNote(data);
 }
 
 // -------------------------------------------------------------------
@@ -411,7 +338,7 @@ export async function getNoteBySession(sessionId: string): Promise<Note | null> 
 
 /**
  * The most recent note of a session as stored (each section's origin and time
- * included), for step 4.9's conversion into the Summary tab. Null if none.
+ * included), for its conversion into the Summary tab. Null if none.
  */
 export async function getNoteResultBySession(sessionId: string): Promise<{ id: string; result: LegacyNoteResult } | null> {
   const row = await latestNoteRow(sessionId);
@@ -506,24 +433,4 @@ export async function confirmNote(
   updates?: { title?: string },
 ): Promise<Note> {
   return updateNote(noteId, { isConfirmed: true, ...updates });
-}
-
-// -------------------------------------------------------------------
-// addClarification
-// Appends a clarification entry to manual_annotations JSON.
-// -------------------------------------------------------------------
-export async function addClarification(
-  noteId: string,
-  highlightedParts: string[],
-  response: string,
-): Promise<Note> {
-  const note = await getNote(noteId);
-  const existing = parseClarifications(note.manual_annotations);
-  const updated: ClarificationEntry[] = [
-    ...existing,
-    { highlightedParts, response, createdAt: new Date().toISOString() },
-  ];
-  return updateNote(noteId, {
-    manualAnnotations: JSON.stringify({ clarifications: updated }),
-  });
 }

@@ -11,7 +11,7 @@ import { legacyDataExists } from '../../../src/services/legacyImport';
 import { useThemedStyles } from '../../../src/theme/ThemeProvider';
 
 /**
- * Your data: Export my data (step 10.1b-4), Recently Deleted, the earlier version's data while it is
+ * Your data: Export my data, Recently Deleted, the earlier version's data while it is
  * still on this iPhone, and Delete account… (D4: the privacy policy and terms send her here for
  * both; they are also in Account).
  */

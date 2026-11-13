@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-2: starting a quiz (quiz.service.ts): the permissions in order (photos and PDFs only when
+// Starting a quiz (quiz.service.ts): the permissions in order (photos and PDFs only when
 // the quiz has them, and declining that one still starts it), then the quiz function; a failure noted
 // on the row (Saved · not started, and why) and thrown; already started is fine; a withdrawn
 // permission forgotten. The app never writes a quiz's status. A past exam's format: the saved one,

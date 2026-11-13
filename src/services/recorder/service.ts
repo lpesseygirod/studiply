@@ -1,5 +1,5 @@
 /**
- * The recorder service (step 5.2): records a lecture in chunks, keeps every
+ * The recorder service: records a lecture in chunks, keeps every
  * chunk on the device first and sends it through the queue, so a recording
  * works without internet and uploads later, and survives a crash.
  *
@@ -21,6 +21,7 @@
  */
 
 import { forget, isDiscarded, markDiscarded } from './discarded';
+import { transcriptRefused, waitsForCredits } from './handlers';
 import { joinTranscript } from './transcriptJoin';
 import type {
   AudioSource,
@@ -39,7 +40,7 @@ import type {
 } from './types';
 
 export const CHUNK_MS = 30_000;
-/** Measured in 5.1: restarting leaves gaps of 6–56 ms on the web; a 500 ms overlap none. */
+/** Measured: restarting leaves gaps of 6–56 ms on the web; a 500 ms overlap none. */
 export const OVERLAP_MS = 500;
 /** A finished recording's details stay this long after everything is sent. */
 const KEEP_FINISHED_MS = 24 * 60 * 60_000;
@@ -121,7 +122,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
     if (!chunk) return;
     if (!chunk.storagePath) {
       if (!skip?.uploads.has(id)) await deps.uploads.enqueue({ kind: 'upload_chunk', key: meta.lectureId, payload: ref });
-    } else if (meta.transcribe && !chunk.segments && !chunk.transcriptError && !skip?.transcriptions.has(id)) {
+    } else if (meta.transcribe && !chunk.segments && !transcriptRefused(chunk) && !skip?.transcriptions.has(id)) {
       await deps.transcriptions.enqueue({ kind: 'transcribe_chunk', key: meta.lectureId, payload: ref });
     }
   }
@@ -231,7 +232,7 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
       // Recording again into a lecture recorded here goes on after its chunks (numbers are never reused).
       if (earlier && earlier.status !== 'stopped') throw new Error('This lecture has an unfinished recording: continue or finish it first.');
       if (!(await deps.claim(lectureId))) throw new Error('This lecture is being recorded somewhere else.');
-      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier, step 5.7).
+      // After this device's chunks and after what Studiply already has (recorded elsewhere or earlier).
       const here = earlier ? await endOf(lectureId) : { seq: 0, ms: 0 };
       const from = after ? { seq: Math.max(here.seq, after.seq), ms: Math.max(here.ms, after.ms) } : here;
       // A recording discarded earlier in this lecture no longer applies to the new one.
@@ -371,13 +372,32 @@ export function createRecorderService(deps: RecorderDeps): RecorderService {
         if (active?.meta.lectureId === meta.lectureId || meta.userId !== deps.userId()) continue;
         const chunks = await store.listChunks(meta.lectureId);
         for (const c of chunks) await queueChunk(meta, c.seq, skip);
-        const settled = chunks.every((c) => c.storagePath && (!meta.transcribe || c.segments || c.transcriptError));
+        // A chunk waiting for credits isn't settled: kept until it is transcribed.
+        const settled = chunks.every((c) => c.storagePath && (!meta.transcribe || c.segments || transcriptRefused(c)));
         if (meta.status === 'stopped' && settled && now() - Date.parse(meta.updatedAt) > KEEP_FINISHED_MS) {
           await store.removeRecording(meta.lectureId);
         }
       }
       emit();
       return found;
+    },
+
+    async resendWaiting() {
+      await deps.ready?.();
+      if (!deps.userId()) return 0;
+      const skip = { uploads: new Set<string>(), transcriptions: await queued('transcribe_chunk', deps.transcriptions) };
+      let queuedAgain = 0;
+      // Every recording of hers, the one being recorded too (recover() leaves that one alone).
+      for (const meta of await store.listRecordings()) {
+        if (meta.userId !== deps.userId() || !meta.transcribe) continue;
+        for (const c of await store.listChunks(meta.lectureId)) {
+          if (!c.storagePath || c.segments || !waitsForCredits(c)) continue;
+          await queueChunk(meta, c.seq, skip);
+          queuedAgain += 1;
+        }
+      }
+      if (queuedAgain) emit();
+      return queuedAgain;
     },
 
     async playback(lectureId) {

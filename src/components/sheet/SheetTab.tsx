@@ -51,7 +51,7 @@ interface Editing {
 }
 
 /**
- * A spreadsheet tab (step 4.7e): the formula bar and the grid. It holds
+ * A spreadsheet tab: the formula bar and the grid. It holds
  * the tab's cells (what was typed and bold, src/lib/sheetDoc) and a Sheet
  * from the formula engine (src/lib/sheets) that calculates the values on
  * the device.
@@ -66,7 +66,7 @@ interface Editing {
  * to drop, Delete to empty, ⌘B for bold. The formula bar shows the active
  * cell's input (the formula, not its result) and edits it too.
  *
- * Checkpoint 2a: while a formula is typed, clicking a cell adds its
+ * While a formula is typed, clicking a cell adds its
  * reference at the cursor (or replaces the one just before it) and
  * dragging makes a range; the functions starting with the letters typed
  * are offered, and the help line shows the current argument in bold; the
@@ -87,7 +87,7 @@ export const SheetTab = forwardRef<SheetHandle, {
   const cells = useRef<SheetCells>(new Map());
   const lastDoc = useRef<DocJSON | null>(null);
   const rowRevs = useRef(new Map<number, number>());
-  /** Undo / Redo of what the student did in this tab while it is open (step 4.7e 2b). */
+  /** Undo / Redo of what the student did in this tab while it is open. */
   const history = useRef(new SheetHistory());
   /** How many times the whole sheet was loaded (a version restored, the tab opened). */
   const loads = useRef(0);

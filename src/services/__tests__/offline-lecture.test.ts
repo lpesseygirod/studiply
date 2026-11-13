@@ -1,5 +1,5 @@
 // A lecture recorded offline on the iPhone, sent when the connection is back
-// (step 1.8, Lea's test 3): the lecture's rows must exist on the server before
+// (Lea's test 3): the lecture's rows must exist on the server before
 // its recording chunk, photo or changes, even if its own create step went
 // missing, and nothing may delete it. The handlers are the real ones, as the
 // services register them; Supabase and the files are fakes.

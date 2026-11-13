@@ -1,4 +1,4 @@
-// Every text/background pair the screens use, in both palettes (step 2.3).
+// Every text/background pair the screens use, in both palettes.
 import { contrast } from '../../theme/contrast';
 import { DarkColors, DocColors, LightColors, type ThemeColors } from '../colors';
 
@@ -26,9 +26,9 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['accentOn on accentDark', c.accentOn, c.accentDark, TEXT],
     ['error on card', c.error, c.card, TEXT],
     ['error on errorLight', c.error, c.errorLight, TEXT],
-    // Settings → Account's red card (Delete account…, Sign out; step 10.1).
+    // Settings → Account's red card (Delete account…, Sign out).
     ['error on the danger card (status.error.bg)', c.error, c.status.error.bg, TEXT],
-    // Delete account… under Sign out on the iPhone's Settings list: on the gradient (step 10.1b-1).
+    // Delete account… under Sign out on the iPhone's Settings list: on the gradient.
     ...stops.map(([name, bg]) => [`errorOnGradient on gradient.${name}`, c.errorOnGradient, bg, TEXT] as [string, string, string, number]),
     ['button.primaryText on button.primary', c.button.primaryText, c.button.primary, TEXT],
     ['text.inverse on button.primary', c.text.inverse, c.button.primary, TEXT],
@@ -57,7 +57,7 @@ function pairs(c: ThemeColors): [string, string, string, number][] {
     ['recording dot on the strip', c.recordingStrip.dot, c.recordingStrip.bg, ICON],
     ...stops.map(([name, bg]) => [`button.onGradient on gradient.${name}`, c.button.onGradient, bg, ICON] as [string, string, string, number]),
     ['button.onGradientText on button.onGradient', c.button.onGradientText, c.button.onGradient, TEXT],
-    // Step 10.1b-5: the pairs screens use across two styles (text on a card, row or chip it sits in).
+    // The pairs screens use across two styles (text on a card, row or chip it sits in).
     ...(['surfaceMuted', 'white'] as const).flatMap((bg) => [
       [`text.primary on ${bg}`, c.text.primary, c[bg], TEXT] as [string, string, string, number],
       [`text.secondary on ${bg}`, c.text.secondary, c[bg], TEXT] as [string, string, string, number],
@@ -84,7 +84,7 @@ describe.each([
   });
 });
 
-describe('the document page (always white, step 4.4)', () => {
+describe('the document page (always white)', () => {
   it.each(DocColors.text.map((t) => [t.label, t.value]))('%s text on the page ≥ 4.5', (_label, value) => {
     expect(contrast(value, LightColors.card)).toBeGreaterThanOrEqual(TEXT);
   });
@@ -100,7 +100,7 @@ describe('contrast()', () => {
   });
 });
 
-describe("Studiply's blocks in the document (step 4.6)", () => {
+describe("Studiply's blocks in the document", () => {
   it.each(Object.entries(DocColors.callout).map(([k, v]) => [k, v]))('the %s callout: its label and the text on its fill ≥ 4.5', (_kind, c) => {
     expect(contrast(c.label, c.bg)).toBeGreaterThanOrEqual(TEXT);
     expect(contrast(LightColors.text.primary, c.bg)).toBeGreaterThanOrEqual(TEXT);
@@ -108,7 +108,7 @@ describe("Studiply's blocks in the document (step 4.6)", () => {
   it.each(Object.entries(DocColors.markChip).map(([k, v]) => [k, v]))('the %s mark chip ≥ 4.5', (_kind, c) => {
     expect(contrast(c.text, c.bg)).toBeGreaterThanOrEqual(TEXT);
   });
-  it('the summary modules (8.1): the label, secondary text and text on every fill ≥ 4.5', () => {
+  it('the summary modules: the label, secondary text and text on every fill ≥ 4.5', () => {
     const m = DocColors.module;
     for (const fill of [m.bg, m.box, m.answerBg, m.codeBg]) {
       expect(contrast(LightColors.text.primary, fill)).toBeGreaterThanOrEqual(TEXT);
@@ -118,7 +118,7 @@ describe("Studiply's blocks in the document (step 4.6)", () => {
     // The timeline's line and dots, the stage numbers' ring: a graphic, 3:1 on the box.
     expect(contrast(m.line, m.bg)).toBeGreaterThanOrEqual(ICON);
   });
-  it('the formula card (4.7c): its title, legend and text ≥ 4.5', () => {
+  it('the formula card: its title, legend and text ≥ 4.5', () => {
     const f = DocColors.formulaCard;
     expect(contrast(f.title, f.bg)).toBeGreaterThanOrEqual(TEXT);
     expect(contrast(f.legend, f.bg)).toBeGreaterThanOrEqual(TEXT);

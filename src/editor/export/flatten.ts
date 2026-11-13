@@ -1,5 +1,5 @@
 /**
- * A picture drawn on white (step 4.8b), in the editor bundle: the iPhone has
+ * A picture drawn on white, in the editor bundle: the iPhone has
  * no canvas, so toJpeg sends a picture that can be transparent here (through
  * the export bridge, PictureFlattenerHost) before it becomes a JPEG, which has
  * no transparency (a transparent pixel would turn black). The laptop draws

@@ -2,7 +2,7 @@
  * StatusBanners.tsx
  * The sync line (iPhone: are this phone's changes on Studiply yet?) and
  * today's AI use against the daily limits. Moved unchanged from the old
- * Settings list (step 3.6).
+ * Settings list.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';

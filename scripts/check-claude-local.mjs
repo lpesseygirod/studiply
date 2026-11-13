@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * check-claude-local.mjs — end-to-end check of assistant-chat and summarize (steps 1.6, 1.7, 6.1, 6.3).
+ * check-claude-local.mjs — end-to-end check of assistant-chat and summarize.
  *
  * Calls the real local Edge Functions, which call Anthropic (four short
  * answers, two short study notes, one clarification, three study-assistant
- * questions and three step-6.3 actions at low effort, about $0.12–0.25 per
- * run: the assistant on Sonnet 5.5, notes and summaries on Opus 5.5; the
+ * questions and three Ask Claude actions at low effort, about $0.12–0.25 per
+ * run: the assistant, notes and summaries on Sonnet 5.5 (summaries since Lea, 12 Nov); the
  * models are read from CLAUDE_MODELS in supabase/functions/_shared/claude.ts):
  *   1. checks the Anthropic key is in no tracked file;
  *   2. creates two throwaway users, A and B, and a lecture for A;
@@ -13,16 +13,16 @@
  *      assistant-chat really streams, that each answer's cost is logged
  *      once (also when the student disconnects mid-answer), summarize,
  *      that B can't use A's lecture, the study notes (with a photo, which
- *      needs images consent) and clarify (step 1.7), the study assistant
- *      (step 6.1: a 30-min Spanish lecture with notes, a mark and an
+ *      needs images consent) and clarify, the study assistant
+ *      (a 30-min Spanish lecture with notes, a mark and an
  *      instruction said in class; "Explain the last 10 min" only talks about
  *      that window and cites times inside it, "What did she just say?", a
  *      question the lecture doesn't answer, and both rows saved with their
- *      window), Ask Claude and Flashcards (step 6.3: Explain simpler on a
+ *      window), Ask Claude and Flashcards (Explain simpler on a
  *      plain document, in Spanish, the formula kept; Make flashcard; cards
  *      from a saved answer; each logged once; B can't use A's document), the
  *      daily limit, and withdrawing consent;
- *      the summary (step 7.4) of a synthetic 30-min Spanish lecture: notes
+ *      the summary of a synthetic 30-min Spanish lecture: notes
  *      with formatting, marks of all three kinds at low and high levels, a
  *      board photo, a question to the assistant, an exam phrase and a concept
  *      explained three times, a sentence asking Claude to obey it; the
@@ -30,15 +30,17 @@
  *      the row is followed to done, and the result is checked (shape, every
  *      note line and mark used, takeaways, Spanish, the photo, the exam
  *      signal, each call logged once) and saved to tests/output/ (git-ignored);
- *      about $0.17–0.20 on Opus 5.5;
+ *      about $0.17–0.20 on Opus 5.5, so about half on Sonnet 5.5 (not measured yet);
  *   4. deletes both users and their rows, even when a check fails.
  *
- * Only the summary (step 7.4), without paying for the earlier steps again:
+ * Only the summary, without paying for the earlier steps again:
  *   npm run check:claude -- --only=summary
  *
- * Only the checks before Claude (step 7.9), FREE: refusals only, never a call to Anthropic (signed
+ * Only the checks before Claude, FREE: refusals only, never a call to Anthropic (signed
  * out 401, another user's files 404, no or withdrawn consent 403, $3 used today 429) for every kind of
- * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added:
+ * assistant-chat and summarize request (a summary, Extend, Merge, Exam pack); no ai_usage row added;
+ * at 0 credits a summary, an Exam pack and a quiz → 402 no_credits, nothing spent;
+ * the extras' cap (429 extras_limit) and their own $1 daily guard, never on a summary:
  *   npm run check:claude -- --only=gate
  * (The full run ends with these too.)
  *
@@ -70,13 +72,14 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
   process.exit(1);
 }
 
-/** `--only=summary`: the step-7.4 summary alone (it creates what it needs). */
+/** `--only=summary`: the summary alone (it creates what it needs). */
 const ONLY_SUMMARY = process.argv.includes('--only=summary');
-/** `--only=gate`: the checks before Claude alone, FREE (refusals only; step 7.9). */
+/** `--only=gate`: the checks before Claude alone, FREE (refusals only). */
 const ONLY_GATE = process.argv.includes('--only=gate');
 const CHAT_URL = `${url}/functions/v1/assistant-chat`;
 const SUMMARIZE_URL = `${url}/functions/v1/summarize`;
-// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+const QUIZ_URL = `${url}/functions/v1/quiz`;
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts.
 const POLICY_VERSION = '2026-11-store-1';
 /** The models as the functions use them: CLAUDE_MODELS in _shared/claude.ts (the one place they're set). */
 const MODELS = (() => {
@@ -86,6 +89,8 @@ const MODELS = (() => {
 })();
 if (!MODELS.assistant || !MODELS.summary) throw new Error('Could not read CLAUDE_MODELS from supabase/functions/_shared/claude.ts.');
 const DAILY_LIMIT_USD = 3;
+/** The extras' own daily guard (claude.ts DAILY_EXTRAS_LIMIT_USD). */
+const DAILY_EXTRAS_USD = 1;
 const FUNCTIONS_ENV = 'supabase/functions/.env';
 const COUNT_PROMPT = 'Count from 1 to 30, one number per line, nothing else.';
 const LECTURE_TEXT = [
@@ -95,7 +100,7 @@ const LECTURE_TEXT = [
   'If the price is above equilibrium there is a surplus, and the price tends to fall.',
 ];
 
-/** Step 6.1's lecture: 30 min in Spanish, photosynthesis until 20:00, then cellular respiration. */
+/** The study assistant's lecture: 30 min in Spanish, photosynthesis until 20:00, then cellular respiration. */
 const TOPIC_A = [
   'La fotosíntesis ocurre en el cloroplasto de las células vegetales.',
   'La clorofila absorbe la luz del sol.',
@@ -233,7 +238,7 @@ const gitIgnored = (file) => {
   }
 };
 
-/** Step 7.4's synthetic lecture: 30 min of Psicobiología in Spanish (60 segments of 30 s). */
+/** The summary's synthetic lecture: 30 min of Psicobiología in Spanish (60 segments of 30 s). */
 const PSICO = {
   intro: [
     'La Psicobiología estudia la conducta como un proceso biológico.',
@@ -279,11 +284,12 @@ const sameJson = (a, b) => {
 const pmText = (t) => ({ type: 'text', text: t });
 
 /**
- * Step 7.4: the summary of the synthetic lecture, end to end through the real summarize function and
- * Anthropic (about $0.17–0.20 on Opus 5.5). Saves the result in tests/output/ (git-ignored).
+ * The summary of the synthetic lecture, end to end through the real summarize function and
+ * Anthropic (about $0.17–0.20 on Opus 5.5; about half on Sonnet 5.5, the summary model since Lea, 12 Nov).
+ * Saves the result in tests/output/ (git-ignored).
  */
 async function summarySection(a, b) {
-  console.log('\nThe summary (step 7.4): a synthetic 30-min lecture in Spanish, Opus 5.5');
+  console.log('\nThe summary (step 7.4): a synthetic 30-min lecture in Spanish, Sonnet 5.5');
   // With --only=summary nothing was allowed yet (the earlier steps give the same consent; a second row is harmless).
   for (const scope of ['assistant_summary', 'images']) await a.client.from('ai_consent').insert({ scope, policy_version: POLICY_VERSION });
 
@@ -341,7 +347,7 @@ async function summarySection(a, b) {
   const { data: photo, error: photoError } = await a.client.from('media').insert({ lecture_id: lec, kind: 'photo', storage_path: photoPath, mime_type: 'image/jpeg', t_ms: 12 * MIN + 40_000 }).select('id').single();
   if (photoError) throw new Error(`Could not add the photo: ${photoError.message}`);
 
-  // The summarize panel's pending row (step 7.3), the spec's default sliders, photos and questions ticked.
+  // The summarize panel's pending row, the spec's default sliders, photos and questions ticked.
   const SLIDERS = { startingPoint: 2, length: 5, depth: 6, examples: 5, visuals: 4, examFocus: 5, selfTest: 5, language: 4, extraResources: 6, followMarks: 7 };
   const { data: req, error: reqError } = await a.client
     .from('summaries')
@@ -489,7 +495,12 @@ async function gateSection() {
   };
 
   // $3 today BEFORE any consent (a check that let a request through would still meet another).
-  const seeded = await admin.from('ai_usage').insert({ user_id: c.id, operation: 'summary', provider: 'anthropic', model: MODELS.summary, cost_usd: DAILY_LIMIT_USD });
+  // What credits pay for and the extras have their own daily guards ($3 / $1): both are seeded,
+  // so every request here is refused, the assistant's too.
+  const seeded = await admin.from('ai_usage').insert([
+    { user_id: c.id, operation: 'summary', provider: 'anthropic', model: MODELS.summary, cost_usd: DAILY_LIMIT_USD },
+    { user_id: c.id, operation: 'assistant', provider: 'anthropic', model: MODELS.assistant, cost_usd: DAILY_EXTRAS_USD },
+  ]);
   if (seeded.error) throw new Error(`Could not seed usage: ${seeded.error.message}`);
 
   expectAll(await all(null), 401, null, 'signed out');
@@ -505,16 +516,169 @@ async function gateSection() {
   expectAll(await all(c.token), 403, 'consent_required', 'transcription consent only');
   const given = await c.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: POLICY_VERSION });
   check(!given.error, 'C gives assistant and summary consent (with $3 already used today)');
-  expectAll(await all(c.token), 429, 'daily_limit', '$3 used today');
+  expectAll(await all(c.token), 429, 'daily_limit', '$3 of summaries and $1 of extras used today');
   const withdrawn = await c.client.from('ai_consent').update({ withdrawn_at: new Date().toISOString() }).eq('scope', 'assistant_summary').is('withdrawn_at', null).select('id');
   check(!withdrawn.error && withdrawn.data.length === 1, 'C withdraws assistant and summary consent');
   expectAll(await all(c.token), 403, 'consent_required', 'consent withdrawn');
 
   // Nothing reached Anthropic, nothing was started.
-  check((await usageRows(c.id)).length === 1, 'C: no new ai_usage row (only the seeded $3)');
+  check((await usageRows(c.id)).length === 2, 'C: no new ai_usage row (only the two seeded)');
   check((await usageRows(d.id)).length === 0, 'D: no ai_usage row');
   const { data: still } = await admin.from('summaries').select('status, result').in('id', Object.values(rows));
   check(still?.length === 5 && still.every((r) => r.status === 'pending' && r.result === null), 'every summary request is still pending (none was started)');
+
+  await noCreditsSection();
+  await extrasSection();
+}
+
+/**
+ * The extras' fair-use cap, FREE. Both users have consent and 0 credits, so a summary is
+ * refused 402 no_credits (proving the extras' limits never block what credits pay for) and nothing
+ * reaches Anthropic.
+ *  - F, a new account (allowance $0.50), with $0.50 of assistant use seeded: the assistant (a question,
+ *    Ask Claude on a document, flashcards from an answer), quiz grading and a past exam's format → 429
+ *    extras_limit with resetsAt; a summary → 402 no_credits.
+ *  - G, 10 lectures recorded (allowance $3.50) and $1 of extras today: the assistant → 429 daily_limit
+ *    (the extras' own guard); a summary → 402 no_credits, not the paid guard.
+ */
+async function extrasSection() {
+  console.log('\nThe extras’ fair-use cap (free: refusals only)');
+  const must = (r, what) => {
+    if (r.error) throw new Error(`Could not ${what}: ${r.error.message}`);
+    return r.data;
+  };
+  const balance = async (id) => (must(await admin.from('credit_ledger').select('units').eq('user_id', id), 'read the credits') ?? []).reduce((n, r) => n + r.units, 0);
+  const toZero = async (id) => {
+    const units = await balance(id);
+    if (units > 0) must(await admin.rpc('spend_credits', { p_user: id, p_base_key: `check-claude:zero:${randomUUID()}`, p_units: units, p_kind: 'spend_extra' }), 'spend the credits');
+  };
+  /** A student with consent, a lecture with a transcript, a summary request, a document, a quiz and an attempt. */
+  const setUp = async (label) => {
+    const u = await makeUser(`${label}-${run}@claude-check.test`);
+    must(await u.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: POLICY_VERSION }), 'give consent');
+    const course = must(await u.client.from('courses').insert({ name: 'Extras' }).select('id').single(), 'make the course');
+    const lecture = must(await u.client.from('files').insert({ kind: 'lecture', title: 'Extras lecture', course_id: course.id }).select('id').single(), 'make the lecture').id;
+    must(await u.client.from('lectures').insert({ id: lecture }), 'make the lecture row');
+    must(await u.client.from('transcript_segments').insert({ lecture_id: lecture, start_ms: 0, end_ms: 4000, text: 'Hola.' }), 'add a transcript');
+    const doc = must(await u.client.from('files').insert({ kind: 'document', title: 'Extras document', course_id: course.id }).select('id').single(), 'make the document').id;
+    const summary = must(
+      await u.client
+        .from('summaries')
+        .insert({ file_id: lecture, mode: 'new', source_lecture_ids: [lecture], sliders: SLIDERS, status: 'pending', applied_settings: { resources: { slides: false, photos: false, assistant: true, notes: true }, preview: '(extras)', target: 'new', anchors: [] } })
+        .select('id')
+        .single(),
+      'save a summary request',
+    ).id;
+    const quiz = must(await u.client.from('quizzes').insert({ course_id: course.id, title: 'Extras quiz', settings: {}, plan: {}, status: 'ready', question_count: 1 }).select('id').single(), 'make the quiz').id;
+    const attempt = must(await u.client.from('quiz_attempts').insert({ quiz_id: quiz, max_points: 1 }).select('id').single(), 'start an attempt').id;
+    return { ...u, lecture, doc, summary, quiz, attempt };
+  };
+  const extras = (u) => [
+    ['assistant-chat · a question', CHAT_URL, { lectureId: u.lecture, message: 'x' }],
+    ['assistant-chat · Ask Claude on a document', CHAT_URL, { mode: 'selection', fileId: u.doc, action: 'simpler', text: 'x' }],
+    ['assistant-chat · flashcards from an answer', CHAT_URL, { mode: 'flashcards', lectureId: u.lecture, answerId: randomUUID() }],
+    ['quiz · grading an attempt', QUIZ_URL, { mode: 'grade', quizId: u.quiz, attemptId: u.attempt }],
+    ['quiz · a past exam’s format', QUIZ_URL, { mode: 'format', fileId: u.doc }],
+  ];
+  const ask = async (u, [name, fnUrl, body]) => ({ name, ...(fnUrl === CHAT_URL ? await chat(u.token, body) : await call(fnUrl, u.token, body)) });
+
+  // F: a new account's $0.50, used up.
+  const f = await setUp('f');
+  await toZero(f.id);
+  must(await admin.from('ai_usage').insert({ user_id: f.id, operation: 'assistant', provider: 'anthropic', model: MODELS.assistant, cost_usd: 0.5 }), 'seed F’s use');
+  for (const req of extras(f)) {
+    const r = await ask(f, req);
+    check(r.status === 429 && r.body?.code === 'extras_limit' && typeof r.body?.resetsAt === 'string', `F, allowance used up: ${r.name} → 429 extras_limit with resetsAt (got ${r.status} ${r.body?.code ?? ''} ${r.body?.resetsAt ?? ''})`);
+  }
+  const fSummary = await call(SUMMARIZE_URL, f.token, { lectureId: f.lecture, summaryId: f.summary });
+  check(fSummary.status === 402 && fSummary.body?.code === 'no_credits', `F: a summary isn’t blocked by the extras’ cap → 402 no_credits (got ${fSummary.status} ${fSummary.body?.code ?? ''})`);
+  check((await usageRows(f.id)).length === 1, 'F: no new ai_usage row (only the seeded one)');
+
+  // G: 10 lectures recorded ($3.50 allowance), $1 of extras today.
+  const g = await setUp('g');
+  must(await admin.rpc('grant_credits', { p_user: g.id, p_kind: 'grant_admin', p_base_key: 'check-claude-extras', p_units: 40, p_label: 'check' }), 'grant G credits');
+  for (let i = 0; i < 10; i++) {
+    must(await admin.rpc('spend_credits', { p_user: g.id, p_base_key: `lecture:${randomUUID()}:block:0`, p_units: 4, p_kind: 'spend_lecture' }), 'spend a lecture');
+  }
+  await toZero(g.id);
+  must(await admin.from('ai_usage').insert({ user_id: g.id, operation: 'assistant', provider: 'anthropic', model: MODELS.assistant, cost_usd: DAILY_EXTRAS_USD }), 'seed G’s use');
+  const { data: allowance } = await g.client.rpc('extras_allowance');
+  check(Number(allowance?.allowance_usd) === 3.5 && allowance?.lectures === 10, `G’s allowance: $0.50 + 10 × $0.30 (got ${JSON.stringify(allowance)})`);
+  const gChat = await ask(g, extras(g)[0]);
+  check(gChat.status === 429 && gChat.body?.code === 'daily_limit', `G, $1 of extras today: the assistant → 429 daily_limit (got ${gChat.status} ${gChat.body?.code ?? ''})`);
+  const gSummary = await call(SUMMARIZE_URL, g.token, { lectureId: g.lecture, summaryId: g.summary });
+  check(gSummary.status === 402 && gSummary.body?.code === 'no_credits', `G: a summary isn’t blocked by the extras’ daily guard → 402 no_credits (got ${gSummary.status} ${gSummary.body?.code ?? ''})`);
+  check((await usageRows(g.id)).length === 1, 'G: no new ai_usage row (only the seeded one)');
+}
+
+/**
+ * No credits left, FREE. E has consent and no usage today, and her credits are spent down
+ * to 0; a summary (its lecture has a transcript, so it would pay), an Exam pack and a quiz are each
+ * refused 402 no_credits after their claim, before any call to Anthropic: each row back to pending with
+ * error no_credits, no ledger row written, no ai_usage row.
+ */
+async function noCreditsSection() {
+  console.log('\nNo credits left (free: refusals only)');
+  const e = await makeUser(`e-${run}@claude-check.test`);
+  const ledger = async () => {
+    const { data, error } = await admin.from('credit_ledger').select('units').eq('user_id', e.id);
+    if (error) throw new Error(`Could not read the credits: ${error.message}`);
+    return data;
+  };
+  const start = (await ledger()).reduce((n, r) => n + r.units, 0);
+  check(start === 8, `a new account starts with 2 lectures (8 units; got ${start})`);
+  const zero = await admin.rpc('spend_credits', { p_user: e.id, p_base_key: 'check-claude:zero', p_units: start, p_kind: 'spend_extra', p_label: '(check:claude)' });
+  if (zero.error) throw new Error(`Could not spend E's credits: ${zero.error.message}`);
+  const rowsAtZero = (await ledger()).length;
+
+  const must = (r, what) => {
+    if (r.error) throw new Error(`Could not create ${what}: ${r.error.message}`);
+    return r.data;
+  };
+  const course = must(await e.client.from('courses').insert({ name: 'Credits' }).select('id').single(), 'the course');
+  const lecture = async (title) => {
+    const f = must(await e.client.from('files').insert({ kind: 'lecture', title, course_id: course.id }).select('id').single(), 'a lecture');
+    must(await e.client.from('lectures').insert({ id: f.id }), 'its lecture row');
+    must(await e.client.from('transcript_segments').insert({ lecture_id: f.id, start_ms: 0, end_ms: 4000, text: 'Hola.' }), 'its transcript');
+    return f.id;
+  };
+  const l1 = await lecture('Credits lecture 1');
+  const l2 = await lecture('Credits lecture 2');
+  const pack = must(await e.client.from('files').insert({ kind: 'exam_pack', title: 'Credits pack', course_id: course.id }).select('id').single(), 'an exam pack').id;
+  const summary = (fileId, mode, sources, target) =>
+    e.client
+      .from('summaries')
+      .insert({ file_id: fileId, mode, source_lecture_ids: sources, sliders: SLIDERS, status: 'pending', applied_settings: { resources: { slides: false, photos: false, assistant: true, notes: true }, preview: '(credits)', target, anchors: [] } })
+      .select('id')
+      .single();
+  const rowNew = must(await summary(l1, 'new', [l1], 'new'), 'a summary request').id;
+  const rowPack = must(await summary(pack, 'exam_pack', [l1, l2], 'unit'), 'an Exam pack request').id;
+  const sliders = { difficulty: 5, count: 2, definitions: 5, calculations: 5, theoryPractice: 5, examFocus: 5, weakSpots: 5, traps: 5, memoryUnderstanding: 5, detail: 5 };
+  const settings = {
+    version: 1,
+    sliders,
+    choices: { types: ['multiple_choice'], timeLimit: { kind: 'none' }, language: null, answers: 'afterEach', explanations: true, hints: true, grading: { kind: 'score' }, wrongComeBack: false },
+    topic: { wholeCourse: false, lectureIds: [l1] },
+    resources: { notes: true, summaries: false, lectureMedia: false, fileIds: [] },
+    pastExamIds: [],
+  };
+  const quiz = must(await e.client.from('quizzes').insert({ course_id: course.id, title: 'Credits quiz', settings, plan: {}, status: 'pending', question_count: 10 }).select('id').single(), 'a quiz').id;
+  must(await e.client.from('ai_consent').insert({ scope: 'assistant_summary', policy_version: POLICY_VERSION }), 'her consent');
+
+  for (const [name, fnUrl, body] of [
+    ['summarize · a summary', SUMMARIZE_URL, { lectureId: l1, summaryId: rowNew }],
+    ['summarize · Exam pack', SUMMARIZE_URL, { lectureId: pack, summaryId: rowPack }],
+    ['quiz · a quiz of 10', QUIZ_URL, { quizId: quiz }],
+  ]) {
+    const r = await call(fnUrl, e.token, body);
+    check(r.status === 402 && r.body?.code === 'no_credits', `at 0 credits: ${name} → 402 no_credits (got ${r.status} ${r.body?.code ?? ''})`);
+  }
+  const { data: rows } = await admin.from('summaries').select('status, error, result').in('id', [rowNew, rowPack]);
+  check(rows?.length === 2 && rows.every((r) => r.status === 'pending' && r.error === 'no_credits' && r.result === null), 'both summary requests are back to pending, error no_credits');
+  const { data: q } = await admin.from('quizzes').select('status, error').eq('id', quiz).single();
+  check(q?.status === 'pending' && q?.error === 'no_credits', `the quiz is back to pending, error no_credits (got ${q?.status} ${q?.error})`);
+  check((await ledger()).length === rowsAtZero, 'nothing was spent (no new ledger row)');
+  check((await usageRows(e.id)).length === 0, 'E: no ai_usage row (nothing reached Anthropic)');
 }
 
 try {
@@ -535,6 +699,16 @@ try {
   } else {
   const a = await makeUser(emails[0]);
   const b = await makeUser(emails[1]);
+  // A uses the assistant a lot below; a new account's extras allowance is $0.50, so A
+  // gets 10 recorded lectures' worth ($3.50) first, through the server's own functions.
+  {
+    const { error: grantError } = await admin.rpc('grant_credits', { p_user: a.id, p_kind: 'grant_admin', p_base_key: 'check-claude-extras', p_units: 40, p_label: 'check' });
+    if (grantError) throw new Error(`Could not grant A credits: ${grantError.message}`);
+    for (let i = 0; i < 10; i++) {
+      const { error } = await admin.rpc('spend_credits', { p_user: a.id, p_base_key: `lecture:${randomUUID()}:block:0`, p_units: 4, p_kind: 'spend_lecture' });
+      if (error) throw new Error(`Could not record a lecture for A: ${error.message}`);
+    }
+  }
 
   const { data: file, error: fileError } = await a.client
     .from('files')
@@ -547,7 +721,7 @@ try {
   if (lectureError) throw new Error(`Could not create the lecture: ${lectureError.message}`);
   const chatBody = { lectureId, message: COUNT_PROMPT };
 
-  // The earlier steps (1.6–6.3); skipped with --only=summary.
+  // The earlier steps; skipped with --only=summary.
   if (!ONLY_SUMMARY) {
   console.log('\nRequest checks');
   for (const [name, fnUrl] of [['assistant-chat', CHAT_URL], ['summarize', SUMMARIZE_URL]]) {
@@ -852,7 +1026,9 @@ try {
     .eq('scope', 'assistant_summary')
     .is('withdrawn_at', null)
     .select('id');
-  check(!withdrawn.error && withdrawn.data.length === 1, 'A withdraws assistant and summary consent');
+  // A gave this consent more than once (the earlier steps and the summary step each give it): every row goes.
+  const { count: stillGiven } = await admin.from('ai_consent').select('id', { count: 'exact', head: true }).eq('user_id', a.id).eq('scope', 'assistant_summary').is('withdrawn_at', null);
+  check(!withdrawn.error && withdrawn.data.length >= 1 && stillGiven === 0, `A withdraws assistant and summary consent (${withdrawn.data?.length ?? 0} row(s), none left)`);
   check(isConsentRequired(await chat(a.token, chatBody)), 'after withdrawing: assistant-chat 403 consent_required');
   check(isConsentRequired(await call(SUMMARIZE_URL, a.token, { lectureId })), 'and summarize 403 consent_required');
   }

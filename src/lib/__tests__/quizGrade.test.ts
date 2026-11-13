@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-3: grading in code (quiz-grade.ts, the approved plan §2), the same on the iPhone, the
+// Grading in code (quiz-grade.ts, the approved plan §2), the same on the iPhone, the
 // laptop and the server: every type, numbers in Spanish and English formats, typos by word length,
 // partly by share, short answers code can't match (and every long one) left to the AI, unanswered wrong.
 import {

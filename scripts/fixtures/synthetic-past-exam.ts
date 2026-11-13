@@ -1,5 +1,5 @@
 /**
- * A synthetic past exam (step 9.1b-2) for the quiz evaluation (scripts/eval-quizzes.ts): a Psicobiología
+ * A synthetic past exam for the quiz evaluation (scripts/eval-quizzes.ts): a Psicobiología
  * exam from an earlier year, as a text document of the course (so reading it needs no photos-and-PDFs
  * permission). 12 questions: 8 multiple choice with 4 options, 2 true/false, 2 short answers. A quiz
  * made with it should copy its format (that mix, 4 options, short stems in Spanish) and never its

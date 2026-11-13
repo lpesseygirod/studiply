@@ -1,7 +1,7 @@
 /**
  * summary-fixture.ts
- * A lecture saved as a test fixture (steps 7.1 and 7.5): the folder tests/fixtures/lectures/<name>/
- * (git-ignored), one JSON file per part, as BUILD-PLAN 7.1 lists them, and the summary pipeline's
+ * A lecture saved as a test fixture: the folder tests/fixtures/lectures/<name>/
+ * (git-ignored), one JSON file per part, as BUILD-PLAN lists them, and the summary pipeline's
  * input made from it (the same LectureMaterial and SummaryRequest the server reads), so the
  * evaluation script (scripts/eval-summaries.ts) runs a fixture exactly as a real lecture.
  *

@@ -11,7 +11,7 @@ import { MARK_HINT_LATER, MARK_LEVEL_DEFAULT, MARK_TEXT, markHint } from '../../
 import { LevelSlider } from './LevelSlider';
 
 /**
- * The mark panel (step 5.5, DESIGN "While recording"), as the mockups draw it:
+ * The mark panel (DESIGN "While recording"), as the mockups draw it:
  * - `row` (the laptop, docs/design desktop-01): one slim row the width of the
  *   window under the strip: "CONFUSED · AT 34:12" and the question; the
  *   slider with "1 · a bit unsure", "7 / 10" and "10 · completely lost" above

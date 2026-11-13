@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 10.1: AI switched off on this device (lib/consentGate): lib/functions sends nothing to an AI
+// AI switched off on this device (lib/consentGate): lib/functions sends nothing to an AI
 // function (the server's own refusal, answered here), but delete-account still goes; per account; it
 // survives a restart (AsyncStorage). The permission texts in app.json: clear, the same microphone text
 // everywhere, Sign in with Apple's entitlement.

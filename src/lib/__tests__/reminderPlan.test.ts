@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.2-3: the review reminders' plan. One a day at most, at her time, for 30 days; a day only
+// The review reminders' plan. One a day at most, at her time, for 30 days; a day only
 // when something is due (lectures by their plan and their study reminders, cards by the end of it);
 // today's left out once its time has passed; the texts (one lecture, several, cards only, the day
 // before an exam), lecture titles as written.

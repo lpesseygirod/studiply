@@ -1,6 +1,6 @@
 /**
  * The faults planted in the hand-made good quiz (quiz-good-answer.ts) by `npm run eval:quizzes --
- * --faults` (step 9.1b-2), each with how the checks must catch it; and a batch answer run through the
+ * --faults`, each with how the checks must catch it; and a batch answer run through the
  * checks as the quiz function does (checkQuestion, duplicates, faithfulness, then a verify call that
  * finds nothing it was sent: "added"). Shared by the Deno harness (with the synthetic lecture's own
  * sources) and Jest (src/lib/__tests__/quizFaults.test.ts), so the planted faults are tested free on

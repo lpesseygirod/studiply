@@ -1,12 +1,12 @@
 /**
- * Step 7.9: Extend, Merge and Exam pack, the app's side (pure; both devices): the anchors sent with a
+ * Extend, Merge and Exam pack, the app's side (pure; both devices): the anchors sent with a
  * request (the target document's blocks), and the server's result (supabase/functions/_shared/
  * summary-combine.ts) as documents:
  *
  * - A new Unit summary: the base summary, then each lecture's new sections ("4 · Lecture 2 · …"), the
  *   unit's own takeaways, self-test and flashcards, the glossary without repeats; the comments and
  *   Update callouts on the base's blocks; its notes line counts every lecture's notes. Built with the
- *   7.7 converter under the request's own id, so the base's blocks have the ids the anchors named.
+ *   summary converter under the request's own id, so the base's blocks have the ids the anchors named.
  *   Each lecture added is in the result as written against the existing summary (`addition.summary`).
  * - "Add to this summary": only what is new goes into her Summary tab: the new sections before its
  *   lists, the new glossary terms, questions and exam signals after them, each block `x…`. Her blocks
@@ -148,7 +148,7 @@ export function addToDoc(current: { content?: Node[] }, r: CombinedResult, reque
       firstSection: sections + 1,
       tag: lectureTag(a.number),
     });
-    // Its own ids (`x<n>-…`): kept when the summary is written again (7.7's merge), never mixed with hers.
+    // Its own ids (`x<n>-…`): kept when the summary is written again (summaryDoc's merge), never mixed with hers.
     const rekeyed = part.content.map((b) => ({ ...b, attrs: { ...b.attrs, blockId: `${key}-x${n}-${generatedPath(b.attrs?.blockId)}` } }));
     const isSection = (b: Node) => /^x\d+-s\d+/.test(generatedPath(b.attrs?.blockId) ?? '');
     const at = tailStart(content);

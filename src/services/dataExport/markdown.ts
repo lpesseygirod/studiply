@@ -1,6 +1,6 @@
 /**
  * markdown.ts
- * A document tab (the editor's JSON) as Markdown, for "Export my data" (step 10.1b-4). Readable, not
+ * A document tab (the editor's JSON) as Markdown, for "Export my data". Readable, not
  * exact: data/documents.json in the same ZIP keeps the JSON itself. Headings, paragraphs, lists,
  * task lists, quotes, code, tables, formulas ($…$ as LaTeX), mark and timestamp chips ([Exam 9/10],
  * [06:40]), Studiply's boxes (a quote headed by its label), photos (a link to the photo's file in the

@@ -4,7 +4,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import { TableBar } from '../table/tableBar';
 
 /**
- * Tables (steps 4.2, 4.5): pasted tables stay tables, and tables are made
+ * Tables: pasted tables stay tables, and tables are made
  * and edited from the toolbars. A cell can have a colour (`backgroundColor`,
  * also read from a pasted cell's shading); on the laptop columns can be
  * dragged wider (their widths are saved, and the iPhone shows them).
@@ -35,6 +35,6 @@ export const StudiplyTableHeader = TableHeader.extend({
 
 export const TableBridge = new BridgeExtension({
   tiptapExtension: Table.configure({ resizable: true, cellMinWidth: 48, lastColumnResizable: false }),
-  // The floating table bar (step 4.5) is drawn by both editors.
+  // The floating table bar is drawn by both editors.
   tiptapExtensionDeps: [TableRow, StudiplyTableHeader, StudiplyTableCell, TableBar],
 });

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Room to type around tables (step 4.5, test A): a paragraph after every
+// Room to type around tables (test A): a paragraph after every
 // table and at the end, the same on two devices, Enter above a table at the
 // top, and the gap cursor.
 import { Editor, type JSONContent } from '@tiptap/core';

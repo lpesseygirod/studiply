@@ -2,7 +2,7 @@ import type { Node as PMNode } from '@tiptap/pm/model';
 import type { EditorState, Transaction } from '@tiptap/pm/state';
 
 /**
- * Where an inserted box goes (formula cards since 4.7c, graphs since 4.7d):
+ * Where an inserted box goes (formula cards and graphs):
  * after the cursor's line, or in place of an empty one; at the top level, or
  * inside the callout the cursor is in; after a selected block (a photo, a
  * display formula). A line to type on follows it. Returns where it went.

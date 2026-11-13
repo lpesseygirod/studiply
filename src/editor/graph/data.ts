@@ -1,5 +1,5 @@
 /**
- * A graph's data (step 4.7d): what the graph block keeps and the rules for
+ * A graph's data: what the graph block keeps and the rules for
  * it, shared by both editors and the data form. The drawing itself is the
  * charts module's (src/lib/charts, built separately); graph/charts.ts hands
  * it the spec made here.
@@ -9,12 +9,12 @@
  * graph is drawn, with a comma or a point for decimals ("3,5" = "3.5").
  */
 
-/** The kinds the student picks in the form (4.7d). */
+/** The kinds the student picks in the form. */
 export type FormKind = 'bar' | 'line' | 'pie' | 'scatter';
 /**
- * Step 8.2: kinds only a summary writes (SUMMARY-SPEC dataChart, functionPlot, modelGraph). The charts
+ * Kinds only a summary writes (SUMMARY-SPEC dataChart, functionPlot, modelGraph). The charts
  * module draws them once docs/charts-work-order-8.2.md is merged; until then graph/charts.ts says so.
- * Not in the form in 8.2 (advisor: regenerate-only for now).
+ * Not in the form (advisor: regenerate-only for now).
  */
 export type SummaryKind = 'stackedBar' | 'histogram' | 'function' | 'model';
 export type GraphKind = FormKind | SummaryKind;
@@ -28,13 +28,13 @@ export const GRAPH_KINDS: { kind: FormKind; name: string }[] = [
 const SUMMARY_KINDS: SummaryKind[] = ['stackedBar', 'histogram', 'function', 'model'];
 
 /**
- * Whether the form edits a graph of this kind: its data is the table (the 4.7d kinds, and a summary's
+ * Whether the form edits a graph of this kind: its data is the table (the form's kinds, and a summary's
  * stacked bars and histograms, which keep their kind unless she picks another). A function or a model
- * graph is written again by regenerating (8.2).
+ * graph is written again by regenerating.
  */
 export const hasTable = (kind: GraphKind) => kind !== 'function' && kind !== 'model';
 
-/** Words in a graph's place while the charts module can't draw its kind (7.7's placeholder line). */
+/** Words in a graph's place while the charts module can't draw its kind (the summary's placeholder line). */
 export const LATER = 'drawn in a later update';
 export const TEMPLATE_NAMES: Record<ModelTemplate, string> = {
   supplyDemand: 'Supply and demand',
@@ -108,7 +108,7 @@ export interface ModelData {
 
 /**
  * The block's data: series names, then one row per label with a cell per series; a function or a
- * model graph (8.2) carries its own data instead (its series and rows stay the defaults).
+ * model graph carries its own data instead (its series and rows stay the defaults).
  */
 export interface GraphData {
   kind: GraphKind;
@@ -125,7 +125,7 @@ export interface GraphData {
 export const MAX_SERIES = 3;
 export const MAX_ROWS = 50;
 export const MAX_TEXT = 60;
-/** Step 8.2: a title is a summary's takeaway, a sentence ("Al 5 % anual, 1.000 € se convierten en 1.276 €…"). */
+/** A title is a summary's takeaway, a sentence ("Al 5 % anual, 1.000 € se convierten en 1.276 €…"). */
 export const MAX_TITLE = 120;
 
 /** A new graph: an example to replace at once (as Google Docs does). */
@@ -219,7 +219,7 @@ export function readNumber(cell: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** What the charts module draws (the interface 4.7d asks of it). */
+/** What the charts module draws (the interface the graph block asks of it). */
 export interface ChartSpec {
   kind: GraphKind;
   title: string;
@@ -229,7 +229,7 @@ export interface ChartSpec {
   labels: string[];
   /** One to three series; an empty or unreadable cell is null. */
   series: { name: string; values: (number | null)[] }[];
-  /** Kind 'function' / 'model' (8.2): what is drawn instead of the table. */
+  /** Kind 'function' / 'model': what is drawn instead of the table. */
   func?: FunctionData;
   model?: ModelData;
 }

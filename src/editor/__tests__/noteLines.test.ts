@@ -1,4 +1,4 @@
-// Step 5.4: a lecture's My notes as note_lines rows: every line with
+// A lecture's My notes as note_lines rows: every line with
 // something in it, its recording time (or none), its text without the chip,
 // its JSON (formatting kept), list items by "<list id>#n".
 import { noteLinesOf } from '../noteLines';

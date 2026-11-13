@@ -1,8 +1,8 @@
-// Step 5.5: a lecture's marks follow its My notes after each save (Lea's
+// A lecture's marks follow its My notes after each save (Lea's
 // advisor, decision A): every linked mark chip is its `marks` row; a chip
 // deleted by typing deletes the row; brought back, the row is back; a level
-// or note changed on the chip changes the row. Chips put in by hand (4.6,
-// no markId), plain documents, other tabs and another lecture's marks are
+// or note changed on the chip changes the row. Chips put in by hand (no
+// markId), plain documents, other tabs and another lecture's marks are
 // left alone; nothing is written twice.
 import { resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';
 import { marksOf, syncMarks } from '../marks.service';

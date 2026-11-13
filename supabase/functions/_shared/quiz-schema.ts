@@ -1,9 +1,9 @@
 /**
  * quiz-schema.ts
- * Step 9.1b-2: the structured-output schemas the quiz function sends (JSON Schema constants, as
- * summary-schema.ts): the questions of a batch, and a past exam's format. Built from 7.4's lessons:
+ * The structured-output schemas the quiz function sends (JSON Schema constants, as
+ * summary-schema.ts): the questions of a batch, and a past exam's format. Built from the summary's lessons:
  * each question's type-specific fields travel as one JSON string (`data`, checked per type with zod in
- * quiz-zod.ts), so the grammar stays small: no anyOf, nothing nullable. The verify call reuses 7.5's
+ * quiz-zod.ts), so the grammar stays small: no anyOf, nothing nullable. The verify call reuses the summary's
  * VERIFY_SCHEMA. Without imports but quiz-plan.ts's type list, so the app and Jest use the same file.
  */
 
@@ -52,7 +52,7 @@ export const FORMAT_SCHEMA: JsonSchema = obj({
   examples: arr(str),
 });
 
-/** Step 9.1b-3: Sonnet's grades of short and long answers, each with a one-line reason. */
+/** Sonnet's grades of short and long answers, each with a one-line reason. */
 export const GRADE_SCHEMA: JsonSchema = obj({
   grades: arr(obj({ answerId: str, verdict: oneOf(['correct', 'partly', 'wrong']), reason: str })),
 });

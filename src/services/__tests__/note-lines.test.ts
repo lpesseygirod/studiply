@@ -1,4 +1,4 @@
-// Step 5.4: a lecture's note_lines follow its My notes after each save:
+// A lecture's note_lines follow its My notes after each save:
 // written by document and block, the lines that are gone removed, nothing
 // for a plain document or another tab, nothing written twice.
 import { resetTables, rowsOf, serverWrite } from '../../test-utils/fakeTables';

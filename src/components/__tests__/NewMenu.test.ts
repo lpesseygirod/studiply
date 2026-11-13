@@ -15,7 +15,7 @@ describe('the + New menu', () => {
     expect(items.filter((i) => i.disabled).map((i) => [i.action, i.hint])).toEqual([['upload', 'Open a course or folder first']]);
     expect(items.find((i) => i.action === 'folder')).toMatchObject({ text: 'New folder' });
     expect(items.find((i) => i.action === 'folder')?.disabled).toBeUndefined();
-    // A new document goes to My library there (step 4.3).
+    // A new document goes to My library there.
     expect(items.find((i) => i.action === 'document')?.disabled).toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-1: the New quiz panel's rules (src/lib/quiz/panel.ts) and the settings check
+// The New quiz panel's rules (src/lib/quiz/panel.ts) and the settings check
 // (supabase/functions/_shared/quiz-settings.ts): what the calculator is given for the lectures chosen,
 // the wrong answers that come back, Calculations greyed or not, the counts line, the title.
 import { countsLine, durationText, hasCalculations, pendingWrong, planInputFor, quizTitle, suggestedMinutes, type MaterialLecture, type QuizMaterial } from '../quiz/panel';

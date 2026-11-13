@@ -1,4 +1,4 @@
-// Folder names follow the same rule as lecture titles (step 3.2).
+// Folder names follow the same rule as lecture titles.
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { createFolder, renameFolder } from '../folder.service';
 

@@ -172,7 +172,7 @@ export function libraryFilesIn(
     .map((f) => ({ ...f, media: media.filter((m) => m.file_id === f.id) }));
 }
 
-// ── Library sections and the course tree (step 2.2) ─────────────────────
+// ── Library sections and the course tree ────────────────────────────────
 
 /** When a file was last opened or edited, whichever is later (Recent). */
 function openedOrEdited(f: FileRow): string {

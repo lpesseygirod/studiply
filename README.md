@@ -58,9 +58,9 @@ builds the web and iOS bundles and checks that no key is inside.
 - **Supabase** — Postgres with Row Level Security, Auth, private Storage buckets, and Edge Functions (Deno)
 - **ElevenLabs Scribe v2** — speech-to-text with word times, called only by the `transcribe-chunk` Edge Function (the default since 29 Oct 2026; `TRANSCRIBE_PROVIDER=openai` still selects OpenAI's `whisper-1` until it shuts down on 26 Feb 2027, but only with consent text naming OpenAI)
 - **Anthropic Claude** — the study assistant and clarifications on `claude-sonnet-5-5` (`assistant-chat`), notes and summaries on `claude-sonnet-5-5` too (`summarize`; Lea, 12 Nov), quizzes on `claude-opus-5-5` (`quiz`), called only by those Edge Functions; set in `CLAUDE_MODELS` (`supabase/functions/_shared/claude.ts`)
-- **expo-audio / expo-print** — recording and playback on the iPhone (since step 5.1–5.4's iPhone half; expo-av stays only for builds without expo-audio and the web's player), and PDF export
+- **expo-audio / expo-print** — recording and playback on the iPhone (expo-av stays for the web's player and the iPhone's player in a build without expo-audio), and PDF export
 
-### The backend (since step 1.7)
+### The backend
 
 All data lives in Supabase: the schema and its owner-only RLS policies are in
 `supabase/migrations/`, private files (audio chunks, photos, slides) in
@@ -70,10 +70,10 @@ with keys kept on the server; the app sends only the student's own login token,
 and the functions check consent, the student's credits and a daily fair-use
 limit before anything leaves the server.
 `expo-sqlite` stays on iPhone only, for the earlier version's data (read and
-uploaded by step 1.9, `src/services/legacyImport`) and the offline cache
-(step 1.8); the web build never loads it.
+uploaded by `src/services/legacyImport`) and the offline cache;
+the web build never loads it.
 
-### Offline on iPhone (since step 1.8)
+### Offline on iPhone
 
 The iPhone keeps a copy of the library in `studiply-cache.db` (`src/lib/cache`)
 and keeps working without a connection:
@@ -111,8 +111,7 @@ and keeps working without a connection:
                                (Claude Opus writes, Sonnet grades)
 
 Every function logs its cost in `ai_usage`. A build without expo-audio's native
-module still records with the earlier flow (`record/active.tsx` with expo-av,
-then `ai.service.ts`), which uses the same Edge Functions.
+module (Expo Go) can't record: Record says so.
 
 Screens in `app/` call services in `src/services/`; services talk to Supabase
 through `src/lib/supabase.ts` (tables) and `src/lib/functions.ts` (Edge
@@ -121,13 +120,13 @@ screens use. No screen queries the database. Alerts, menus and prompts go
 through `src/components/dialogs` so they also work in a browser.
 
 **Without network AI in development, the app still runs end-to-end.** Set
-`EXPO_PUBLIC_MOCK_AI=1` (or leave `supabase functions serve` off) and
-`ai.service.ts` uses a simulated transcript and note: nothing is sent and
-nothing is counted. Store builds never simulate.
+`EXPO_PUBLIC_MOCK_AI=1` (or leave `supabase functions serve` off) and the
+recorder, the assistant and summaries simulate their answers: nothing is sent
+and nothing is counted. Store builds never simulate.
 
 ## Status
 
-In development, heading for the App Store and a web launch (Phase 10 of
+In development, heading for the App Store and a web launch (the last phase of
 `docs/BUILD-PLAN.md`).
 
 **Working:**
@@ -147,21 +146,21 @@ In development, heading for the App Store and a web launch (Phase 10 of
   checks
 - A web beta at [studiply.expo.app](https://studiply.expo.app), on the live server
 
-**In progress:** credits (step 10.2). Students pay in advance in lecture
+**In progress:** credits. Students pay in advance in lecture
 credits; the server keeps the balance and the app shows it in Settings → Credits.
 Built, not yet on the live server.
 
 **Still to do before launch:**
 
-- Buying credits with In-App Purchase (steps 10.2-3 and 10.2-4)
+- Buying credits with In-App Purchase
 - Help & support in the app
-- The store listing, TestFlight and a beta with classmates on the iPhone (steps 10.3–10.5)
+- The store listing, TestFlight and a beta with classmates on the iPhone
 - Filling in the legal texts' details and a lawyer's review
 
 ## Running it locally
 
 Requires Node 18+ and, on the iPhone, the Studiply **development build**
-(step 4.1; it replaces Expo Go because the editor needs native code).
+(it replaces Expo Go because the editor needs native code).
 
     git clone <repo-url>
     cd Studiply
@@ -185,7 +184,7 @@ permission text or plugin), needs a new build; JavaScript changes don't. The
 first time you open it, iOS asks for Developer Mode (Settings → Privacy &
 Security → Developer Mode → Restart).
 
-### The editor (step 4.2)
+### The editor
 
 The iPhone's editor is a web page inside a WebView (TenTap), built from
 `editor-web/` into `editor-web/build/editorHtml.js`, which is committed. After
@@ -197,35 +196,35 @@ changing anything it imports (`src/editor/bridges`, `src/editor/schema`,
 
 The laptop's editor is Tiptap in the page with the same extensions.
 
-### Formatting (step 4.4)
+### Formatting
 
 The formatting tools are one set of commands and one state (`src/editor/format`) for both devices. The laptop's toolbar (`FormatToolbar.web.tsx`) calls them directly. The iPhone's keyboard toolbar and its Aa and colour panels (`src/editor/iphone`, shown in place of the keyboard with TenTap's CustomKeyboard) send them through `FormatBridge`. Pasted Google Docs and Word HTML is rewritten into Studiply's styles by `src/editor/paste/rules.ts`.
 
-### Inserting and colours (step 4.5)
+### Inserting and colours
 
 The colour picker (`src/components/editor/ColorGrid.tsx`, `SpectrumPicker.tsx`) is shared by both devices. Its Recent colours sync through `profiles.preferences` (`preferences.service.ts`, merged by time). Links (`format/links.ts`, `cleanUrl`), tables (`bridges/table.ts`, the `table` command) and the iPhone's + and table panels (`src/editor/iphone/InsertPanels.tsx`) build on the same commands as the formatting tools.
 
 Tables are edited on the table itself: the floating bar (`src/editor/table/tableBar.ts`, drawn by both editors; it asks each device for its menus), the laptop's right-click menu and bar menus (`TableMenus.web.tsx`) and hover handles (`table/tableHandles.ts`), and Table size… (`table/resize.ts`, up to 50 × 20). `schema/blockSpacing.ts` keeps a line to type in after every table (with a fixed id, so two devices add the same one) and adds the gap cursor. Blocks compare without attributes at their schema default (`schema/defaults.ts`), so content written without them isn't taken for an edit.
 
-Photos, formulas and comments (step 4.5, checkpoint B):
+Photos, formulas and comments:
 - **Photos** are Studiply's `image` node (`schema/photo.ts`) with `src` `media:<id>`: a `media` row and a JPEG in the photos bucket (`doc-photo.service.ts`; the iPhone queues `upload_doc_photo`). Each editor resolves `media:` through `src/editor/media/photoSource.ts`: the laptop from a signed link, the iPhone's WebView by asking native through `bridges/photo.ts` (the phone's copy as a data URI, kept in `lib/photoCache`). Laptop: `photos.web.ts` (Image button, drop, paste).
 - **Formulas** are Tiptap's `inlineMath` / `blockMath` (`bridges/math.ts`, KaTeX), edited with `schema/formula.ts`'s `setFormula`: `FormulaPopover.web.tsx` on the laptop, `iphone/FormulaSheet.tsx` on the iPhone, both around `components/editor/FormulaForm.tsx`. The WebView bundle inlines KaTeX's woff2 fonts (a Vite plugin in `editor-web/vite.config.mts`); the laptop declares the TTF ones from assets (`katexFonts.web.ts`).
 - **After test B (checkpoint C):** photo layout (`wrap` / `align` on the photo, the `inlineImage` node, the shared photo bar `photoBar.ts`, the laptop's `PhotoMenu.web.tsx`); the selection bar (`format/selectionBar.ts`, both editors); `$…$` and the "Make formula" suggestion (`schema/mathSuggest.ts`, handled in `schema/formula.ts`); the iPhone toolbar fitted to the width like the laptop's (`toolbarFit.ts`).
 - **Comments** are a `comment` mark (`schema/comments.ts`), so they travel with their block. Laptop: `Comments.web.tsx` (composer, margin, popover); the shell makes room for the margin (`components/shell/commentMargin.ts`). Both: the document menu's list (`components/editor/CommentsSheet.tsx`).
 
-### Studiply's blocks (step 4.6)
+### Studiply's blocks
 
 Callouts (`schema/callout.ts`) and mark chips (`schema/markChip.ts`) are in `bridges/blocks.ts`; their menus are `BlockMenus.web.tsx` (laptop) and action sheets / `iphone/MarkSheet.tsx` (iPhone), through `calloutRequest` / `markChipRequest` in the format state. A tap on a timestamp chip opens `components/editor/MiniPlayer.tsx`, which plays the lecture's `audio_chunks` (`services/lecture-audio.service.ts`) through `src/lib/audioPlayer.ts`, the only file that plays audio with expo-av (to switch to expo-audio with the SDK upgrade).
 
-Formula cards (step 4.7c, `schema/formulaCard.ts`, also in `bridges/blocks.ts`) come from the formula library, `src/editor/formulas/library.ts` (the entries: LaTeX, plain text, legend, search words); the list is `components/editor/FormulaLibrary.tsx` on both devices, and the format command `{ type: 'formulaCard', id }` inserts one. Callouts and cards share their Enter rule (`schema/boxKeys.ts`) and, with graphs, where an inserted box goes (`schema/placeBlock.ts`).
+Formula cards (`schema/formulaCard.ts`, also in `bridges/blocks.ts`) come from the formula library, `src/editor/formulas/library.ts` (the entries: LaTeX, plain text, legend, search words); the list is `components/editor/FormulaLibrary.tsx` on both devices, and the format command `{ type: 'formulaCard', id }` inserts one. Callouts and cards share their Enter rule (`schema/boxKeys.ts`) and, with graphs, where an inserted box goes (`schema/placeBlock.ts`).
 
-Graphs (step 4.7d, `schema/graph.ts`, also in `bridges/blocks.ts`) keep their data in the block (`graph/data.ts`: limits, reading typed numbers, what is left out); the form is `components/editor/GraphForm.tsx` (laptop `GraphPopover.web.tsx`, iPhone `iphone/GraphSheet.tsx`), the command `{ type: 'graph', … }`. The drawing comes from `src/lib/charts` (a separate module); `graph/charts.ts` is the only file that talks to it.
+Graphs (`schema/graph.ts`, also in `bridges/blocks.ts`) keep their data in the block (`graph/data.ts`: limits, reading typed numbers, what is left out); the form is `components/editor/GraphForm.tsx` (laptop `GraphPopover.web.tsx`, iPhone `iphone/GraphSheet.tsx`), the command `{ type: 'graph', … }`. The drawing comes from `src/lib/charts` (a separate module); `graph/charts.ts` is the only file that talks to it.
 
-### Tabs (step 4.7b)
+### Tabs
 
 Each tab of a document is a `documents` row: `tab` is `notes`, `summary`, `transcript` or `t-<uuid>` for an added tab, with `title`, `position`, `deleted_at` and `kind` (migration `20261029151900_document_tabs`). `src/services/document-tabs.service.ts` lists them (`listTabs`, `orderTabs`: a lecture's three first and fixed) and adds, renames, moves and deletes them; on the iPhone these queue as `create_tab` and `tab_meta` under the tab's key (`fileId:tab`), before its edits. Content, versions and conflict copies work per row as before (`document.service.ts`); page setup is written to every tab. An edit that reaches a deleted tab brings it back, and a delete that arrives after a newer edit is dropped (`takeKeptTabs` / the session's `kept` say so once). The row is `components/editor/DocumentTabs.tsx` on both devices.
 
-### Spreadsheet tab (step 4.7e)
+### Spreadsheet tab
 
 A tab with `kind = 'sheet'`. Its row's content is one `sheetCell` block per cell that isn't empty (`src/lib/sheetDoc.ts`: the address is the block id; input, bold, `editedAt`, origin), so the text merge (`editor/docBlocks.ts`), the iPhone's queue, versions and Restore work on cells unchanged; no migration. Values are calculated on the device by the formula engine `src/lib/sheets` (merged from the `sheets-engine` branch; its index is the API; this step added `help.ts`, `context.ts` and `structure.ts` there). The screen is `src/components/sheet/`: `SheetTab.tsx` (the autosave's editor, selection, editing, pointing, fill, Undo, lines, clipboard), `SheetGrid.tsx` (the virtualised grid, presses by mouse or touch), `FormulaBar.tsx`, `FunctionHints.tsx`; the pure parts with their tests: `sheetDisplay.ts` (Excel's General rounding to the measured width), `sheetEditing.ts`, `sheetHistory.ts`, `sheetStructure.ts`, `sheetClipboard.ts`. Text is measured with a canvas on the laptop (`measure.web.ts`) and with `FontProbe.tsx` on the iPhone (`measure.ts`). The Chrome check is `sheets.mjs`.
 
@@ -233,20 +232,19 @@ A tab with `kind = 'sheet'`. Its row's content is one `sheetCell` block per cell
 
 Every editor tool's name and shortcut is in `src/editor/toolNames.ts`, read by the laptop's tooltips (`components/editor/ToolTip.web.tsx`), the iPhone toolbar's long-press names and captions, the menus and VoiceOver; the bars drawn inside the document name their buttons with `editor/barHint.ts`. Menus take headings (`section` on `DialogButton`, `PopoverHeading`). `app/dev/editor-preview.tsx` (development only) draws the iPhone's keyboard toolbar and Page setup sheet in a browser for screenshots.
 
-### Page view and zoom (step 4.5b)
+### Page view and zoom
 
 Pages are drawn, never stored: `src/editor/page/pageView.ts` (in FormatBridge, so both editors) measures the document with no gaps and inserts each page gap as a widget decoration (a block between blocks, a line break inside a paragraph, a row in a table); `page/pageLayout.ts` is the pure rule set (widow / orphan, headings kept with the next line, page breaks), for the export (4.8) too. Zoom is CSS `zoom` on the editor. Each device keeps Pages / Pageless and its zoom in `lib/viewPrefs.ts`: the laptop's toolbar and ⌘+ / ⌘− / ⌘0 (`StudiplyEditor.web.tsx`, `FormatToolbar.web.tsx`), the iPhone's **…** → Print layout and a pinch (WebKit gesture events in the WebView, the `view` format command and state).
 
 Since test D the pages sit on the app's gradient (the editor is transparent; a layer behind the text draws each white page) and follow the document's **page setup** (`page/pageSetup.ts`; `documents.page_setup`, saved by `setPageSetup` in `document.service.ts`, queued as `document_page_setup` on the iPhone; the dialog is `components/editor/PageSetupDialog.tsx`; the default for new documents is in `profiles.preferences.pageSetup`).
 
-Recording in chunks (step 5.1, the spike): `src/lib/chunkRecorder.web.ts` rotates the browser's MediaRecorder every 30 s on one microphone stream, so each chunk is a standalone WebM / Opus file.
+Recording in chunks: `src/lib/chunkRecorder.web.ts` rotates the browser's MediaRecorder every 30 s on one microphone stream, so each chunk is a standalone WebM / Opus file.
 - **Two modes:** restart (stop and start in one task) or overlap (the next chunk starts `overlapMs` before the previous one stops).
 - **Order:** chunks are handed over in their order.
-- **The iPhone's:** `nativeChunkRecorder.ts` (expo-audio, below); the spike's `chunkRecorder.ts` stays a stub (the spike screen is the web's).
-- **The dev screen:** `/dev/recording-spike` (development only) uploads each chunk through `createSourceFile` and `transcribe-chunk` and shows the live transcript.
+- **The iPhone's:** `nativeChunkRecorder.ts` (expo-audio, below); `chunkRecorder.ts` holds the types both share.
 - **The check:** `spike.mjs` measures the joins with a synthetic signal.
 
-The recorder service (step 5.2), `src/services/recorder/`, records with 30-second chunks overlapping by 500 ms. **`service.ts` is the same on every platform**:
+The recorder service, `src/services/recorder/`, records with 30-second chunks overlapping by 500 ms. **`service.ts` is the same on every platform**:
 - `start` / `pause` / `resume` / `stop`;
 - `recover`, `continueRecording` and `finish`;
 - `snapshot`, which gives the chunks and the live transcript.
@@ -284,7 +282,7 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
 
 **The dev screen:** `/dev/recorder` (development only; Chrome check `recorder.mjs`).
 
-**The recording screens (step 5.3)** sit on top of it.
+**The recording screens** sit on top of it.
 - **`services/recording-flow.ts`:** the pure flow, tested with fakes:
   - **Start:** the microphone first, consent, the lecture, its status, the recorder;
   - **Stop:** waits until every chunk is sent and the live transcript has caught up, then `transcribing`;
@@ -300,47 +298,47 @@ The recorder service (step 5.2), `src/services/recorder/`, records with 30-secon
   - `useRecordingFlow()` gives the saving and interrupted states.
 - **The setup's folder picker:** `utils/folderTree.ts`.
 
-**The iPhone** goes through the same flow and screens. `record/active` (expo-av) is kept only as the fallback for a build without expo-audio's native module.
+**The iPhone** goes through the same flow and screens.
 
 **Playback** (`lib/audioPlayer.ts`) uses expo-audio's player on the iPhone: expo-av's audio mode would switch the session away from recording and stop the recorder. The player leaves the session to `lib/audioSession.ts` (the recording mode while recording; iOS then plays through the earpiece unless headphones are in). The web's player is `audioPlayer.web.ts`.
 
-**Marks (step 5.5)** are linked mark chips in the lecture's My notes (`editor/schema/markChip.ts`: `markId`, kind, level, `ms`, note).
+**Marks** are linked mark chips in the lecture's My notes (`editor/schema/markChip.ts`: `markId`, kind, level, `ms`, note).
 - **Making one:** the strip's and the bar's buttons open `components/recording/MarkPanel.tsx` (state in `markPanelState.ts`, the slider in `LevelSlider.tsx`, the words in `utils/markHints.ts`).
 - **Where the chip goes:** Save mark puts the chip in through `services/moment-placement.ts`. That's the open editor's `placeMark` (the document screen registers while focused), or otherwise a new stamped last line saved into My notes.
 - **The `marks` rows follow My notes:** `services/marks.service.ts` runs after each save of the notes tab, beside `note-lines.service`. A chip deleted by typing deletes its row; Undo brings it back.
 - **Tapping a linked chip** opens the same panel inside both editors (`BlockMenus.web.tsx`, `iphone/MarkSheet.tsx`).
 
-**Record inside a document (step 5.7):** `components/recording/RecordButton.tsx` in the document screen calls `recordingFlow.startIn`.
+**Record inside a document:** `components/recording/RecordButton.tsx` in the document screen calls `recordingFlow.startIn`.
 - **In a lecture:** it records again after its audio on Studiply (`audioEnd`, the recorder's `after`).
 - **In a plain document:** `services/lecture-conversion.service.ts` turns it into a lecture (a `lectures` row with its id, then `files.kind`; the iPhone queues `convert_to_lecture`), and `makeFirstTabMyNotes` makes its first tab My notes. The rest of the document stays as it was.
 
-**Board photos (step 5.6)** reuse 4.5's photos.
+**Board photos** reuse the editor's photos.
 - **Taking:** `components/recording/photoBoard.ts` is the iPhone's camera; `photoBoard.web.ts` is the laptop's menu, with the webcam (`WebcamPanel.web.tsx`) or files.
 - **Saving:** `boardPhoto.ts` `saveBoardPhoto` calls `addDocPhoto(lectureId, picked, { moment })`, which writes a `media` row with `lecture_id` and `t_ms` (on the iPhone through `upload_doc_photo`).
 - **Placing:** `placeAtMoment` puts in a stamped thumbnail line (`placePhotoLine` / `withPhotoLine` in `editor/schema/photo.ts`).
 - **Offline:** the laptop greys Photo board out.
 
-Earlier notes (step 4.9) live in `src/services/legacyNotes`:
+Earlier notes live in `src/services/legacyNotes`:
 - **`convert.ts`** is pure: a `summaries` row in format legacy-note-v1 → the Summary tab's document. Block ids come from section and place, origins from the note's section meta, and headings are in the lecture's language.
 - **`run.ts`** converts only when the tab has no document, and only reads the old row.
 - **`index.ts`** wires the app's services (`openDocument`, `getNoteResultBySession`, `getSourceFiles`, `saveDocument`).
 
 The document screen calls it when a lecture's Summary tab opens with no document. There's no background pass, no migration and no server script.
 
-The PDF export (step 4.8a) lives in `src/editor/export`:
+The PDF export lives in `src/editor/export`:
 - **`printPages.ts`** runs in a page (the laptop's own, or the iPhone's WebView). It puts each tab in a hidden editor with the document's page setup, Pages on, at 100 % and no gap. The page view lays it out (`pageLayout.ts`, so the PDF's pages are the page view's). Then each page becomes a box of the paper's size holding its blocks where they were placed, with numbers through the file.
 - **`sheetTable.ts`** turns a sheet tab into a table of its values.
 
 The dialog is `components/editor/ExportPdfDialog.tsx` (the document menu's Export PDF…). `services/export.service.ts` (`exportDocumentPdf`) prints on the laptop (the browser's print window, Save as PDF; the last print document is `window.studiplyPrint` for the Chrome check). On the iPhone it asks `editor/PdfRenderer.tsx`, the editor bundle in a small WebView of its own, through the export bridge (`bridges/export.ts`). It then writes the PDF with expo-print at the paper's size in points (the pages drawn at 3/4, as expo-print lays CSS px out as points) and opens the share sheet.
 
-The writing tools (step 4.7) live in `src/editor/writing`, inside the shared editor, so both devices use the same code:
+The writing tools live in `src/editor/writing`, inside the shared editor, so both devices use the same code:
 - `find.ts` is the find & replace plugin: the matches, the highlights and the `find` format command. Replace all is one transaction.
 - `counts.ts` counts words and characters the way Google Docs does.
 - `outline.ts` lists the title and headings and finds the section the cursor is in.
 
 The counts and the outline travel in `formatState`, so the iPhone gets them over FormatBridge. A jump is the `outline` format command. ⌘F / ⌘⇧H / ⌘⌥A are FormatBridge shortcuts that send DOM events, which the laptop opens its tools on. The laptop's find bar is `editor/FindBar.web.tsx`; the status line and the outline column are in `StudiplyEditor.web.tsx`. The iPhone's tools are `editor/iphone/FindBar.tsx` and `OutlineSheet.tsx`. Both devices draw the outline with `components/editor/OutlineList.tsx`. The document menu opens a tool through the editor handle's `tool(...)`.
 
-### Documents (step 4.3)
+### Documents
 
 A blank document is a `files` row of kind `document` with one `documents`
 row (tab `notes`); a lecture has up to three (`notes`, `summary`,

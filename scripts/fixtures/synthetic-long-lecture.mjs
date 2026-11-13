@@ -1,5 +1,5 @@
 /**
- * The synthetic long lecture (step 7.6) as a fixture (the format of
+ * The synthetic long lecture as a fixture (the format of
  * supabase/functions/_shared/summary-fixture.ts): 90 min of Neurociencia in
  * Spanish, about 13,000 words, six topics of about 15 min (the order a classify
  * call should find), spoken numbers, dates and a formula, two exam phrases, an

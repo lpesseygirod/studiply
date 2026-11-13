@@ -23,7 +23,7 @@ export function blockBoundary(editor: Editor, pos: number): number {
 }
 
 /**
- * The laptop's photos (step 4.5): image files picked with the toolbar's
+ * The laptop's photos: image files picked with the toolbar's
  * Image button, dropped on the page or pasted go into the document where
  * the cursor (or the drop) is. Each shows at once from the browser while
  * it uploads; one that can't be uploaded is taken out again, and the

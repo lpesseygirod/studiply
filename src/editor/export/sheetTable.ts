@@ -7,7 +7,7 @@ import type { DocJSON } from '../types';
 export const EMPTY_SHEET_TEXT = 'This sheet is empty.';
 
 /**
- * A spreadsheet tab (4.7e) in the PDF export (step 4.8a): a table of its
+ * A spreadsheet tab in the PDF export: a table of its
  * values as the grid shows them (numbers rounded to the cell as Excel's
  * General, on the right; TRUE / FALSE and errors centred; bold kept), over
  * the area that has something in it (A1 to the last row and column used).

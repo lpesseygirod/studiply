@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-3: Sonnet's grading of short and long answers (quiz-grading.ts; the advisor's notes, 8 Nov):
+// Sonnet's grading of short and long answers (quiz-grading.ts; the advisor's notes, 8 Nov):
 // it sees only the question, the model answer, the key points and her answer, in the quiz's language,
 // one line of reason; only the answers sent are written, each once, as the AI's.
 import { CLAUDE_MODELS } from '../../../supabase/functions/_shared/claude';

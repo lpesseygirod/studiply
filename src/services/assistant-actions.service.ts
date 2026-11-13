@@ -1,6 +1,6 @@
 /**
  * assistant-actions.service.ts
- * Step 6.3 from the app: Ask Claude on a selection (Explain simpler, Give an
+ * From the app: Ask Claude on a selection (Explain simpler, Give an
  * example, Go deeper, Make flashcard, Rewrite section) and Flashcards from a
  * study-assistant answer, through assistant-chat's 'selection' and
  * 'flashcards' modes. The answer is a suggestion the student accepts or

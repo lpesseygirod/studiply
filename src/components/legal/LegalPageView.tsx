@@ -1,6 +1,6 @@
 /**
  * LegalPageView.tsx
- * One legal page (step 10.1b-1): "‹ Back" on the gradient, the text on a white page (a 760 px
+ * One legal page: "‹ Back" on the gradient, the text on a white page (a 760 px
  * column on the laptop, full width on the iPhone), then links to the other legal pages. /legal
  * also has the open-source licences and the texts' version. No mockup: it follows the document
  * page. Used by the routes (app/(legal)) and by LegalSheet (sign-up, the consent screen).

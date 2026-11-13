@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 7.9: Extend with next lecture, Merge lectures and Exam pack.
+// Extend with next lecture, Merge lectures and Exam pack.
 // - The Extend request (the approved plan, fixed after the first paid run): the lecture added goes
 //   through the generate call with the existing summary in its prompt. Built here from the saved
 //   fixtures (Tema 1's committed summary, the synthetic Tema 2 lecture): every anchor and all of Tema 2's
@@ -387,7 +387,7 @@ describe('every Claude call has exactly one cost row (ai_usage), in every mode',
     expect(m.events).not.toContain('usage_log_failed');
   });
 
-  it('a plain summary (7.4): calls = cost rows = its costLog', async () => {
+  it('a plain summary: calls = cost rows = its costLog', async () => {
     const m = metered();
     let saved: Record<string, unknown> | null = null;
     const out = await runSummary({

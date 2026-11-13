@@ -1,4 +1,4 @@
-// Step 10.1b-1: the legal pages come from docs/legal, the licences from package metadata, and no
+// The legal pages come from docs/legal, the licences from package metadata, and no
 // text a student reads names OpenAI or Whisper.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';

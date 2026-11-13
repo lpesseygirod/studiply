@@ -6,7 +6,7 @@ import { useThemedStyles } from '../../theme/ThemeProvider';
 import { answerBlocks, type AnswerSpan } from '../../utils/answerText';
 
 /**
- * A study-assistant answer as desktop-01 / iphone-04 draw it (step 6.2):
+ * A study-assistant answer as desktop-01 / iphone-04 draw it:
  * plain full-width text, **bold**, numbered lists, and the times it cites
  * underlined in the accent colour; a tap plays the lecture from there. A
  * time past what the lecture has (`lengthMs`) stays plain text.

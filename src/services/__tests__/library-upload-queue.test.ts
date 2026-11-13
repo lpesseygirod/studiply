@@ -1,4 +1,4 @@
-// The iPhone's library uploads (step 3.4): the file shows at once from this
+// The iPhone's library uploads: the file shows at once from this
 // device's rows and the queue sends it; sending again (the app closed just
 // after it reached the server) does no harm.
 import { answer, callsOn, resetSupabaseMock } from '../../test-utils/supabaseMock';

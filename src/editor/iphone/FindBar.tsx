@@ -10,7 +10,7 @@ import type { FormatCommand } from '../format';
 import type { FindState } from '../writing/find';
 
 /**
- * The iPhone's find & replace (step 4.7; the document menu's Find and
+ * The iPhone's find & replace (the document menu's Find and
  * replace): a bar over the text with the search box, "3 of 12", up and
  * down, Aa (match case), Whole words, Replace (its own line: Replace,
  * All) and Done. The matching is the WebView's (writing/find.ts), through

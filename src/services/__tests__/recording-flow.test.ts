@@ -1,4 +1,4 @@
-// Step 5.3: the recording flow around the recorder service: Start (microphone
+// The recording flow around the recorder service: Start (microphone
 // first, consent, the lecture, its status), Stop (wait until every chunk is
 // sent and the live transcript has caught up, then "transcribing" with the
 // length) and interrupted recordings (Continue, Finish). Nothing is sent.
@@ -30,7 +30,7 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
     onWait: (() => {}) as () => void,
     clock: 0,
     offline: opts.offline ?? false,
-    /** Where the lecture's audio already ends on the server (step 5.7). */
+    /** Where the lecture's audio already ends on the server. */
     audioEnd: null as { seq: number; ms: number } | null,
     /** Cancel recording: what the recorder reports it discarded, and its clean-up for a late chunk. */
     discarded: { lectureId: L, origin: 'new', from: { seq: 0, ms: 0 }, toSeq: 3, keepBelow: 2, keptMs: 60_000 } as DiscardedRecording,
@@ -57,6 +57,7 @@ function rig(opts: { consent?: boolean; micRefused?: boolean; startFails?: boole
       state = { lectureId: null, status: 'idle', microphoneLost: false };
     },
     recover: async () => world.interrupted,
+    resendWaiting: async () => 0,
     recordings: async () => [...world.interrupted, ...world.stopped],
     playback: async () => [],
     continueRecording: async (id) => {
@@ -252,7 +253,7 @@ describe('the recording flow', () => {
   });
 });
 
-describe('step 5.7: Record inside a document', () => {
+describe('Record inside a document', () => {
   it('a plain document: the microphone, consent, then it becomes a lecture, "recording", the recorder', async () => {
     const r = rig();
     await r.flow.startIn({ fileId: 'doc-1', isLecture: false, language: 'es' });

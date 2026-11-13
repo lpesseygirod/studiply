@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-transcribe-local.mjs — end-to-end check of transcribe-chunk (step 1.5).
+ * check-transcribe-local.mjs — end-to-end check of transcribe-chunk.
  *
  * Calls the real local Edge Function, which calls the provider chosen by
  * TRANSCRIBE_PROVIDER in supabase/functions/.env (Scribe v2 when unset or
@@ -47,7 +47,7 @@ if (!url || !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(url)) {
 
 const FUNCTION_URL = `${url}/functions/v1/transcribe-chunk`;
 const BUCKET = 'audio-chunks';
-// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts (step 10.1).
+// CONSENT_POLICY_VERSION in supabase/functions/_shared/policy.ts.
 const POLICY_VERSION = '2026-11-store-1';
 const DAILY_LIMIT_SECONDS = 6 * 60 * 60;
 const START_MS = 60_000;
@@ -292,6 +292,14 @@ try {
   check(rowCount === segments.length, 'no duplicate segments');
   check((await usageRows(a.id)).length === 1, 'no second provider call (still one ai_usage row)');
 
+  console.log('\nCredits (step 10.2-1)');
+  const ledgerOf = async (id) => (await admin.from('credit_ledger').select('units, kind, base_key, lecture_id').eq('user_id', id)).data ?? [];
+  const aLedger = await ledgerOf(a.id);
+  const blockKey = `lecture:${lectureId}:block:${Math.floor(START_MS / 7_200_000)}`;
+  const spends = aLedger.filter((r) => r.kind === 'spend_lecture');
+  check(spends.length === 1 && spends[0].units === -4 && spends[0].base_key === blockKey && spends[0].lecture_id === lectureId, 'the lecture spent 1 credit (4 units) once, for its 2-hour block (the repeat spent nothing)');
+  check(aLedger.reduce((n, r) => n + r.units, 0) === 4, 'A has 1 lecture left of the 2 she started with');
+
   console.log("\nUser B, A's audio and lecture");
   await b.client.from('ai_consent').insert({ scope: 'transcription', policy_version: POLICY_VERSION });
   const stolenPath = await call(b.token, { ...request, seq: 5 });
@@ -307,6 +315,19 @@ try {
     .select('id', { count: 'exact', head: true })
     .eq('lecture_id', lectureId);
   check(chunkCount === 1, "A's lecture still has only its own chunk");
+
+  console.log('\nNo credits left (step 10.2-1; refused before the audio is read: free)');
+  const { data: bFile, error: bFileError } = await b.client.from('files').insert({ kind: 'lecture', title: 'No credits' }).select('id').single();
+  if (bFileError) throw new Error(`Could not create B's lecture: ${bFileError.message}`);
+  const { error: bLectureError } = await b.client.from('lectures').insert({ id: bFile.id });
+  if (bLectureError) throw new Error(`Could not create B's lecture: ${bLectureError.message}`);
+  const bStart = (await ledgerOf(b.id)).reduce((n, r) => n + r.units, 0);
+  const zero = await admin.rpc('spend_credits', { p_user: b.id, p_base_key: 'check-transcribe:zero', p_units: bStart, p_kind: 'spend_extra' });
+  if (zero.error) throw new Error(`Could not spend B's credits: ${zero.error.message}`);
+  const bRows = (await ledgerOf(b.id)).length;
+  const broke = await call(b.token, { lectureId: bFile.id, seq: 0, storagePath: `${b.id}/${bFile.id}/0000.m4a`, startMs: 0 });
+  check(broke.status === 402 && broke.body.code === 'no_credits', `at 0 credits: 402 no_credits (got ${broke.status} ${broke.body.code ?? ''})`);
+  check((await ledgerOf(b.id)).length === bRows && (await usageRows(b.id)).length === 0, 'nothing spent, nothing sent to transcribe');
 
   console.log('\nDaily limit');
   const seeded = await admin.from('ai_usage').insert({

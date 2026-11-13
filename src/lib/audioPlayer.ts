@@ -4,8 +4,8 @@ import { forPlayback } from './audioSession';
 import { expoAudio } from './expoAudio';
 
 /**
- * Playing audio (step 4.6, the mini player), in one place. On the iPhone
- * (since step 5.4's iPhone half) through expo-audio, the recorder's own
+ * Playing audio (the mini player), in one place. On the iPhone
+ * through expo-audio, the recorder's own
  * library: expo-av sets its own audio mode when it plays, which switched the
  * session away from recording and stopped expo-audio's recorders, so a chip
  * tapped during a lecture would have stopped the recording. The player keeps
@@ -85,7 +85,7 @@ function expoAudioPlayer(audio: NonNullable<ReturnType<typeof expoAudio>>, onSta
   };
 }
 
-/** A build without expo-audio's native module: as before step 5.4's iPhone half. */
+/** A build without expo-audio's native module: expo-av, as before. */
 function expoAvPlayer(onStatus: (status: PlayerStatus) => void): AudioPlayer {
   let sound: Audio.Sound | null = null;
   const report = (s: AVPlaybackStatus) => {

@@ -26,17 +26,14 @@ export const MAIN_TABS: readonly MainTab[] = [
   { name: 'settings', href: '/settings', label: 'Settings', icon: { active: 'settings', inactive: 'settings-outline' } },
 ];
 
-/** Routes in the tab navigator that have no tab of their own. */
-export const HIDDEN_ROUTES = ['index', 'project/[id]', 'note/[id]', 'doc/[id]', 'review/quiz/[id]', 'course-settings/[id]'] as const;
+/**
+ * Routes in the tab navigator that have no tab of their own. Every screen under app/(main) is a tab or is
+ * here (mainTabs.test.ts reads the folder): a folder with its own _layout is one screen by its name
+ * (`admin`, Lea's dashboard: never a tab, also not on the iPhone).
+ */
+export const HIDDEN_ROUTES = ['index', 'project/[id]', 'doc/[id]', 'review/quiz/[id]', 'course-settings/[id]', 'admin'] as const;
 
-/** Screens shown full screen on the iPhone (no tab bar): documents and notes, a quiz being taken, and the recording flow after setup. */
+/** Screens shown full screen on the iPhone (no tab bar): documents (a recording's included) and a quiz being taken. */
 export function isFullScreenRoute(pathname: string): boolean {
-  return (
-    pathname.startsWith('/note/') ||
-    pathname.startsWith('/doc/') ||
-    pathname.startsWith('/review/quiz/') ||
-    pathname.startsWith('/record/active') ||
-    pathname.startsWith('/record/post-session') ||
-    pathname.startsWith('/record/review')
-  );
+  return pathname.startsWith('/doc/') || pathname.startsWith('/review/quiz/');
 }

@@ -1,4 +1,4 @@
-// Step 10.1b-3: what the app says about a lecture's recording, and the default choice.
+// What the app says about a lecture's recording, and the default choice.
 import { asAudioRetention, AUDIO_RETENTION_CHOICES, audioStatusLine, DEFAULT_AUDIO_RETENTION } from '../audioRetention';
 
 describe('audioStatusLine', () => {

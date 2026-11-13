@@ -6,7 +6,7 @@ import { LightColors } from '../constants/colors';
 
 /**
  * Studiply's icon as the laptop's top bar draws it: the light gradient (lavender to rose) with the
- * white book, the same in both themes. Also the consent screen's header (desktop-09, step 10.1).
+ * white book, the same in both themes. Also the consent screen's header (desktop-09).
  */
 export function LogoTile({ size = 30, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   return (

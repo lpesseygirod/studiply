@@ -3,7 +3,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { AppleButtonColors } from '../../constants/colors';
 
-/** "Continue with Apple" on the iPhone (step 10.1; iphone-11): Apple's own button, black. */
+/** "Continue with Apple" on the iPhone (iphone-11): Apple's own button, black. */
 export function AppleSignInButton({ onPress, busy, disabled }: { onPress: () => void; busy: boolean; disabled?: boolean }) {
   if (busy) {
     return (

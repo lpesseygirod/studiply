@@ -20,7 +20,7 @@ type Item = { action: TableAction | 'colour' | 'size'; label: string; danger?: b
 const ROWS: Item[] = [{ heading: 'Rows' }, { action: 'rowAbove', label: 'Insert row above' }, { action: 'rowBelow', label: 'Insert row below' }, '-', { action: 'deleteRow', label: 'Delete row', danger: true }];
 const COLUMNS: Item[] = [{ heading: 'Columns' }, { action: 'columnLeft', label: 'Insert column left' }, { action: 'columnRight', label: 'Insert column right' }, '-', { action: 'deleteColumn', label: 'Delete column', danger: true }];
 const MORE: Item[] = [{ heading: 'Table' }, { action: 'headerRow', label: 'Header row' }, { action: 'merge', label: 'Merge cells' }, { action: 'split', label: 'Split cell' }, '-', { action: 'size', label: 'Table size…' }];
-/** The right-click menu: everything, under headings (the simplicity pass before 4.6). */
+/** The right-click menu: everything, under headings (the simplicity pass). */
 const ALL: Item[] = [
   { heading: 'Rows' },
   { action: 'rowAbove', label: 'Insert row above' },
@@ -41,7 +41,7 @@ const ALL: Item[] = [
 const ITEMS: Record<Exclude<Kind, 'colour'>, Item[]> = { rows: ROWS, columns: COLUMNS, more: MORE, all: ALL };
 
 /**
- * The laptop's table menus (step 4.5, Lea: "table editing should happen on
+ * The laptop's table menus (Lea: "table editing should happen on
  * the table itself, like Word/Google Docs"): the floating table bar's Rows,
  * Columns, Colour and ⋯ (tableBar.ts), and a right-click in a cell for the
  * whole menu at the pointer. Cell colour is the shared picker; Table size…

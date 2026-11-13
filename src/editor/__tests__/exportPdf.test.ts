@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The PDF export (step 4.8a): what doesn't need a browser's layout. The
+// The PDF export: what doesn't need a browser's layout. The
 // pages themselves (the page view's) are checked in Chrome (export.mjs).
 import { blocksByPage, numberPlace, paperPoints, printDocument, withTabHeading, type PlacedBlock } from '../export/printPages';
 import { EMPTY_SHEET_TEXT, sheetTableDoc } from '../export/sheetTable';

@@ -15,13 +15,13 @@ import type { ShowUndo } from '../utils/star';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Upload (step 3.4): photos and PDFs picked, taken, dropped from the Finder
+ * Upload: photos and PDFs picked, taken, dropped from the Finder
  * or pasted, added to a course or folder as files one after the other.
  * `progress` is "2 of 5" while it runs. Then one toast with Undo (which
  * moves them to the Trash), and one message for the files that couldn't be
  * added (with why).
  *
- * Word files (step 4.8b) become documents (docx-import.service), then a
+ * Word files become documents (docx-import.service), then a
  * note says what they had that isn't kept. On the iPhone their page is read
  * in the export WebView: `renderer` is that WebView while it is needed (the
  * screen puts it on screen).

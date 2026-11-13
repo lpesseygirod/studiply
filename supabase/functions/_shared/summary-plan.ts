@@ -1,8 +1,8 @@
 /**
  * summary-plan.ts
- * The summary calculator (step 7.2): SUMMARY-SPEC "How Claude builds the
- * summary" as numbers and rules, with no AI. The summarize function (7.4)
- * gives Claude these exact numbers; the summarize panel (7.3) shows them as
+ * The summary calculator: SUMMARY-SPEC "How Claude builds the
+ * summary" as numbers and rules, with no AI. The summarize function
+ * gives Claude these exact numbers; the summarize panel shows them as
  * a preview line. The same settings always give the same plan.
  *
  * - Derived variables from the 10 sliders: target words (a share of the
@@ -17,7 +17,7 @@
  *   over its window (scaled by Follow my marks: it's her own action), unless
  *   she marked Confused there herself; a concept explained 3+ times is an
  *   Important 6 and the professor's exam phrases are exam signals (both the
- *   lecture's, not scaled). Both are found by the pipeline (7.4) and given here.
+ *   lecture's, not scaled). Both are found by the pipeline and given here.
  * - The conflict rules.
  *
  * The answers to the spec's open points (advisor, 30 Oct, for Lea to
@@ -99,9 +99,9 @@ export interface PlanInput {
   assistant: { id: string; askedAtMs: number | null; windowStartMs: number | null; windowEndMs: number | null }[];
   noteLines: { id: string; atMs: number | null }[];
   examFormat: ExamFormat | null;
-  /** "Esto entra en el examen"…, found by the pipeline (7.4). */
+  /** "Esto entra en el examen"…, found by the pipeline. */
   professorSignals?: { atMs: number; text: string }[];
-  /** A concept and each time it was explained, found by the pipeline (7.4). */
+  /** A concept and each time it was explained, found by the pipeline. */
   repetitions?: { concept: string; timesMs: number[] }[];
 }
 

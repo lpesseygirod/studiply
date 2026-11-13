@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 5.1: recording in chunks on the web, with a stand-in MediaRecorder (the
+// Recording in chunks on the web, with a stand-in MediaRecorder (the
 // real joins are measured in Chrome by spike.mjs).
 import { ChunkRecorder, type RecordedChunk, type RecordedPart } from '../chunkRecorder.web';
 

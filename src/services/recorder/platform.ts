@@ -1,5 +1,5 @@
 /**
- * The recorder on the iPhone (steps 5.1–5.4, iPhone half): expo-audio in
+ * The recorder on the iPhone: expo-audio in
  * 30-second chunks overlapping by 500 ms (lib/nativeChunkRecorder), on with
  * the screen locked (the background audio mode, app.json); each finished
  * chunk moved to the app's documents, then uploaded and transcribed through
@@ -8,8 +8,7 @@
  * ./build).
  *
  * A build without expo-audio's native module (one made before it was added)
- * isn't `supported`: the setup then keeps the earlier recording screen
- * (`record/active`, expo-av) as before.
+ * isn't `supported`: Record's setup then says recording needs the Studiply app.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -212,6 +211,7 @@ export const recorder: RecorderService = (shared.__studiplyRecorder ??= {
   stop: () => (built ? built.stop() : Promise.resolve()),
   discard: (id, options) => real().discard(id, options),
   recover: () => real().recover(),
+  resendWaiting: () => (expoAudio() !== null ? real().resendWaiting() : Promise.resolve(0)),
   recordings: () => real().recordings(),
   playback: (id) => real().playback(id),
   continueRecording: (id) => real().continueRecording(id),

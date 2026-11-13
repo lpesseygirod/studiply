@@ -26,7 +26,7 @@ import {
 import { describeError } from '../../../src/lib/sync/queue';
 import { BackendBadge, backend } from '../../../src/components/BackendBadge';
 
-// Step 1.9: the data the earlier version of Studiply left on this iPhone.
+// The data the earlier version of Studiply left on this iPhone.
 // The student sees each old profile with its counts and first names, ticks
 // the ones to upload (nothing is ticked by default), follows the upload, and
 // once everything is checked on Studiply can remove the old copy.

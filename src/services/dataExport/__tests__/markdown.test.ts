@@ -1,4 +1,4 @@
-// Step 10.1b-4: a document tab as Markdown in "Export my data".
+// A document tab as Markdown in "Export my data".
 import type { JSONContent } from '@tiptap/core';
 
 import { chipLabel } from '../../../editor/schema/timestampChip';

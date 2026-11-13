@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Formulas (step 4.5) on a real editor: put in, changed as the student
+// Formulas on a real editor: put in, changed as the student
 // types (it stays selected), inline ↔ display, removed, done; JSON and HTML
 // round trips; a click asks for the editor; KaTeX draws it.
 import { Editor, type JSONContent } from '@tiptap/core';

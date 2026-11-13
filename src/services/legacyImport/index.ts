@@ -1,6 +1,6 @@
 /**
  * legacyImport/index.ts
- * Step 1.9 for the screens: what the earlier version left on this iPhone,
+ * The legacy import for the screens: what the earlier version left on this iPhone,
  * uploading the chosen profiles, and removing the old copy afterwards.
  * See ./plan.ts (what becomes what), ./run.ts (sending, checking) and
  * ./legacyDb.ts (reading the old data; nothing on the web).

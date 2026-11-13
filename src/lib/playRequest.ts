@@ -1,7 +1,7 @@
 /**
  * playRequest.ts
  * "Play the lecture from this moment" from outside the document screen
- * (step 6.2: a time in a study-assistant answer). The laptop's assistant
+ * (a time in a study-assistant answer). The laptop's assistant
  * panel lives in the shell layout, the mini player in the document screen;
  * the screen showing that lecture listens and opens its MiniPlayer.
  */

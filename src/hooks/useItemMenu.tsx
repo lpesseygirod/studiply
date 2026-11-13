@@ -83,9 +83,9 @@ export function useItemMenu({
         case 'copy':
           return { text: 'Copy', onPress: () => setClip({ mode: 'copy', item }) };
         case 'summarize':
-          // Step 7.3: the lecture's Summary tab with the summarize panel open.
+          // The lecture's Summary tab with the summarize panel open.
           return { text: 'Summarize', onPress: () => router.navigate({ pathname: '/doc/[id]', params: { id: item.id, tab: 'summary', summarize: '1' } }) };
-        // Step 7.9: the lecture picker, then the summarize panel.
+        // The lecture picker, then the summarize panel.
         case 'extend':
           return { text: 'Extend with next lecture…', onPress: () => openLecturePicker({ mode: 'extend', courseId: item.courseId, folderId: null, baseLectureId: item.id }) };
         case 'merge':
@@ -94,10 +94,10 @@ export function useItemMenu({
             text: action === 'merge' ? 'Merge lectures…' : 'Make exam pack…',
             onPress: () => openLecturePicker({ mode: action === 'merge' ? 'merge' : 'exam_pack', ...(item.type === 'course' ? { courseId: item.id, folderId: null } : { courseId: item.courseId, folderId: item.id }) }),
           };
-        // Step 9.2 (Lea): the lecture's study reminders, on or off (its state in the dialog).
+        // The lecture's study reminders (Lea), on or off (its state in the dialog).
         case 'reminders':
           return { text: 'Study reminders…', onPress: () => void studyReminders(item) };
-        // Step 9.2-2: the course's settings screen.
+        // The course's settings screen.
         case 'courseSettings':
           return { text: 'Course settings…', onPress: () => router.push(`/course-settings/${item.id}` as Href) };
         case 'star':

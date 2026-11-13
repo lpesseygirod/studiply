@@ -1,4 +1,4 @@
-// Which pictures can be transparent (step 4.8b), from their first bytes:
+// Which pictures can be transparent, from their first bytes:
 // those are drawn on white before they become JPEG photos.
 import { imageType, mayHaveAlpha } from '../imageAlpha';
 

@@ -17,7 +17,7 @@ import { SettingSwitch } from './PreferenceSettings';
 import { makeSettingsStyles } from './styles';
 
 /**
- * Settings → Notifications (step 9.2-3; no mockup: Settings' cards, iphone-07's "Notifications 19:00").
+ * Settings → Notifications (no mockup: Settings' cards, iphone-07's "Notifications 19:00").
  * - iPhone: **Review reminders** (a switch: off cancels every reminder at once, on plans them again;
  *   the first time, the app explains, then iOS asks) and **Time** (a list every 30 minutes, 06:00–23:30;
  *   greyed while off). When iOS refuses them: a line and **Open iOS Settings**. Kept on this iPhone.

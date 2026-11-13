@@ -67,9 +67,9 @@ const LIGHT_THEME: EditorTheme = { ...defaultEditorTheme, webview: PAGE };
 const DARK_THEME: EditorTheme = { ...darkEditorTheme, webview: PAGE };
 
 /**
- * The iPhone editor (step 4.2): TenTap's WebView running editor-web's bundle
+ * The iPhone editor: TenTap's WebView running editor-web's bundle
  * (Studiply's bridges, so the schema is the laptop's). On the keyboard,
- * Studiply's toolbar with Done (step 4.4); Aa and the colours open their
+ * Studiply's toolbar with Done; Aa and the colours open their
  * panels in place of the keyboard (TenTap's CustomKeyboard), as in Google
  * Docs. Needs the development build (react-native-webview).
  */
@@ -93,17 +93,17 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   stateRef.current = state;
   const { isKeyboardUp } = useKeyboard();
   const [panel, setPanel] = useState<string | undefined>(undefined);
-  // The panels' state a prompt must not lose (step 4.5): kept here, not in the panel.
+  // The panels' state a prompt must not lose: kept here, not in the panel.
   const [insertSize, setInsertSize] = useState<TableSize | null>(null);
   const [tableView, setTableView] = useState<TableView>('list');
   const [resize, setResize] = useState<TableSize | null>(null);
-  // The formula sheet (step 4.5); `placed`: the formula is in the text (and selected there).
+  // The formula sheet; `placed`: the formula is in the text (and selected there).
   const [formula, setFormula] = useState<FormulaDraft | null>(null);
   const formulaPlaced = useRef(false);
   // The toolbar shows while typing, and over the Aa / colour panels.
   const typing = isKeyboardUp && (state.isFocused || panel !== undefined);
   const run = useCallback((cmd: FormatCommand) => editor.format(cmd), [editor]);
-  // Live notes (step 5.4): the WebView counts the recording time from what it is told twice a second.
+  // Live notes: the WebView counts the recording time from what it is told twice a second.
   useEffect(() => {
     if (!recordingClock) return;
     // "Nothing records" is said once, not twice a second.
@@ -204,14 +204,14 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     formulaPlaced.current = false;
     editor.focus();
   };
-  // The formula library (step 4.7c), from the sheet: its card goes in where the cursor is.
+  // The formula library, from the sheet: its card goes in where the cursor is.
   const pickLibraryFormula = (id: string) => {
     setFormula(null);
     formulaPlaced.current = false;
     run({ type: 'formulaCard', id });
     editor.focus();
   };
-  // Comments (step 4.5): the toolbar's Comment on the selected words, through the app's prompt.
+  // Comments: the toolbar's Comment on the selected words, through the app's prompt.
   const addComment = async () => {
     setPanel(undefined);
     if (!stateRef.current.format?.canComment) {
@@ -331,7 +331,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     else if (button === 'callout') pickCallout(state.format?.callout?.kind);
     else if (button === 'mark') setMarkDraft({ kind: 'important', level: null, existing: false });
     else if (button === 'time') void askTimestamp();
-    // Step 6.3: the screen offers Ask Claude's actions (an action sheet); the range is kept in the WebView.
+    // The screen offers Ask Claude's actions (an action sheet); the range is kept in the WebView.
     else if (button === 'ask') onAskClaude?.();
     // Only a new press asks; the format state changes all the time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -352,7 +352,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoPress]);
 
-  // Studiply's blocks (step 4.6): a callout's kind, a mark chip's sheet, a timestamp typed in.
+  // Studiply's blocks: a callout's kind, a mark chip's sheet, a timestamp typed in.
   const [markDraft, setMarkDraft] = useState<MarkDraft | null>(null);
   const pickCallout = (current?: CalloutKind | null) =>
     showActionSheet(
@@ -407,7 +407,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     }
     seenMarkPress.current = markPress;
     const m = stateRef.current.format?.markChip;
-    // A mark made while recording (step 5.5) opens its mark panel (an older editor bundle has no markId: the 4.6 form).
+    // A mark made while recording opens its mark panel (an older editor bundle has no markId: the plain chip form).
     const mark = linkedMarkOf(m);
     if (m) setMarkDraft({ kind: m.kind, level: m.level, existing: true, linked: mark && m.at ? { mark, at: m.at } : null });
   }, [markPress]);
@@ -428,7 +428,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formulaTap]);
 
-  // Graphs (step 4.7d): a tap on one (or a new one) opens its sheet; each change redraws it above.
+  // Graphs: a tap on one (or a new one) opens its sheet; each change redraws it above.
   const [graphDraft, setGraphDraft] = useState<GraphData | null>(null);
   const graphTap = state.format?.graphRequest?.id ?? null;
   const seenGraphTap = useRef<number | null | undefined>(undefined);
@@ -482,7 +482,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     [editor, run],
   );
 
-  // Writing tools (step 4.7), from the document menu: the find bar over the text, the outline sheet, the word count.
+  // Writing tools, from the document menu: the find bar over the text, the outline sheet, the word count.
   const [find, setFind] = useState<{ replace: boolean } | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
 
@@ -490,7 +490,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     if (state.isReady) editor.injectCSS(CSS, CSS_TAG);
   }, [state.isReady, editor]);
 
-  // The page's language (step 4.7d): graphs write Spanish decimals with a comma; also the spellchecker's language.
+  // The page's language: graphs write Spanish decimals with a comma; also the spellchecker's language.
   useEffect(() => {
     if (!state.isReady) return;
     const lang = cleanLang(language);
@@ -499,7 +499,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
     );
   }, [state.isReady, editor, language]);
 
-  // Print layout and zoom (step 4.5b): the sheet fits the screen's width, the zoom multiplies it.
+  // Print layout and zoom: the sheet fits the screen's width, the zoom multiplies it.
   const viewZoom = typeof view?.zoom === 'number' ? view.zoom : 1;
   useEffect(() => {
     if (state.isReady && view) run({ type: 'view', fit: true, pages: view.pages, zoom: viewZoom });
@@ -537,7 +537,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
   }, [state.isReady, onReady]);
 
   const lastChip = useRef<number | null>(null);
-  // A tap on a chip plays, also on the one already selected (step 5.4); before the selection's
+  // A tap on a chip plays, also on the one already selected; before the selection's
   // effect, so the selection that follows the tap doesn't play it twice.
   const lastTap = useRef(0);
   useEffect(() => {
@@ -576,7 +576,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
         <FindBar state={state.format?.find ?? null} run={run} replace={find.replace} onReplace={(on) => setFind({ replace: on })} onClose={() => setFind(null)} />
       )}
       <View style={styles.container}>
-        {/* Print layout (step 4.5b): a transparent WebView, so the screen's gradient shows around and between the pages. */}
+        {/* Print layout: a transparent WebView, so the screen's gradient shows around and between the pages. */}
         <RichText editor={editor} style={view?.pages ? CLEAR_WEBVIEW : undefined} />
       </View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -632,7 +632,7 @@ const StudiplyEditor = forwardRef<StudiplyEditorHandle, StudiplyEditorProps>(fun
 
 export default StudiplyEditor;
 
-/** The document menu's Word count (step 4.7): the whole document, and the selection when there is one. */
+/** The document menu's Word count: the whole document, and the selection when there is one. */
 function showWordCount(c: Counts | null) {
   if (!c) return;
   const n = (x: number) => x.toLocaleString('en-GB');

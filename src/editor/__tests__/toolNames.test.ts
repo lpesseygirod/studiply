@@ -1,4 +1,4 @@
-// The tools' names (the simplicity pass before 4.6): one list for the
+// The tools' names (the simplicity pass): one list for the
 // laptop's tooltips, the iPhone's labels and captions, and the menus.
 import { TOOLS, toolCaption, toolTip, type ToolKey } from '../toolNames';
 

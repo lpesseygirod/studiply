@@ -1,6 +1,6 @@
 /**
  * quiz-zod.ts
- * Step 9.1b-2: checking Claude's quiz answers with zod (as summary-zod.ts): a batch's outer shape, each
+ * Checking Claude's quiz answers with zod (as summary-zod.ts): a batch's outer shape, each
  * question's `data` against its type, and a past exam's format. The API contract stays the JSON Schema
  * constants in quiz-schema.ts (a Jest test checks the two agree). Server-side only: the app never
  * imports zod (Jest maps this specifier to the installed zod).
@@ -57,7 +57,7 @@ export const FormatAnswer = obj({
 });
 export type PastExamFormatRead = z.infer<typeof FormatAnswer>;
 
-/** Step 9.1b-3: the grading call's answer. */
+/** The grading call's answer. */
 export const GradeAnswer = obj({ grades: z.array(obj({ answerId: str, verdict: z.enum(['correct', 'partly', 'wrong']), reason: str })) });
 export type GradeAnswerValue = z.infer<typeof GradeAnswer>;
 

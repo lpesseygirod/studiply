@@ -2,7 +2,7 @@
 // gestures with gesture-handler's test utilities: hold and move onto a
 // folder drops it there, hold and release shows the menu, a tap opens, a
 // refused target gets no drop, and the list doesn't scroll on its own
-// before the drag area has been measured (the step 3.3 iPhone bug).
+// before the drag area has been measured (the iPhone drag bug).
 import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { State } from 'react-native-gesture-handler';

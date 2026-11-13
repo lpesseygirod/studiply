@@ -5,7 +5,7 @@ import { runFormat } from '../format';
 import { transformPastedHTML } from './rules';
 
 /**
- * Paste (step 4.4): Google Docs and Word HTML rewritten into Studiply's
+ * Paste: Google Docs and Word HTML rewritten into Studiply's
  * styles (rules.ts), and Paste without formatting.
  *
  * ⌘⇧V lets the browser's paste happen (it is the only way to read the

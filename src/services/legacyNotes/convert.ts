@@ -6,8 +6,8 @@ import type { Origin } from '../../editor/schema/blockMeta';
 import type { DocJSON } from '../../editor/types';
 
 /**
- * Step 4.9: an earlier note (a `summaries` row in format legacy-note-v1: step
- * 1.9's import of the old app, and the generate flow until Phase 7) as the
+ * An earlier note (a `summaries` row in format legacy-note-v1: the
+ * import of the old app, and the generate flow until the summary engine) as the
  * lecture's Summary tab. Pure, so every rule is unit tested; run.ts decides
  * when (the Summary tab opened with no document yet) and saves it.
  *
@@ -23,8 +23,8 @@ import type { DocJSON } from '../../editor/types';
  * - Tags → a last line; attachments → the lecture's photos as photo blocks
  *   (`media:<id>`: the same file, nothing copied) and its PDFs by name.
  * - Section headings in the lecture's language (study content, CLAUDE.md).
- * - Every block keeps its section's origin (`blocks` meta, step 1.8; without
- *   it `student`, as step 1.9 decided) and time; attachments are `media`.
+ * - Every block keeps its section's origin (`blocks` meta; without
+ *   it `student`, as the import decided) and time; attachments are `media`.
  * - Block ids come from the section and position, so converting the same
  *   note twice gives the same document (two devices converting at once merge
  *   into one).

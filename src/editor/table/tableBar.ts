@@ -7,7 +7,7 @@ import { nameButton } from '../barHint';
 import { HANDLE_ROOM } from './tableHandles';
 
 /**
- * The floating table bar (step 4.5, Lea: "table editing should happen on the
+ * The floating table bar (Lea: "table editing should happen on the
  * table itself"): while the cursor is in a table, a small bar sits just
  * above it (below it when there's no room above), on both devices:
  *

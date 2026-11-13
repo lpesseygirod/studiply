@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 5.2: the recorder service with a stand-in microphone, the in-memory
+// The recorder service with a stand-in microphone, the in-memory
 // store and the real queue (createSyncQueue on memory stores). Chunk order,
 // the upload queue offline and back online, transcription that waits for its
 // upload or is refused, and recovery after a crash. Nothing is sent anywhere.
@@ -9,7 +9,7 @@ import { NetworkError } from '../../../lib/cloudRows';
 import { createMemoryStore } from '../../../lib/sync/memoryStore';
 import { createSyncQueue, SyncHttpError } from '../../../lib/sync/queue';
 import { resetDiscardedForTests } from '../discarded';
-import { transcribeChunkHandler, uploadChunkHandler } from '../handlers';
+import { transcribeChunkHandler, transcriptRefused, uploadChunkHandler, waitsForCredits } from '../handlers';
 import { createMemoryRecordingStore } from '../memoryStore';
 import { createRecorderService } from '../service';
 import type { AudioSource, DiscardedRecording, SourceChunk, SourcePart } from '../types';
@@ -88,6 +88,8 @@ function rig() {
     transcribed: [] as number[],
     refuse: new Set<number>(),
     transcriptionDown: false,
+    /** No lecture credits left (402 no_credits). */
+    noCredits: false,
     /** Cancel recording: an upload or a transcription held on its way until released. */
     uploadGate: null as Promise<void> | null,
     transcribeGate: null as Promise<void> | null,
@@ -137,6 +139,7 @@ function rig() {
           if (!server.online) throw new NetworkError();
           if (server.transcriptionDown) throw new SyncHttpError('The transcription service is down.', 503);
           if (server.refuse.has(p.seq)) throw new SyncHttpError('Transcription needs your consent.', 403);
+          if (server.noCredits) throw new SyncHttpError('No lecture credits left.', 402);
           if (server.transcribeGate) await server.transcribeGate;
           server.transcribed.push(p.seq);
           return [{ startMs: p.startMs, endMs: p.startMs + 1000, text: `chunk ${p.seq}` }];
@@ -272,6 +275,67 @@ describe('the recorder service', () => {
     expect(snap.chunks.map((c) => c.state)).toEqual(['transcribed', 'no-transcript', 'transcribed']);
     expect(snap.chunks[1].transcriptError).toMatch(/consent/);
     expect(r.transcribeOps.ops).toEqual([]);
+  });
+
+  it('no credits left: the recording and uploads go on, the chunks wait and are sent again by the next sweep', async () => {
+    const r = rig();
+    r.server.noCredits = true;
+    const { service, transcriptions } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    const mic = r.source();
+    for (let n = 0; n < 3; n++) {
+      mic.tick(2);
+      mic.cut();
+    }
+    await idle();
+    expect(service.state().status).toBe('recording');
+    await service.stop();
+    await idle();
+    expect(r.server.uploaded).toEqual([0, 1, 2]);
+    expect(r.server.transcribed).toEqual([]);
+    expect(r.store.chunks.map((c) => c.transcriptError)).toEqual(['no_credits', 'no_credits', 'no_credits']);
+    expect(r.transcribeOps.ops).toEqual([]);
+
+    // Credits again (bought, granted): the app comes back to the front, the sweep sends them.
+    r.server.noCredits = false;
+    await service.recover();
+    await transcriptions.flush({ now: true });
+    await idle();
+    expect(r.server.transcribed).toEqual([0, 1, 2]);
+    const snap = await service.snapshot(L);
+    expect(snap.chunks.map((c) => c.state)).toEqual(['transcribed', 'transcribed', 'transcribed']);
+    expect(snap.chunks.map((c) => c.transcriptError)).toEqual([null, null, null]);
+  });
+
+  it('resendWaiting sends the waiting chunks of the recording in progress too, never refused ones', async () => {
+    const r = rig();
+    r.server.noCredits = true;
+    r.server.refuse.add(0);
+    const { service, transcriptions } = r.make();
+    await service.start({ lectureId: L, transcribe: true });
+    const mic = r.source();
+    for (let n = 0; n < 3; n++) {
+      mic.tick(2);
+      mic.cut();
+    }
+    await idle();
+    expect(r.store.chunks.map((c) => c.transcriptError)).toEqual([expect.stringMatching(/consent/), 'no_credits', 'no_credits']);
+    // Still recording: recover() leaves this one alone; resendWaiting doesn't.
+    r.server.noCredits = false;
+    expect(await service.resendWaiting()).toBe(2);
+    await transcriptions.flush({ now: true });
+    await idle();
+    expect(r.server.transcribed).toEqual([1, 2]);
+    expect(service.state().status).toBe('recording');
+    expect(await service.resendWaiting()).toBe(0);
+    await service.stop();
+  });
+
+  it('a chunk waiting for credits is not a refused one', () => {
+    expect(waitsForCredits({ transcriptError: 'no_credits' })).toBe(true);
+    expect(transcriptRefused({ transcriptError: 'no_credits' })).toBe(false);
+    expect(transcriptRefused({ transcriptError: 'Transcription needs your consent. (HTTP 403)' })).toBe(true);
+    expect(transcriptRefused({ transcriptError: null })).toBe(false);
   });
 
   it('a transcription outage never holds up the audio', async () => {
@@ -428,7 +492,7 @@ describe('the recorder service', () => {
     expect((await r.store.getRecording(L))?.status).toBe('stopped');
   });
 
-  it('step 5.4: playback while recording: each chunk’s own audio or its Storage path, and the chunk being recorded from its pieces', async () => {
+  it('playback while recording: each chunk’s own audio or its Storage path, and the chunk being recorded from its pieces', async () => {
     const r = rig();
     r.server.online = false;
     const { service } = r.make();
@@ -472,7 +536,7 @@ describe('the recorder service', () => {
     await service.stop();
   });
 
-  it('step 5.7: recording again into a lecture recorded elsewhere goes on after the audio Studiply already has', async () => {
+  it('recording again into a lecture recorded elsewhere goes on after the audio Studiply already has', async () => {
     const r = rig();
     const { service } = r.make();
     await service.start({ lectureId: L, transcribe: false, after: { seq: 4, ms: 121_000 } });

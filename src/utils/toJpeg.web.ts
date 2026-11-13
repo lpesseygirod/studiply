@@ -7,7 +7,7 @@ const UNREADABLE = "This image can't be read.";
 // -------------------------------------------------------------------
 // toJpeg (laptop)
 // Re-encodes any picked, pasted or dropped image as JPEG, scaled down so its
-// longest side is at most 2048 px, drawn on white (step 4.8b): a JPEG has no
+// longest side is at most 2048 px, drawn on white: a JPEG has no
 // transparency, and a browser saves a transparent pixel as black, so a
 // transparent PNG logo would otherwise come out in a black box. Returns a
 // blob: URI. `size` is not needed: the browser reads the picture's own.

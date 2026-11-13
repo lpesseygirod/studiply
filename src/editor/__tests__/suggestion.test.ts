@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 6.3: the study assistant in the document (schema/suggestion), in the
+// The study assistant in the document (schema/suggestion), in the
 // shared editor: Ask Claude's range kept and mapped through edits; Accept in
 // place (the block becomes the student's, one Undo) or below in an `ai` box;
 // a range whose text changed goes below instead (her edit is never

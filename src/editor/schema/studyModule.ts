@@ -3,7 +3,7 @@ import { mergeAttributes, Node } from '@tiptap/core';
 import { leaveBoxOnEmptyLast } from './boxKeys';
 
 /**
- * The summary's text modules (step 8.1; SUMMARY-SPEC "Module library"): timeline, cause → effect chain,
+ * The summary's text modules (SUMMARY-SPEC "Module library"): timeline, cause → effect chain,
  * key figures, comparison table, process steps, framework grid, theory card, case card, argument map,
  * code, vocabulary table and worked example. One block for all twelve: a box with a small label (drawn,
  * not text, as a callout's), holding ordinary editor content (paragraphs, lists, a table) that the
@@ -13,8 +13,8 @@ import { leaveBoxOnEmptyLast } from './boxKeys';
  * Every word stays text: edited in place, found by Find, commented on, asked about (Ask Claude), with
  * no form (unlike a graph's data). If the student changes its structure, the box still shows its
  * content as plain lists and paragraphs. A top-level block with its own id, origin and edit time
- * (blockMeta), so a summary written again never replaces one she edited (7.7). Written by the summary
- * (src/lib/summaryDoc.ts); not in the Insert menu (8.1 renders them). Shared by both editors.
+ * (blockMeta), so a summary written again never replaces one she edited. Written by the summary
+ * (src/lib/summaryDoc.ts); not in the Insert menu (the editor only renders them). Shared by both editors.
  */
 
 export const STUDY_MODULE = 'studyModule';

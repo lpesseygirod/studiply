@@ -14,7 +14,9 @@ select tables_are(
     -- Step 9.1b
     'quizzes', 'quiz_sources', 'quiz_questions', 'quiz_attempts', 'quiz_answers',
     -- Step 10.1b-2
-    'terms_acceptances'
+    'terms_acceptances',
+    -- Step 10.2-1
+    'credit_ledger'
   ],
   'public has exactly the expected tables'
 );

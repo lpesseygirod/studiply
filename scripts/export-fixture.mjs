@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * export-fixture.mjs — saves one lecture of the LOCAL Supabase as a test fixture (step 7.1's golden
+ * export-fixture.mjs — saves one lecture of the LOCAL Supabase as a test fixture (the golden
  * set; the format of supabase/functions/_shared/summary-fixture.ts) in tests/fixtures/lectures/<name>/,
  * which is git-ignored: transcript (as transcribed, with its chunks), My notes' lines with their
  * formatting, marks, questions to the assistant with their answers, photos and slides (the files

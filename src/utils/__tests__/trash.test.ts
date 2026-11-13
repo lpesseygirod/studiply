@@ -1,4 +1,4 @@
-// What Recently Deleted lists (step 3.5): kinds, places, days, and which
+// What Recently Deleted lists: kinds, places, days, and which
 // items get a line of their own.
 import { daysLeft, deletedAgo, fileTrashKind, trashKindLabel, trashPlace, visibleTrash, type NamedCourse, type NamedFolder, type TrashedRow } from '../trash';
 

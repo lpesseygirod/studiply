@@ -35,7 +35,7 @@ const CHIP_SLOP = { top: 6, bottom: 6, left: 2, right: 2 };
 type Status = 'idle' | 'searching' | 'done' | 'needsConnection' | 'failed';
 
 /**
- * Search (step 3.5, docs/design iphone-09): titles, notes, terms and
+ * Search (docs/design iphone-09): titles, notes, terms and
  * transcripts, without caring about case or accents. Chips narrow the
  * results; each row shows its course colour, title, what was found
  * ("Transcript 18:22") and the text around the match. Offline on the
@@ -96,7 +96,7 @@ export default function SearchScreen() {
 
   const open = (hit: SearchHit) => {
     Keyboard.dismiss();
-    router.push(hitTarget(hit, searched));
+    router.push(hitTarget(hit));
   };
 
   const shown = hitsForChip(hits, chip);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-purge-local.mjs — end-to-end check of the nightly trash clean-up
- * (Edge Function purge-trash, step 3.5). Free: no AI calls.
+ * (Edge Function purge-trash). Free: no AI calls.
  *
  *   1. refuses to run if the local database has anything else in the trash
  *      for more than 30 days (the function purges every user's old trash,
@@ -12,7 +12,7 @@
  *   4. calls it, then checks that only the old rows and their objects are
  *      gone, that B's old trash went too, and that a second run finds
  *      nothing left;
- *   5. recordings (step 10.1b-3): A's lecture transcribed 4 days ago on
+ *   5. recordings: A's lecture transcribed 4 days ago on
  *      "Delete in 3 days" and B's loses its audio files (the chunk rows,
  *      the transcript and its photo stay; the lecture is marked deleted);
  *      one kept forever and one transcribed today keep theirs. It also
@@ -101,7 +101,7 @@ async function othersOldTrash(testUsers) {
   return total;
 }
 
-/** Other users' recordings the job would delete now (step 10.1b-3). */
+/** Other users' recordings the job would delete now. */
 async function othersDueAudio() {
   const { count, error } = await admin
     .from('lectures')
@@ -163,7 +163,7 @@ try {
   const ids = Object.fromEntries(
     [
       'oldCourse', 'liveCourse', 'bCourse', 'folder', 'inOld', 'oldLecture', 'recentPdf', 'liveLecture', 'movedFile', 'bLecture',
-      // Step 10.1b-3: recordings.
+      // Recordings.
       'dueA', 'keptA', 'freshA', 'dueB',
     ].map(
       (k) => [k, randomUUID()],
@@ -213,6 +213,13 @@ try {
     ]),
     'Could not create the lectures',
   );
+  // The old lecture was paid for; purging it must leave her credits as they are.
+  await must(
+    admin.rpc('spend_credits', { p_user: a, p_base_key: `lecture:${ids.oldLecture}:block:0`, p_units: 4, p_kind: 'spend_lecture', p_lecture: ids.oldLecture }),
+    'Could not spend a credit',
+  );
+  const balanceOf = async (id) => (await must(admin.from('credit_ledger').select('units').eq('user_id', id), 'Could not read credits')).reduce((n, r) => n + r.units, 0);
+  const creditsBefore = await balanceOf(a);
 
   const objects = {
     oldChunk: { bucket: 'audio-chunks', path: `${a}/${ids.inOld}/0000.m4a` },
@@ -302,6 +309,8 @@ try {
     'Could not read files',
   );
   check(gone.length === 0, 'the old lectures are gone (both users, and the one inside the old course)');
+  const paid = await must(admin.from('credit_ledger').select('id').eq('lecture_id', ids.oldLecture), 'Could not read credits');
+  check(paid.length === 1 && (await balanceOf(a)) === creditsBefore, 'the purged lecture\'s credit row stays; her balance is unchanged');
   const kept = await must(
     admin.from('files').select('id').in('id', [ids.recentPdf, ids.liveLecture, ids.movedFile]),
     'Could not read files',

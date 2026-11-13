@@ -1,8 +1,8 @@
 /**
  * noteBlocks.ts
- * The conflict rule for a note edited on two devices (step 1.8).
+ * The conflict rule for a note edited on two devices.
  *
- * A note is made of blocks. Until the Phase 4 editor these are the sections
+ * A note is made of blocks. Until the document editor these are the sections
  * of the old structured note: title, summary, key concepts, formulas,
  * definitions, tags, unclear parts, clarifications and the confirmed flag.
  * Every block remembers who wrote it (origin ai or student), when (the
@@ -114,7 +114,7 @@ function withBlock(note: LegacyNoteResult, block: NoteBlock, value: Json, meta: 
   };
 }
 
-/** A block's author and time; notes from before step 1.8 count as AI, written when created. */
+/** A block's author and time; notes from before this rule count as AI, written when created. */
 export function blockMeta(note: LegacyNoteResult, block: NoteBlock, createdAt: string): NoteBlockMeta {
   return note.blocks?.[block] ?? { origin: 'ai', editedAt: isoTime(createdAt), device: null };
 }

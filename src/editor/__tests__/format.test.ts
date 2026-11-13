@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The formatting tools' commands and state (step 4.4), on a real editor:
+// The formatting tools' commands and state, on a real editor:
 // what both toolbars do and show.
 import { Editor } from '@tiptap/core';
 

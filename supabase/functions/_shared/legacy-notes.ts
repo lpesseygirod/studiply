@@ -1,13 +1,13 @@
 /**
  * legacy-notes.ts
- * The old app's study notes and "clarify" prompts, moved to the server in
- * step 1.7 so no API key is in the app. Kept free of Deno and network code
+ * The old app's study notes and "clarify" prompts, moved to the server
+ * so no API key is in the app. Kept free of Deno and network code
  * so Jest can test it (src/lib/__tests__/legacy-notes.test.ts).
  *
- * The prompts are the ones the app sent to Claude itself before 1.7 (from
- * src/services/ai.service.ts), with one change: the note's JSON shape is now
+ * The prompts are the ones the app used to send to Claude itself (from
+ * its earlier ai.service.ts), with one change: the note's JSON shape is now
  * enforced with structured outputs (NOTE_SCHEMA) instead of asked for in
- * words. Phase 7's summary engine replaces all of this.
+ * words. The summary engine replaces all of this.
  */
 
 export type SummaryLevel = 'minimal' | 'standard' | 'extra';
@@ -19,7 +19,8 @@ const MODES: RecordingMode[] = ['lecture', 'standard', 'discussion'];
 /**
  * Thinking is always on for Claude Opus 5.5 and counts toward max_tokens,
  * so each level gets more room than the old app's 1500 / 3000 / 6000
- * (which were for a model without thinking).
+ * (which were for a model without thinking). Kept as they are now that
+ * summarize runs on Sonnet 5.5 (Lea, 12 Nov): only the model changed.
  */
 export const NOTES_MAX_TOKENS: Record<SummaryLevel, number> = {
   minimal: 4000,

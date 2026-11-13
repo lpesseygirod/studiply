@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Studiply's blocks (step 4.6): callouts with their labels, mark chips;
+// Studiply's blocks: callouts with their labels, mark chips;
 // both in JSON and HTML, put in, changed and taken away, and blocks the
 // merge and the origin rule handle like any other.
 import { Editor, type JSONContent } from '@tiptap/core';

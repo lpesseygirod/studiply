@@ -1,5 +1,5 @@
 /**
- * Links (step 4.5): what the student types as an address, made safe and
+ * Links: what the student types as an address, made safe and
  * complete. "uned.es" becomes https://uned.es, an email address becomes a
  * mailto: link; only http, https, mailto and tel are allowed, so a pasted
  * "javascript:" can never become a link.

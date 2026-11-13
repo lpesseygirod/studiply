@@ -1,4 +1,4 @@
-// Uploads into a course or folder as library files (step 3.4): which files
+// Uploads into a course or folder as library files: which files
 // are taken, their names, and on the laptop the order of the steps and the
 // clean-up when one fails.
 import { NetworkError } from '../../lib/cloudRows';

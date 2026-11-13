@@ -15,12 +15,12 @@ export interface FormulaDraft {
 }
 
 /**
- * The iPhone's formula editor (step 4.5): a sheet over the lower part of the
+ * The iPhone's formula editor: a sheet over the lower part of the
  * screen, with its own keyboard (letters and numbers, no autocorrect). The
  * formula in the text above changes as the student types, so the text is
  * the preview. Tapping above the sheet closes it, like Done.
  *
- * A new, still empty formula can come from the library instead (step 4.7c):
+ * A new, still empty formula can come from the library instead:
  * From the library shows the list in the same sheet; a pick puts in its
  * formula card and closes the sheet.
  */

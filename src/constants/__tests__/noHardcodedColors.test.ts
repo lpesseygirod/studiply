@@ -1,4 +1,4 @@
-// Colors come only from src/constants/colors.ts (CLAUDE.md, step 2.3), so
+// Colors come only from src/constants/colors.ts (CLAUDE.md), so
 // both appearances stay complete and every pair is contrast-checked.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';

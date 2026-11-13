@@ -7,7 +7,7 @@ import { clampCols, clampRows, MAX_TABLE } from '../../editor/table/resize';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * Rows × columns typed in (step 4.5, Lea: "6 × 4, up to 50 × 20"), for
+ * Rows × columns typed in (Lea:"6 × 4, up to 50 × 20"), for
  * inserting a table and for Table size…, on the laptop. A larger number is
  * lowered to the limit, which shows under the fields.
  */

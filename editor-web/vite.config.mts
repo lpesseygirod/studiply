@@ -24,7 +24,7 @@ const wrapForTheApp: Plugin = {
   },
 };
 
-// KaTeX's styles (formulas, step 4.5) name each font three times (woff2,
+// KaTeX's styles (formulas) name each font three times (woff2,
 // woff, ttf); the page is one file with everything inlined, and the
 // iPhone's WebView reads woff2, so the other two are left out.
 const katexWoff2Only: Plugin = {

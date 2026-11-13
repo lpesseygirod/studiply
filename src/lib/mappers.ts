@@ -1,6 +1,6 @@
 /**
  * mappers.ts
- * Small helpers the services share. (Until step 1.7 this file also mapped
+ * Small helpers the services share. (Until the move to Supabase this file also mapped
  * SQLite rows; the Supabase rows are mapped in ./cloudRows.ts.)
  */
 

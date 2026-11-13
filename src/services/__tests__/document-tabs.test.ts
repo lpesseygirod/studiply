@@ -1,4 +1,4 @@
-// Tabs in every document (step 4.7b), on the laptop (written at once): the
+// Tabs in every document, on the laptop (written at once): the
 // order of the tabs, what can be added, renamed, moved and deleted, moves
 // that write only their own place, the page setup shared by every tab,
 // versions kept per tab, and an edit that brings back a deleted tab. The
@@ -103,7 +103,7 @@ describe('the rules (pure)', () => {
   it('names: the next free "Tab N"; a title is 1–100 characters', () => {
     expect(nextTabTitle([{ title: 'Tab 1' }])).toBe('Tab 2');
     expect(nextTabTitle([{ title: 'Tab 1' }, { title: 'tab 3' }, { title: 'Otra' }])).toBe('Tab 4');
-    // A spreadsheet (step 4.7e): "Sheet N", counted among the sheets.
+    // A spreadsheet: "Sheet N", counted among the sheets.
     expect(nextTabTitle([{ title: 'Tab 1', kind: null }, { title: 'Tab 2', kind: null }], 'sheet')).toBe('Sheet 1');
     expect(nextTabTitle([{ title: 'Tab 1' }, { title: 'Sheet 1', kind: 'sheet' }, { title: 'sheet 2' }], 'sheet')).toBe('Sheet 3');
     expect(cleanTabTitle('  Semana   3 ')).toBe('Semana 3');

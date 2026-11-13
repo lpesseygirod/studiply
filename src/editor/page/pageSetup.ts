@@ -1,8 +1,8 @@
 /**
- * Page setup (pulled forward from 4.7, Lea after test D), Google Docs style:
+ * Page setup (pulled forward, Lea after test D), Google Docs style:
  * paper size, orientation, margins, page numbers and the gap between pages.
  * Saved per document (`documents.page_setup`), so the page view and later
- * the export (4.8) follow it. Margins are in cm (as in Spain); everything
+ * the export follow it. Margins are in cm (as in Spain); everything
  * the view draws is in CSS px at 96 per inch.
  */
 

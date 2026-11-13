@@ -1,4 +1,4 @@
-// Step 9.2-3: the review reminders on the iPhone, with a fake notifications module. Off until she says
+// The review reminders on the iPhone, with a fake notifications module. Off until she says
 // yes; on: iOS asked once, the plan scheduled (at most one a day, 30 days ahead, ≤ 30 pending); off:
 // all cancelled at once; a new time plans them again; refused by iOS: off, nothing scheduled, nothing
 // breaks; signing out (and deleting the account) cancels all; Review's offer once, only when something

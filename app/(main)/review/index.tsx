@@ -27,12 +27,12 @@ import { errorMessage } from '../../../src/utils/errors';
 type Mode = 'cards' | 'quiz';
 
 /**
- * Review (step 9.1): Flashcards and Quiz me (step 9.1b: + New quiz and the quizzes made, above).
+ * Review: Flashcards and Quiz me (+ New quiz and the quizzes made, above).
  * - Laptop (desktop-07/08): no sidebar; the top bar names the card's course and lecture and holds the
  *   Quiz me | Flashcards control (?mode=quiz); the card in a centred column on the gradient.
  * - iPhone (iphone-10): the Review tab: "Review", "N due today", Flashcards | Quiz me, the card.
  * Both read the same data (services/review.service: the iPhone its own copy, offline too).
- * Step 9.2: "Lectures to review today" over both modes (components/review/LecturesToday); a lecture's
+ * "Lectures to review today" over both modes (components/review/LecturesToday); a lecture's
  * Review opens its own questions (?mode=quiz&lecture=…), and finishing them marks it reviewed.
  */
 export default function ReviewScreen() {
@@ -81,7 +81,7 @@ export default function ReviewScreen() {
   const due = data ? Math.max(0, data.dueToday - reviewed) : null;
   const setMode = (m: Mode) => router.replace((m === 'quiz' ? '/review?mode=quiz' : '/review') as Href);
 
-  // Step 9.2: the lectures to review today. Review opens a lecture's own Quiz me questions (?lecture=).
+  // The lectures to review today. Review opens a lecture's own Quiz me questions (?lecture=).
   const decks = data ? (params.lecture && data.quiz.some((d) => d.fileId === params.lecture) ? data.quiz.filter((d) => d.fileId === params.lecture) : data.quiz) : [];
   const hasQuestions = useCallback((fileId: string) => !!data?.quiz.some((d) => d.fileId === fileId && d.questions.length > 0), [data]);
   const markReviewed = useCallback(
@@ -177,11 +177,11 @@ export default function ReviewScreen() {
               </View>
             </>
           )}
-          {/* Step 9.2-3: the reminders offered once, the first time something is due (iPhone). */}
+          {/* The reminders offered once, the first time something is due (iPhone). */}
           {data && <ReminderOffer dueToday={data.dueToday} />}
-          {/* Step 9.2: the lectures due today, over Flashcards and Quiz me. */}
+          {/* The lectures due today, over Flashcards and Quiz me. */}
           {lecturesCard}
-          {/* Step 9.1b: + New quiz and the quizzes made, above the summaries' questions. */}
+          {/* + New quiz and the quizzes made, above the summaries' questions. */}
           {mode === 'quiz' && <QuizList showUndo={showUndo} />}
           {body}
         </View>

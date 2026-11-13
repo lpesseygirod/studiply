@@ -1,6 +1,6 @@
 /**
  * html5.ts (iPhone): the browser's drag and drop doesn't exist here; the
- * web twin (html5.web.ts) is the laptop's drag (step 3.1, Option B).
+ * web twin (html5.web.ts) is the laptop's drag (Option B).
  */
 
 import type { PickedFile } from '../../services/library-upload.service';

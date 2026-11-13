@@ -1,7 +1,7 @@
 /**
  * sheetClipboard.ts
- * Copy, cut and paste of cells in a spreadsheet tab (step 4.7e, checkpoint
- * 2b), pure so it is unit tested; SheetTab wires it to the browser's copy,
+ * Copy, cut and paste of cells in a spreadsheet tab,
+ * pure so it is unit tested; SheetTab wires it to the browser's copy,
  * cut and paste events (no permission asked).
  *   - Copying puts the cells' values on the clipboard as tab-separated text
  *     (rows on lines), which pastes into Excel, Google Sheets or a document;

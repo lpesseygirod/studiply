@@ -20,7 +20,7 @@ const act = (editor: Editor) => ({
 });
 
 /**
- * The laptop's comment popovers (step 4.5): the composer (the toolbar's
+ * The laptop's comment popovers: the composer (the toolbar's
  * Comment button or ⌘⌥M, on the selected words) and, when the window is
  * too narrow for the margin, a click on commented text opens its card. In a
  * wide window that click makes its card in the margin the active one.
@@ -107,7 +107,7 @@ function scroller(el: HTMLElement): HTMLElement | null {
 }
 
 /**
- * The comments margin (step 4.5, laptop, a wide window): beside the page,
+ * The comments margin (laptop, a wide window): beside the page,
  * each open comment's card level with its words (pushed down when they
  * would overlap), following the page as it scrolls. Resolved ones hide
  * here (the document menu's Comments lists them); a click on resolved

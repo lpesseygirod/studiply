@@ -1,4 +1,4 @@
-// Add to / Remove from Favorites in an item's menu (starred_at; step 2.2).
+// Add to / Remove from Favorites in an item's menu (starred_at).
 import { NetworkError, OFFLINE_MESSAGE } from '../../lib/cloudRows';
 import { starButton, toggleStar } from '../star';
 

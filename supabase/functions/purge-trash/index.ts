@@ -1,5 +1,5 @@
 /**
- * purge-trash — the nightly clean-up (step 3.5; recordings since step 10.1b-3).
+ * purge-trash — the nightly clean-up (the trash, and old recordings).
  *
  * POST, called by the database's daily job (pg_cron + pg_net, migration
  * 20261026090500) with the `x-cron-secret` header; nothing else may call

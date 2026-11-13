@@ -1,5 +1,5 @@
 /**
- * The laptop's green banner (step 7.7, desktop-03) runs the window's full width under the top bar, so
+ * The laptop's green banner (desktop-03) runs the window's full width under the top bar, so
  * the shell draws it; the document screen says when: its Summary tab holds a summary (and which one,
  * for its "Built from" line). Plain module state, as assistantTarget.
  */
@@ -8,7 +8,7 @@ import { useSyncExternalStore } from 'react';
 
 import type { LectureSummary } from '../../services/summarize.service';
 
-/** Step 7.9: the lecture it's on, for + Extend with next lecture. */
+/** The lecture it's on, for + Extend with next lecture. */
 export interface BannerLecture {
   id: string;
   courseId: string | null;

@@ -145,7 +145,7 @@ function runShortcut(editor: Editor, view: EditorView, rules: InputRule[], from:
   if (view.composing || !view.editable) return false;
   const $from = view.state.doc.resolve(from);
   if (!$from.parent.isTextblock || $from.parent.type.spec.code) return false;
-  // A line stamped with the recording time (step 5.4: a timestamp chip and a space first) still
+  // A line stamped with the recording time (a timestamp chip and a space first) still
   // starts after its stamp: "- " makes a list, "# " a heading, and the chip stays in the line.
   const stampEnd = leadingStampEnd($from.parent);
   if (stampEnd > $from.parentOffset) return false;

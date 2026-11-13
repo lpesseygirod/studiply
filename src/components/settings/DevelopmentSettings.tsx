@@ -2,7 +2,7 @@
  * DevelopmentSettings.tsx
  * Development builds only (never in a release): the server badge, Simulate
  * offline, the sync panel, drag debugging and the earlier-version sample.
- * Moved from the old General screen (step 3.6).
+ * Moved from the old General screen.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -25,7 +25,7 @@ export function DevelopmentSettings({ title = 'DEVELOPMENT' }: { title?: string 
   const { colors: c } = useTheme();
   const simulatedOffline = useSimulatedOffline();
   const dragDebug = useDragDebug();
-  // Step 1.9 is tested on sample data, never the real earlier-version data.
+  // The earlier version's import is tested on sample data, never the real earlier-version data.
   const [useSample, setUseSample] = useState(false);
   const [creatingSample, setCreatingSample] = useState(false);
   useEffect(() => {

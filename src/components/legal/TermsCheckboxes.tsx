@@ -1,6 +1,6 @@
 /**
  * TermsCheckboxes.tsx
- * Step 10.1b-2: the two required boxes, unticked until she ticks them: "I agree to the Terms of
+ * The two required boxes, unticked until she ticks them: "I agree to the Terms of
  * Service and the Privacy Policy" (both linked; they open in a LegalSheet via `onOpen`) and "I am 16
  * or older". On sign-up (desktop-06, and where iphone-11's footer line was) and at the gate.
  * With the first ticked and not the second, it says why: Studiply is for people aged 16 or older.

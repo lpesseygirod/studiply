@@ -1,6 +1,6 @@
 /**
  * status.ts
- * Step 9.1b-2: what a quiz's row in Review → Quiz me says while it is written (the approved plan §1),
+ * What a quiz's row in Review → Quiz me says while it is written (the approved plan §1),
  * without React. "It took too long" is only shown here (the app never writes a quiz's status): Try
  * again works because the server claims a quiz left "generating" that long. Jest: quizStatus.test.ts.
  */
@@ -31,7 +31,13 @@ export const FAILED_WORDS: Record<string, string> = {
   consent_withdrawn: 'Stopped: AI was turned off in Settings',
   invalid_request: 'Its settings couldn’t be read',
   server_error: 'Something went wrong on the server',
+  no_credits: 'No credits left: a quiz uses part of a credit',
 };
+
+/** A quiz the server put back to "not started" (402 no_credits). */
+export const NO_CREDITS_NOTE = FAILED_WORDS.no_credits;
+/** …and she has credits again (it never starts by itself: Start). */
+export const CREDITS_AGAIN_QUIZ = 'You have credits again: start it now';
 
 const questions = (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`;
 

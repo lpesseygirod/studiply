@@ -13,11 +13,13 @@ import type { ThemeColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { a11yState } from '../../utils/a11y';
 import { sectionForPath, sectionHref, visibleSections } from '../../utils/settingsSections';
+import { useIsAdmin } from '../../hooks/useIsAdmin';
 
 export function SettingsMenu() {
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const open = sectionForPath(usePathname());
+  const isAdmin = useIsAdmin() === true;
 
   return (
     <View style={styles.card} testID="settings-menu" accessibilityRole="menu">
@@ -37,6 +39,17 @@ export function SettingsMenu() {
           </Pressable>
         );
       })}
+      {/* Lea's dashboard (part A: its Codes): admins only, on the web. */}
+      {isAdmin && (
+        <Pressable
+          style={({ hovered }: { hovered?: boolean }) => [styles.item, hovered && styles.itemHover]}
+          onPress={() => router.navigate('/admin')}
+          accessibilityRole="link"
+          {...{ dataSet: { settings: 'admin' } }}
+        >
+          <Text style={styles.label}>Admin</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

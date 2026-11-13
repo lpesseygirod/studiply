@@ -1,4 +1,4 @@
-// The app's clipboard for Cut / Copy / Paste (step 3.4).
+// The app's clipboard for Cut / Copy / Paste.
 import { forgetClip, getClip, setClip } from '../clipboard';
 import type { ShelfItem } from '../../utils/shelf';
 

@@ -1,4 +1,4 @@
-// Step 9.2-2: a course's settings (courseSettings.service). Load: the row as the screen shows it (a
+// A course's settings (courseSettings.service). Load: the row as the screen shows it (a
 // value it can't show is "not set"; no row: the spec's defaults); each field saved on its own (the exam
 // date, cleared too; the format; the summary language; the 10 sliders; the study reminders default);
 // a bad date refused; online only; the iPhone's copy replaced at once (keyed by its course_id) and the

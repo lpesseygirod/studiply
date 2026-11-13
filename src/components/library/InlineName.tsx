@@ -6,7 +6,7 @@ import { Typography } from '../../constants/typography';
 import { useTheme, useThemedStyles } from '../../theme/ThemeProvider';
 
 /**
- * A name typed in place on a tile (step 3.2): a new folder, or a folder
+ * A name typed in place on a tile: a new folder, or a folder
  * being renamed. Enter saves; tapping or clicking elsewhere saves too (as in
  * Finder); Esc cancels. The text starts selected so typing replaces it.
  */

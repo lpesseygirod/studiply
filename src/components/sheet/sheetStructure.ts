@@ -1,7 +1,7 @@
 /**
  * sheetStructure.ts
- * Inserting and deleting rows and columns in a spreadsheet tab (step 4.7e,
- * checkpoint 2b), pure so it is unit tested. The cells after the change
+ * Inserting and deleting rows and columns in a spreadsheet tab,
+ * pure so it is unit tested. The cells after the change
  * move with it, and every formula's references move as in Excel
  * (src/lib/sheets/structure.ts: $ ones too; a deleted cell's are #REF!).
  *

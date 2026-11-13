@@ -108,6 +108,10 @@
     "moduleNameMapper": {
       "^npm:zod@4\\.6\\.7$": "zod"
     },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/_to_delete/"
+    ],
     "transformIgnorePatterns": [
       "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@10play/tentap-editor/src))",
       "/node_modules/react-native-reanimated/plugin/"

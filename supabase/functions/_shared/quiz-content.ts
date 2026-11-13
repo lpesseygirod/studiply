@@ -1,6 +1,6 @@
 /**
  * quiz-content.ts
- * Step 9.1b-2: everything the quiz function reads, as the student (RLS applies): the quiz and its
+ * Everything the quiz function reads, as the student (RLS applies): the quiz and its
  * settings, each chosen lecture's material (summaryMaterial, as the summary reads it) and newest done
  * summary, the resources (PDFs and photos as Claude content only with the images consent; text
  * documents as text), the past exams' saved formats, the facts the calculator is given (the panel's

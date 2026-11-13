@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 /**
- * The live waveform (step 5.3, desktop-01 / iphone-02): the recent loudness
+ * The live waveform (desktop-01 / iphone-02): the recent loudness
  * as rounded bars, newest on the right. Decorative (the timer says it records).
  */
 export function Waveform({ levels, color, height = 24, bar = 3, gap = 3 }: { levels: number[]; color: string; height?: number; bar?: number; gap?: number }) {

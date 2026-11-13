@@ -1,5 +1,5 @@
 /**
- * The recorder service (step 5.2): `recorder` is the web's (MediaRecorder,
+ * The recorder service: `recorder` is the web's (MediaRecorder,
  * IndexedDB) or the iPhone's (a stub until expo-audio). See ./service.
  */
 

@@ -1,7 +1,7 @@
 /**
  * systemClipboard.ts
  * The device's clipboard for a spreadsheet's Copy and Paste in the cell's
- * sheet (step 4.7e, checkpoint 3: the iPhone, and touch in a browser), so
+ * sheet (the iPhone, and touch in a browser), so
  * a copy pastes into other apps and their text pastes in. The laptop's
  * ⌘C / ⌘V use the browser's copy and paste events instead (SheetTab).
  * Reading can be refused (a browser asks first): then null, and the sheet

@@ -5,7 +5,7 @@ import { AppleButtonColors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 
 /**
- * "Continue with Apple" (step 10.1; desktop-06): black, Apple's logo and wording, as Apple's
+ * "Continue with Apple" (desktop-06): black, Apple's logo and wording, as Apple's
  * guidelines ask for a button drawn by the app. The iPhone uses Apple's own button
  * (AppleSignInButton.ios.tsx).
  */

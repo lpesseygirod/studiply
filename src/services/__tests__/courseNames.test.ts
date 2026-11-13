@@ -1,4 +1,4 @@
-// New courses follow the one name rule (step 3.2).
+// New courses follow the one name rule.
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
 import { createProject, updateProject } from '../project.service';
 

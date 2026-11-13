@@ -1,6 +1,6 @@
 /**
  * consentRequests.ts
- * Step 10.1: the AI consent screen asked from anywhere (services/consent.service.ts), drawn by
+ * The AI consent screen asked from anywhere (services/consent.service.ts), drawn by
  * <AiConsentHost /> (mounted once in app/_layout.tsx). One question at a time: a second ask while the
  * screen is open waits for the same answer.
  */

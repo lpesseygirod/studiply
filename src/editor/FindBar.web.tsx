@@ -11,7 +11,7 @@ import { runFormat } from './format';
 import { findState } from './writing/find';
 
 /**
- * The laptop's find & replace bar (step 4.7), under the toolbar: ⌘F opens
+ * The laptop's find & replace bar, under the toolbar: ⌘F opens
  * it (with words selected, they are the search), ⌘⇧H with Replace. Enter
  * goes to the next match, ⇧Enter to the previous, Esc closes it and goes
  * back to the text. The matches, highlights and replacing are the shared

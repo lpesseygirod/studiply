@@ -3,9 +3,9 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/p
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 
 /**
- * Quiz me (step 9.1; SUMMARY-SPEC: "each section has a Quiz me toggle that hides the content and
+ * Quiz me (SUMMARY-SPEC: "each section has a Quiz me toggle that hides the content and
  * shows the cue question"), on both editors. A summary section is a heading with its cue question
- * (7.7, sectionCue.ts) and the blocks under it up to the next heading of its level or above.
+ * (sectionCue.ts) and the blocks under it up to the next heading of its level or above.
  *
  * - Each such heading gets a small "Quiz me" pill at its end. It hides the section's blocks and
  *   shows "? <cue question>" with Reveal in their place; Reveal shows the section again.

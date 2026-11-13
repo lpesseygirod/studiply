@@ -1,5 +1,5 @@
-// A document written offline on the iPhone, sent when the connection is back
-// (step 4.3): created, written twice and renamed offline, it reaches the
+// A document written offline on the iPhone, sent when the connection is back:
+// created, written twice and renamed offline, it reaches the
 // server in order as one edit, merged block by block with what the laptop
 // wrote meanwhile, and nothing either device wrote is lost. The handlers
 // and the queue's merge are the real ones; the server is a fake with real

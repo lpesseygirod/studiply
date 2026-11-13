@@ -1,10 +1,10 @@
 /**
  * shortcuts.ts
- * The web app's keyboard shortcuts (step 2.3, Lea's choice):
+ * The web app's keyboard shortcuts (Lea's choice):
  *   ⌥N   new document          ⌥⇧N  new folder        ⌥R  record lecture
  *   /    search                ?    the shortcuts sheet
- *   ⌘Z / Ctrl+Z  undo the last move, delete or favourite (step 3.3)
- *   ⌘X / ⌘C      cut / copy the selected item (step 3.4; ⌘V is the
+ *   ⌘Z / Ctrl+Z  undo the last move, delete or favourite
+ *   ⌘X / ⌘C      cut / copy the selected item (⌘V is the
  *                browser's paste event, handled by the course screen)
  *   ⇧F10 / Menu  the selected item's menu, or the empty-space menu
  * Option combinations are matched by the key's position (`code`), so the
@@ -71,7 +71,7 @@ export const SHORTCUTS: { keys: string; action: string; soon?: boolean }[] = [
   { keys: 'Esc', action: 'Close a menu, dialog or this sheet' },
 ];
 
-/** In a document (step 4.4), as in Google Docs; they work while typing in the text. */
+/** In a document, as in Google Docs; they work while typing in the text. */
 export const EDITOR_SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '⌘ B  ⌘ I  ⌘ U', action: 'Bold, italic, underline' },
   { keys: '⌘ ⇧ X', action: 'Strikethrough' },

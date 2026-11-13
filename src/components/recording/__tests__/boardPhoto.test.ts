@@ -1,4 +1,4 @@
-// Step 5.6: when Photo can be used (while recording; on the laptop only
+// When Photo can be used (while recording; on the laptop only
 // online, Lea's advisor: A), and a board photo saved at its moment: its row
 // with the lecture and time, then its line in My notes.
 import { photoBoardUsable, saveBoardPhoto, PHOTO_OFFLINE_NOTE } from '../boardPhoto';

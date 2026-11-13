@@ -1,5 +1,5 @@
 /**
- * notifier.web.ts — the laptop has no reminders (step 9.2-3: they come on the iPhone). Same shape as
+ * notifier.web.ts — the laptop has no reminders (they come on the iPhone). Same shape as
  * notifier.ts, doing nothing, so the web bundle never loads expo-notifications.
  */
 

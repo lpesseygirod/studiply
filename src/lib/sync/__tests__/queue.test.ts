@@ -335,7 +335,7 @@ describe('sync queue', () => {
     expect(events.some((e) => e.type === 'done')).toBe(true);
   });
 
-  describe('coming back online (step 1.8 test 3)', () => {
+  describe('coming back online', () => {
     it('sends at once when the connection returns, even after failures pushed the next try minutes away', async () => {
       const { state, make, store, advance } = rig();
       const q = make();

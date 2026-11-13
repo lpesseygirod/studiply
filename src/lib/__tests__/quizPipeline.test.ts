@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-2: a quiz written with a fake Claude (supabase/functions/_shared/quiz-pipeline.ts): the
+// A quiz written with a fake Claude (supabase/functions/_shared/quiz-pipeline.ts): the
 // slots and their spans in the prompt, 1 / 2 / 4 batches for 10 / 25 / 50 questions, the others
 // started on the first one's first event, a batch tried once more, a 4xx not, the verify and repair
 // calls, a quiz deleted meanwhile stopping before the next call (verify and repair too), the time
@@ -308,7 +308,7 @@ describe('the run', () => {
     expect(beforeRepair.calls.map((c) => c.kind)).toEqual(['batch']);
   });
 
-  it('step 10.1: AI switched off meanwhile: it stops before the next call, failed “consent_withdrawn”, nothing more sent', async () => {
+  it('AI switched off meanwhile: it stops before the next call, failed “consent_withdrawn”, nothing more sent', async () => {
     let allowed = 1;
     const t = setup(material(2), answerAll, { consentWithdrawn: async () => allowed-- <= 0 });
     expect(await runQuiz(t.deps)).toEqual({ status: 'failed', error: 'consent_withdrawn' });

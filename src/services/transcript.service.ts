@@ -12,9 +12,7 @@ import type { Transcript } from '../types/database';
 
 /**
  * A lecture's transcript is its rows in `transcript_segments` (times in ms
- * from the start of the recording). The transcribe-chunk Edge Function
- * writes them for real recordings; createTranscript is only for text the
- * app makes itself (the development mock pipeline).
+ * from the start of the recording), written by the transcribe-chunk Edge Function.
  *
  * A transcript that was read once (or downloaded by the library pull) is
  * kept on the iPhone and opens offline.
@@ -22,48 +20,6 @@ import type { Transcript } from '../types/database';
 
 /** PostgREST returns at most 1000 rows per request; a long lecture has more. */
 const PAGE = 1000;
-
-interface WhisperLikeSegment {
-  start: number;
-  end: number;
-  text: string;
-}
-
-function isSegment(value: unknown): value is WhisperLikeSegment {
-  const s = value as WhisperLikeSegment;
-  return typeof s?.start === 'number' && typeof s?.end === 'number' && typeof s?.text === 'string';
-}
-
-// -------------------------------------------------------------------
-// createTranscript
-// Segments in the Whisper shape (seconds); without them the full text is
-// stored as one segment.
-// -------------------------------------------------------------------
-export async function createTranscript(params: {
-  userId: string;
-  sessionId: string;
-  language: string;
-  fullText: string;
-  segments?: unknown;
-  confidenceScore?: number;
-}): Promise<Transcript> {
-  const given = Array.isArray(params.segments) ? params.segments.filter(isSegment) : [];
-  const segments = given.length > 0 ? given : [{ start: 0, end: 0, text: params.fullText }];
-
-  const rows = segments.map((s) => ({
-    lecture_id: params.sessionId,
-    start_ms: Math.max(0, Math.round(s.start * 1000)),
-    end_ms: Math.max(0, Math.round(Math.max(s.start, s.end) * 1000)),
-    text: s.text,
-    confidence: params.confidenceScore ?? null,
-  }));
-  const { error } = await supabase.from('transcript_segments').insert(rows);
-  if (error) throw serviceError(error, 'Could not save the transcript.');
-
-  const transcript = await getTranscriptBySession(params.sessionId);
-  if (!transcript) throw new Error('Failed to create transcript.');
-  return transcript;
-}
 
 // -------------------------------------------------------------------
 // getTranscriptBySession

@@ -1,5 +1,5 @@
 /**
- * assistant-chat — the study assistant during class, streamed (step 6.1).
+ * assistant-chat — the study assistant during class, streamed.
  *
  * POST { lectureId, message?, quickPrompt?, nowMs? } with the user's access
  * token: a typed question (`message`), a quick prompt (`quickPrompt`:
@@ -21,7 +21,7 @@
  * and the answer are saved to assistant_messages with their window; the
  * answer row is `streaming` until it ends `done` or `error`.
  *
- * Step 6.3, answered as JSON (not streamed), shaped by structured outputs and
+ * Answered as JSON (not streamed), shaped by structured outputs and
  * checked before it is returned; nothing is saved (the app shows it as a
  * suggestion the student accepts or rejects):
  *   { mode: 'selection', fileId, action, text, context? } → { suggestion } or
@@ -31,7 +31,7 @@
  * Refused (422 refused), cut off (502 too_long) or unreadable (502 unreadable):
  * an error, nothing to apply.
  *
- * { lectureId, mode: 'clarify', highlightedParts, summary } (step 1.7): the
+ * { lectureId, mode: 'clarify', highlightedParts, summary }: the
  * old app's "clarify" — a tutor explains the highlighted parts of a note.
  * The app sends the note's summary (it may not be saved yet); the server
  * adds the start of the transcript. Same events, without meta; not saved.
@@ -98,7 +98,7 @@ type Body = {
 
 const none = { question: null, clarify: null, selection: null, flashcards: null };
 
-/** A question (typed or quick); mode 'clarify', 'selection' or 'flashcards' (step 6.3). */
+/** A question (typed or quick); mode 'clarify', 'selection' or 'flashcards'. */
 function validateBody(body: unknown) {
   const fields = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   if (fields.mode === undefined) {
@@ -124,7 +124,7 @@ function validateBody(body: unknown) {
 }
 
 /**
- * Step 6.3: Ask Claude on a selection, or Flashcards from a saved answer. One JSON answer of a fixed
+ * Ask Claude on a selection, or Flashcards from a saved answer. One JSON answer of a fixed
  * shape (structured outputs, effort low, fallbacks on), checked before it is returned; the app shows
  * it as a suggestion to accept or reject. Consent, the daily limit and the cost log as for questions.
  */
@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
   let meta: Meta | undefined;
   let finish: ((fields: AnswerFields) => Promise<void>) | undefined;
   try {
-    ready = await readyForClaude(req, validateBody, log);
+    // Every mode of the assistant is an extra (the 30-day allowance, the $1 daily guard).
+    ready = await readyForClaude(req, validateBody, log, () => 'extra');
     if (!ready.ok) return ready.response;
     const { db, value } = ready;
     if (value.selection || value.flashcards) return await action(ready);

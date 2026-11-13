@@ -123,7 +123,7 @@ export default function ProjectDetailScreen() {
   const currentCrumb = breadcrumbs[breadcrumbs.length - 1];
   const currentFolderId = currentCrumb?.type === 'folder' ? currentCrumb.id : null;
 
-  // The Finder-style grid (step 3.2): this level's items, the selection
+  // The Finder-style grid: this level's items, the selection
   // (web), a folder being named in place, and how this device shows them.
   const [entries, setEntries] = useState<ShelfItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -231,7 +231,7 @@ export default function ProjectDetailScreen() {
 
   // ⌥⇧N on the web, and the New menu: a new folder here, named in place.
   useShellCommand('newFolder', () => startNewFolder());
-  // Laptop keys (step 3.4): ⇧F10 opens the selected tile's menu (or the empty space's); ⌘X / ⌘C cut or copy it.
+  // Laptop keys: ⇧F10 opens the selected tile's menu (or the empty space's); ⌘X / ⌘C cut or copy it.
   useShellCommand('contextMenu', () => {
     const item = selectedId ? entries.find(e => e.id === selectedId) : undefined;
     const anchor = anchorOf(item ? `[data-testid="entry-selected-${item.id}"]` : '[data-testid=library-grid]');
@@ -240,7 +240,7 @@ export default function ProjectDetailScreen() {
   });
   useShellCommand('cut', () => clipSelected('cut'));
   useShellCommand('copy', () => clipSelected('copy'));
-  // The New menu's "Upload photo or PDF" (Word files too, step 4.8b).
+  // The New menu's "Upload photo or PDF" (Word files too).
   useShellCommand('upload', () => chooseUpload());
 
   // The laptop shell: Record lecture preselects this course and folder;
@@ -330,7 +330,7 @@ export default function ProjectDetailScreen() {
   // Session navigation
   // -------------------------------------------------------------------
 
-  // A lecture opens as a document (step 7.3, as from the library): its Summary tab once processed, else My notes.
+  // A lecture opens as a document (as from the library): its Summary tab once processed, else My notes.
   const handleSessionPress = (session: Session) => {
     router.push({ pathname: '/doc/[id]', params: { id: session.id, tab: session.status === 'completed' ? 'summary' : 'notes' } });
   };
@@ -402,7 +402,7 @@ export default function ProjectDetailScreen() {
   }
 
   // -------------------------------------------------------------------
-  // New folder and rename, in place on the tile (step 3.2)
+  // New folder and rename, in place on the tile
   // -------------------------------------------------------------------
 
   function startNewFolder() {
@@ -488,11 +488,11 @@ export default function ProjectDetailScreen() {
   const Scroll = plainScroll ? ScrollView : ListScroll;
   const Refresh = plainScroll ? RefreshControl : ListRefresh;
 
-  // Upload (step 3.4): photos and PDFs become files in the open course or folder.
+  // Upload: photos and PDFs become files in the open course or folder.
   const uploader = useLibraryUpload({ showUndo });
   const herePlace = (): Place => ({ courseId: id ?? null, folderId: currentFolderId, label: currentCrumb?.name ?? 'this course' });
 
-  // Drag and drop (step 3.3): onto folder tiles and the breadcrumb; files from the Finder are uploaded there.
+  // Drag and drop: onto folder tiles and the breadcrumb; files from the Finder are uploaded there.
   const dnd = useLibraryDrop({ showUndo, upload: uploader.upload });
 
   // Laptop: ⌘V pastes here (not while typing in a field): an image or PDF in the system
@@ -554,7 +554,7 @@ export default function ProjectDetailScreen() {
     else shareFile({ ...file.media, display_name: file.title });
   }
 
-  // ── Upload (step 3.4): photos and PDFs become files in the open course or folder ──
+  // ── Upload: photos and PDFs become files in the open course or folder ──
 
   const handleTakePhoto = async () => {
     if (!id || !(await requestCameraPermission())) return;
@@ -876,7 +876,7 @@ export default function ProjectDetailScreen() {
       )}
 
       {move.modal}
-      {/* iPhone: the export WebView while a Word file is read (step 4.8b). */}
+      {/* iPhone: the export WebView while a Word file is read. */}
       {uploader.renderer}
 
 
@@ -907,7 +907,7 @@ export default function ProjectDetailScreen() {
 // Styles
 // -------------------------------------------------------------------
 
-// iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight (step 3.3).
+// iPhone: gesture-handler's list, so holding an item to drag it and scrolling don't fight.
 const ListScroll = (Platform.OS === 'web' ? ScrollView : GestureScrollView) as typeof ScrollView;
 const ListRefresh = (Platform.OS === 'web' ? RefreshControl : GestureRefreshControl) as typeof RefreshControl;
 
@@ -923,7 +923,7 @@ function anchorOf(selector: string): Anchor | undefined {
  * right-click shows the empty-space menu (laptop); a long-press shows it on
  * the iPhone. There it is a gesture-handler long-press (500 ms), so a tile's
  * own hold (350 ms, its drag or its menu) wins natively, with no race
- * between the two (step 3.3 iPhone fix).
+ * between the two (an iPhone fix).
  */
 function SpaceArea({
   onPress,
@@ -936,7 +936,7 @@ function SpaceArea({
   onPress: () => void;
   onMenu: (anchor?: Anchor) => void;
   style: React.ComponentProps<typeof View>['style'];
-  /** Laptop: files from the Finder dropped on the empty grid go here (step 3.4). */
+  /** Laptop: files from the Finder dropped on the empty grid go here. */
   dropTarget: DropTarget | null;
   dnd: DropHandlers;
   children: React.ReactNode;
@@ -985,7 +985,7 @@ function DragArea({ children, ...props }: React.ComponentProps<typeof GestureDra
 }
 
 /**
- * A lecture's photo or PDF row (step 3.3): dragged onto a folder, it leaves
+ * A lecture's photo or PDF row: dragged onto a folder, it leaves
  * its lecture as a library file. Laptop: the browser's drag on the row, a
  * click opens, a right-click shows the menu. iPhone: tap opens, hold and
  * release shows the menu, hold and move drags.

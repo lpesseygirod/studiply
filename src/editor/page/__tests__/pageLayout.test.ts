@@ -1,4 +1,4 @@
-// Where pages break (step 4.5b): the rules the page view (and later the
+// Where pages break: the rules the page view (and later the
 // export) follows, on made-up measurements.
 import { layoutPages, type PageGeometry, type PageUnit } from '../pageLayout';
 

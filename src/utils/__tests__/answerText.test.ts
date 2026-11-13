@@ -1,4 +1,4 @@
-// Step 6.2: the study assistant's answer as the app draws it (utils/answerText):
+// The study assistant's answer as the app draws it (utils/answerText):
 // paragraphs, numbered lists, **bold**, and the cited times as tappable times.
 import { answerBlocks, answerPlainText, answerSpans } from '../answerText';
 

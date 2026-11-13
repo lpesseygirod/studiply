@@ -28,7 +28,7 @@ export const NEW_FOLDER_ID = '__new-folder__';
  * docs/design desktop-04. On the iPhone a tap opens and a long-press shows
  * the menu. On the web a click selects, a double-click or Enter opens, Esc
  * clears the selection and a right-click shows the menu. Items can be
- * dragged (step 3.3); folders take drops, with a dashed highlight.
+ * dragged; folders take drops, with a dashed highlight.
  */
 export function LibraryGrid({
   items,
@@ -259,7 +259,7 @@ function Entry({
   const box = view === 'list' ? [styles.row, !last && styles.rowDivider] : [styles.tile, { width }];
   const testID = view === 'grid' && selected ? `entry-selected-${item.id}` : `entry-${item.id}`;
 
-  // iPhone: hold to drag (step 3.3), tap opens, hold and release shows the menu.
+  // iPhone: hold to drag, tap opens, hold and release shows the menu.
   if (Platform.OS !== 'web' && dragged) {
     const draggable = (hoverOk: boolean) => (
       <DraggableView

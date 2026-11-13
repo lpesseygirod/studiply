@@ -1,6 +1,6 @@
 /**
  * libraryPrefs.ts
- * How the course grid is shown on this device (step 3.2): the sort order,
+ * How the course grid is shown on this device: the sort order,
  * grid or list (iPhone), and whether "Photos & PDFs from lectures" is open.
  */
 

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The Word export and import (step 4.8b), without a browser's drawing: the
+// The Word export and import, without a browser's drawing: the
 // .docx built from our JSON and read back from its XML (JSZip), a .docx
 // made here with the docx library read into a document (mammoth, the paste
 // rules, the schema), and a round trip. The pictures are stubbed (a 1 × 1
@@ -113,7 +113,7 @@ describe('the pictures the export asks for', () => {
   });
 });
 
-describe('the summary’s text modules in Word (step 8.1)', () => {
+describe('the summary’s text modules in Word', () => {
   it('a shaded box with its label in capitals ("Framework · DAFO"), its table and lists as usual, code in a monospace font', async () => {
     const modules = doc(
       { type: 'studyModule', attrs: { kind: 'framework', title: 'DAFO' }, content: [{ type: 'table', content: [{ type: 'tableRow', content: [cell('Fortalezas'), cell('Debilidades')] }] }] },
@@ -131,7 +131,7 @@ describe('the summary’s text modules in Word (step 8.1)', () => {
   });
 });
 
-describe('the summary’s graphs in Word (step 8.2)', () => {
+describe('the summary’s graphs in Word', () => {
   const fn = { kind: 'function', title: 'Parábola', xLabel: '', yLabel: '', series: ['Series 1'], rows: [], func: { expression: 'x^2 - 4', xRange: [-5, 5], marks: ['roots'] }, blockId: 'f1' };
   const model = { kind: 'model', title: '', xLabel: '', yLabel: '', series: ['Series 1'], rows: [], model: { template: 'supplyDemand', shifts: [{ curve: 'D', direction: 'right' }] }, blockId: 'm1' };
   const stacked = { ...NEW_GRAPH, kind: 'stackedBar', title: 'Gasto', blockId: 's1' };

@@ -4,8 +4,9 @@
  * signed in, the student's own lecture, consent, and how much they used today.
  *
  * `db` acts as the student, so RLS applies to every read. Only `logUsage`
- * uses the service role, because students can read ai_usage but never write
- * it (deleting rows must not reset a limit).
+ * and the credit spends (_shared/credits.ts) use the service
+ * role, because students can read ai_usage and credit_ledger but never write
+ * them (deleting rows must not reset a limit or a balance).
  */
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -42,14 +43,14 @@ export async function ownLecture(db: SupabaseClient, lectureId: string) {
   return data;
 }
 
-/** The caller's own document (RLS): any kind, not in the Trash (step 6.3: Ask Claude in any document). */
+/** The caller's own document (RLS): any kind, not in the Trash (Ask Claude in any document). */
 export async function ownFile(db: SupabaseClient, fileId: string) {
   const { data, error } = await db.from('files').select('id, kind').eq('id', fileId).is('deleted_at', null).maybeSingle();
   if (error) throw error;
   return data;
 }
 
-/** The caller's own quiz (RLS), not in the Trash (step 9.1b-2). */
+/** The caller's own quiz (RLS), not in the Trash. */
 export async function ownQuiz(db: SupabaseClient, quizId: string) {
   const { data, error } = await db.from('quizzes').select('id').eq('id', quizId).is('deleted_at', null).maybeSingle();
   if (error) throw error;
@@ -98,7 +99,7 @@ export async function usedToday(
 export interface UsageRow {
   user_id: string;
   lecture_id: string | null;
-  operation: 'transcription' | 'assistant' | 'summary' | 'quiz';
+  operation: 'transcription' | 'assistant' | 'summary' | 'quiz' | 'quiz_grade' | 'quiz_format';
   /** 'elevenlabs' needs the ai_usage.provider check widened by a migration first (docs/PROGRESS.md). */
   provider: 'openai' | 'anthropic' | 'elevenlabs';
   model: string;
@@ -108,9 +109,13 @@ export interface UsageRow {
   cost_usd: number;
 }
 
-/** Logs one AI call's cost. The only write that uses the service role. */
+/** A service-role client: only for ai_usage and the credit spends (students can't write either). */
+export function serviceClient(): SupabaseClient {
+  return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
+}
+
+/** Logs one AI call's cost. */
 export async function logUsage(row: UsageRow): Promise<void> {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, clientOptions);
-  const { error } = await admin.from('ai_usage').insert(row);
+  const { error } = await serviceClient().from('ai_usage').insert(row);
   if (error) throw error;
 }

@@ -42,7 +42,7 @@ import type { Note, Session } from '../types/database';
 import { getNoteBySession, updateNote } from './note.service';
 
 /**
- * A session is a lecture in the step 1.2 schema: a `files` row (kind
+ * A session is a lecture in the Supabase schema: a `files` row (kind
  * lecture: title, course, folder, Trash) plus a `lectures` row with the same
  * id (language, status, duration, audio retention). Recording mode has no
  * column; it is read from the lecture's note and otherwise 'lecture'.
@@ -212,7 +212,7 @@ async function createSessionOnDevice(params: Parameters<typeof createSession>[0]
     audio_delete_after: null,
     transcribed_at: null,
     audio_deleted_at: null,
-    // Its course's default until the summarize panel or its menu sets it (step 9.2).
+    // Its course's default until the summarize panel or its menu sets it.
     study_reminders: null,
     created_at: at,
     updated_at: at,
@@ -287,7 +287,7 @@ async function createLectureRows(
       { onConflict: 'id', ignoreDuplicates: true },
     );
   if (error) throw syncError(error, 'Could not create the lecture.');
-  // A document turned into a lecture on this iPhone (step 5.7) whose turning hasn't been sent yet:
+  // A document turned into a lecture on this iPhone whose turning hasn't been sent yet:
   // the file is there as a document; it is a lecture now (the queued turning would do it later).
   if (file.kind === 'lecture' && (await pendingSyncFor(file.id)).some((op) => op.kind === 'convert_to_lecture')) {
     const { error: kindError } = await supabase.from('files').update({ kind: 'lecture' }).eq('id', file.id).eq('kind', 'document');

@@ -1,5 +1,5 @@
 // Lea, 6 Nov: the study assistant's conversation follows its end only while she is at the bottom;
-// scrolled up to read, a streaming answer leaves her where she is; a Full answer link (7.7) comes first.
+// scrolled up to read, a streaming answer leaves her where she is; a Full answer link comes first.
 // Only her own scrolling decides: the app's scroll to the end and a layout's scroll events never stop it.
 import { FOLLOW_SLACK_PX, USER_SCROLL_MS, createFollower, nearEnd, onGrow } from '../followEnd';
 

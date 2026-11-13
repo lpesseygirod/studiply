@@ -1,5 +1,5 @@
 /**
- * KaTeX's fonts on the laptop (formulas, step 4.5). Its stylesheet names
+ * KaTeX's fonts on the laptop (formulas). Its stylesheet names
  * them by relative links that the web bundler doesn't serve, so the same
  * font faces are declared again here from the font files themselves (the
  * TTF copies, which the bundler serves as assets; the browser fetches only

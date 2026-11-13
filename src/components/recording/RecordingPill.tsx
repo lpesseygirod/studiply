@@ -10,7 +10,7 @@ import { useRecordingActions } from './useRecordingActions';
 import { savingText } from './savingText';
 
 /**
- * The iPhone layout away from the lecture being recorded (step 5.3): a red
+ * The iPhone layout away from the lecture being recorded: a red
  * "● Recording · 12:34" pill at the top leads back to it, so another screen
  * never stops it. Also says what is still being sent after Stop, and offers
  * a recording the page lost (Continue · Finish).

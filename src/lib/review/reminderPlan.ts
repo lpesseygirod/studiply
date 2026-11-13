@@ -1,5 +1,5 @@
 /**
- * The review reminders (step 9.2-3; the approved plan, docs/reports/plan-9.2.md), pure: from the same
+ * The review reminders (the approved plan, docs/reports/plan-9.2.md), pure: from the same
  * rows as Review today, the notifications for the next 30 days, at most one a day, at her time.
  *
  * - A day gets one when something is due that day: the lectures due by their plan (their study

@@ -1,6 +1,6 @@
 /**
  * photoCache.ts
- * Copies of document photos on this iPhone (step 4.5), so a photo shown once
+ * Copies of document photos on this iPhone, so a photo shown once
  * still shows offline: in the app's documents folder (doc-photos/<media id>.jpg),
  * kept until sign-out. The editor's WebView gets them as data URIs (it can't
  * read the app's files). The web build (photoCache.web.ts) keeps nothing.

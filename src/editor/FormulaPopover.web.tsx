@@ -12,7 +12,7 @@ import { runFormat } from './format';
 import { FORMULA_EVENT, selectedFormula } from './schema/formula';
 
 /**
- * The laptop's formula editor (step 4.5): the toolbar's ∑ (a new formula, or
+ * The laptop's formula editor: the toolbar's ∑ (a new formula, or
  * the selected one) and a click on a formula open it, at the formula. The
  * LaTeX changes the formula in the text as it is typed, with a KaTeX
  * preview here too; Done, a click outside or Escape close it.

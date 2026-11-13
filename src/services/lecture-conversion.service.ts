@@ -1,5 +1,5 @@
 /**
- * Step 5.7: recording inside a plain document turns it into a lecture.
+ * Recording inside a plain document turns it into a lecture.
  * Nothing the student wrote moves: the file keeps its id, title and place;
  * its first tab (`notes`, the same documents row with its content, block ids
  * and versions) becomes My notes; its other tabs follow the lecture's three
@@ -85,7 +85,7 @@ async function convertOnDevice(p: ConvertPayload): Promise<void> {
     audio_delete_after: null,
     transcribed_at: null,
     audio_deleted_at: null,
-    // Its course's default until the summarize panel or its menu sets it (step 9.2).
+    // Its course's default until the summarize panel or its menu sets it.
     study_reminders: null,
     created_at: at,
     updated_at: at,

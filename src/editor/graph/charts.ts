@@ -9,10 +9,10 @@ import { graphLine, LATER, readNumber, type ChartSpec, type FunctionMark, type G
  * every text it draws, gives the SVG its title and description for screen
  * readers, and leaves out (and notes) values it can't draw.
  *
- * Step 8.2: the summary's kinds (function, model, stacked bar, histogram) go
+ * The summary's kinds (function, model, stacked bar, histogram) go
  * to the module as the specs agreed in docs/charts-work-order-8.2.md. Until
  * that is merged the module throws "Unknown chart type" for them: a stacked
- * bar or a histogram is then drawn as bars (as 7.7 did), a function or a
+ * bar or a histogram is then drawn as bars (as before), a function or a
  * model graph is a line of text in its place (`graphLine`).
  */
 

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 6.1: assistant-chat's answer (supabase/functions/_shared/assistant-answer.ts)
+// assistant-chat's answer (supabase/functions/_shared/assistant-answer.ts)
 // with the lecture's reads, the saved messages and Claude faked: what is sent
 // to Claude, the events the app gets, what is saved to assistant_messages with
 // its window, and the cost logged once. No real call is made.

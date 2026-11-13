@@ -6,7 +6,7 @@ import { hasFlattenJobs, nextFlattenJob, registerFlattener } from '../lib/pictur
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * The iPhone's pictures drawn on white (step 4.8b; lib/pictureFlattener):
+ * The iPhone's pictures drawn on white (lib/pictureFlattener):
  * mounted once at the app's root, it shows the editor bundle's small WebView
  * only while pictures are waiting, draws them there one by one, and takes it
  * away again. A camera photo never comes here (toJpeg only sends pictures

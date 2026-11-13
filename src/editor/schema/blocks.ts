@@ -1,11 +1,11 @@
 import { Extension, mergeAttributes, Node, type CommandProps } from '@tiptap/core';
 
 /**
- * Block formatting added in step 4.4, shared by both editors:
+ * Block formatting, shared by both editors:
  *
  * - `title`: the Title style (Google Docs' "Title"), above Heading 1. The
  *   document's name above the page is separate.
- * - `pageBreak`: a line marked "Page break"; PDF and Word export (4.8) start
+ * - `pageBreak`: a line marked "Page break"; PDF and Word export start
  *   a new page there.
  * - `lineSpacing` (1, 1.15, 1.5, 2) and `indent` (0–8) on paragraphs,
  *   headings, Title and quotes. In a list, indent nests the item instead.

@@ -29,7 +29,7 @@ export type DocumentPort = Pick<StudiplyEditorHandle, 'getJSON' | 'loadDoc' | 'a
 const INITIAL: SessionState = { status: 'loading', savedAt: null, lost: [], error: null };
 
 /**
- * Autosave for one open document tab (step 4.3), around `DocumentSession`:
+ * Autosave for one open document tab, around `DocumentSession`:
  * loads it once the editor is ready, saves after typing, takes the other
  * device's changes every few seconds, keeps a version when the student
  * leaves or the app goes to the background, and on the iPhone follows the
@@ -38,7 +38,7 @@ const INITIAL: SessionState = { status: 'loading', savedAt: null, lost: [], erro
 export function useDocumentSync(params: {
   fileId: string | undefined;
   tab: DocTab;
-  /** The text editor, or a spreadsheet tab's grid (step 4.7e): only these three are used. */
+  /** The text editor, or a spreadsheet tab's grid: only these three are used. */
   editor: RefObject<DocumentPort | null>;
   /** The editor can be loaded (its onReady fired). */
   editorReady: boolean;

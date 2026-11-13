@@ -5,7 +5,7 @@ import { useTheme } from '../theme/ThemeProvider';
 const STYLE_ID = 'studiply-focus-ring';
 
 /**
- * The laptop's visible focus ring (step 10.1b-5): one global style for every control reached with
+ * The laptop's visible focus ring: one global style for every control reached with
  * the keyboard (:focus-visible, so a mouse click shows none). React Native Web removes the browser's
  * outline, hence !important. Two tones (the accent ring outside a halo in the card's colour), so it
  * shows on cards and on the gradient in both appearances. Not on the editor's page (its caret is the

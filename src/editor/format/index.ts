@@ -30,7 +30,7 @@ import { outline, type Outline } from '../writing/outline';
 export { cleanUrl } from './links';
 
 /**
- * The formatting tools (step 4.4) as one set of commands and one state, for
+ * The formatting tools as one set of commands and one state, for
  * both devices: the laptop's toolbar calls them on its editor; the iPhone's
  * keyboard toolbar and Aa panel send them through the FormatBridge to the
  * WebView, which reports `formatState` back. Runs in a browser or the
@@ -109,28 +109,28 @@ export interface FormatState {
   comments: CommentInfo[];
   /** The last press on the selection bar's Comment or Link (the iPhone asks with its prompts). */
   selectionRequest: SelectionBarRequest | null;
-  /** Ask Claude's pending range (step 6.3): what to send, and whether it changed since; null when none. */
+  /** Ask Claude's pending range: what to send, and whether it changed since; null when none. */
   suggestion: SuggestionInfo | null;
   /** Maths typed as text before the cursor, offered as a formula (its LaTeX); null when none. */
   mathSuggestion: { latex: string } | null;
   /** The last press on the photo bar's Layout… (a phone: the iPhone opens its layout sheet). */
   photoRequest: PhotoBarRequest | null;
-  /** The callout the cursor is in (step 4.6), and the last click on a callout's label (the iPhone opens its menu). */
+  /** The callout the cursor is in, and the last click on a callout's label (the iPhone opens its menu). */
   callout: { kind: CalloutKind; level: number | null; ms: number | null } | null;
   calloutRequest: CalloutRequest | null;
   /**
-   * The selected mark chip (step 4.6), and the last tap on one (the iPhone opens its menu). A
-   * linked chip (step 5.5, a mark made while recording) also has its mark, time, note and place.
+   * The selected mark chip, and the last tap on one (the iPhone opens its menu). A
+   * linked chip (a mark made while recording) also has its mark, time, note and place.
    */
   markChip: { kind: ChipKind; level: number | null; markId: string | null; ms: number | null; note: string | null; at: MarkPlace } | null;
   markChipRequest: MarkChipRequest | null;
-  /** The selected graph's data (step 4.7d), only while one is selected: the rest of the time nothing big crosses to the iPhone. */
+  /** The selected graph's data, only while one is selected: the rest of the time nothing big crosses to the iPhone. */
   graph: GraphData | null;
   /** A click (tap) on a graph: its form (the iPhone's sheet). */
   graphRequest: GraphRequest | null;
-  /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count (step 4.5b). */
+  /** Pages or Pageless, the zoom chosen (a pinch on the iPhone changes it) and the page count. */
   view: { pages: boolean; zoom: number; pageCount: number };
-  /** Writing tools (step 4.7): what is searched and how many matches; the word and character count; the outline. */
+  /** Writing tools: what is searched and how many matches; the word and character count; the outline. */
   find: FindState | null;
   counts: Counts;
   outline: Outline;
@@ -155,50 +155,50 @@ export type FormatCommand =
   | { type: 'redo' }
   /** Paste without formatting (iPhone: the clipboard read natively). */
   | { type: 'insertText'; text: string }
-  /** Links (step 4.5): href already cleaned (cleanUrl); null removes the link. `text` when nothing is selected. */
+  /** Links: href already cleaned (cleanUrl); null removes the link. `text` when nothing is selected. */
   | { type: 'link'; href: string | null; text?: string }
-  /** Tables (step 4.5). `rows` / `cols` for insert and resize (clamped to MAX_TABLE). */
+  /** Tables. `rows` / `cols` for insert and resize (clamped to MAX_TABLE). */
   | { type: 'table'; action: TableAction; rows?: number; cols?: number; color?: string | null }
-  /** The selected photo's width in % of the page (step 4.5); null: its own size. */
+  /** The selected photo's width in % of the page; null: its own size. */
   | { type: 'photoWidth'; width: number | null }
   /** The selected photo's layout (in line, wrapped, on lines of its own) and alignment; or delete it. */
   | { type: 'photoLayout'; wrap?: PhotoWrap; align?: PhotoAlign }
   | { type: 'photoDelete' }
-  /** Callouts (step 4.6): put one in (or change the one at the cursor), its level, or take the box away keeping the text. */
+  /** Callouts: put one in (or change the one at the cursor), its level, or take the box away keeping the text. */
   | { type: 'callout'; action: 'set'; kind: CalloutKind; level?: number | null; ms?: number | null }
   | { type: 'callout'; action: 'level'; level: number | null }
   | { type: 'callout'; action: 'remove' }
-  /** Mark chips (step 4.6): put one in, or change or remove the selected one. */
+  /** Mark chips: put one in, or change or remove the selected one. */
   | { type: 'markChip'; action: 'insert'; kind: ChipKind; level: number | null }
   | { type: 'markChip'; action: 'update'; kind?: ChipKind; level?: number | null; note?: string | null }
   | { type: 'markChip'; action: 'delete' }
-  /** A mark made while recording (step 5.5): on the line being written, or a new stamped last line; `at`: back where it was. */
+  /** A mark made while recording: on the line being written, or a new stamped last line; `at`: back where it was. */
   | { type: 'markChip'; action: 'place'; mark: LinkedMark; at?: MarkPlace }
-  /** A board photo taken while recording (step 5.6): a thumbnail on a stamped line of its own. */
+  /** A board photo taken while recording: a thumbnail on a stamped line of its own. */
   | { type: 'photoLine'; mediaId: string; ms: number }
   /**
-   * Ask Claude's suggestion (step 6.3): accepted in the range's place (`replace`; below if the text
+   * Ask Claude's suggestion: accepted in the range's place (`replace`; below if the text
    * changed since) or below it in a box of `kind`; or rejected (`clear`), nothing changes.
    */
   | { type: 'suggestion'; action: 'replace' | 'below'; text: string; kind?: BelowKind }
   | { type: 'suggestion'; action: 'clear' }
-  /** Add to notes (step 6.3): the assistant's answer in a "From the study assistant" box at the end. */
+  /** Add to notes: the assistant's answer in a "From the study assistant" box at the end. */
   | { type: 'assistantNote'; note: AssistantNote }
-  /** Graphs (step 4.7d): a new one (selected, its form asked for), the selected one's data, or delete it. */
+  /** Graphs: a new one (selected, its form asked for), the selected one's data, or delete it. */
   | { type: 'graph'; action: 'insert' }
   | { type: 'graph'; action: 'set'; graph: GraphData }
   | { type: 'graph'; action: 'delete' }
-  /** A timestamp chip (step 4.6), by hand. */
+  /** A timestamp chip, by hand. */
   | { type: 'timestamp'; ms: number }
   /** Cancel recording (Lea, 6 Nov): stamps from `fromMs` taken off, its mark chips as words (../discardRecording). */
   | { type: 'unstamp'; fromMs: number }
   /**
-   * Pages or Pageless and the zoom (step 4.5b); `fit`: the iPhone's Print
+   * Pages or Pageless and the zoom; `fit`: the iPhone's Print
    * layout (the sheet fits the screen); `setup`: the document's page setup.
    */
   | { type: 'view'; pages?: boolean; zoom?: number; fit?: boolean; setup?: PageSetup }
   /**
-   * Formulas (step 4.5): put one in, or change the selected one (it stays
+   * Formulas: put one in, or change the selected one (it stays
    * selected while its editor is open); `remove` deletes it; `done` closes
    * it (an empty one goes) and puts the cursor after it.
    */
@@ -206,18 +206,18 @@ export type FormatCommand =
   | { type: 'formula'; action: 'remove' | 'done' }
   /** The "Make formula" suggestion: take it, or not this one. */
   | { type: 'formula'; action: 'acceptSuggestion' | 'dismissSuggestion' }
-  /** A formula card from the library (step 4.7c), by the entry's id (the editor has the library). */
+  /** A formula card from the library, by the entry's id (the editor has the library). */
   | { type: 'formulaCard'; id: string }
-  /** Comments (step 4.5): on the selected words (`add`), or one by id. */
+  /** Comments: on the selected words (`add`), or one by id. */
   | { type: 'comment'; action: 'add'; id: string; text: string }
   | { type: 'comment'; action: 'edit'; id: string; text: string }
   | { type: 'comment'; action: 'resolve'; id: string; resolved: boolean }
   | { type: 'comment'; action: 'delete' | 'select'; id: string }
-  /** Find & replace (step 4.7, writing/find.ts). */
+  /** Find & replace (writing/find.ts). */
   | FindCommand
-  /** The outline (step 4.7): jump to the heading starting at `pos`. */
+  /** The outline: jump to the heading starting at `pos`. */
   | { type: 'outline'; pos: number }
-  /** Quiz me (step 9.1): every summary section hidden behind its cue question (`on`), or all shown again. */
+  /** Quiz me: every summary section hidden behind its cue question (`on`), or all shown again. */
   | { type: 'quiz'; on: boolean };
 
 export type TableAction =
@@ -312,7 +312,7 @@ function calloutOf(editor: Editor): FormatState['callout'] {
   return c && { kind: c.kind, level: c.level, ms: c.ms };
 }
 
-/** The selected chip's mark, when it is one made while recording (step 5.5). */
+/** The selected chip's mark, when it is one made while recording. */
 export function linkedMarkOf(chip: FormatState['markChip'] | undefined): LinkedMark | null {
   if (!chip?.markId || chip.ms === null || chip.ms === undefined) return null;
   return { markId: chip.markId, kind: chip.kind, level: chip.level ?? 5, ms: chip.ms, note: chip.note ?? null };
@@ -586,10 +586,10 @@ export function runFormat(editor: Editor, cmd: FormatCommand): boolean {
         case 'select':
           return chain().selectComment(cmd.id).run();
       }
-    // Find & replace (step 4.7): the find box keeps the keyboard focus (no focusing the text).
+    // Find & replace: the find box keeps the keyboard focus (no focusing the text).
     case 'find':
       return runFind(editor, cmd);
-    // The outline (step 4.7): the cursor at the start of the heading, scrolled into view.
+    // The outline: the cursor at the start of the heading, scrolled into view.
     case 'outline': {
       const pos = Math.min(cmd.pos + 1, editor.state.doc.content.size);
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos))).scrollIntoView());

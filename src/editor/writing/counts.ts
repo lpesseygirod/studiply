@@ -1,6 +1,6 @@
 /**
  * counts.ts
- * Word and character count (step 4.7), as Google Docs counts them, for the
+ * Word and character count, as Google Docs counts them, for the
  * whole document and for the selection:
  *   - a word is a run of text between spaces (or em / en dashes) with at
  *     least one letter or digit in it: "well-known" and "3,5" are one word

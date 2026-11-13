@@ -37,6 +37,8 @@ import { menuTriggerProps } from '../../../src/components/dialogs/dialogs';
 import { useItemMenu } from '../../../src/hooks/useItemMenu';
 import { notifyLibraryUpdated, useLibraryUpdates } from '../../../src/lib/cache';
 import { courseShelfItem, itemMeta, openTarget, TYPE_ICON, type ShelfItem } from '../../../src/utils/shelf';
+import { BetaCreditsNotice } from '../../../src/components/credits/BetaCreditsNotice';
+import { LowCreditsLine } from '../../../src/components/credits/CreditLine';
 
 const H_PADDING = 18;
 // The chips are ~33 pt tall (docs/design); their touch area reaches 44.
@@ -128,7 +130,7 @@ export default function LibraryScreen() {
   // The same item menu as the course grid and the sidebar; changes reload through useLibraryUpdates.
   const itemMenu = useItemMenu({ showUndo, onOpen: item => router.push(openTarget(item)) });
 
-  // Step 1.9: the earlier version's data on this iPhone, offered once per app start.
+  // The earlier version's data on this iPhone, offered once per app start.
   const [earlier, setEarlier] = useState<{ courses: number; lectures: number; notes: number } | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -246,7 +248,11 @@ export default function LibraryScreen() {
           </>
         )}
 
-        {/* ── Earlier version (step 1.9) ─────────────────────────── */}
+        {/* ── Credits: the beta friends' thanks, once; a quiet line when 1 lecture or less is left ── */}
+        {!section && <BetaCreditsNotice />}
+        {!section && <LowCreditsLine where="library" />}
+
+        {/* ── Earlier version ──────────────────────────────────── */}
         {earlier && (
           <View style={styles.earlierCard}>
             <Text style={styles.earlierTitle}>Found data from the earlier version on this iPhone</Text>
@@ -494,7 +500,7 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: 10,
   },
 
-  // Earlier version card (step 1.9)
+  // Earlier version card
   earlierCard: {
     marginTop: 20,
     backgroundColor: c.white,

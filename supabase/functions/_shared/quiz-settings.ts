@@ -1,9 +1,9 @@
 /**
  * quiz-settings.ts
- * What the New quiz panel saves in `quizzes.settings` (step 9.1b): the 10 sliders, the choices
+ * What the New quiz panel saves in `quizzes.settings`: the 10 sliders, the choices
  * (BUILD-PLAN "Create a quiz": question types, time limit, language, when answers show,
  * explanations, hints, grading, wrong answers coming back), what the quiz covers and what goes
- * with it. The quiz function (9.1b-2) reads it back. Without imports but quiz-plan.ts's types, so
+ * with it. The quiz function reads it back. Without imports but quiz-plan.ts's types, so
  * the app and Jest use the same file.
  */
 
@@ -62,7 +62,7 @@ export interface QuizSettings {
 }
 
 /**
- * Step 9.1b-2: a quiz still "generating" with no news this long is shown as taking too long, and the
+ * A quiz still "generating" with no news this long is shown as taking too long, and the
  * quiz function may claim it again (Try again). The function's run stops by itself at 150 s.
  */
 export const QUIZ_STALE_MS = 5 * 60_000;
@@ -75,7 +75,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ids = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === 'string' && UUID.test(x));
 const whole = (v: unknown, min: number, max: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= max;
 
-/** Why these settings can't be saved, or null (the panel's Create, and the server again in 9.1b-2). */
+/** Why these settings can't be saved, or null (the panel's Create, and the server again). */
 export function settingsProblem(s: QuizSettings): string | null {
   if (s.version !== SETTINGS_VERSION) return 'Unknown settings version.';
   if (!QUIZ_SLIDER_KEYS.every((k) => whole(s.sliders?.[k], 1, 10))) return 'Each slider is a whole number from 1 to 10.';

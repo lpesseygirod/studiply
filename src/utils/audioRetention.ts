@@ -1,6 +1,6 @@
 /**
  * audioRetention.ts
- * What the app says about a lecture's recording (step 10.1b-3): deleted 3 days after it has been
+ * What the app says about a lecture's recording: deleted 3 days after it has been
  * transcribed by default (the server sets the date, 20261029152600, and the nightly job deletes
  * it; the transcript stays). Used by the lecture's Source Files and the after-recording review.
  */

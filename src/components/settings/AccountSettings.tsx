@@ -1,7 +1,7 @@
 /**
  * AccountSettings.tsx
- * Moved unchanged from the old Manage Account and Security screens (step
- * 3.6): the profile card with its Edit profile sheet (name, photo), the
+ * Moved unchanged from the old Manage Account and Security screens:
+ * the profile card with its Edit profile sheet (name, photo), the
  * danger zone (Delete data on this device, Sign out) and what the account
  * keeps where.
  */
@@ -253,11 +253,11 @@ export function SignInInfo({ showName = true }: { showName?: boolean }) {
 
 // ── Danger zone ──────────────────────────────────────────────────────────
 
-// ── How she signs in (step 10.1) ─────────────────────────────────────────
+// ── How she signs in ─────────────────────────────────────────────────────
 
 /**
  * Her sign-in methods (desktop-05's rows): the email, and Sign in with Apple Linked / Not linked
- * (status only in 10.1, the advisor's D6: Supabase links an Apple sign-in with the same verified
+ * (status only for now, the advisor's D6: Supabase links an Apple sign-in with the same verified
  * email by itself; a Link button comes later).
  */
 export function SignInMethods() {
@@ -293,7 +293,7 @@ export function signedInWith(identities: { provider: string }[] | undefined): st
   return (identities ?? []).some((i) => i.provider === 'apple') ? 'signed in with Apple' : 'signed in with email';
 }
 
-/** "Delete data on this device", "Delete account…" (step 10.1) and/or "Sign out", in a red card. */
+/** "Delete data on this device", "Delete account…" and/or "Sign out", in a red card. */
 export function DangerZone({
   title = 'DANGER ZONE',
   deleteData = true,

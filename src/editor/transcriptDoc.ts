@@ -2,7 +2,7 @@ import { TIMESTAMP_CHIP } from './schema/timestampChip';
 import type { DocJSON } from './types';
 
 /**
- * A lecture's Transcript tab, made once from its transcript (step 4.3): one
+ * A lecture's Transcript tab, made once from its transcript: one
  * paragraph per segment, starting with its timestamp chip, origin `media`.
  * Each block's id comes from the segment's start time, so two devices
  * making it at the same moment make the same blocks (the merge then sees

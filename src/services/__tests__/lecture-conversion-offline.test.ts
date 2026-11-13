@@ -1,4 +1,4 @@
-// Step 5.7 on the iPhone: a plain document becomes a lecture offline. Its
+// On the iPhone, a plain document becomes a lecture offline. Its
 // copy on the phone changes at once and `convert_to_lecture` is queued under
 // the file's key; once online the job does the two writes. A chunk upload
 // that runs first (the recorder's own queue) makes sure the lecture exists

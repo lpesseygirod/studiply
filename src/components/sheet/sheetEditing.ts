@@ -1,6 +1,6 @@
 /**
  * sheetEditing.ts
- * Editing a spreadsheet tab's formulas (step 4.7e, checkpoint 2a), pure so
+ * Editing a spreadsheet tab's formulas, pure so
  * it is unit tested; SheetTab wires it to the pointer and the keys:
  *   - pointing: clicking a cell while typing a formula puts its reference at
  *     the cursor, or replaces the reference just before it; dragging makes

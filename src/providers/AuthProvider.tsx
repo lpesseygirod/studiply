@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     const userId = userIdRef.current;
-    // Step 9.2-3: no reminder for the student who left (also after Delete account, which signs out).
+    // No reminder for the student who left (also after Delete account, which signs out).
     await cancelAllReminders();
     await authSignOut();
     // The offline copy on this iPhone belongs to the student who left.

@@ -1,6 +1,6 @@
 /**
  * session.ts
- * Taking a quiz (step 9.1b-3) without React: an attempt's question order, the order match pairs and
+ * Taking a quiz without React: an attempt's question order, the order match pairs and
  * put-in-order steps are shown in, where an attempt resumes, the time left, the keys on the laptop,
  * the score as the database trigger computes it, the questions left unanswered. Jest: quizSession.test.ts.
  */
@@ -70,7 +70,7 @@ export function attemptOrder(questions: TakeQuestion[], attemptId: string): Take
 /**
  * The order a question's right-hand items (match pairs) or steps (put in order) are shown in: shuffled,
  * fixed per question (the quiz's and the question's ids), never the right order itself when it can be
- * anything else. The stored order is the right one (9.1b-2): graded against it.
+ * anything else. The stored order is the right one: graded against it.
  */
 export function shownOrder(question: Pick<TakeQuestion, 'id' | 'quiz_id' | 'type' | 'data'>): number[] {
   const n = question.type === 'match_pairs' ? ((question.data.pairs as unknown[]) ?? []).length : question.type === 'order_steps' ? ((question.data.steps as unknown[]) ?? []).length : 0;

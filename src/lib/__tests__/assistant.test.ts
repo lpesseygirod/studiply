@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 6.1: the study assistant's rules (supabase/functions/_shared/assistant.ts):
+// The study assistant's rules (supabase/functions/_shared/assistant.ts):
 // the quick prompts' time windows, what of the lecture goes with a question,
 // timestamps, untrusted transcript text, the body check and earlier questions.
 import {

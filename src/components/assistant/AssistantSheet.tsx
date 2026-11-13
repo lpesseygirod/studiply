@@ -16,7 +16,7 @@ const STEP = 60;
 
 /**
  * The study assistant on the iPhone (and the web below 1024 px): a sheet
- * over the document screen with a handle (docs/design iphone-04, step 6.2).
+ * over the document screen with a handle (docs/design iphone-04).
  * Dragging the handle up gives it the full height, down lowers it again or
  * closes it; a tap above it closes it. "Study assistant", the "Recording
  * continues" pill while this lecture records (it never stops the recording),

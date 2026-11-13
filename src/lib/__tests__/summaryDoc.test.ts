@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 7.7: a summary as the Summary tab's document (lib/summaryDoc), on the two summaries of the
+// A summary as the Summary tab's document (lib/summaryDoc), on the two summaries of the
 // synthetic lectures (copies of the paid runs' outputs, no call) and on the example with every block
 // type; a summary written again merged around what she edited; where a finished summary goes
 // (services/summaryDoc/run, with its services faked).
@@ -165,7 +165,7 @@ describe('the 90-min synthetic lecture’s summary', () => {
     expect(ofKind(doc, 'fromNotes').flatMap((b) => String(b.attrs?.noteIds).split(','))).toHaveLength(15);
   });
 
-  it('its text modules (8.1): comparison, key figures and vocabulary tables with a header row, process steps, a case card; a time range’s start', () => {
+  it('its text modules: comparison, key figures and vocabulary tables with a header row, process steps, a case card; a time range’s start', () => {
     const modules = doc.content.filter((b) => b.type === 'studyModule') as N[];
     const count = (kind: string) => modules.filter((m) => m.attrs?.kind === kind).length;
     expect({ comparison: count('comparison'), keyFigures: count('keyFigures'), vocabulary: count('vocabulary'), process: count('process'), caseCard: count('caseCard') }).toEqual({ comparison: 4, keyFigures: 3, vocabulary: 2, process: 2, caseCard: 1 });
@@ -189,7 +189,7 @@ describe('the 90-min synthetic lecture’s summary', () => {
   });
 });
 
-describe('every block type (the 7.4 example)', () => {
+describe('every block type (the example)', () => {
   const m = lectureMaterial();
   const plan = planFor(m, { sliders: SLIDER_DEFAULTS, resources: { slides: true, photos: true, assistant: true } } as SummaryRequest, parseClassify(JSON.stringify({ subjectType: 'science', modules: [], topics: [], professorExamPhrases: [], repeatedConcepts: [] }))!);
   const parsed = parseSummary(JSON.stringify(packedSummary()), m, plan, ['notes', 'audio']);
@@ -200,7 +200,7 @@ describe('every block type (the 7.4 example)', () => {
     loaded(doc);
   });
 
-  it('step 8.2: the function plot, the model graph and the data chart are graph blocks of their own kind', () => {
+  it('the function plot, the model graph and the data chart are graph blocks of their own kind', () => {
     const graphs = doc.content.filter((b) => b.type === 'graph');
     expect(graphs.map((b) => b.attrs?.kind)).toEqual(['function', 'model', 'bar']);
     expect(graphs[0].attrs).toMatchObject({ title: 't', func: { expression: 'x^2 - 4', xRange: [-5, 5], marks: ['roots'] } });
@@ -211,7 +211,7 @@ describe('every block type (the 7.4 example)', () => {
     expect(doc.content.some((b) => b.type === 'paragraph' && textOf(b).includes('drawn in a later update'))).toBe(false);
   });
 
-  it('the twelve text modules (8.1), each one block, in the stored order', () => {
+  it('the twelve text modules, each one block, in the stored order', () => {
     const modules = doc.content.filter((b) => b.type === 'studyModule') as N[];
     expect(modules.map((m) => m.attrs?.kind)).toEqual(['workedExample', 'timeline', 'causeEffect', 'keyFigures', 'comparison', 'process', 'framework', 'theoryCard', 'caseCard', 'argument', 'code', 'vocabulary']);
     const of = (kind: string) => modules.find((m) => m.attrs?.kind === kind)!;
@@ -328,7 +328,7 @@ describe('each question’s Full answer: her message', () => {
 
 describe('where a finished summary goes', () => {
   const done = (over: Partial<DoneSummary> = {}): DoneSummary => ({ id: ID, result: S30, target: null, courseId: 'c1', ...over });
-  /** The 30-min summary's cards: its flashcards, key terms and self-test, each once (step 9.1). */
+  /** The 30-min summary's cards: its flashcards, key terms and self-test, each once. */
   const CARDS = summaryCards(S30).length;
   function fake(tabs: Record<string, SummaryDocJSON | null>, d: DoneSummary | null = done(), { cards = false } = {}) {
     const calls: string[] = [];
@@ -350,7 +350,7 @@ describe('where a finished summary goes', () => {
         calls.push(`version:${tab}${name ? `:${name}` : ''}`);
       },
       questions: async () => [{ id: 'msg-q1', question: 'Explícame los últimos 10 minutos', askedAtMs: 28 * 60_000 }],
-      // Step 9.1: the lecture's cards saved already (all of this summary's, when `cards`).
+      // The lecture's cards saved already (all of this summary's, when `cards`).
       cardFronts: async () => (cards && d ? summaryCards(d.result).map((c) => c.front) : []),
       saveCards: async (list, from) => {
         calls.push(`cards:${list.length}:${from.summaryId}:${from.courseId}`);
@@ -362,7 +362,7 @@ describe('where a finished summary goes', () => {
   it('the Summary tab when it has nothing yet: written, a version, its flashcards; then never again', async () => {
     const t = fake({ summary: null });
     expect(await placeSummary('lec', t.deps)).toEqual({ tab: 'summary', written: true, summaryId: ID });
-    // Step 9.1: its flashcards with its key terms and self-test, each once.
+    // Its flashcards with its key terms and self-test, each once.
     expect(t.calls).toEqual([`cards:${CARDS}:${ID}:c1`, 'save:summary', 'version:summary']);
     expect(hasSummary(t.docs.summary, ID)).toBe(true);
     expect(JSON.stringify(t.docs.summary)).toContain('studiply:assistant/msg-q1');

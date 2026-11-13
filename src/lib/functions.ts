@@ -12,6 +12,7 @@
 import { Platform } from 'react-native';
 
 import { isAiPaused } from './consentGate';
+import { creditsMayHaveChanged } from './credits/signals';
 import { isSimulatedOffline, reportFailure, reportReachable } from './connectivity';
 import { supabase, supabaseUrl } from './supabase';
 import { answerFromSse, createSseReader, errorFromResponse, FunctionError, networkError, type SseDone, type SseFrame } from './functionResult';
@@ -20,7 +21,7 @@ export { FunctionError } from './functionResult';
 
 export type FunctionName = 'transcribe-chunk' | 'summarize' | 'assistant-chat' | 'quiz' | 'delete-account';
 
-/** The functions that send her content to an AI service (step 10.1: none while AI is off). */
+/** The functions that send her content to an AI service (none while AI is off). */
 export const AI_FUNCTIONS: readonly FunctionName[] = ['transcribe-chunk', 'summarize', 'assistant-chat', 'quiz'];
 
 /** What the app answers itself while AI is off on this device: the same refusal as the server's. */
@@ -29,7 +30,7 @@ export const AI_OFF_MESSAGE = 'Nothing was sent: AI is off. Turn on “Use AI on
 type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }) => Promise<Response>;
 
 /**
- * A fetch whose answer can be read as it arrives (step 6.2): the browser's on the web; on the iPhone
+ * A fetch whose answer can be read as it arrives: the browser's on the web; on the iPhone
  * expo/fetch (part of the expo package), since React Native's own fetch only gives the whole body.
  */
 function streamingFetch(): Fetch {
@@ -41,7 +42,7 @@ function streamingFetch(): Fetch {
 
 async function post(name: FunctionName, body: unknown, options: { fetch?: Fetch; signal?: AbortSignal } = {}): Promise<Response> {
   const fetchImpl: Fetch = options.fetch ?? ((url, init) => fetch(url, init));
-  // Step 10.1: switched off on this device (also before the server knows, and for queued jobs).
+  // AI switched off on this device (also before the server knows, and for queued jobs).
   if (AI_FUNCTIONS.includes(name) && (await isAiPaused())) throw new FunctionError(AI_OFF_MESSAGE, 403, 'consent_required');
   const send = async () => {
     const { data } = await supabase.auth.getSession();
@@ -67,7 +68,16 @@ async function post(name: FunctionName, body: unknown, options: { fetch?: Fetch;
 
   let res = await send();
   if (res.status === 401 && !(await supabase.auth.refreshSession()).error) res = await send();
-  if (!res.ok) throw errorFromResponse(res.status, await res.text().catch(() => ''));
+  if (!res.ok) {
+    const err = errorFromResponse(res.status, await res.text().catch(() => ''));
+    // No credits left: her balance is read again (Settings, the lines, the strip).
+    if (err.code === 'no_credits') creditsMayHaveChanged();
+    // The extras allowance used up: read now, so the assistant waits at once.
+    if (err.code === 'extras_limit') creditsMayHaveChanged(true);
+    throw err;
+  }
+  // A transcription, summary or quiz may have spent credits.
+  if (name === 'transcribe-chunk' || name === 'summarize' || name === 'quiz' || name === 'assistant-chat') creditsMayHaveChanged();
   return res;
 }
 
@@ -79,7 +89,7 @@ export async function callFunction<T>(name: FunctionName, body: unknown): Promis
 
 /**
  * A function that answers server-sent events (assistant-chat), each frame
- * handed to `onFrame` as it arrives (step 6.2: the study assistant's answer
+ * handed to `onFrame` as it arrives (the study assistant's answer
  * streams in). Resolves when the stream ends; a lost connection mid-way
  * rejects with a network error. Non-2xx answers reject before any frame.
  */
@@ -116,7 +126,7 @@ export async function streamFunction(
 
 /**
  * A function that answers server-sent events (assistant-chat), read to the
- * end (clarify, step 1.7).
+ * end (clarify).
  */
 export async function callStreamingFunction(
   name: FunctionName,

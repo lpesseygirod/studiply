@@ -5,7 +5,7 @@ import { attachDraggable, attachDropTarget } from './html5';
 import type { DropCheck, Dragged, DropTarget } from './rules';
 
 /**
- * The laptop's drag and drop (step 3.3, the browser's own drag) for React
+ * The laptop's drag and drop (the browser's own drag) for React
  * components: ref callbacks that make a view draggable or a drop target.
  * On the iPhone they do nothing (html5.ts); the gesture drag is there.
  */

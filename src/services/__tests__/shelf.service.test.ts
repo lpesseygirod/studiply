@@ -1,4 +1,4 @@
-// The library sections, the course tree, Review today and starring (step 2.2).
+// The library sections, the course tree, Review today and starring.
 import { NetworkError } from '../../lib/cloudRows';
 import { reportFailure, reportReachable, resetConnectivityForTests } from '../../lib/connectivity';
 import { answer, callsOn, chains, resetSupabaseMock } from '../../test-utils/supabaseMock';
@@ -166,7 +166,7 @@ describe('getReviewDueCount', () => {
     expect(callsOn('review_schedule', 'not')).toContainEqual(['flashcard_id', 'is', null]);
   });
 
-  it('step 9.2: and the lectures due today (their plan: here day 3 of one, the other turned off)', async () => {
+  it('counts the lectures due today too (their plan: here day 3 of one, the other turned off)', async () => {
     answer('review_schedule', { count: 2 }, { data: [] });
     answer('files', {
       data: [

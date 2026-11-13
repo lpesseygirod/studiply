@@ -1,6 +1,6 @@
 /**
  * quiz-pipeline.ts
- * Step 9.1b-2: a quiz written by Claude (the approved plan, docs/reports/plan-9.1b-2.md §3), with every
+ * A quiz written by Claude (the approved plan, docs/reports/plan-9.1b-2.md §3), with every
  * dependency injected (the material, Claude, the saves) so Jest runs it with a fake Claude:
  *
  *  1. The plan computed again from the server's own reads (quiz-input.ts, quiz-plan.ts): the app's
@@ -118,6 +118,8 @@ export interface QuizRunMaterial {
 
 export interface QuizRunDeps {
   quizId: string;
+  /** The questions this quiz was paid for; the plan never asks more. */
+  maxQuestions?: number;
   material: () => Promise<QuizRunMaterial>;
   claude: (call: 'batch' | 'verify' | 'repair', system: string, content: Content, schema: JsonSchema, maxTokens: number) => QuizCall;
   logCost: SummaryRunDeps['logCost'];
@@ -128,7 +130,7 @@ export interface QuizRunDeps {
   /** Whether the quiz is still wanted (not deleted meanwhile): read before every call. */
   stillWanted: () => Promise<boolean>;
   /**
-   * Step 10.1: whether she switched AI off since the run started (Settings → AI & privacy): read with
+   * Whether she switched AI off since the run started (Settings → AI & privacy): read with
    * stillWanted, so the run stops before its next call ('consent_withdrawn').
    */
   consentWithdrawn?: () => Promise<boolean>;
@@ -355,7 +357,7 @@ export function formatUserText(title: string, text: string | null): string {
 
 // ---------- helpers ----------
 
-// The fixed shuffle (moved to quiz-shuffle.ts in 9.1b-3: the app shuffles with it too).
+// The fixed shuffle (moved to quiz-shuffle.ts: the app shuffles with it too).
 export { seededShuffle };
 
 /** Every lecture's sources together, plus the text resources' numbers and the photos' ids. */
@@ -432,7 +434,7 @@ export async function runQuiz(deps: QuizRunDeps): Promise<QuizOutcome> {
     const m = await deps.material();
     if (!m.lectures.length) return fail('no_material');
     const pastExam = mergeFormats(m.pastExams.map((p) => p.format).filter((f): f is PastExamFormatRead => !!f) as PastExamFormat[]);
-    const plan = planQuiz(planInputFor(m.facts, m.settings, pastExam));
+    const plan = planQuiz({ ...planInputFor(m.facts, m.settings, pastExam), maxCount: deps.maxQuestions });
     const language = quizLanguage(m);
     const optionCounts = m.pastExams.map((p) => p.format?.optionsPerQuestion ?? 0).filter((n) => n >= 2 && n <= 6);
     const options = optionCounts.length ? optionCounts[0] : DEFAULT_OPTIONS;

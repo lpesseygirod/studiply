@@ -1,6 +1,6 @@
 /**
  * doc-photo.service.ts
- * Photos in documents (step 4.5). A photo is a `media` row (kind photo,
+ * Photos in documents. A photo is a `media` row (kind photo,
  * file_id = the document, lecture_id null) with its JPEG at
  * photos/{userId}/{fileId}/{mediaId}.jpg; the document's photo node points
  * to it as `media:<id>` (src/editor/media/photoSource).
@@ -19,7 +19,7 @@
  * can bring it back); the files go when the document is deleted (the trash
  * purge removes a purged file's media objects).
  *
- * A board photo (step 5.6) is the same, taken while recording into the
+ * A board photo is the same, taken while recording into the
  * lecture's My notes: its row also has `lecture_id` (the lecture is the
  * document) and `t_ms` (the recording time it was taken at).
  */
@@ -49,7 +49,7 @@ interface DocPhotoPayload {
   mediaId: string;
   /** The JPEG on this iPhone (pending-uploads/<fileId>/<mediaId>.jpg). */
   uri: string;
-  /** A board photo taken while recording (step 5.6): its lecture (the document itself) and recording time. */
+  /** A board photo taken while recording: its lecture (the document itself) and recording time. */
   lectureId?: string | null;
   tMs?: number | null;
 }
@@ -73,7 +73,7 @@ export async function addDocPhoto(
     moment,
   }: {
     onReady?: (mediaId: string, previewUri: string) => void;
-    /** A board photo (step 5.6): `fileId` is the lecture, `tMs` the recording time it was taken at. */
+    /** A board photo: `fileId` is the lecture, `tMs` the recording time it was taken at. */
     moment?: { tMs: number };
   } = {},
 ): Promise<string> {

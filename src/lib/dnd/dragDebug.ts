@@ -31,7 +31,7 @@ const emit = () => listeners.forEach((l) => l());
 /**
  * Development only: the course list as React Native's own ScrollView and
  * pull-to-refresh instead of gesture-handler's, to compare the iPhone drag
- * with both (the step 3.3 iPhone bug).
+ * with both (the iPhone drag bug).
  */
 export function isPlainScroll(): boolean {
   return plainScroll;

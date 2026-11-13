@@ -15,8 +15,8 @@ import { getUserSettings } from '../../src/services/settings.service';
 import { errorMessage } from '../../src/utils/errors';
 
 /**
- * Development only (step 5.2): the recorder service on a plain screen, until
- * the recording screen of 5.3. Start makes a lecture "Recorder test HH:MM" in
+ * Development only: the recorder service on a plain screen, until
+ * the recording screen. Start makes a lecture "Recorder test HH:MM" in
  * My library and records it (30-second chunks overlapping by 500 ms, or
  * ?chunk=5&overlap=500); Pause, Resume, Stop. A recording the page lost (a
  * reload, a crash) shows as interrupted, with Continue and Finish. On a real

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 10.1, the server's pure parts: delete-account's rules (the body never carries a user id; Apple's
+// The server's pure parts: delete-account's rules (the body never carries a user id; Apple's
 // revocation configured or skipped; its client secret's claims; the token's subject for a second call)
 // and the consent gate (a run's call never starts once AI was switched off; permanent, not retried).
 import { webcrypto } from 'node:crypto';
@@ -108,7 +108,7 @@ describe('the consent gate (a summary’s calls)', () => {
 });
 
 describe('the policy', () => {
-  it('step 10.1: one answer gives the three scopes, under the store version', () => {
+  it('one answer gives the three scopes, under the store version', () => {
     expect(CONSENT_SCOPES).toEqual(['transcription', 'assistant_summary', 'images']);
     expect(CONSENT_POLICY_VERSION).toBe('2026-11-store-1');
   });

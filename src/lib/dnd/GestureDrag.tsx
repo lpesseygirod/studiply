@@ -1,6 +1,6 @@
 /**
- * GestureDrag.tsx — the iPhone's drag and drop (step 3.1, Option A; used
- * in the library from step 3.3), built on react-native-gesture-handler.
+ * GestureDrag.tsx — the iPhone's drag and drop (Option A; used
+ * in the library), built on react-native-gesture-handler.
  *
  * A long-press (350 ms) lifts the item with a light haptic; releasing
  * without moving opens its menu, moving drags it. A tap opens. Drop

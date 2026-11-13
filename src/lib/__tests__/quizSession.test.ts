@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-3: taking a quiz without React (src/lib/quiz/session.ts): each attempt's own question
+// Taking a quiz without React (src/lib/quiz/session.ts): each attempt's own question
 // order (the same on resume), match pairs and steps shown shuffled but fixed per question (never in
 // the right order), where an attempt resumes, the time left, the laptop's keys, the score as the
 // database computes it, the list's Resume / Last, the grade-change line.

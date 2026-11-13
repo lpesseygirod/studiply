@@ -6,7 +6,7 @@ import type { EditorView } from '@tiptap/pm/view';
 import { PAGE_GAP_CLASS } from '../page/pageView';
 
 /**
- * The laptop's table handles (step 4.5, Lea: "small handles on hover"),
+ * The laptop's table handles (Lea: "small handles on hover"),
  * while the pointer is over a table or the margin around it (where the
  * handles sit):
  * - a grip on each row's left edge and each column's top edge: a click
@@ -136,7 +136,7 @@ class HandlesView {
     const node = tablePos >= 0 ? this.view.state.doc.nodeAt(tablePos) : null;
     if (!node) return null;
     const map = TableMap.get(node);
-    // Not a page gap drawn as a row (the page view, step 4.5b).
+    // Not a page gap drawn as a row (the page view).
     const domRows = Array.from(table.rows).filter((tr) => !tr.classList.contains(PAGE_GAP_CLASS));
     if (domRows.length !== map.height) return null;
     const rows = domRows.map((tr) => {

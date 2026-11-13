@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-nat
 import { Ionicons } from '@expo/vector-icons';
 
 /**
- * A button that shows only an icon (step 2.3): always at least 44×44 pt,
+ * A button that shows only an icon: always at least 44×44 pt,
  * and always named for VoiceOver / screen readers (`label`), since the
  * icon alone says nothing to them.
  */

@@ -20,13 +20,12 @@ describe('screenKindFor', () => {
     }
   });
 
-  it('Review (step 9.1, desktop-07/08): a screen of its own, no sidebar; the recording review is a document', () => {
+  it('Review (desktop-07/08): a screen of its own, no sidebar', () => {
     expect(screenKindFor('/review')).toBe('review');
-    expect(screenKindFor('/record/review')).toBe('document');
+    expect(screenKindFor('/review/quiz/abc')).toBe('review');
   });
 
   it('shows documents and recording with the assistant', () => {
-    expect(screenKindFor('/note/abc')).toBe('document');
     expect(screenKindFor('/doc/abc')).toBe('document');
     expect(screenKindFor('/record')).toBe('document');
     expect(screenKindFor('/record/session')).toBe('document');

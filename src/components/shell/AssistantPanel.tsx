@@ -14,7 +14,7 @@ import { useAssistantTarget } from '../assistant/assistantTarget';
 
 /**
  * The study assistant beside a document on the laptop (docs/design
- * desktop-01, step 6.2): "Study assistant", "Knows this lecture up to
+ * desktop-01): "Study assistant", "Knows this lecture up to
  * mm:ss", the "Recording continues" pill while this lecture records (the
  * assistant never stops it), then the conversation (AssistantChat). A time
  * in an answer plays in the document's mini player. A plain document has
@@ -25,11 +25,10 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
   const { colors: c } = useTheme();
   const target = useAssistantTarget();
   const pathname = usePathname();
-  // The document screen says what it shows; the older lecture screen (/note/<id>, opened from Search) is a lecture's.
-  const noteLecture = /^\/note\/([^/?#]+)/.exec(pathname)?.[1] ?? null;
-  const lectureId = noteLecture ?? (target?.isLecture && pathname.startsWith('/doc/') ? target.documentId : null);
+  // The document screen says what it shows.
+  const lectureId = target?.isLecture && pathname.startsWith('/doc/') ? target.documentId : null;
   const chat = useAssistant(lectureId);
-  // Opening the assistant never stops a recording (step 5.3): it says so, or that it is paused.
+  // Opening the assistant never stops a recording: it says so, or that it is paused.
   const { status } = useRecorderState();
   const recording = status !== 'idle';
   const paused = status === 'paused';

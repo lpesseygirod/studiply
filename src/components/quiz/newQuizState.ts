@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * New quiz (step 9.1b): whether the panel is open, and on which course. Opened by Review's Quiz me
+ * New quiz: whether the panel is open, and on which course. Opened by Review's Quiz me
  * tab (+ New quiz); drawn once, by the app's layout, over any screen (as the summarize panel).
  */
 export interface NewQuizRequest {

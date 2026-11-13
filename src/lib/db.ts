@@ -2,9 +2,9 @@
  * db.ts
  * The earlier version's database on the iPhone (`studiply.db`).
  *
- * Before step 1.7 this was the app's only storage. Now the app uses
- * Supabase (and the 1.8 cache, a separate file), and this database is only
- * read by step 1.9 to upload what is in it (src/services/legacyImport), and
+ * Before Supabase this was the app's only storage. Now the app uses
+ * Supabase (and the offline cache, a separate file), and this database is only
+ * read by the legacy import to upload what is in it (src/services/legacyImport), and
  * removed when the student chooses to. Development can use a sample copy of
  * the same schema in its own file (SAMPLE_DB_NAME) so the real one is never
  * touched while testing.

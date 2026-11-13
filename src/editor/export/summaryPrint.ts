@@ -7,13 +7,13 @@ import type { DocJSON } from '../types';
 import type { PrintTab } from './printPages';
 
 /**
- * A summary's PDF (step 8.3, SUMMARY-SPEC "PDF export"): the tab that holds a summary, made ready for
+ * A summary's PDF (SUMMARY-SPEC "PDF export"): the tab that holds a summary, made ready for
  * paper. Pure (no DOM), so both devices give the same pages; printPages.ts lays it out as any tab.
  *
  * - Page 1 opens with the title and the meta line, as the screen's header shows them (no cover page).
  * - Times print as plain "[12:34]" (a link back to the audio doesn't work on paper); the app's own
  *   links ("See them in My notes", "Full answer") as their words.
- * - The self-test's answers (7.7's hidden answer callouts) go to a last page under "Answers", each
+ * - The self-test's answers (the summary's hidden answer callouts) go to a last page under "Answers", each
  *   with its question's number; with the self-test left out, its questions and answers both go.
  * - The transcript appendix (an option): the lecture's Transcript tab as it is now, from a new page.
  */
@@ -90,7 +90,7 @@ export function summaryPrintTabs(content: DocJSON, o: SummaryPrintOptions): Prin
   blocks.forEach((b, i) => {
     if (drop.has(i)) return;
     if (isAnswer(b)) {
-      // Its question is the paragraph before it, "3. …" (7.7); else the next number.
+      // Its question is the paragraph before it, "3. …"; else the next number.
       const asked = /^\s*(\d+)\.\s/.exec(textOf(kept.at(-1) ?? {}));
       lastNumber = asked ? Number(asked[1]) : lastNumber + 1;
       if (o.selfTest) answers.push({ n: lastNumber, callout: b });

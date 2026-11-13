@@ -6,7 +6,7 @@ import { TIMESTAMP_CHIP, chipMs } from './schema/timestampChip';
 import type { DocJSON } from './types';
 
 /**
- * Cancel recording (Lea, 6 Nov), recorded inside a document (step 5.7): My notes keeps every word, and
+ * Cancel recording (Lea, 6 Nov), recorded inside a document: My notes keeps every word, and
  * only what pointed at the discarded audio changes (the notes are saved first as the version "Before
  * discarding the recording", services/discard-recording):
  *  - a line's leading time chip at or after `fromMs` is taken off (with the space after it);

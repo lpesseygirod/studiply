@@ -10,7 +10,7 @@ import { a11yState } from '../../utils/a11y';
 import { MAX_CELL_INPUT } from '../../lib/sheetDoc';
 
 /**
- * A spreadsheet's formula bar (step 4.7e): the selected cell's name (B3, or
+ * A spreadsheet's formula bar: the selected cell's name (B3, or
  * B3:C5), what was typed in it (the formula, not its result), and Bold.
  * Clicking (tapping) the input edits the cell there. Under it, a short line
  * when the cell shows an error.
@@ -40,7 +40,7 @@ export const FormulaBar = forwardRef<
     onSubmit: () => void;
     onBlur: () => void;
     onBold: () => void;
-    /** Undo / Redo of the sheet's cells (step 4.7e 2b), as the text toolbar's. */
+    /** Undo / Redo of the sheet's cells, as the text toolbar's. */
     canUndo: boolean;
     canRedo: boolean;
     onUndo: () => void;

@@ -7,7 +7,7 @@ import { layoutPages, type PageGap, type PageLayout, type PageUnit } from './pag
 import { cleanPageSetup, DEFAULT_SHEET, sheetGeometry, type PageSetup, type SheetGeometry } from './pageSetup';
 
 /**
- * The page view (step 4.5b), on both devices: pages with gaps
+ * The page view, on both devices: pages with gaps
  * between them, like Word, and zoom. It only changes the display: the
  * document stays one pageless JSON (ids, merge, sync untouched).
  *
@@ -182,7 +182,7 @@ function linesOf(el: HTMLElement): { top: number; bottom: number; left: number }
 const TEXTBLOCKS_KEEP_WITH_NEXT = ['heading', 'title'];
 const CONTAINERS = ['bulletList', 'orderedList', 'taskList', 'listItem', 'taskItem', 'blockquote'];
 
-/** A summary's notes check line (7.7's id `sm<8>-check`): the document holds a summary (lib/summaryDoc's holdsSummary). */
+/** A summary's notes check line (the summary's id `sm<8>-check`): the document holds a summary (lib/summaryDoc's holdsSummary). */
 const SUMMARY_CHECK = /^sm[0-9a-z]{8}-check$/;
 export function holdsSummary(doc: PMNode): boolean {
   let found = false;
@@ -198,7 +198,7 @@ export function holdsSummary(doc: PMNode): boolean {
  * `scale`: the CSS zoom the editor is shown at (shownZoom), exactly. Not box.width / offsetWidth:
  * offsetWidth is whole pixels, and an A4 sheet is 793.7 px wide, so that ratio is 0.99962 at
  * 100 %, every position came out 0.04 % too far down (1 px by the third page), the gaps that
- * much short, and the pages started off their top margin (step 4.8a's PDF check found it).
+ * much short, and the pages started off their top margin (the PDF export's check found it).
  */
 function measure(view: EditorView, textHeight: number, scale: number): { units: PageUnit[]; scale: number; sheetLeft: number; end: number } | null {
   const dom = view.dom as HTMLElement;
@@ -240,7 +240,7 @@ function measure(view: EditorView, textHeight: number, scale: number): { units: 
       units.push({ kind: 'break', at: pos + node.nodeSize, place: 'block', start: y(r.top), top: y(r.top), bottom: y(r.top) });
       return;
     }
-    // Step 8.3: in a summary a table that fits on a page moves whole (SUMMARY-SPEC: no block split); elsewhere it splits between rows.
+    // In a summary a table that fits on a page moves whole (SUMMARY-SPEC: no block split); elsewhere it splits between rows.
     if (name === 'table' && !(summary && (r.bottom - r.top) / scale <= textHeight)) {
       const rows = Array.from(el.querySelectorAll('tr')).filter((tr) => !tr.classList.contains(PAGE_GAP_CLASS));
       let rowPos = pos + 1;
@@ -255,7 +255,7 @@ function measure(view: EditorView, textHeight: number, scale: number): { units: 
       });
       return;
     }
-    // A callout (step 4.6), a formula card (4.7c) or a summary module (8.1) moves whole when it fits on a page, as in the PDF (SUMMARY-SPEC); a longer one splits between lines.
+    // A callout, a formula card or a summary module moves whole when it fits on a page, as in the PDF (SUMMARY-SPEC); a longer one splits between lines.
     if (CONTAINERS.includes(name) || ((name === 'callout' || name === 'formulaCard' || name === 'studyModule') && (r.bottom - r.top) / scale > textHeight)) {
       node.forEach((child, offset, i) => block(child, pos + 1 + offset, blockIndex * 1000 + i));
       return;
@@ -360,7 +360,7 @@ class PageViewController {
         }
         // A block that changes size after the pages were drawn (a graph drawn late, a font, a photo
         // sized by its frame), even by a fraction of a pixel: measured again, or every page after it
-        // would start that much off its top margin (and the PDF export, 4.8a, would differ). Drawing
+        // would start that much off its top margin (and the PDF export would differ). Drawing
         // the gaps changes the height too; the measure after that finds the same layout and stops.
         const s = pageViewOf(this.view.state);
         const h = s ? dom.getBoundingClientRect().height / shownZoom(s) : 0;
@@ -480,7 +480,7 @@ class PageViewController {
     dom.classList.remove(MEASURING_CLASS);
     // Drawn again whenever a gap moves at all (to the hundredth of a pixel): a gap kept from an earlier
     // measure that differs by a fraction of a pixel moves everything after it, and the differences add
-    // up page after page (the PDF export, 4.8a, lays the pages out once, from the last measure).
+    // up page after page (the PDF export lays the pages out once, from the last measure).
     // Measuring hides the gaps, so drawing them doesn't change the next measure: no loop.
     const same =
       state.layout &&

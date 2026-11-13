@@ -1,5 +1,5 @@
 /**
- * dataExport — "Export my data" (step 10.1b-4; D4: Settings → Account and Settings → Your data;
+ * dataExport — "Export my data" (D4: Settings → Account and Settings → Your data;
  * D6: one ZIP built on this device).
  *
  *   prepareExport()  reads every row of hers (as her: the app's own client, so RLS gives only her

@@ -3,7 +3,7 @@ import type { ChunkRecorderOptions, RecordedChunk, RecordedPart } from './chunkR
 export type { ChunkRecorderOptions, RecordedChunk, RecordedPart };
 
 /**
- * Recording in chunks on the web (step 5.1, the spike): the browser's
+ * Recording in chunks on the web (the spike): the browser's
  * MediaRecorder on one microphone stream, rotated every `chunkMs` so every
  * chunk is a complete file of its own (WebM / Opus in Chrome) that can be
  * uploaded and transcribed while the lecture goes on. (One recorder with a
@@ -16,7 +16,7 @@ export type { ChunkRecorderOptions, RecordedChunk, RecordedPart };
  *   later, so the chunks overlap instead (the fix if restarting loses audio).
  *   The spike measured gaps when restarting, so the app overlaps by 500 ms.
  *
- * Since 5.2 (the recorder service):
+ * For the recorder service:
  * - `timesliceMs`: each recorder also hands over the piece recorded so far
  *   (`onPart`), which the service saves, so a crash loses at most one piece.
  *   A chunk's pieces in order are the chunk's file;

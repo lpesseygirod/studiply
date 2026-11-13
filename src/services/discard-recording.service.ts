@@ -6,7 +6,7 @@
  *  - A new lecture ('new'): to Recently Deleted with its notes, marks and photos (restorable 30 days, then
  *    the nightly purge), keeping the audio that reached Studiply before Discard; a chunk that still lands
  *    after is removed. Undo (`undoDiscard`) takes it out of the trash.
- *  - Recorded inside a plain document ('document', step 5.7): this recording's audio, transcript and files
+ *  - Recorded inside a plain document ('document'): this recording's audio, transcript and files
  *    are deleted; its photos stay with the document; it is a document again (writeRevert, which removes
  *    the lecture row and with it the recording's marks and note lines).
  *  - Recorded again inside a lecture ('lecture'): only this recording's audio and transcript (its chunks

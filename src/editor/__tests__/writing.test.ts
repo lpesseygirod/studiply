@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// The writing tools (step 4.7) on a real editor, as both devices run them:
+// The writing tools on a real editor, as both devices run them:
 // find & replace, word and character count, the outline.
 import { Editor } from '@tiptap/core';
 

@@ -35,20 +35,24 @@ import { AddButton, CheckBox, PresetChip, ResourceCard, ResourceRow, SliderRow }
 import { makePanelStyles } from '../panel/panelStyles';
 import { closeNewQuiz, useNewQuizPanel, type NewQuizRequest } from './newQuizState';
 import { kindLabel, QUIZ_PRESET_ORDER, QUIZ_SLIDER_LABELS, TYPE_CHIPS } from './quizLabels';
+import { CostLine } from '../credits/CreditLine';
+import { FunctionError } from '../../lib/functions';
+import { PAST_EXAM_EXTRAS_USED } from '../../lib/credits/extras';
+import { quizUnits } from '../../../supabase/functions/_shared/credits';
 
 /**
- * New quiz (step 9.1b-1; BUILD-PLAN "Create a quiz"), opened from Review → Quiz me. The summarize
+ * New quiz (BUILD-PLAN "Create a quiz"), opened from Review → Quiz me. The summarize
  * panel's frame (docs/design desktop-02 on the laptop, iphone-05's full-screen sheet on the iPhone and
  * the web below 1024 px), its slider rows, presets, resource rows and footer (components/panel):
  * - What it covers: the course, then the topic (the whole course, or lectures and folders).
  * - Resources: My notes and marks (always), the lectures' summaries and their slides and photos,
  *   files added from the library or uploaded (they become files of the course).
- * - Example quizzes or past exams: they set the quiz's format. Step 9.1b-2: each one's format is read
+ * - Example quizzes or past exams: they set the quiz's format. Each one's format is read
  *   when it is added (once per file, after the permission it needs): its line shows its length and
  *   types, Number of questions moves to its length, and the preview follows its mix.
  * - The 10 sliders, presets and Save as course default; the choices.
  * - The calculator's preview line (quiz-plan.ts); Create quiz saves the quiz (pending) with its
- *   settings and plan, then (9.1b-2) starts the quiz function, which writes it in the background
+ *   settings and plan, then starts the quiz function, which writes it in the background
  *   (Review → Quiz me follows it).
  * Making a quiz needs a connection.
  */
@@ -96,7 +100,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
   const [thresholdText, setThresholdText] = useState('60');
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Step 9.1b-2: each past exam's format, read when it is added.
+  // Each past exam's format, read when it is added.
   const [formats, setFormats] = useState<Record<string, { state: 'reading' | 'read' | 'failed'; format?: PastExamFormatRead; note?: string }>>({});
 
   // The courses, then the one to start on: the one asked for, the newest quiz's, else the first.
@@ -203,7 +207,13 @@ function Panel({ request }: { request: NewQuizRequest }) {
         setSliders((s) => (s ? { ...s, count: countValueFor(format.questionCount) } : s));
       }
     } catch (err) {
-      const note = err instanceof ConsentDeclinedError ? 'Not read: Studiply needs your permission' : errorMessage(err, 'Couldn’t read its format');
+      const note =
+        err instanceof ConsentDeclinedError
+          ? 'Not read: Studiply needs your permission'
+          : // Reading a past exam is an extra (the assistant & extras allowance).
+            err instanceof FunctionError && err.code === 'extras_limit'
+            ? PAST_EXAM_EXTRAS_USED
+            : errorMessage(err, 'Couldn’t read its format');
       setFormats((f) => ({ ...f, [id]: { state: 'failed', note } }));
     }
   };
@@ -301,7 +311,7 @@ function Panel({ request }: { request: NewQuizRequest }) {
       setBusy(false);
       return;
     }
-    // Saved: now written (9.1b-2). If it can't start, it stays "Saved · not started" with Start.
+    // Saved: now written. If it can't start, it stays "Saved · not started" with Start.
     try {
       await startQuiz(id);
     } catch (err) {
@@ -585,6 +595,8 @@ function Panel({ request }: { request: NewQuizRequest }) {
           {plan.notice}
         </Text>
       )}
+      {/* ¼ / ½ / ¾ of a credit by its size, as the server prices it. */}
+      <CostLine cost={quizUnits(plan.count)} style={styles.preview} testId="newquiz-cost" />
     </View>
   );
   const why = !plan && material && (problem ?? (choices.types.length ? null : 'Pick at least one question type.'));
@@ -757,7 +769,7 @@ const makeQuizStyles = (c: ThemeColors) =>
     pillOn: { borderColor: c.accent, backgroundColor: c.accentLight },
     pillText: { fontSize: Typography.size.sm, color: c.text.primary },
     pillTextOn: { fontWeight: Typography.weight.semibold, color: c.accentDark },
-    // The topic: LecturePicker's rows (7.9).
+    // The topic: LecturePicker's rows.
     lecture: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: c.offWhite },
     lectureOn: { backgroundColor: c.accentLight },
     lectureOff: { opacity: 0.5 },

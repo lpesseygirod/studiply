@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1: flashcards in review. The rating rule (Again · Hard · Good · Easy, the mockups' 1 min /
+// Flashcards in review. The rating rule (Again · Hard · Good · Easy, the mockups' 1 min /
 // 1 day / 3 days / 7 days for a new card), the cards a summary gives (key terms, its flashcards, its
 // self-test; each once), the due deck and its counts, the Quiz me decks (the mark chip, the order),
 // and a session's order (Again comes back, a skip stays due).
@@ -62,7 +62,7 @@ describe('a summary’s cards', () => {
     expect(frontKey('  **Conducta**  ')).toBe('conducta');
   });
 
-  it('each once per lecture: a front the lecture has is left out (a summary written again, one saved before 9.1)', () => {
+  it('each once per lecture: a front the lecture has is left out (a summary written again, one saved before cards existed)', () => {
     const all = summaryCards(S30);
     expect(all.length).toBeGreaterThan(4);
     expect(newCards(all, all.map((c) => c.front))).toEqual([]);
@@ -124,7 +124,7 @@ describe('the due deck and its counts', () => {
     expect(deck[0]).toMatchObject({ kind: 'card', lecture: 'Tema 1', course: 'Psicobiología', state: { reps: 0, ease: 2.5 } });
   });
 
-  it('Review today’s cards: live cards due by the end of the day (a lecture’s row counts by its plan, step 9.2); reviewed today', () => {
+  it('Review today’s cards: live cards due by the end of the day (a lecture’s row counts by its plan); reviewed today', () => {
     const local = new Date(NOW);
     expect(dueTodayCount(schedules, cards, local)).toBe(3);
     expect(reviewedTodayCount(schedules, local)).toBe(1);
@@ -192,7 +192,7 @@ describe('a session’s order', () => {
     expect(quizProgress(q)).toEqual({ n: 3, total: 3, done: 1 });
   });
 
-  it('step 9.2: Next question on a lecture’s last question finishes its deck (that lecture is reviewed)', () => {
+  it('Next question on a lecture’s last question finishes its deck (that lecture is reviewed)', () => {
     const deck = (id: string, n: number) => ({ fileId: id, lecture: id, course: null, marks: '', questions: Array.from({ length: n }, (_, i) => ({ question: `${id}${i}`, answer: 'x', mark: null })) });
     let q = startQuiz([deck('t1', 2), deck('t2', 1)]);
     expect(deckEndsHere(q)).toBeNull();

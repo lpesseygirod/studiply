@@ -1,4 +1,4 @@
-// toJpeg on the iPhone (step 4.8b): a picture that can be transparent is
+// toJpeg on the iPhone: a picture that can be transparent is
 // drawn on white (the editor bundle's WebView, through the flattener) before
 // it becomes a JPEG; a camera photo goes straight to the JPEG.
 import * as FileSystem from 'expo-file-system/legacy';

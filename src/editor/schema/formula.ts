@@ -7,7 +7,7 @@ import { TABLE_BAR_CLASS } from '../table/tableBar';
 import { mathCandidate } from './mathSuggest';
 
 /**
- * Formulas (step 4.5): Tiptap's `inlineMath` and `blockMath` (KaTeX), with
+ * Formulas: Tiptap's `inlineMath` and `blockMath` (KaTeX), with
  * Studiply's way of editing them, the same on both devices:
  * - `setFormula` puts a formula where the cursor is, or changes the selected
  *   one (its LaTeX, or inline ↔ display), and leaves it selected, so the

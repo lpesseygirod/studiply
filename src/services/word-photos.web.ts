@@ -3,7 +3,7 @@ import { mediaIdOf } from '../editor/media/photoSource';
 import { editorPhotoSource } from './doc-photo.service';
 
 /**
- * The laptop's photos for the Word export (step 4.8b): each photo's file
+ * The laptop's photos for the Word export: each photo's file
  * (its signed link, or the data URI a pasted picture has) and its size.
  * One that can't be had is left out (null).
  */

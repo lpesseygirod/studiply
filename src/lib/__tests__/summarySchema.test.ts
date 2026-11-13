@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.4: the summary's shapes. The API contract is the JSON Schema constants
+// The summary's shapes. The API contract is the JSON Schema constants
 // (supabase/functions/_shared/summary-schema.ts, structured outputs); the answers are checked with
 // zod 4.6.7 (summary-zod.ts, the same file Deno runs: Jest maps 'npm:zod@4.6.7' to the installed
 // zod). The two must agree; the constants must stay inside what structured outputs accept.
@@ -68,7 +68,7 @@ describe('the API contract (structured outputs)', () => {
     expect(asContract(ClassifyAnswer)).toEqual(CLASSIFY_SCHEMA);
   });
 
-  it('zod and the constants agree: the 7.5 part answers (a section, the lists, the verdicts)', () => {
+  it('zod and the constants agree: the quality pass’s part answers (a section, the lists, the verdicts)', () => {
     expect(asContract(SectionAnswer)).toEqual(SECTION_SCHEMA);
     expect(asContract(ListsAnswer)).toEqual(LISTS_SCHEMA);
     expect(asContract(VerifyAnswer)).toEqual(VERIFY_SCHEMA);
@@ -78,7 +78,7 @@ describe('the API contract (structured outputs)', () => {
     expect((SUMMARY_SCHEMA.properties as Record<string, JsonSchema>).sections).toEqual({ type: 'array', items: SECTION_SCHEMA });
   });
 
-  it('zod and the constants agree: Extend’s lists and the exam pack (7.9)', () => {
+  it('zod and the constants agree: Extend’s lists and the exam pack', () => {
     // Extend's two lists are one JSON string in the schema (the grammar limit), checked with zod after.
     expect(extendSchema(SUMMARY_SCHEMA).required).toEqual([...(SUMMARY_SCHEMA.required as string[]), EXTEND_FIELD]);
     expect((extendSchema(SUMMARY_SCHEMA).properties as Record<string, JsonSchema>)[EXTEND_FIELD]).toEqual({ type: 'string' });
@@ -88,7 +88,7 @@ describe('the API contract (structured outputs)', () => {
   });
 });
 
-describe('the grammar size (step 7.9: "The compiled grammar is too large")', () => {
+describe('the grammar size ("The compiled grammar is too large")', () => {
   it('Extend adds one string to the summary and part schemas, no more (two arrays of objects went over the limit)', () => {
     expect(schemaWeight(extendSchema(SUMMARY_SCHEMA))).toBe(schemaWeight(SUMMARY_SCHEMA) + 2);
     expect(schemaWeight(extendSchema(PART_SCHEMA))).toBe(schemaWeight(PART_SCHEMA) + 2);
@@ -127,7 +127,7 @@ describe('the block shapes (zod)', () => {
     );
   });
 
-  it('step 8.2: the function plot’s fields carry the expression grammar (prompt text only: the API sends data as a string)', () => {
+  it('the function plot’s fields carry the expression grammar (prompt text only: the API sends data as a string)', () => {
     const line = blockGuide().split('\n').find((l) => l.startsWith('- functionPlot: '))!;
     expect(line).toBe(
       '- functionPlot: { expression: string (y in terms of x only: numbers, x, + - * / ^ ( ), pi, e, sin cos tan exp ln log sqrt abs with parentheses; write 2*x not 2x, sin(x) not sin x; -x^2 means -(x^2)), xRange: [number] (two numbers: from, to), mark: [string] (any of "roots", "vertex", "extrema", "yIntercept"), title: string, fromPhoto: string (the id of the photo this graph is redrawn from, "" if not from a photo) }',

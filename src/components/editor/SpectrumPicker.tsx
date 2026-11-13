@@ -13,7 +13,7 @@ const WHITE = hsvToHex({ h: 0, s: 0, v: 1 });
 const BLACK = hsvToHex({ h: 0, s: 0, v: 0 });
 
 /**
- * "More colours…" (step 4.5, as Word's): any colour from a full spectrum. A
+ * "More colours…" (as Word's): any colour from a full spectrum. A
  * square for saturation (left to right) and brightness (top to bottom), a
  * strip for the hue, the new colour beside the current one, and on the
  * laptop a hex field. Drawn with gradients and touches, so the same on the

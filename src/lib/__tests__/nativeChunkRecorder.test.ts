@@ -1,4 +1,4 @@
-// Steps 5.1–5.2, iPhone half: recording in chunks with expo-audio's recorders
+// Recording in chunks on the iPhone with expo-audio's recorders
 // (stand-ins here): 30-second chunks overlapping by 500 ms in their order,
 // the fallback when iOS refuses two recorders at once, pause and resume with
 // a continuous timeline, a recorder that stopped by itself, the waveform's

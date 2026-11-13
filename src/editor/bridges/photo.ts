@@ -5,7 +5,7 @@ import { InlinePhoto, Photo } from '../schema/photo';
 import { PhotoBar } from '../photoBar';
 
 /**
- * Photos on the iPhone (step 4.5), through TenTap's bridge:
+ * Photos on the iPhone, through TenTap's bridge:
  * - native → WebView: insert photos (by media id), and a photo's source
  *   when the WebView asked for it;
  * - WebView → native: "I need media <id>" (sent by the WebView's photo

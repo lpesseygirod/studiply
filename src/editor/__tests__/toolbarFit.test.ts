@@ -1,4 +1,4 @@
-// Fitting the toolbars' tools (step 4.5): the first that fit stay in the row, in order; the rest go to the second row.
+// Fitting the toolbars' tools: the first that fit stay in the row, in order; the rest go to the second row.
 import { splitRow } from '../toolbarFit';
 
 const tools = (n: number, width = 44) => Array.from({ length: n }, (_, i) => ({ key: `t${i}`, width }));

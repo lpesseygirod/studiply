@@ -1,5 +1,5 @@
 /**
- * The recording flow (step 5.3) around the recorder service (./recorder):
+ * The recording flow around the recorder service (./recorder):
  * what the setup's Start, the strip's and the bottom bar's Stop, and the
  * "Interrupted recording" banner do, shared by every screen so that leaving
  * a screen never stops anything.
@@ -14,7 +14,7 @@
  *    after-recording step.
  *  - recover: a recording the page lost (a reload, a crash) is offered with
  *    its title: Continue records on, Finish hands it off like Stop.
- *  - startIn (step 5.7): the Record button inside a document; a plain
+ *  - startIn: the Record button inside a document; a plain
  *    document becomes a lecture only once the student has really started.
  *  - discard (Cancel recording, Lea 6 Nov): only after the student confirmed;
  *    the recorder closes the microphone and drops the audio from the device,
@@ -67,7 +67,7 @@ export interface DiscardPreview {
   fromMs: number;
 }
 
-/** Step 5.7: recording from inside a document: a lecture, or a plain document that becomes one. */
+/** Recording from inside a document: a lecture, or a plain document that becomes one. */
 export interface StartInParams {
   fileId: string;
   isLecture: boolean;
@@ -82,7 +82,7 @@ export interface FlowDeps {
   allowTranscription: () => Promise<boolean>;
   createLecture: (p: StartParams) => Promise<string>;
   /**
-   * Step 5.7: turns a plain document into a lecture (its first tab becomes My notes); returns how to
+   * Turns a plain document into a lecture (its first tab becomes My notes); returns how to
    * put it back if the recording can't start.
    */
   convertToLecture: (fileId: string, language: string) => Promise<() => Promise<void>>;
@@ -110,7 +110,7 @@ export function createRecordingFlow(deps: FlowDeps) {
   const wait = deps.wait ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = deps.now ?? Date.now;
   let state: FlowState = { saving: null, interrupted: [] };
-  /** Recording again into a lecture (step 5.7): its status before, put back if the recording is discarded. */
+  /** Recording again into a lecture: its status before, put back if the recording is discarded. */
   const statusBefore = new Map<string, LectureStatus>();
   const listeners = new Set<() => void>();
   const set = (change: Partial<FlowState>) => {
@@ -189,7 +189,7 @@ export function createRecordingFlow(deps: FlowDeps) {
     },
 
     /**
-     * Step 5.7: the Record button inside a document. A lecture records again (after the audio it already
+     * The Record button inside a document. A lecture records again (after the audio it already
      * has); a plain document becomes a lecture, but only once the microphone and the consent question
      * are answered: cancelled before, nothing changes. If the recorder then can't start, everything is
      * put back (a document stays a document; a lecture gets its status back).

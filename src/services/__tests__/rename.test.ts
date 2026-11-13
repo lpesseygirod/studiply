@@ -1,4 +1,4 @@
-// Renaming lectures, photos and PDFs (after step 1.8). A lecture's title is
+// Renaming lectures, photos and PDFs. A lecture's title is
 // stored on its file and in its note; renaming must keep them equal or say so.
 
 import { LEGACY_NOTE_FORMAT, NetworkError } from '../../lib/cloudRows';

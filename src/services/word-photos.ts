@@ -6,7 +6,7 @@ import { mediaIdOf } from '../editor/media/photoSource';
 import { editorPhotoSource } from './doc-photo.service';
 
 /**
- * The iPhone's photos for the Word export (step 4.8b): each photo as the
+ * The iPhone's photos for the Word export: each photo as the
  * editor shows it (the phone's copy as a data URI, made from the signed link
  * the first time), a pasted picture's link downloaded, and its size. One
  * that can't be had is left out (null).

@@ -1,6 +1,6 @@
 /**
  * lectureReview.service.ts
- * Spaced review of lectures (step 9.2): the lectures due today (lib/review/lectures.ts), Mark
+ * Spaced review of lectures: the lectures due today (lib/review/lectures.ts), Mark
  * reviewed with Undo, and a lecture's "Study reminders" switch (Lea, 9 Nov: the summarize panel and
  * the lecture's menu; off = no review sessions for it).
  *

@@ -6,7 +6,7 @@ import { DarkColors, LightColors, type ThemeColors } from '../constants/colors';
 import { readAppearance, saveAppearance, schemeFor, type Appearance, type Scheme } from './appearance';
 
 /**
- * The light or dark palette for the whole app (step 2.3): the system's
+ * The light or dark palette for the whole app: the system's
  * scheme, unless the student chose Light or Dark in Settings.
  */
 

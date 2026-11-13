@@ -1,6 +1,6 @@
 /**
  * apple-auth.web.ts
- * Sign in with Apple on the laptop (step 10.1; the advisor's D1): Apple's own JS sign-in in a popup
+ * Sign in with Apple on the laptop (the advisor's D1): Apple's own JS sign-in in a popup
  * (appleid.auth.js, loaded from Apple's CDN when first needed), then Supabase with the identity token,
  * as on the iPhone. No client secret: nothing to renew every 6 months.
  *

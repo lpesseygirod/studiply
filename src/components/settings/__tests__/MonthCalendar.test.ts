@@ -1,4 +1,4 @@
-// Step 9.2-2: the exam date's month calendar (drawn by the app, no dependency): the weeks, Monday
+// The exam date's month calendar (drawn by the app, no dependency): the weeks, Monday
 // first, and each day's name as VoiceOver reads it.
 import { dayName, monthGrid } from '../MonthCalendar';
 

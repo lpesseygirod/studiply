@@ -1,8 +1,8 @@
 /**
  * TermsGateHost.tsx
- * Step 10.1b-2: the one-time gate for an account that never accepted the Terms and the Privacy
+ * The one-time gate for an account that never accepted the Terms and the Privacy
  * Policy: a first Sign in with Apple (the account is made at Apple's sheet, before the app can ask)
- * and accounts made before this step. Over everything, after sign-in: the same two boxes as
+ * and accounts made before the Terms boxes. Over everything, after sign-in: the same two boxes as
  * sign-up, Continue (greyed until both are ticked; saves her acceptance with the server's time),
  * and "I don't agree", which signs her out (D3). It can't be closed otherwise (Escape does nothing;
  * the texts open in a sheet over it, which Escape closes).

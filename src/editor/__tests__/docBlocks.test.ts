@@ -181,7 +181,7 @@ describe('rebase', () => {
     expect(rebase(sent, sent, sent)).toBeNull();
   });
 
-  // Test A: content written without the schema's defaults (pasted before 4.5,
+  // Test A: content written without the schema's defaults (pasted before them,
   // the AI) made a copy open elsewhere take every table for "typed here" and
   // put a table deleted on the other device back.
   it('takes a table deleted elsewhere when the content was written without the defaults', () => {

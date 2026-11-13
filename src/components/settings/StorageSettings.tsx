@@ -1,7 +1,7 @@
 /**
  * StorageSettings.tsx
  * How many source files (recordings, photos, PDFs) the account keeps.
- * Moved unchanged from the old Manage Account screen (step 3.6).
+ * Moved unchanged from the old Manage Account screen.
  */
 
 import React, { useEffect, useState } from 'react';

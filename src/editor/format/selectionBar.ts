@@ -22,7 +22,7 @@ import { startSuggestion } from '../schema/suggestion';
  * as the table bar does: a DOM event on the laptop (its composer and link
  * dialog), a request in the editor state on the iPhone (its prompts).
  *
- * After 4.6 (Lea): Callout ▸, Mark ▸ and Time ▸ follow, behind a divider,
+ * Added later (Lea): Callout ▸, Mark ▸ and Time ▸ follow, behind a divider,
  * each a small picture and a word. They ask the device the same way and open
  * the menus Insert already has: the callout kinds, the mark form, the time.
  * The callout takes the selected paragraphs (not offered in a table, which it
@@ -33,7 +33,7 @@ import { startSuggestion } from '../schema/suggestion';
 export const SELECTION_BAR_CLASS = 'studiply-selection-bar';
 export type SelectionBarButton = 'comment' | 'link' | 'callout' | 'mark' | 'time' | 'ask';
 /**
- * Step 6.3, "✦ Ask Claude ▸": the laptop's screen opens the actions under the button (`detail` is
+ * "✦ Ask Claude ▸": the laptop's screen opens the actions under the button (`detail` is
  * { x, y }); the iPhone sees the press in the format state. Either way the selection is kept as the
  * suggestion's range (schema/suggestion) when the bar is pressed.
  */
@@ -155,7 +155,7 @@ class SelectionBarView {
     add('Callout from the selection', ICONS.callout + more('Callout'), () => this.ask('callout'), undefined, '', 'callout', () => !inTable(this.editor));
     add('Mark after the selection', ICONS.mark + more('Mark'), () => this.ask('mark'), undefined, '', 'mark');
     add('Time after the selection', ICONS.time + more('Time'), () => this.ask('time'), undefined, '', 'timestamp');
-    // Step 6.3: the study assistant's actions on the selection (Explain simpler, Give an example…).
+    // The study assistant's actions on the selection (Explain simpler, Give an example…).
     add('Ask Claude about the selection', ICONS.ask + more('Ask Claude'), () => this.ask('ask'), undefined, '', 'askClaude');
     view.dom.addEventListener('mousedown', this.down);
     window.addEventListener('mouseup', this.up);

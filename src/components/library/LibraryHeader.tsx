@@ -55,14 +55,14 @@ export function LibraryHeader({
   onToggleView: () => void;
   showViewToggle: boolean;
   onBack: () => void;
-  /** Where a drop on each crumb moves things (step 3.3); null = not a target. */
+  /** Where a drop on each crumb moves things; null = not a target. */
   crumbTargets: (DropTarget | null)[];
   dnd: DropHandlers;
   /** The menu of the course or folder you're in (tap or click its title; right-click on the laptop). */
   onTitleMenu?: (anchor?: Anchor) => void;
   /** iPhone: "…" opens the empty-space menu (so it can be found without the long-press). */
   onMore?: () => void;
-  /** A short state after the count ("Uploading 2 of 5…"; step 3.4 moved it here from the toolbar). */
+  /** A short state after the count ("Uploading 2 of 5…"; moved here from the toolbar). */
   status?: string | null;
 }) {
   const styles = useThemedStyles(makeStyles);

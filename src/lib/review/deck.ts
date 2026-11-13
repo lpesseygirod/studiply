@@ -1,5 +1,5 @@
 /**
- * The review screen's decks (step 9.1), built from rows as Supabase returns them (online) or as the
+ * The review screen's decks, built from rows as Supabase returns them (online) or as the
  * iPhone keeps them (offline): the same function both ways.
  *
  * - Flashcards: every live card whose review is due by `now`, the longest-waiting first (a new
@@ -117,7 +117,7 @@ export function dueDeck(schedules: ScheduleRow[], cards: CardRow[], files: FileR
 
 /**
  * Live cards due by the end of `now`'s day: Review today's cards. Lectures are added by their plan
- * (step 9.2, lectures.ts dueLectures), never by their row's due_at.
+ * (lectures.ts dueLectures), never by their row's due_at.
  */
 export function dueTodayCount(schedules: ScheduleRow[], cards: CardRow[], now: Date): number {
   const end = new Date(now);

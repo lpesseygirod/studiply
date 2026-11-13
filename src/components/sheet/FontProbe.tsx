@@ -10,7 +10,7 @@ const REPEAT = 10;
 /**
  * iPhone: measures the characters a number can have, in the cells' real
  * system font at their size, regular and bold, by drawing them out of
- * sight once (step 4.7e: numbers are rounded to what fits, measured as
+ * sight once (numbers are rounded to what fits, measured as
  * drawn). When every width is known, `onMeasured` redraws the grid.
  */
 export function FontProbe({ fontSize, onMeasured }: { fontSize: number; onMeasured: () => void }) {

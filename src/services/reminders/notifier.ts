@@ -1,5 +1,5 @@
 /**
- * notifier.ts — the iPhone's local notifications (step 9.2-3), through expo-notifications. No push
+ * notifier.ts — the iPhone's local notifications, through expo-notifications. No push
  * server: every reminder is scheduled on the phone. The web build uses notifier.web.ts (nothing).
  */
 

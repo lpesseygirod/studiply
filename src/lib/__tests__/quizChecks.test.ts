@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 9.1b-2: the checks on each question Claude writes (supabase/functions/_shared/quiz-checks.ts):
+// The checks on each question Claude writes (supabase/functions/_shared/quiz-checks.ts):
 // its slot (type, span, lecture), its form per type, its source (lecture and time, file and page),
 // the language, duplicates, faithfulness (what goes to the verify call; an exercise's numbers don't),
 // and the verify call's verdicts (Added context, a right answer not supported dropped, a fix).
@@ -214,7 +214,7 @@ describe('advisor, 8 Nov: multiple-choice options shuffled at save', () => {
     expect(Array.from({ length: 10 }, (_, i) => shuffleOptions(mcQuestion(i + 1), `${quiz}:${i + 1}`, seededShuffle).data)).toEqual(out.map((q) => q.data));
   });
 
-  it('other types as they are (pairs and steps are kept in their right order: the taking screen shuffles them, 9.1b-3)', () => {
+  it('other types as they are (pairs and steps are kept in their right order: the taking screen shuffles them)', () => {
     const steps = { ...mcQuestion(1), type: 'order_steps' as const, data: { steps: ['a', 'b', 'c'] } };
     expect(shuffleOptions(steps, 'x', seededShuffle)).toBe(steps);
   });

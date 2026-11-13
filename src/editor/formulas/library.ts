@@ -1,5 +1,5 @@
 /**
- * The formula library (step 4.7c, Lea): ready-made formulas, grouped, with a
+ * The formula library (Lea): ready-made formulas, grouped, with a
  * search box. Picking one puts in a formula card (schema/formulaCard.ts): the
  * formula drawn by KaTeX and under it one line saying what each letter means.
  * Finance first; another subject is more entries here.

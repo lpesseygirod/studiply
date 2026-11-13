@@ -44,7 +44,7 @@ export function withExtension(name: string, ext: string): string {
 
 const MAX_PDF_NAME = 100;
 
-/** A Word file's type (.docx; step 4.8b). */
+/** A Word file's type (.docx). */
 export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 /**
@@ -55,13 +55,13 @@ export function pdfFileName(title: string): string {
   return `${exportBaseName(title)}.pdf`;
 }
 
-/** The same for a Word export (step 4.8b): "Tema 1.docx". */
+/** The same for a Word export: "Tema 1.docx". */
 export function docxFileName(title: string): string {
   return `${exportBaseName(title)}.docx`;
 }
 
 /**
- * A summary's PDF (step 8.3, SUMMARY-SPEC): "Course – Lecture title – YYYY-MM-DD.pdf" (en dashes),
+ * A summary's PDF (SUMMARY-SPEC): "Course – Lecture title – YYYY-MM-DD.pdf" (en dashes),
  * without the course when it has none. Each part cleaned as above; the course at most 40
  * characters and the title 60, so the date is never cut off. `day`: the lecture's day (local time).
  */

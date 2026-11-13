@@ -2,7 +2,7 @@ import { TIMESTAMP_CHIP, chipMs } from './schema/timestampChip';
 import type { DocJSON } from './types';
 
 /**
- * A lecture's My notes as `note_lines` rows (step 5.4): every line that has
+ * A lecture's My notes as `note_lines` rows: every line that has
  * something in it, in order, with the recording time of its leading chip
  * (null for a line written before or after the recording), its text without
  * the chip, and the line itself as ProseMirror JSON, so its formatting is

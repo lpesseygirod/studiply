@@ -1,9 +1,9 @@
 import { DEFAULT_SHEET } from './pageSetup';
 
 /**
- * Where the pages break (step 4.5b): a pure function from the measured
+ * Where the pages break: a pure function from the measured
  * pieces of a document to the gaps the page view inserts. The same rules
- * will serve the PDF / Word export (4.8), so the page count matches.
+ * will serve the PDF / Word export, so the page count matches.
  *
  * The document is measured once with no gaps (all in CSS px at 100 %, y
  * from the top of the first page's text area), as a list of units in

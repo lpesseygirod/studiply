@@ -1,5 +1,5 @@
 /**
- * Pictures drawn on white on the iPhone (step 4.8b). React Native has no
+ * Pictures drawn on white on the iPhone. React Native has no
  * canvas, so a picture that can be transparent goes to the editor bundle's
  * WebView (export bridge, `flatten`), which draws it on white. The app's
  * root mounts that WebView only while pictures are waiting

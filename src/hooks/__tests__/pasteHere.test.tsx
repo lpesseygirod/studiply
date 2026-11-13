@@ -1,4 +1,4 @@
-// Paste (step 3.4): a cut item moves here (the clipboard empties), a copied
+// Paste: a cut item moves here (the clipboard empties), a copied
 // PDF or photo is copied here (the clipboard stays), refusals say why and
 // change nothing.
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';

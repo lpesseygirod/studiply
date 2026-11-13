@@ -8,23 +8,23 @@ import type { ExportBridgeInstance } from './bridges/export';
 import { EMPTY_DOC } from './types';
 
 export interface PdfRendererHandle {
-  /** The print document of the tabs, laid out in pages by the editor bundle (step 4.8a). */
+  /** The print document of the tabs, laid out in pages by the editor bundle. */
   build: ExportBridgeInstance['buildPrint'];
-  /** Formulas and graphs as PNGs for the Word export (step 4.8b). */
+  /** Formulas and graphs as PNGs for the Word export. */
   drawPictures: ExportBridgeInstance['drawPictures'];
-  /** A Word file's page (mammoth's HTML) as a document (step 4.8b). */
+  /** A Word file's page (mammoth's HTML) as a document. */
   importHtml: ExportBridgeInstance['importHtml'];
-  /** A picture that can be transparent, drawn on white (step 4.8b; PictureFlattenerHost). */
+  /** A picture that can be transparent, drawn on white (PictureFlattenerHost). */
   flattenPicture: ExportBridgeInstance['flattenPicture'];
 }
 
 /**
- * The iPhone's PDF export (step 4.8a): the editor bundle in a WebView of its
+ * The iPhone's PDF export: the editor bundle in a WebView of its
  * own, so the pages are laid out as the page view draws them, also from a
  * spreadsheet tab (which has no editor) and without touching the open one.
  * Mounted while "Preparing the PDF…" shows; a small view on screen (a
  * WebView off screen may not lay out or run its frames). The Word export
- * and import (step 4.8b) use it too: the pictures of formulas and graphs,
+ * and import use it too: the pictures of formulas and graphs,
  * and a Word file's page read into a document.
  */
 export const PdfRenderer = forwardRef<PdfRendererHandle>(function PdfRenderer(_props, ref) {

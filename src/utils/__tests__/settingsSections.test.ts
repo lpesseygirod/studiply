@@ -13,14 +13,15 @@ import {
 describe('the sections (docs/design desktop-05)', () => {
   it('are in the designed order, Development last and only in development builds', () => {
     expect(visibleSections(false).map((s) => s.label)).toEqual([
-      'Account', 'Summaries', 'Recording', 'AI & privacy', 'Storage & sync', 'Notifications', 'Appearance', 'Your data',
+      // Credits right after Account.
+      'Account', 'Credits', 'Summaries', 'Recording', 'AI & privacy', 'Storage & sync', 'Notifications', 'Appearance', 'Your data',
     ]);
     expect(visibleSections(true).map((s) => s.label).at(-1)).toBe('Development');
   });
 
   it('each has its own route', () => {
     expect(SETTINGS_SECTIONS.map((s) => sectionHref(s.key))).toEqual([
-      '/settings/account', '/settings/summaries', '/settings/recording', '/settings/ai-privacy', '/settings/storage',
+      '/settings/account', '/settings/credits', '/settings/summaries', '/settings/recording', '/settings/ai-privacy', '/settings/storage',
       '/settings/notifications', '/settings/appearance', '/settings/your-data', '/settings/development',
     ]);
   });
@@ -28,6 +29,7 @@ describe('the sections (docs/design desktop-05)', () => {
   it('knows which section a page belongs to', () => {
     expect(sectionForPath('/settings')).toBe('account');
     expect(sectionForPath('/settings/recording')).toBe('recording');
+    expect(sectionForPath('/settings/credits')).toBe('credits');
     expect(sectionForPath('/settings/trash')).toBe('your-data');
     expect(sectionForPath('/settings/earlier-version')).toBe('your-data');
     expect(sectionForPath('/settings/nope')).toBeNull();

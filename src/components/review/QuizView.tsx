@@ -14,11 +14,11 @@ type MarkTone = 'important' | 'confused' | 'exam';
 const toneOf = (type: string): MarkTone => (type === 'confused' || type === 'important' ? type : 'exam');
 
 /**
- * The review screen's Quiz me (step 9.1, desktop-07 as far as the summaries allow): the summaries'
+ * The review screen's Quiz me (desktop-07 as far as the summaries allow): the summaries'
  * self-test questions one by one, "Question n of N", the lecture's "From your marks" line, the
  * mark that asked for the question as a chip ("Exam 9/10 · from 06:40"), the question, Show answer
- * (the answer in the card) and Next question. No answer options or hints: those come with 9.1b's
- * quizzes.
+ * (the answer in the card) and Next question. No answer options or hints: those come with the
+ * quizzes of New quiz.
  */
 export function QuizView({
   decks,
@@ -29,7 +29,7 @@ export function QuizView({
   decks: QuizDeck[];
   compact: boolean;
   onCurrent: (item: QuizItem | null) => void;
-  /** Step 9.2: a lecture's last question passed (its deck finished: the lecture reviewed, when due). */
+  /** A lecture's last question passed (its deck finished: the lecture reviewed, when due). */
   onDeckDone?: (fileId: string) => void;
 }) {
   const styles = useThemedStyles(makeStyles);

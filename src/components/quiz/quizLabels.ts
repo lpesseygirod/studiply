@@ -1,7 +1,7 @@
 import type { QuizPresetKey, QuizSliderKey, QuestionType } from '../../../supabase/functions/_shared/quiz-plan';
 
 /**
- * The New quiz panel's words (step 9.1b; BUILD-PLAN "Create a quiz"): the 10 sliders with their
+ * The New quiz panel's words (BUILD-PLAN "Create a quiz"): the 10 sliders with their
  * labelled ends (the laptop's "1 · gentle", the iPhone's short ones under the track, as the summary
  * sliders), the presets' order, the question types' chip labels.
  */

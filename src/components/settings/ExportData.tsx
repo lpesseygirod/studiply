@@ -20,7 +20,7 @@ import { errorMessage } from '../../utils/errors';
 import { showAlert } from '../dialogs/dialogs';
 
 /**
- * Export my data (step 10.1b-4; D4: Settings → Account and Settings → Your data, as the legal texts
+ * Export my data (D4: Settings → Account and Settings → Your data, as the legal texts
  * name them). One sheet: it reads her library first and says what comes and how big ("About 1.2 GB
  * (380 MB of recordings). This can take a few minutes."; in parts of up to 500 MB when bigger),
  * Export, then a progress line and Cancel; the laptop downloads the ZIP, the iPhone opens the share

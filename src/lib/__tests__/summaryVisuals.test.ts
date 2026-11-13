@@ -1,12 +1,12 @@
 /**
  * @jest-environment jsdom
  */
-// Step 8.2: formulas and graphs from a summary, on the two hand-made fixtures (src/test-utils/
+// Formulas and graphs from a summary, on the two hand-made fixtures (src/test-utils/
 // summary-calculus.json, summary-finance.json): each a `graph` block of its own kind (function, model,
 // line, stacked bar, histogram) carrying its data; until the charts module draws a function or a model
 // graph (docs/charts-work-order-8.2.md), its line stands in its place, never an empty or broken chart;
 // stacked bars and histograms are drawn as bars meanwhile. Formula cards with their legends; photos in
-// their sections. The graph block's new data cleaned; a function or model graph has no form (8.2).
+// their sections. The graph block's new data cleaned; a function or model graph has no form.
 import { Editor, type JSONContent } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 
@@ -63,7 +63,7 @@ describe('the fixtures, as Claude writes them', () => {
   });
 });
 
-describe('Calculus (BUILD-PLAN 8.2’s check: a function from the lecture plotted)', () => {
+describe('Calculus (the build plan’s check: a function from the lecture plotted)', () => {
   const doc = summaryToDoc({ summary: CALC, summaryId: ID });
 
   it('each function plot a graph block of kind function, with its expression, range and marks, in its section; the photos in theirs', () => {
@@ -95,7 +95,7 @@ describe('Calculus (BUILD-PLAN 8.2’s check: a function from the lecture plotte
     expect(editorCss()).toMatch(/\.studiply-graph-later \{ margin: 0; font-style: italic;/);
   });
 
-  it('no form for a function plot (8.2: written again by regenerating): a click only selects it', () => {
+  it('no form for a function plot (written again by regenerating): a click only selects it', () => {
     const e = load(doc);
     let pos = -1;
     e.state.doc.forEach((node, offset) => {
@@ -118,7 +118,7 @@ describe('Calculus (BUILD-PLAN 8.2’s check: a function from the lecture plotte
   });
 });
 
-describe('Finance (BUILD-PLAN 8.2’s check: its formulas shown)', () => {
+describe('Finance (the build plan’s check: its formulas shown)', () => {
   const doc = summaryToDoc({ summary: FIN, summaryId: ID });
   const cards = doc.content.filter((b) => b.type === 'formulaCard');
 
@@ -265,7 +265,7 @@ describe('the graph block’s new kinds (graph/data.ts, graph/charts.ts)', () =>
     ['islm', 'tipo de interés', null],
   ] as const)('%s: the curve “%s” is %p', (template, name, id) => expect(curveId(template, name)).toBe(id));
 
-  it('which kinds the form edits: the table kinds (4.7d, stacked bars, histograms), not a function or a model graph', () => {
+  it('which kinds the form edits: the table kinds (with stacked bars and histograms), not a function or a model graph', () => {
     expect(['bar', 'line', 'pie', 'scatter', 'stackedBar', 'histogram'].every((k) => hasTable(k as never))).toBe(true);
     expect(hasTable('function')).toBe(false);
     expect(hasTable('model')).toBe(false);

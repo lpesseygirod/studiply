@@ -1,4 +1,4 @@
-// Step 1.9: sending the earlier version's data. Safe to repeat, resumable,
+// Sending the earlier version's data. Safe to repeat, resumable,
 // files missing on the iPhone listed, and "already uploaded" remembered per
 // server and account so a local test upload never blocks the real one.
 
@@ -119,7 +119,7 @@ describe('sendPlan', () => {
   });
 });
 
-describe('sendPlan: old course uploads (step 3.4)', () => {
+describe('sendPlan: old course uploads', () => {
   const uploads: LegacySnapshot = {
     ...snapshot,
     sessions: [{ ...snapshot.sessions[0], id: 'pf', folder_id: null, title: 'Project Files', duration_seconds: null }],

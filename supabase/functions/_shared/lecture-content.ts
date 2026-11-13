@@ -2,7 +2,7 @@
  * lecture-content.ts
  * What the notes, clarify and assistant requests read from a lecture, as
  * the student (RLS applies): its language, its transcript, its photos and
- * PDFs, and for the assistant (step 6.1) its notes, marks and earlier
+ * PDFs, and for the assistant its notes, marks and earlier
  * questions; also where the assistant saves its questions and answers.
  */
 
@@ -74,7 +74,7 @@ async function joinedSegments(db: SupabaseClient, lectureId: string, maxChars: n
   return joinSegmentRows(placeSegments(rows, chunks ?? []));
 }
 
-/** What the study assistant reads of a lecture (step 6.1), as the student. */
+/** What the study assistant reads of a lecture, as the student. */
 export function lectureReads(db: SupabaseClient, lectureId: string): LectureReads {
   return {
     segments: () => lectureSegments(db, lectureId),
@@ -103,7 +103,7 @@ export function lectureReads(db: SupabaseClient, lectureId: string): LectureRead
 }
 
 /**
- * A finished answer of this lecture and its question (step 6.3, Flashcards from an answer), as the
+ * A finished answer of this lecture and its question (Flashcards from an answer), as the
  * student; null when there is no such answer.
  */
 export async function savedAnswer(db: SupabaseClient, lectureId: string, answerId: string): Promise<{ question: string; answer: string } | null> {
@@ -153,7 +153,7 @@ export function messageStore(db: SupabaseClient, lectureId: string): MessageStor
 }
 
 /**
- * Everything the summary reads of a lecture (step 7.4), as the student: the file, its course and the
+ * Everything the summary reads of a lecture, as the student: the file, its course and the
  * course's settings, the transcript with times, My notes' lines (with their formatting), the marks,
  * the questions to the assistant with their answers, the photos and the slides.
  */
@@ -226,7 +226,7 @@ export const MAX_SUMMARY_PHOTOS = 20;
 export const MAX_SUMMARY_PDFS = 3;
 
 /**
- * The ticked photos and slides as Claude content (step 7.4), each photo after a line naming it (its id
+ * The ticked photos and slides as Claude content, each photo after a line naming it (its id
  * and time, for capturedImage). Called only with images consent. Over the caps or MAX_MEDIA_BYTES,
  * the rest is left out (the summary still goes on, built from fewer sources).
  */

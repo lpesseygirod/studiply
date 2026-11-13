@@ -1,8 +1,8 @@
 /**
  * consentTexts.ts
- * Step 10.1: what the AI consent screen (desktop-09, iphone-12) and the Settings → AI & privacy card
+ * What the AI consent screen (desktop-09, iphone-12) and the Settings → AI & privacy card
  * (iphone-08) say goes where. The mockups name OpenAI for audio: transcription has been ElevenLabs
- * since 29 Oct 2026 (BUILD-PLAN 10.1b), so these name ElevenLabs. Change them together with
+ * since 29 Oct 2026, so these name ElevenLabs. Change them together with
  * CONSENT_POLICY_VERSION (supabase/functions/_shared/policy.ts): everyone is asked again.
  */
 

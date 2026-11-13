@@ -5,7 +5,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { countHtml, countSlice, pasteSource, type PasteReport } from '../pasteReport';
 
 /**
- * The spike's paste report (step 4.2). Before a paste is applied it compares
+ * The spike's paste report. Before a paste is applied it compares
  * the clipboard HTML with the slice ProseMirror made of it and keeps the
  * counts in the editor's storage; the laptop reads them on the next update,
  * the iPhone through the bridge state. Adds nothing to the schema.

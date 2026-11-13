@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * start-remote.mjs — start Expo against the remote Supabase project (step 1.7B).
+ * start-remote.mjs — start Expo against the remote Supabase project.
  *
  * `.env` stays the local default. This script reads `.env.remote` (git-ignored,
  * see .env.remote.example), checks that it holds only public values, and

@@ -1,4 +1,4 @@
-// Step 7.3: the summarize panel's words: every slider named with its ends
+// The summarize panel's words: every slider named with its ends
 // (DESIGN.md's list), the presets in the mockup's order, the counts line
 // (laptop and iPhone, desktop-02 / iphone-05), the photos' times and the
 // preview line before any transcript.

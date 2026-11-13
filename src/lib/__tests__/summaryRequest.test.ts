@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-// Step 7.4, after the paid run's HTTP 400 on the generate call (classify worked): the exact request
+// After the paid run's HTTP 400 on the generate call (classify worked): the exact request
 // both calls send, built as the summarize function builds it (runSummary's arguments → claude.ts's
 // claudeRequest, which anthropic.ts's claudeParams returns as is), checked against what the API
 // accepts with structured outputs (the claude-api reference): the schema's subset, output_config
@@ -43,14 +43,16 @@ async function requests() {
 }
 
 describe('the generate request (the one the API refused)', () => {
-  it('the model, effort and the fallbacks as every other call; max_tokens within Opus 5.5’s output', async () => {
+  it('the model (Sonnet 5.5 since Lea, 12 Nov), effort and the fallbacks as every other call; max_tokens within its output', async () => {
     const { generate, classify } = await requests();
-    expect(generate.model).toBe('claude-opus-5-5');
+    expect(generate.model).toBe('claude-sonnet-5-5');
+    expect(classify.model).toBe('claude-sonnet-5-5');
     expect(generate.output_config.effort).toBe(CLAUDE_EFFORT);
     expect(generate.betas).toEqual([FALLBACK_BETA]);
     expect(generate.fallbacks).toBe('default');
     expect(generate.max_tokens).toBe(SUMMARY_MAX_TOKENS);
-    // Opus 5.5 writes up to 32k tokens or more in one answer (thinking included); 16k leaves room.
+    // The 16k limit was set for Opus 5.5 (up to 32k or more in one answer, thinking included); unchanged on
+    // Sonnet 5.5 (Lea, 12 Nov: only the model changes). A cut-off answer is retried once as before.
     expect(generate.max_tokens).toBeLessThanOrEqual(32_000);
     // The same keys as the classify request, which the API accepted.
     expect(Object.keys(generate).sort()).toEqual(Object.keys(classify).sort());

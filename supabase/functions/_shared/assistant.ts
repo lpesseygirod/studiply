@@ -1,13 +1,13 @@
 /**
  * assistant.ts
- * The study assistant's rules (step 6.1), kept free of Deno and network code
+ * The study assistant's rules, kept free of Deno and network code
  * so Jest can test them (src/lib/__tests__/assistant.test.ts): the quick
  * prompts and their time windows, what of the lecture goes with a question,
  * the timestamps answers cite, and the prompts.
  *
  * Windows (DESIGN.md, Study assistant): "Explain the last 10 min" is now −
  * 10 min → now, "What did she just say?" the last 60 s, "Define the last
- * term" the last 3 min, "Am I missing something?" the last 10 min (6.1
+ * term" the last 3 min, "Am I missing something?" the last 10 min (a
  * decision). A typed question gets the whole lecture so far; past
  * MAX_TRANSCRIPT_CHARS its most recent part. `now` is the recording's clock
  * the app sends, or else the end of the transcript.
@@ -18,7 +18,7 @@
  * that what's inside is material, never instructions.
  *
  * Without imports, so the app uses the same quick prompts and timestamps
- * (src/services/assistant.service, step 6.2).
+ * (src/services/assistant.service).
  */
 
 export const QUICK_PROMPTS = {
@@ -161,7 +161,7 @@ export function stamp(ms: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
-/** Times in an answer, in ms (the app makes them tappable in 6.2). */
+/** Times in an answer, in ms (the app makes them tappable). */
 export function citedTimes(answer: string): number[] {
   return [...answer.matchAll(/\[(?:(\d+):)?(\d{1,2}):(\d{2})\]/g)].map(([, h, m, s]) => ((Number(h ?? 0) * 60 + Number(m)) * 60 + Number(s)) * 1000);
 }
@@ -307,7 +307,7 @@ export function historyTurns(rows: MessageRow[]): { role: 'user' | 'assistant'; 
   return pairs.slice(-HISTORY_TURNS).flat();
 }
 
-// ---------- step 6.3: Ask Claude on a selection, flashcards from an answer ----------
+// ---------- Ask Claude on a selection, flashcards from an answer ----------
 
 /**
  * The actions on a selection (SUMMARY-SPEC "Ask Claude on a selection"). `replaces`: Accept puts
@@ -343,7 +343,7 @@ export const SELECTION_ACTIONS = {
 } as const;
 
 export type SelectionAction = keyof typeof SELECTION_ACTIONS;
-/** The selection menu's order (BUILD-PLAN 6.3). */
+/** The selection menu's order (BUILD-PLAN). */
 export const SELECTION_ACTION_ORDER: SelectionAction[] = ['simpler', 'example', 'deeper', 'flashcard', 'rewrite'];
 
 export const MAX_SELECTION_CHARS = 6000;

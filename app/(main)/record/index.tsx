@@ -11,12 +11,11 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LowCreditsLine } from '../../../src/components/credits/CreditLine';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
 
 import { useAuth } from '../../../src/hooks/useAuth';
 import { useShellScreen } from '../../../src/components/shell/ShellContext';
@@ -27,7 +26,6 @@ import { Typography } from '../../../src/constants/typography';
 import { getProjects, type ProjectWithCount } from '../../../src/services/project.service';
 import { NewCourseDialog } from '../../../src/components/NewCourseDialog';
 import { getUserSettings } from '../../../src/services/settings.service';
-import { createSession } from '../../../src/services/session.service';
 import { getTodayUsage, type TodayUsage } from '../../../src/services/credit-check.service';
 import { promptText, showAlert } from '../../../src/components/dialogs/dialogs';
 import { isOffline } from '../../../src/lib/connectivity';
@@ -77,7 +75,7 @@ export default function RecordSetupScreen() {
   // Data
   const [projects, setProjects] = useState<ProjectWithCount[]>([]);
 
-  // The folder in the course (step 5.3, Lea's option A): the course itself or one of its folders.
+  // The folder in the course (Lea's option A): the course itself or one of its folders.
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
@@ -197,64 +195,26 @@ export default function RecordSetupScreen() {
     setIsStarting(true);
 
     // The recorder service (web; the iPhone with expo-audio in its build): record, then write in the lecture's My notes.
-    // A build without expo-audio's native module keeps the earlier screen below (record/active, expo-av).
-    if (recorder.supported) {
-      try {
-        const lectureId = await recordingFlow.start({
-          userId: profile.id,
-          title: title.trim(),
-          courseId: selectedProject?.id ?? null,
-          folderId: selectedFolderId,
-          mode: selectedMode,
-          language: selectedLanguage.code,
-        });
-        router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
-        // This screen stays alive in its tab: the next recording starts with an empty title, not this lecture's.
-        setTitle('');
-      } catch (err) {
-        showStartError(err);
-      } finally {
-        setIsStarting(false);
-      }
+    // A build without expo-audio's native module (Expo Go) can't record.
+    if (!recorder.supported) {
+      setIsStarting(false);
+      showAlert('Recording needs the Studiply app', 'This build of the app can’t record. Open Studiply from the App Store or TestFlight.');
       return;
     }
-
     try {
-      // 1. Request microphone permission
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
-        showAlert(
-          'Microphone Access Required',
-          'Studiply needs microphone access to record lectures. Please enable it in Settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
-        return;
-      }
-
-      // 2. Create session record in Supabase
-      const session = await createSession({
+      const lectureId = await recordingFlow.start({
         userId: profile.id,
         title: title.trim(),
-        projectId: selectedProject?.id,
-        folderId: selectedFolderId ?? undefined,
-        recordingMode: selectedMode,
+        courseId: selectedProject?.id ?? null,
+        folderId: selectedFolderId,
+        mode: selectedMode,
         language: selectedLanguage.code,
       });
-
-      // 3. Navigate to active recording screen
-      router.push({
-        pathname: '/record/active',
-        params: {
-          sessionId: session.id,
-          title: title.trim(),
-          mode: selectedMode,
-        },
-      });
-    } catch (err: any) {
-      showAlert('Error', err?.message ?? 'Could not start recording. Please try again.');
+      router.replace({ pathname: '/doc/[id]', params: { id: lectureId, tab: 'notes' } });
+      // This screen stays alive in its tab: the next recording starts with an empty title, not this lecture's.
+      setTitle('');
+    } catch (err) {
+      showStartError(err);
     } finally {
       setIsStarting(false);
     }
@@ -272,7 +232,7 @@ export default function RecordSetupScreen() {
       ? usage.transcriptionReached
         ? "You've used today's transcription. You can still record; transcribe it once the limit frees up (it counts the last 24 hours)."
         : usage.claudeReached
-          ? "Today's limit for notes and the assistant is reached. You can still record and transcribe."
+          ? "Today's limit for summaries and quizzes is reached. You can still record and transcribe."
           : null
       : null;
 
@@ -304,6 +264,8 @@ export default function RecordSetupScreen() {
       >
         {/* ── Header ──────────────────────────────────────────── */}
         <Text style={styles.screenSubtitle}>New Recording</Text>
+        {/* Credits: 1 lecture or less left (or none: she can still record). */}
+        <LowCreditsLine where="record" />
 
         {/* ── Credit warnings ────────────────────────────────── */}
         {limitWarning && (

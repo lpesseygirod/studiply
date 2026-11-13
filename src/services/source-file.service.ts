@@ -46,7 +46,7 @@ import type { SourceFile } from '../types/database';
 import './library-upload.service';
 
 /**
- * A lecture's files, in Supabase Storage (step 1.4 buckets):
+ * A lecture's files, in Supabase Storage buckets:
  *  - audio: one `audio_chunks` row per recorded chunk, the audio in
  *    `audio-chunks` at {userId}/{lectureId}/{seq}.{ext};
  *  - photos (always JPEG) and PDFs: `media` rows (kind photo / slides), the
@@ -458,7 +458,7 @@ export async function getSourceFiles(sessionId: string): Promise<SourceFile[]> {
 export const getActiveSourceFiles = getSourceFiles;
 
 // -------------------------------------------------------------------
-// getLectureAudio (step 10.1b-3)
+// getLectureAudio
 // The lecture's recording setting, the server's date and whether it was
 // deleted, for "Deletes on 17 Nov" / "Deleted on 14 Nov". Offline from the
 // lecture row kept on the iPhone. Null when there is no such lecture.
@@ -565,48 +565,6 @@ export async function markDeleted(fileId: string): Promise<void> {
   const { error: clearError } = await supabase.from('audio_chunks').update({ storage_path: null }).eq('id', fileId);
   if (clearError) throw serviceError(clearError, 'Could not remove the file.');
   await removeFiles(Buckets.audioChunks, [chunk.storage_path]).catch(() => {});
-}
-
-// -------------------------------------------------------------------
-// bulkApplyRetention
-// Sets what happens to a lecture's audio.
-// delete_now  → the audio files are removed now (transcript stays) and the
-//               lecture marked "audio deleted".
-// delete_3_days → the server dates it: 3 days after the lecture is transcribed
-//               (20261029152600), and the nightly job deletes it then.
-// delete_manually / keep_permanently → just the policy (the server clears any date).
-// Audio only: photos and PDFs are never removed by retention, and neither is
-// a file saved to the library (lecture_id null); only the student deletes them.
-// -------------------------------------------------------------------
-export async function bulkApplyRetention(
-  sessionId: string,
-  policy: 'delete_now' | 'delete_3_days' | 'delete_manually' | 'keep_permanently',
-): Promise<void> {
-  const { error } = await supabase.from('lectures').update({ audio_retention: policy }).eq('id', sessionId);
-  if (error) throw serviceError(error, 'Could not save the audio setting.');
-
-  if (policy !== 'delete_now') return;
-
-  const { data: chunks, error: listError } = await supabase
-    .from('audio_chunks')
-    .select('id, storage_path')
-    .eq('lecture_id', sessionId)
-    .not('storage_path', 'is', null);
-  if (listError) throw serviceError(listError, 'Could not delete the audio.');
-
-  if (chunks.length > 0) {
-    const { error: clearError } = await supabase
-      .from('audio_chunks')
-      .update({ storage_path: null })
-      .eq('lecture_id', sessionId);
-    if (clearError) throw serviceError(clearError, 'Could not delete the audio.');
-    await removeFiles(
-      Buckets.audioChunks,
-      chunks.map((c) => c.storage_path as string),
-    ).catch(() => {});
-  }
-  // The lecture shows "Deleted on …" (as after the nightly job).
-  await supabase.from('lectures').update({ audio_deleted_at: new Date().toISOString() }).eq('id', sessionId).is('audio_deleted_at', null);
 }
 
 // -------------------------------------------------------------------

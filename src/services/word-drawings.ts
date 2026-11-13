@@ -2,7 +2,7 @@ import type { DrawRequest } from '../editor/export/docxPictures';
 import type { DrawnPictures } from '../editor/bridges/export';
 
 /**
- * The iPhone's drawings for the Word export (step 4.8b): the formulas and
+ * The iPhone's drawings for the Word export: the formulas and
  * graphs are drawn by the editor bundle in the export WebView (`draw`, the
  * PdfRenderer's), as the page draws them.
  */

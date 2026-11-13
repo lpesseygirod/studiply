@@ -1,6 +1,6 @@
 /**
- * Where something made at a moment of the recording goes (step 5.5 marks,
- * step 5.6 board photos): into the lecture's My notes. When that document
+ * Where something made at a moment of the recording goes (marks,
+ * board photos): into the lecture's My notes. When that document
  * is open on this device, through its editor (the document screen registers
  * itself while it is on screen): a mark at the end of the line being
  * written, a photo on a line of its own after it, or either on a new
@@ -16,7 +16,7 @@ import { withAssistantNote, type AssistantNote } from '../editor/schema/suggesti
 import { mediaSrc } from '../editor/media/photoSource';
 import { openDocument, saveDocument } from './document.service';
 
-/** A mark (5.5), a board photo (5.6), or a study-assistant answer added to the notes (6.3: a box at the end). */
+/** A mark, a board photo, or a study-assistant answer added to the notes (a box at the end). */
 export type MomentItem = { kind: 'mark'; mark: LinkedMark } | { kind: 'photo'; mediaId: string; ms: number } | { kind: 'answer'; note: AssistantNote };
 
 export interface MomentTarget {

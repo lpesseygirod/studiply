@@ -1,7 +1,7 @@
 /**
- * The recorder on the web (step 5.2): the browser's MediaRecorder in
- * 30-second chunks overlapping by 500 ms (lib/chunkRecorder.web, measured in
- * 5.1), with a piece saved every second; IndexedDB for the recordings, their
+ * The recorder on the web: the browser's MediaRecorder in
+ * 30-second chunks overlapping by 500 ms (lib/chunkRecorder.web, as
+ * measured), with a piece saved every second; IndexedDB for the recordings, their
  * chunks and pieces and the two queue lanes; Web Locks for who holds a
  * recording (a crashed or reloaded page lets go of its locks).
  *
@@ -13,7 +13,7 @@
  * recordings and stays in this browser.
  */
 
-import { ChunkRecorder } from '../../lib/chunkRecorder';
+import { ChunkRecorder } from '../../lib/chunkRecorder.web';
 import type { QueueStore, SyncOp } from '../../lib/sync/queue';
 import { sendRecordingChunk } from '../source-file.service';
 import { buildRecorder } from './build';

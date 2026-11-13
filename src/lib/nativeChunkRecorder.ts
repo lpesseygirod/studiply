@@ -1,5 +1,5 @@
 /**
- * Recording in chunks on the iPhone (steps 5.1–5.2, iPhone half): expo-audio
+ * Recording in chunks on the iPhone: expo-audio
  * recorders (AVAudioRecorder) rotated every `chunkMs`, each chunk a complete
  * .m4a file of its own, as the web's ChunkRecorder does with MediaRecorder.
  *

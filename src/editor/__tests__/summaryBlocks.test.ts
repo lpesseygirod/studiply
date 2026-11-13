@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-// Step 7.7: the editor's side of the summary in the Summary tab: the new callout kinds (Key takeaways,
+// The editor's side of the summary in the Summary tab: the new callout kinds (Key takeaways,
 // the notes check line, a hidden answer) and the From your notes label with her mark; a self-test
 // answer shown and hidden by its label without changing the document; a section's cue question and a
 // box's note ids kept through loading and saving.

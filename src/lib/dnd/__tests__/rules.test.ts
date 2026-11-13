@@ -1,4 +1,4 @@
-// Drag and drop rules (steps 3.1 and 3.3): the target under the pointer,
+// Drag and drop rules: the target under the pointer,
 // and where a dragged item may go.
 import type { SourceFile } from '../../../types/database';
 import { canDrop, draggedId, draggedTitle, hitTest, type Dragged, type DropTarget } from '../rules';

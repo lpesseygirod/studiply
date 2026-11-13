@@ -1,11 +1,11 @@
 /**
  * @jest-environment node
  */
-// Step 7.5: the summary's quality checks (supabase/functions/_shared/summary-checks.ts): numbers as
+// The summary's quality checks (supabase/functions/_shared/summary-checks.ts): numbers as
 // written and said (es/en), dates, formulas, the language, the notes and marks put in by code, the
 // marks' effects, length, which parts are written again (at most 3, in order), and splicing their
 // answers in (the verify call's verdicts: corrected in place, "added" moved under Added context).
-// Step 8.2: data chart values checked as numbers (one not said in class taken out, under unclear), the
+// Data chart values checked as numbers (one not said in class taken out, under unclear), the
 // photos put at their time.
 import {
   MAX_PART_CALLS,
@@ -135,7 +135,7 @@ describe('faithfulness', () => {
   });
 
   describe('exercise content: made up on purpose, not checked (advisor decision, 31 Oct)', () => {
-    // The 7.4 output's 8 "not found" numbers, all from exercises the spec asks for.
+    // The summary engine's first output's 8 "not found" numbers, all from exercises the spec asks for.
     const exercises = () =>
       stored((v) => {
         Object.assign(v.sections[0].blocks[3], { example: 'Si $V_G = 30$ y V_P = 60 → h² = 0,5.', practiceQuestion: 'Si V_G = 20 y V_P = 80, ¿cuánto vale $h^2 = 20/80$?' });
@@ -205,7 +205,7 @@ describe('language', () => {
     expect(detectLanguage('Hola')).toBeNull();
   });
 
-  it('a Spanish block close to Catalan stays Spanish (the 7.9 paid run’s false "ca": the confusedHere box of Tema 2)', () => {
+  it('a Spanish block close to Catalan stays Spanish (a paid run’s false "ca": the confusedHere box of Tema 2)', () => {
     const block = 'Reposo −70 mV Supera el umbral Disparo Periodo refractario Periodo refractario: tras el disparo, la neurona no puede dispararse otra vez. ¿Qué pasa si estimulas la neurona en el periodo refractario?';
     expect(detectLanguage(block)).toBe('es');
     expect(detectLanguage(block, 'es')).toBe('es');
@@ -395,7 +395,7 @@ describe('which parts are written again', () => {
     expect(p.user.match(/<\/items>/g)).toHaveLength(1);
   });
 
-  it('the verify call reads only the windows of the sections holding the items (step 7.6); else the whole transcript', () => {
+  it('the verify call reads only the windows of the sections holding the items; else the whole transcript', () => {
     const s = stored();
     const inSection1 = [{ id: 'u1', kind: 'number' as const, value: '98765', path: 'sections[1].blocks[0].text', sentence: 'x' }];
     const segs = verifySegments({ kind: 'verify', items: inSection1 }, m, s);
@@ -515,7 +515,7 @@ describe('a fixture (the evaluation’s lectures)', () => {
   });
 });
 
-describe('step 8.2: data charts only from numbers in the lecture', () => {
+describe('data charts only from numbers in the lecture', () => {
   /** validSummary with its data chart's values replaced. */
   const withChart = (points: { x: string; y: number }[], more: { x: string; y: number }[] = []) =>
     stored((v) => {
@@ -577,7 +577,7 @@ describe('step 8.2: data charts only from numbers in the lecture', () => {
   });
 });
 
-describe('step 8.2: the photos at their time', () => {
+describe('the photos at their time', () => {
   const photoBlocks = (s: StoredSummary) => sections(s).map((x) => x.blocks.filter((b) => b.type === 'capturedImage').map((b) => [b.imageId, b.timestamp, b.caption]));
 
   it('a photo in another section’s time: moved to the end of its own, with its caption and its time', () => {

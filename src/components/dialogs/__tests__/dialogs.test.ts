@@ -116,7 +116,7 @@ describe('menuTriggerProps', () => {
   });
 });
 
-describe('disabled menu items (step 3.2, the New menu)', () => {
+describe('disabled menu items (the New menu)', () => {
   it('keep their hint and never run on the web', async () => {
     const run = jest.fn();
     showActionSheet('New', [{ text: 'New folder', disabled: true, hint: 'Open a course or folder first', onPress: run }]);
@@ -129,7 +129,7 @@ describe('disabled menu items (step 3.2, the New menu)', () => {
   });
 });
 
-describe('nextMenuIndex (keyboard in a menu, step 3.4)', () => {
+describe('nextMenuIndex (keyboard in a menu)', () => {
   // Rename… · Move to… · Copy (greyed out) · Delete
   const enabled = [true, true, false, true];
 

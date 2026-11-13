@@ -1,6 +1,6 @@
 /**
  * parts.ts
- * "Export my data" in parts of at most 500 MB (step 10.1b-4, D6), so a phone never holds a huge
+ * "Export my data" in parts of at most 500 MB (D6), so a phone never holds a huge
  * file: the text and data always go in part 1; then the files, in the plan's order (lecture by
  * lecture), each part filled up to the limit. A file bigger than the limit is a part of its own.
  */

@@ -5,7 +5,7 @@ import { openWebcam, saveBoardPhoto } from './boardPhoto';
 import { recordingMoment, type Moment } from './markPanelState';
 
 /**
- * The laptop's Photo board (step 5.6; also the web below 1024 px): a small
+ * The laptop's Photo board (also the web below 1024 px): a small
  * menu with Take a photo (webcam; its panel under the strip, or a sheet
  * below 1024 px) and Choose files… (several). All at the moment Photo board
  * was pressed. Online only (./boardPhoto: greyed out offline). The iPhone's
@@ -24,7 +24,7 @@ export async function startBoardPhoto(anchor?: Anchor): Promise<void> {
   );
 }
 
-/** Stop & summarize's + Photos (step 7.3): the same file picker, at `m` (during or after the recording). */
+/** Stop & summarize's + Photos: the same file picker, at `m` (during or after the recording). */
 export function choosePhotos(m: Moment): Promise<void> {
   return chooseFiles(m);
 }
